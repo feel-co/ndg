@@ -3,8 +3,27 @@
   # build dependencies
   runCommandLocal,
   pandoc,
+  nixosOptionsDoc,
   # options
-  configMD, # TODO: find a suitable default that we can type-check
+  configMD ?
+    (nixosOptionsDoc
+      {
+        inherit
+          (lib.evalModules {
+            modules = [
+              {
+                options.hello = lib.mkOption {
+                  default = "world";
+                  description = "Example option.";
+                  type = lib.types.str;
+                };
+              }
+            ];
+          })
+          options
+          ;
+      })
+    .optionsCommonMark,
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheet ? ./assets/default-styles.scss,
