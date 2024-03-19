@@ -1,2 +1,11 @@
-# Nix
-result/
+/*
+!/
+
+# files/dirs to allow
+!/.gitattributes
+!/.gitignore
+!/flake.lock
+!/LICENSE
+!/*.md
+!/*.nix
+!/pkgs/
