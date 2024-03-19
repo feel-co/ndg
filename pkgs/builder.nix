@@ -27,7 +27,7 @@
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheet ? ./assets/default-styles.scss,
-  syntax ? ./assets/default-syntax.json, # TODO: pass syntax file to the pandoc builder
+  codeThemePath ? ./assets/default-syntax.json,
   ...
 }: let
   inherit (lib.strings) optionalString;
@@ -54,5 +54,6 @@ in
     ''
     + optionalString (templatePath != null) ''--template ${templatePath} \''
     + optionalString (styleSheet != null) ''--css=${styleSheet} \''
+    + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
     + "-o $out"
   )
