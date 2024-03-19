@@ -26,7 +26,7 @@
     .optionsCommonMark,
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
-  styleSheet ? ./assets/default-styles.scss,
+  styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.json,
   ...
 }: let
@@ -53,7 +53,7 @@ in
        --standalone \
     ''
     + optionalString (templatePath != null) ''--template ${templatePath} \''
-    + optionalString (styleSheet != null) ''--css=${styleSheet} \''
+    + optionalString (styleSheetPath != null) ''--css ${styleSheetPath} \''
     + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
     + "-o $out"
   )
