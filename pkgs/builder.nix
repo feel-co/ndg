@@ -17,7 +17,7 @@
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
-  codeThemePath ? ./assets/default-syntax.json,
+  codeThemePath ? ./assets/default-syntax.theme,
   ...
 }: let
   inherit (lib.modules) evalModules;
