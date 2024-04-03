@@ -4,11 +4,9 @@
   runCommandLocal,
   sassc,
   # options
-  sasscExecutable ? lib.getExe sassc,
   sasscArguments ? ["-t expanded"],
-  styleSheet ? ./assets/default-styles.scss,
+  styleSheetPath ? ./assets/default-styles.scss,
 }:
-runCommandLocal "compile-css" {} ''
-  mkdir -p $out
-  ${sasscExecutable} ${lib.concatStringsSep " " sasscArguments} ${styleSheet} > $out/sys-docs-style.css
+runCommandLocal "sys-docs-style.css" {nativeBuildInputs = [sassc];} ''
+  sassc ${lib.concatStringsSep " " sasscArguments} ${styleSheetPath} > $out
 ''
