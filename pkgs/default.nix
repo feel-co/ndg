@@ -1,14 +1,23 @@
 {
-  perSystem = {pkgs, ...}: let
-    inherit (pkgs) callPackage mkShell;
+  perSystem = {
+    lib,
+    pkgs,
+    ...
+  }: let
+    inherit (lib.customisation) callPackageWith;
+    inherit (pkgs) mkShell;
+
+    callPackage = callPackageWith (pkgs // packages);
+
+    packages = {
+      ndg-builder = callPackage ./builder.nix {};
+      ndg-stylesheet = callPackage ./stylesheet.nix {};
+    };
   in {
     devShells.default = mkShell {
       packages = [pkgs.pandoc pkgs.sassc];
     };
 
-    packages = {
-      builder = callPackage ./builder.nix {};
-      stylesheet = callPackage ./stylesheet.nix {};
-    };
+    packages = packages // {default = packages.ndg-builder;};
   };
 }

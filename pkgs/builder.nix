@@ -4,6 +4,7 @@
   runCommandLocal,
   pandoc,
   nixosOptionsDoc,
+  ndg-stylesheet,
   # options
   modules ? [
     {
@@ -46,7 +47,7 @@ in
        --standalone \
     ''
     + optionalString (templatePath != null) ''--template ${templatePath} \''
-    + optionalString (styleSheetPath != null) ''--css ${styleSheetPath} \''
+    + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
     + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
     + "-o $out"
   )
