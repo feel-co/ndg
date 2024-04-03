@@ -5,32 +5,25 @@
   pandoc,
   nixosOptionsDoc,
   # options
-  configMD ?
-    (nixosOptionsDoc
-      {
-        inherit
-          (lib.evalModules {
-            modules = [
-              {
-                options.hello = lib.mkOption {
-                  default = "world";
-                  description = "Example option.";
-                  type = lib.types.str;
-                };
-              }
-            ];
-          })
-          options
-          ;
-      })
-    .optionsCommonMark,
+  modules ? [
+    {
+      options.hello = lib.mkOption {
+        default = "world";
+        description = "Example option.";
+        type = lib.types.str;
+      };
+    }
+  ],
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.json,
   ...
 }: let
+  inherit (lib.modules) evalModules;
   inherit (lib.strings) optionalString;
+
+  configMD = (nixosOptionsDoc {inherit (evalModules {inherit modules;}) options;}).optionsCommonMark;
 in
   runCommandLocal "generate-option-docs" {nativeBuildInputs = [pandoc];} (
     ''
