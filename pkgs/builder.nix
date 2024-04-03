@@ -25,7 +25,7 @@
 
   configMD = (nixosOptionsDoc {inherit (evalModules {inherit modules;}) options;}).optionsCommonMark;
 in
-  runCommandLocal "generate-option-docs" {nativeBuildInputs = [pandoc];} (
+  runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
     ''
       # convert to pandoc markdown instead of using commonmark directly,
       # as the former automatically generates heading ids and TOC links.
