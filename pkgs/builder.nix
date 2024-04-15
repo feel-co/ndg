@@ -6,25 +6,31 @@
   nixosOptionsDoc,
   ndg-stylesheet,
   # options
-  modules ? [
+  rawModules ? [
     {
       options.hello = lib.mkOption {
         default = "world";
+        defaultText = lib.literalMD ''
+          ```nix
+          # comment
+          a: lib.hasSuffix "test" a
+          ```
+        '';
         description = "Example option.";
         type = lib.types.str;
       };
     }
   ],
+  evaluatedModules ? lib.evalModules {modules = rawModules;},
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.theme,
-  ...
-}: let
-  inherit (lib.modules) evalModules;
+} @ args:
+assert args ? evaluatedModules -> !(args ? rawModules); let
   inherit (lib.strings) optionalString;
 
-  configMD = (nixosOptionsDoc {inherit (evalModules {inherit modules;}) options;}).optionsCommonMark;
+  configMD = (nixosOptionsDoc {inherit (evaluatedModules) options;}).optionsCommonMark;
 in
   runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
     ''
