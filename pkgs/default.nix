@@ -2,6 +2,7 @@
   perSystem = {
     lib,
     pkgs,
+    self',
     ...
   }: let
     inherit (lib.customisation) callPackageWith;
@@ -15,7 +16,7 @@
     };
   in {
     devShells.default = mkShell {
-      packages = [pkgs.pandoc pkgs.sassc];
+      packages = [pkgs.pandoc pkgs.sassc self'.formatter];
     };
 
     packages = packages // {default = packages.ndg-builder;};
