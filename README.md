@@ -6,12 +6,14 @@
 
 ## What is it?
 
-`ndg` is a way to automatically generate a document containing all the options you use in any set of modules.
+`ndg` is a way to automatically generate an HTML document containing all the options you use in any set of modules.
 
+ This flake exposes a package (`packages.<system>.ndg-builder` a.k.a. `packages.<system>.default`),
+ as well as an overlay (`overlays.default`) to allow accessing `ndg-builder` in another nixpkgs instance.
 
 ## Usage
 
-This flake exposes a package (`packages.<system>.default`) which you can override with the following options:
+You can override the exposed package with the following options:
 
 * `rawModules`: a list of modules containing `options` to document. For example:
 ```nix
