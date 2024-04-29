@@ -1,19 +1,17 @@
 {inputs, ...}: {
+  imports = [inputs.flake-parts.flakeModules.easyOverlay];
+
   perSystem = {
+    final,
     lib,
     pkgs,
     self',
     system,
     ...
   }: let
-    inherit (lib.customisation) callPackageWith;
-    inherit (pkgs) mkShell;
-
-    callPackage = callPackageWith (pkgs // packages);
-
     packages = {
-      ndg-builder = callPackage ./builder.nix {};
-      ndg-stylesheet = callPackage ./stylesheet.nix {};
+      ndg-builder = final.callPackage ./builder.nix {};
+      ndg-stylesheet = final.callPackage ./stylesheet.nix {};
     };
   in {
     checks = {
@@ -33,9 +31,11 @@
       };
     };
 
-    devShells.default = mkShell {
+    devShells.default = final.mkShell {
       packages = [pkgs.pandoc pkgs.sassc self'.formatter];
     };
+
+    overlayAttrs = packages;
 
     packages = packages // {default = packages.ndg-builder;};
   };
