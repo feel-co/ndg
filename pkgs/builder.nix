@@ -21,16 +21,24 @@
       };
     }
   ],
-  evaluatedModules ? lib.evalModules {modules = rawModules;},
+  specialArgs ? {},
+  evaluatedModules ? lib.evalModules {modules = rawModules; inherit specialArgs;},
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.theme,
+  optionsDocArgs ? {},
 } @ args:
+assert args ? specialArgs -> args ? rawModules;
 assert args ? evaluatedModules -> !(args ? rawModules); let
   inherit (lib.strings) optionalString;
 
-  configMD = (nixosOptionsDoc {inherit (evaluatedModules) options;}).optionsCommonMark;
+  configMD =
+    (nixosOptionsDoc (
+      (removeAttrs optionsDocArgs ["options"])
+      // {inherit (evaluatedModules) options;}
+    ))
+    .optionsCommonMark;
 in
   runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
     ''

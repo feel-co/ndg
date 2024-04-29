@@ -25,6 +25,7 @@ This flake exposes a package (`packages.<system>.default`) which you can overrid
   }
 ]
 ```
+* `specialArgs`: the `specialArgs` to pass through to the `lib.evalModules` call.
 * `evaluatedModules`: the result of `lib.evalModules` applied to a list of modules containing some `options` to document. For example:
 ```nix
 lib.evalModules {
@@ -50,3 +51,4 @@ self.nixosConfigurations.myHost
 * `templatePath`: path to a [pandoc template](https://pandoc.org/MANUAL.html#templates)
 * `styleSheetPath`: path to a Sassy CSS (SCSS) file that will compile to css
 * `codeThemePath`: path to a [pandoc syntax highlighting file](https://pandoc.org/MANUAL.html#syntax-highlighting) (note that it must be JSON with a `.theme` extension)
+* `optionsDocArgs`: additional arguments to pass to the `nixosOptionsDoc` package
