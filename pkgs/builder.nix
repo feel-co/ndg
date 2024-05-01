@@ -29,6 +29,7 @@
     },
   title ? "My Option Documentation",
   sandboxing ? true,
+  embedResources ? false,
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.theme,
@@ -64,6 +65,7 @@ in
        --toc \
        --standalone \
     ''
+    + optionalString embedResources ''--self-contained \''
     + optionalString sandboxing ''--sandbox \''
     + optionalString (templatePath != null) ''--template ${templatePath} \''
     + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
