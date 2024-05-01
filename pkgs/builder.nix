@@ -22,8 +22,14 @@
     }
   ],
   specialArgs ? {},
-  evaluatedModules ? lib.evalModules {modules = rawModules; inherit specialArgs;},
+  evaluatedModules ?
+    lib.evalModules {
+      modules = rawModules;
+      inherit specialArgs;
+    },
   title ? "My Option Documentation",
+  sandboxing ? true,
+  embedResources ? false,
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.theme,
@@ -53,13 +59,14 @@ in
       # convert pandoc markdown to html using our own template and css files
       # where available. --sandbox is passed for extra security.
       pandoc \
-       --sandbox \
        --from markdown \
        --to html \
        --metadata title="${title}" \
        --toc \
        --standalone \
     ''
+    + optionalString embedResources ''--self-contained \''
+    + optionalString sandboxing ''--sandbox \''
     + optionalString (templatePath != null) ''--template ${templatePath} \''
     + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
     + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
