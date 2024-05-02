@@ -22,7 +22,12 @@
     }
   ],
   specialArgs ? {},
-  evaluatedModules ? lib.evalModules {modules = rawModules; inherit specialArgs;},
+  evaluatedModules ?
+    lib.evalModules {
+      modules = rawModules;
+      inherit specialArgs;
+      _modules.check = false;
+    },
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
