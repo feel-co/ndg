@@ -53,7 +53,8 @@ For example, in the context of a flake:
 self.nixosConfigurations.myHost
 ```
 
-> [!NOTE] > `rawModules` and `evaluatedModules` are mutually exclusive.
+> [!NOTE]
+> `rawModules` and `evaluatedModules` are mutually exclusive.
 
 - `sandboxing`: whether to pass `--sandbox` to pandoc
 - `embedResources`: whether `--self-contained` should be passed to pandoc in
