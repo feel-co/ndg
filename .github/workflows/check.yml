@@ -1,0 +1,19 @@
+name: Build checks
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        system:
+          - x86_64-linux
+          - x86_64-darwin
+          - aarch64-linux
+          - aarch64-darwin
+
+    uses: ./.github/workflows/nix.yml
+    with:
+      command: nix build -L .#checks.${{ matrix.system }}.default -v
+    secrets: inherit
