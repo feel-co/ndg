@@ -58,15 +58,20 @@ flake:
 self.nixosConfigurations.myHost
 ```
 
-> [!NOTE] > `rawModules` and `evaluatedModules` are mutually exclusive.
+<!-- deno-fmt-ignore-start -->
 
-- `sandboxing`: whether to pass `--sandbox` to pandoc
-- `embedResources`: whether `--self-contained` should be passed to pandoc in
+> [!NOTE]
+> `rawModules` and `evaluatedModules` are **mutually exclusive**.
+
+<!-- deno-fmt-ignore-end -->
+
+- `sandboxing`: whether to pass `--sandbox` to Pandoc
+- `embedResources`: whether `--self-contained` should be passed to Pandoc in
   order to generate an entirely self-contained HTML document
 - `title`: the title of your documentation page
 - `templatePath`: path to a
   [pandoc template](https://pandoc.org/MANUAL.html#templates)
-- `styleSheetPath`: path to a Sassy CSS (SCSS) file that will compile to css
+- `styleSheetPath`: path to a Sassy CSS (SCSS) file that will compile to CSS
 - `codeThemePath`: path to a
   [pandoc syntax highlighting file](https://pandoc.org/MANUAL.html#syntax-highlighting)
   (note that it must be JSON with a `.theme` extension)
