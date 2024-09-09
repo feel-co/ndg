@@ -25,9 +25,8 @@
   specialArgs ? {},
   evaluatedModules ?
     lib.evalModules {
-      modules = rawModules;
+      modules = rawModules ++ [{_module.check = checkModules;}];
       inherit specialArgs;
-      _module.check = checkModules;
     },
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
