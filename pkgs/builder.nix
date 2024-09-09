@@ -6,6 +6,7 @@
   nixosOptionsDoc,
   ndg-stylesheet,
   # options
+  checkModules ? false,
   rawModules ? [
     {
       options.hello = lib.mkOption {
@@ -26,7 +27,7 @@
     lib.evalModules {
       modules = rawModules;
       inherit specialArgs;
-      _modules.check = false;
+      _module.check = checkModules;
     },
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
