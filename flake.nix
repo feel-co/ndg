@@ -11,6 +11,7 @@
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
       imports = [./pkgs];
       systems = import inputs.systems;
+      flake.flakeModule = ./modules/flake-module.nix;
       perSystem = {pkgs, ...}: {
         formatter = pkgs.alejandra;
       };
