@@ -6,6 +6,7 @@
   nixosOptionsDoc,
   ndg-stylesheet,
   # options
+  genJsonDocs ? true,
   checkModules ? false,
   rawModules ? [
     {
@@ -46,9 +47,22 @@ assert args ? evaluatedModules -> !(args ? rawModules); let
       // {inherit (evaluatedModules) options;}
     ))
     .optionsCommonMark;
+
+  configJSON =
+    (nixosOptionsDoc (
+      (removeAttrs optionsDocArgs ["options"])
+      // {inherit (evaluatedModules) options;}
+    ))
+    .optionsJSON;
 in
   runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
     ''
+      mkdir -p $out/share/doc
+
+      ${optionalString genJsonDocs ''
+        cp -vf ${configJSON}/share/doc/nixos/options.json $out/share/doc/options.json
+      ''}
+
       # Convert to Pandoc markdown instead of using commonmark directly
       # as the former automatically generates heading IDs and TOC links.
       pandoc \
@@ -72,5 +86,5 @@ in
     + optionalString (templatePath != null) ''--template ${templatePath} \''
     + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
     + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
-    + "-o $out"
+    + "-o $out/share/doc/index.html"
   )
