@@ -447,3 +447,36 @@ table {
     font-size: 20px;
   }
 }
+
+// Link icons for anchored headings
+$anchor-font-size: 80%;
+$anchor-hover-opacity: 1;
+$anchor-opacity: 0.5;
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  position: relative;
+
+  .anchor {
+    position: absolute;
+    top: 50%;
+    left: 2em; // HACK, 2em might not work on different font sizes or viewports...
+    transform: translateY(-50%);
+    margin-left: 0.5em;
+
+    &::before {
+      content: "🔗";
+      display: inline-block;
+      font-size: $anchor-font-size;
+      opacity: $anchor-opacity;
+    }
+
+    &:hover::before {
+      opacity: $anchor-hover-opacity;
+    }
+  }
+}

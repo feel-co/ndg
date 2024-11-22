@@ -29,6 +29,7 @@
       modules = rawModules ++ [{_module.check = checkModules;}];
       inherit specialArgs;
     },
+  # Builder configuration
   title ? "My Option Documentation",
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
@@ -36,6 +37,7 @@
   optionsDocArgs ? {},
   sandboxing ? true,
   embedResources ? false,
+  generateLinkAnchors ? true,
 } @ args:
 assert args ? specialArgs -> args ? rawModules;
 assert args ? evaluatedModules -> !(args ? rawModules); let
@@ -81,6 +83,7 @@ in
        --toc \
        --standalone \
     ''
+    + optionalString generateLinkAnchors ''--lua-filter=${./assets/filters/anchor.lua} \''
     + optionalString embedResources ''--self-contained \''
     + optionalString sandboxing ''--sandbox \''
     + optionalString (templatePath != null) ''--template ${templatePath} \''
