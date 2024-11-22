@@ -17,6 +17,7 @@
     checks = {
       default = self'.checks.nixos;
       nixos = self'.packages.ndg-builder.override {
+        embedResources = true; # bundle stylesheet into HTML
         evaluatedModules = inputs.nixpkgs.lib.nixosSystem {
           modules = [
             ({modulesPath, ...}: {
