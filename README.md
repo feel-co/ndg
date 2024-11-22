@@ -65,15 +65,17 @@ self.nixosConfigurations.myHost
 
 <!-- deno-fmt-ignore-end -->
 
+[pandoc template]: https://pandoc.org/MANUAL.html#templates
+[pandoc syntax highlighting file]: https://pandoc.org/MANUAL.html#syntax-highlighting
+
+- `title`: the title of your documentation page
 - `sandboxing`: whether to pass `--sandbox` to Pandoc
 - `embedResources`: whether `--self-contained` should be passed to Pandoc in
   order to generate an entirely self-contained HTML document
-- `title`: the title of your documentation page
-- `templatePath`: path to a
-  [pandoc template](https://pandoc.org/MANUAL.html#templates)
+- `templatePath`: path to a [pandoc template]
 - `styleSheetPath`: path to a Sassy CSS (SCSS) file that will compile to CSS
-- `codeThemePath`: path to a
-  [pandoc syntax highlighting file](https://pandoc.org/MANUAL.html#syntax-highlighting)
-  (note that it must be JSON with a `.theme` extension)
+- `codeThemePath`: path to a [pandoc syntax highlighting file] (note that it
+  must be JSON with a `.theme` extension)
+- `generateLinkAnchors`: whether to generate anchors next to links
 - `optionsDocArgs`: additional arguments to pass to the `nixosOptionsDoc`
   package
