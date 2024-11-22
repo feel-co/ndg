@@ -4,12 +4,12 @@
 function Header(h)
     if h.identifier and h.identifier ~= '' then
         local anchor_link = pandoc.Link(
-            '',                                            -- empty content
-            '#' .. h.identifier,                           -- href
-            '',                                            -- title
-            { class = 'anchor', ['aria-hidden'] = 'true' } -- attributes
+            '',                  -- empty content
+            '#' .. h.identifier, -- href
+            '',                  -- title
+            { class = 'anchor', ['aria-hidden'] = 'true' }
         )
-        h.content:insert(1, anchor_link)
+        h.content:insert(#h.content + 1, anchor_link)
     end
     return h
 end
