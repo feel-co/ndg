@@ -40,6 +40,7 @@
   sandboxing ? true,
   embedResources ? false,
   generateLinkAnchors ? true,
+  outPath ? "share/doc",
 } @ args:
 assert args ? specialArgs -> args ? rawModules;
 assert args ? evaluatedModules -> !(args ? rawModules); let
@@ -62,11 +63,12 @@ assert args ? evaluatedModules -> !(args ? rawModules); let
 
   pandocArgs = {
     luaFilters = filters ++ optionals generateLinkAnchors [./assets/filters/anchor.lua];
+    finalOutPath = "$out" + /${toString outPath}; # toString handles 'null' case
   };
 in
   runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
     ''
-      mkdir -p $out/share/doc
+      mkdir -p ${pandocArgs.finalOutPath}
 
       ${optionalString genJsonDocs ''
         cp -vf ${configJSON}/share/doc/nixos/options.json $out/share/doc/options.json
@@ -96,5 +98,5 @@ in
     + optionalString (templatePath != null) ''--template ${templatePath} \''
     + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
     + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
-    + "-o $out/share/doc/index.html"
+    + "-o ${pandocArgs.finalOutPath}/index.html"
   )
