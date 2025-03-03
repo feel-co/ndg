@@ -1,11 +1,12 @@
 {
   lib,
-  # build dependencies
+  # Build Dependencies
   runCommandLocal,
   pandoc,
   nixosOptionsDoc,
   ndg-stylesheet,
-  # options
+  # Options
+  pandocCmd ? "pandoc",
   genJsonDocs ? true,
   checkModules ? false,
   rawModules ? [
@@ -34,6 +35,7 @@
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.theme,
+  filters ? [],
   optionsDocArgs ? {},
   sandboxing ? true,
   embedResources ? false,
@@ -41,7 +43,8 @@
 } @ args:
 assert args ? specialArgs -> args ? rawModules;
 assert args ? evaluatedModules -> !(args ? rawModules); let
-  inherit (lib.strings) optionalString;
+  inherit (lib.strings) optionalString concatStringsSep;
+  inherit (lib.lists) optionals;
 
   configMD =
     (nixosOptionsDoc (
@@ -56,6 +59,10 @@ assert args ? evaluatedModules -> !(args ? rawModules); let
       // {inherit (evaluatedModules) options;}
     ))
     .optionsJSON;
+
+  pandocArgs = {
+    luaFilters = filters ++ optionals generateLinkAnchors [./assets/filters/anchor.lua];
+  };
 in
   runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
     ''
@@ -67,7 +74,7 @@ in
 
       # Convert to Pandoc markdown instead of using commonmark directly
       # as the former automatically generates heading IDs and TOC links.
-      pandoc \
+      ${pandocCmd} \
         --from commonmark \
         --to markdown \
         ${configMD} |
@@ -76,15 +83,15 @@ in
       # Convert Pandoc markdown to HTML using our own template and css files
       # where available. --sandbox is passed for extra security by default
       # with an optional override to disable it.
-      pandoc \
+      ${pandocCmd} \
        --from markdown \
        --to html \
        --metadata title="${title}" \
        --toc \
        --standalone \
     ''
-    + optionalString generateLinkAnchors ''--lua-filter=${./assets/filters/anchor.lua} \''
-    + optionalString embedResources ''--self-contained \''
+    + optionalString (pandocArgs.luaFilters != []) ''${concatStringsSep " " (map (f: "--lua-filter=" + f) pandocArgs.luaFilters)} \''
+    + optionalString embedResources ''--embed-resources --standalone \''
     + optionalString sandboxing ''--sandbox \''
     + optionalString (templatePath != null) ''--template ${templatePath} \''
     + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
