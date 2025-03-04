@@ -63,7 +63,7 @@ assert args ? evaluatedModules -> !(args ? rawModules); let
 
   pandocArgs = {
     luaFilters = filters ++ optionals generateLinkAnchors [./assets/filters/anchor.lua];
-    finalOutPath = "$out" + /${toString outPath}; # toString handles 'null' case
+    finalOutPath = "$out/${toString outPath}"; # toString handles 'null' case
   };
 in
   runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
