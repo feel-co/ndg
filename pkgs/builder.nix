@@ -1,11 +1,12 @@
 {
   lib,
-  # build dependencies
+  # Build Dependencies
   runCommandLocal,
   pandoc,
   nixosOptionsDoc,
   ndg-stylesheet,
-  # options
+  # Options
+  pandocCmd ? "pandoc",
   genJsonDocs ? true,
   checkModules ? false,
   rawModules ? [
@@ -34,60 +35,75 @@
   templatePath ? ./assets/default-template.html,
   styleSheetPath ? ./assets/default-styles.scss,
   codeThemePath ? ./assets/default-syntax.theme,
+  filters ? [],
   optionsDocArgs ? {},
   sandboxing ? true,
   embedResources ? false,
   generateLinkAnchors ? true,
-} @ args:
-assert args ? specialArgs -> args ? rawModules;
-assert args ? evaluatedModules -> !(args ? rawModules); let
-  inherit (lib.strings) optionalString;
-
-  configMD =
-    (nixosOptionsDoc (
-      (removeAttrs optionsDocArgs ["options"])
-      // {inherit (evaluatedModules) options;}
-    ))
-    .optionsCommonMark;
-
-  configJSON =
-    (nixosOptionsDoc (
-      (removeAttrs optionsDocArgs ["options"])
-      // {inherit (evaluatedModules) options;}
-    ))
-    .optionsJSON;
+  outPath ? "share/doc",
+} @ args: let
+  inherit (builtins) isString;
+  inherit (lib.asserts) assertMsg;
 in
-  runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
-    ''
-      mkdir -p $out/share/doc
+  # TODO explain this one
+  assert args ? specialArgs -> args ? rawModules;
+  assert assertMsg (args ? evaluatedModules -> !(args ? rawModules)) "evaluatedModules and rawModules are mutually exclusive";
+  assert assertMsg (isString outPath) "outPath must be a string";
+  # TODO assert that outPath doesn't escape $out
+    let
+      inherit (lib.strings) optionalString concatStringsSep;
+      inherit (lib.lists) optionals;
 
-      ${optionalString genJsonDocs ''
-        cp -vf ${configJSON}/share/doc/nixos/options.json $out/share/doc/options.json
-      ''}
+      configMD =
+        (nixosOptionsDoc (
+          (removeAttrs optionsDocArgs ["options"])
+          // {inherit (evaluatedModules) options;}
+        ))
+        .optionsCommonMark;
 
-      # Convert to Pandoc markdown instead of using commonmark directly
-      # as the former automatically generates heading IDs and TOC links.
-      pandoc \
-        --from commonmark \
-        --to markdown \
-        ${configMD} |
+      configJSON =
+        (nixosOptionsDoc (
+          (removeAttrs optionsDocArgs ["options"])
+          // {inherit (evaluatedModules) options;}
+        ))
+        .optionsJSON;
+
+      pandocArgs = {
+        luaFilters = filters ++ optionals generateLinkAnchors [./assets/filters/anchor.lua];
+        finalOutPath = "$out/${outPath}";
+      };
+    in
+      runCommandLocal "generate-option-docs.html" {nativeBuildInputs = [pandoc];} (
+        ''
+          mkdir -p ${pandocArgs.finalOutPath}
+
+          ${optionalString genJsonDocs ''
+            cp -vf ${configJSON}/share/doc/nixos/options.json $out/share/doc/options.json
+          ''}
+
+          # Convert to Pandoc markdown instead of using commonmark directly
+          # as the former automatically generates heading IDs and TOC links.
+          ${pandocCmd} \
+            --from commonmark \
+            --to markdown \
+            ${configMD} |
 
 
-      # Convert Pandoc markdown to HTML using our own template and css files
-      # where available. --sandbox is passed for extra security by default
-      # with an optional override to disable it.
-      pandoc \
-       --from markdown \
-       --to html \
-       --metadata title="${title}" \
-       --toc \
-       --standalone \
-    ''
-    + optionalString generateLinkAnchors ''--lua-filter=${./assets/filters/anchor.lua} \''
-    + optionalString embedResources ''--self-contained \''
-    + optionalString sandboxing ''--sandbox \''
-    + optionalString (templatePath != null) ''--template ${templatePath} \''
-    + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
-    + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
-    + "-o $out/share/doc/index.html"
-  )
+          # Convert Pandoc markdown to HTML using our own template and css files
+          # where available. --sandbox is passed for extra security by default
+          # with an optional override to disable it.
+          ${pandocCmd} \
+           --from markdown \
+           --to html \
+           --metadata title="${title}" \
+           --toc \
+           --standalone \
+        ''
+        + optionalString (pandocArgs.luaFilters != []) ''${concatStringsSep " " (map (f: "--lua-filter=" + f) pandocArgs.luaFilters)} \''
+        + optionalString embedResources ''--embed-resources --standalone \''
+        + optionalString sandboxing ''--sandbox \''
+        + optionalString (templatePath != null) ''--template ${templatePath} \''
+        + optionalString (styleSheetPath != null) ''--css ${ndg-stylesheet.override {inherit styleSheetPath;}} \''
+        + optionalString (codeThemePath != null) ''--highlight-style ${codeThemePath} \''
+        + "-o ${pandocArgs.finalOutPath}/index.html"
+      )
