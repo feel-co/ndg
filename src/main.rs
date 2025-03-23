@@ -49,6 +49,10 @@ struct Cli {
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
+
+    /// Footer text for the documentation
+    #[arg(short = 'f', long)]
+    footer: Option<String>,
 }
 
 fn main() -> Result<()> {

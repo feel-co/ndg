@@ -87,7 +87,7 @@ ndg -i ./docs -o ./html -T "My Project" -s ./my-styles.css
 
 #### NixOS Options
 
-To include a page listing NixOS options, provide a path to your options.json
+To include a page listing NixOS options, provide a path to your `options.json`
 file:
 
 ```bash

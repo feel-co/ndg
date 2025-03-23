@@ -282,3 +282,99 @@ pre code {
     padding: 1rem;
   }
 }
+
+/* Option anchor styling */
+.option-anchor {
+  color: inherit;
+  text-decoration: none;
+  position: relative;
+}
+
+.option-anchor:hover {
+  text-decoration: none;
+}
+
+.option-anchor:hover::after {
+  content: " #";
+  color: var(--link-color);
+  opacity: 0.5;
+}
+
+/* Search button styling */
+.search-input-container {
+  display: flex;
+  max-width: 600px;
+}
+
+.search-button {
+  padding: 0.5rem 1rem;
+  background-color: var(--link-color);
+  color: white;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.search-button:hover {
+  background-color: var(--link-hover);
+}
+
+#full-search {
+  flex: 1;
+  width: auto;
+  border-radius: 4px 0 0 4px;
+  border: 1px solid var(--border-color);
+  border-right: none;
+}
+
+/* Search results styling */
+#search-results-container {
+  margin-top: 2rem;
+}
+
+.search-result {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: #fcfcfc;
+}
+
+.search-result h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.search-message {
+  padding: 1rem;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  color: #555;
+  text-align: center;
+}
+
+/* Options styling enhancements */
+.option {
+  margin-bottom: 1.5rem;
+  padding: 1.2rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: #fcfcfc;
+}
+
+.option:target {
+  border-color: var(--link-color);
+  box-shadow: 0 0 8px rgba(51, 102, 204, 0.2);
+  animation: highlight 2s ease;
+}
+
+@keyframes highlight {
+  0% {
+    background-color: rgba(51, 102, 204, 0.1);
+  }
+  100% {
+    background-color: #fcfcfc;
+  }
+}

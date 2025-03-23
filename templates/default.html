@@ -10,7 +10,14 @@
   <body>
     <div class="container">
       <header>
-        <h1 class="site-title"><a href="index.html">Nix Documentation</a></h1>
+        <div class="header-left">
+          <button id="sidebar-toggle" aria-label="Toggle sidebar">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <h1 class="site-title"><a href="index.html">{{site_title}}</a></h1>
+        </div>
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
@@ -18,7 +25,7 @@
       </header>
 
       <div class="layout">
-        <nav class="sidebar">
+        <nav id="sidebar" class="sidebar">
           <div class="docs-nav">
             <h2>Documents</h2>
             <ul>
@@ -43,12 +50,93 @@
           </div>
         </nav>
 
-        <main class="content">{{content}}</main>
+        <main class="content">
+          {{content}}
+          <div class="footnotes-container">
+            <!-- Footnotes will be appended here -->
+          </div>
+        </main>
       </div>
 
       <footer>
-        <p>Generated with ndg | {{current_date}}</p>
+        <p>{{footer_text}}</p>
       </footer>
     </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const sidebarToggle = document.getElementById("sidebar-toggle");
+        const sidebar = document.getElementById("sidebar");
+        const container = document.querySelector(".container");
+
+        // Initialize sidebar state (closed on mobile, open on desktop)
+        if (window.innerWidth < 800) {
+          sidebar.classList.add("sidebar-collapsed");
+          container.classList.add("sidebar-hidden");
+        }
+
+        function toggleSidebar() {
+          sidebar.classList.toggle("sidebar-collapsed");
+          container.classList.toggle("sidebar-hidden");
+        }
+
+        sidebarToggle.addEventListener("click", toggleSidebar);
+
+        // Close sidebar on small screens when clicking outside
+        document.addEventListener("click", function (event) {
+          const isSmallScreen = window.innerWidth < 800;
+          const clickedOutsideSidebar =
+            !sidebar.contains(event.target) && event.target !== sidebarToggle;
+
+          if (
+            isSmallScreen &&
+            clickedOutsideSidebar &&
+            !sidebar.classList.contains("sidebar-collapsed")
+          ) {
+            toggleSidebar();
+          }
+        });
+
+        // Process footnotes
+        const content = document.querySelector(".content");
+        const footnoteContainer = document.querySelector(
+          ".footnotes-container",
+        );
+
+        // Find all footnote references and create a footnotes section
+        const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
+        if (footnoteRefs.length > 0) {
+          const footnotesDiv = document.createElement("div");
+          footnotesDiv.className = "footnotes";
+
+          const footnotesHeading = document.createElement("h2");
+          footnotesHeading.textContent = "Footnotes";
+          footnotesDiv.appendChild(footnotesHeading);
+
+          const footnotesList = document.createElement("ol");
+          footnoteContainer.appendChild(footnotesDiv);
+          footnotesDiv.appendChild(footnotesList);
+
+          // Add footnotes
+          document.querySelectorAll(".footnote").forEach((footnote) => {
+            const id = footnote.id;
+            const content = footnote.innerHTML;
+
+            const li = document.createElement("li");
+            li.id = id;
+            li.innerHTML = content;
+
+            // Add backlink
+            const backlink = document.createElement("a");
+            backlink.href = "#fnref:" + id.replace("fn:", "");
+            backlink.className = "footnote-backlink";
+            backlink.textContent = "↩";
+            li.appendChild(backlink);
+
+            footnotesList.appendChild(li);
+          });
+        }
+      });
+    </script>
   </body>
 </html>

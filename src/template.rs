@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context as AnyhowContext, Result};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 use crate::markdown::Header;
@@ -36,7 +36,9 @@ pub fn render(
 
     // Replace basic variables
     html = html.replace("{{title}}", title);
+    html = html.replace("{{site_title}}", &config.title);
     html = html.replace("{{content}}", content);
+    html = html.replace("{{footer_text}}", &config.footer_text);
 
     // Add conditional flag for options page
     let has_options = config.options_json.is_some();
@@ -125,9 +127,6 @@ pub fn render_options(
     config: &Config,
     options: &HashMap<String, crate::options::NixOption>,
 ) -> Result<String> {
-    // Use template for options page
-    let template_content = include_str!("../templates/options.html");
-
     // Create options HTML
     let mut options_html = String::new();
 
@@ -174,31 +173,107 @@ pub fn render_options(
         ));
     }
 
-    // Replace template variables
-    let mut html = template_content.to_string();
-    html = html.replace("{{title}}", &format!("{} - Options", config.title));
-    html = html.replace("{{options}}", &options_html);
+    let content = format!(
+        r#"<h1>NixOS Options</h1>
+        <p>This page lists all available configuration options.</p>
+        <div class="search-form">
+            <input type="text" id="options-filter" placeholder="Filter options...">
+        </div>
+        <div class="options-container">{}</div>
+        <script>
+            // Options filter functionality
+            document.getElementById('options-filter').addEventListener('input', function(e) {{
+                const searchTerm = e.target.value.toLowerCase();
+                document.querySelectorAll('.option').forEach(function(option) {{
+                    const name = option.querySelector('.option-name').textContent.toLowerCase();
+                    const description = option.querySelector('.option-description').textContent.toLowerCase();
 
-    Ok(html)
+                    if (name.includes(searchTerm) || description.includes(searchTerm)) {{
+                        option.style.display = '';
+                    }} else {{
+                        option.style.display = 'none';
+                    }}
+                }});
+            }});
+        </script>
+        "#,
+        options_html
+    );
+
+    render(
+        config,
+        &content,
+        &format!("{} - Options", config.title),
+        &[],
+        &PathBuf::from("options.html"),
+    )
 }
 
 /// Render search page
-pub fn render_search(context: &HashMap<&str, String>) -> Result<String> {
-    // Use template for search page
-    let template_content = include_str!("../templates/search.html");
+pub fn render_search(config: &Config, _context: &HashMap<&str, String>) -> Result<String> {
+    let search_content = r#"
+        <h1>Search Documentation</h1>
+        <p>Use the search box below to find content throughout the documentation.</p>
 
-    let mut html = template_content.to_string();
+        <div class="search-form">
+            <input type="text" id="full-search" placeholder="Enter search terms...">
+        </div>
 
-    use chrono::prelude::*;
-    let now = Utc::now();
-    html = html.replace(
-        "{{current_date}}",
-        &now.format("%Y-%m-%d %H:%M:%S").to_string(),
-    );
+        <div id="search-results-container">
+            <h2>Results</h2>
+            <div id="full-search-results"></div>
+        </div>
 
-    for (key, value) in context {
-        html = html.replace(&format!("{{{{{}}}}}", key), value);
-    }
+        <script>
+            // Search functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                const searchInput = document.getElementById('full-search');
+                const resultsContainer = document.getElementById('full-search-results');
 
-    Ok(html)
+                // Load search data
+                fetch('assets/search-data.json')
+                    .then(response => response.json())
+                    .then(data => {
+                        searchInput.addEventListener('input', function() {
+                            const searchTerm = this.value.toLowerCase();
+                            if (searchTerm.length < 2) {
+                                resultsContainer.innerHTML = '<p>Please enter at least 2 characters</p>';
+                                return;
+                            }
+
+                            const results = data.filter(doc =>
+                                doc.title.toLowerCase().includes(searchTerm) ||
+                                doc.content.toLowerCase().includes(searchTerm)
+                            );
+
+                            if (results.length === 0) {
+                                resultsContainer.innerHTML = '<p>No results found</p>';
+                            } else {
+                                resultsContainer.innerHTML = results
+                                    .slice(0, 20)
+                                    .map(doc => `
+                                        <div class="search-result">
+                                            <h3><a href="${doc.path}">${doc.title}</a></h3>
+                                            <p>${doc.content.substring(0, 200)}...</p>
+                                        </div>
+                                    `)
+                                    .join('');
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error loading search data:', error);
+                        resultsContainer.innerHTML = '<p>Error loading search data</p>';
+                    });
+            });
+        </script>
+    "#;
+
+    render(
+        config,
+        search_content,
+        &format!("{} - Search", config.title),
+        &[],
+        &PathBuf::from("search.html"),
+    )
 }

@@ -36,6 +36,9 @@ pub struct Config {
 
     /// Whether to generate a search index
     pub generate_search: bool,
+
+    /// Text to be inserted in the footer
+    pub footer_text: String,
 }
 
 impl Default for Config {
@@ -52,6 +55,7 @@ impl Default for Config {
             generate_anchors: true,
             embed_resources: false,
             generate_search: true,
+            footer_text: "Generated with ndg".to_string(),
         }
     }
 }

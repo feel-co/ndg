@@ -163,7 +163,7 @@ fn create_search_page(config: &Config) -> Result<String> {
     let mut context = HashMap::new();
     context.insert("title", format!("{} - Search", config.title));
 
-    let html = crate::template::render_search(&context)?;
+    let html = crate::template::render_search(config, &context)?;
 
     Ok(html)
 }
