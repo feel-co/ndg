@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/search.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1 class="site-title"><a href="index.html">Nix Documentation</a></h1>
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+      </header>
+
+      <div class="layout">
+        <nav class="sidebar">
+          <div class="docs-nav">
+            <h2>Documents</h2>
+            <ul>
+              {{doc_nav}}
+            </ul>
+          </div>
+
+          <div class="toc">
+            <h2>Contents</h2>
+            <ul class="toc-list">
+              {{toc}}
+            </ul>
+          </div>
+
+          <div class="navigation">
+            <h2>Navigation</h2>
+            <ul>
+              <li><a href="index.html">Home</a></li>
+              <li {{has_options}}><a href="options.html">Options</a></li>
+              <li><a href="search.html">Search</a></li>
+            </ul>
+          </div>
+        </nav>
+
+        <main class="content">{{content}}</main>
+      </div>
+
+      <footer>
+        <p>Generated with ndg | {{current_date}}</p>
+      </footer>
+    </div>
+  </body>
+</html>

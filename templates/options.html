@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/search.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-content">
+          <h1 class="site-title">
+            <a href="index.html">NixOS Documentation</a>
+          </h1>
+          <div class="search-container">
+            <input
+              type="text"
+              id="options-search"
+              placeholder="Search options..."
+            />
+          </div>
+        </div>
+      </header>
+
+      <div class="layout">
+        <nav class="sidebar">
+          <div class="navigation">
+            <h3>Navigation</h3>
+            <ul>
+              <li><a href="index.html">Home</a></li>
+              <li><a href="options.html">Options</a></li>
+              <li><a href="search.html">Search</a></li>
+            </ul>
+          </div>
+        </nav>
+
+        <main class="content">
+          <h1>NixOS Options</h1>
+          <p>This page lists all available configuration options for NixOS.</p>
+
+          <div class="search-form">
+            <input
+              type="text"
+              id="options-filter"
+              placeholder="Filter options..."
+            />
+          </div>
+
+          <div class="options-container">{{options}}</div>
+
+          <script>
+            // Options filter functionality
+            document
+              .getElementById("options-filter")
+              .addEventListener("input", function (e) {
+                const searchTerm = e.target.value.toLowerCase();
+                document.querySelectorAll(".option").forEach(function (option) {
+                  const name = option
+                    .querySelector(".option-name")
+                    .textContent.toLowerCase();
+                  const description = option
+                    .querySelector(".option-description")
+                    .textContent.toLowerCase();
+
+                  if (
+                    name.includes(searchTerm) ||
+                    description.includes(searchTerm)
+                  ) {
+                    option.style.display = "";
+                  } else {
+                    option.style.display = "none";
+                  }
+                });
+              });
+          </script>
+        </main>
+      </div>
+
+      <footer>
+        <div class="footer-content">
+          <p>Generated with ndg - NixOS Documentation Generator</p>
+          <p>Last updated: 2025-03-23</p>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
