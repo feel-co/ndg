@@ -6,76 +6,117 @@
 
 ## What is it?
 
-`ndg` is a way to automatically generate an HTML document containing all the
-options you use in any set of modules.
+> [!WARNING]
+> ndg is currently in the process of being rewritten. Until the `v2` branch is
+> merged into main, nothing is final. Please proceed with caution.
 
-This flake exposes a package (`packages.<system>.ndg-builder` a.k.a.
-`packages.<system>.default`), as well as an overlay (`overlays.default`) to
-allow accessing `ndg-builder` in another nixpkgs instance.
+**ndg** is a fully customizable tool to automatically generate HTML documents
+including but not limited to project documentation from options you use in any
+set of modules.
+
+### Features
+
+- **Markdown to HTML conversion** with support for all common markdown features
+- **Automatic table of contents** generation from document headings
+- **Search functionality** to quickly find content across documents
+- **NixOS options support** to generate documentation from `options.json`
+- **Fully customizable templates** to match your project's style
+- **Multi-threading support** for fast generation of large documentation sets
 
 ## Usage
 
-You can override the exposed package with the following options:
+```
+Usage: ndg [OPTIONS] --input <INPUT> --output <OUTPUT> --title <TITLE>
 
-- `rawModules`: a list of modules containing `options` to document. For example:
-
-```nix
-[
-  {
-    options.hello = lib.mkOption {
-      default = "world";
-      description = "Example option.";
-      type = lib.types.str;
-    };
-  }
-]
+Options:
+  -j, --options-json <OPTIONS_JSON>  Path to options.json file
+  -i, --input <INPUT>                Path to markdown files directory
+  -o, --output <OUTPUT>              Output directory for generated documentation
+  -t, --template <TEMPLATE>          Path to custom template file
+  -s, --stylesheet <STYLESHEET>      Path to custom stylesheet
+  -T, --title <TITLE>                Title of the documentation
+  -p, --jobs <JOBS>                  Number of threads to use for parallel processing
+  -v, --verbose                      Enable verbose logging
+  -h, --help                         Print help
+  -V, --version                      Print version
 ```
 
-- `specialArgs`: the `specialArgs` to pass through to the `lib.evalModules`
-  call.
-- `evaluatedModules`: the result of `lib.evalModules` applied to a list of
-  modules containing some `options` to document. For example:
+You must give ndg a **input directory** containing your markdown files
+(`--input`), an **output directory** (`--output`) to put the created files, and
+a **title** (`--title`) for basic functionality.
 
-```nix
-lib.evalModules {
-  modules = [
-    {
-      options.hello = lib.mkOption {
-        default = "world";
-        description = "Example option.";
-        type = lib.types.str;
-      };
-    }
-  ];
+For example:
+
+```bash
+ndg -i ./ndg-example/docs -o ./ndg-example/html -T "Awesome Nix Project"
+```
+
+where `./ndg-example/docs` contains markdown files that you would like to
+convert, and `./ndg-example/html` is the result directory.
+
+Optionally you may pass an `options.json` to also render an `options.html` page
+for a listing of your module options.
+
+### Customization
+
+ndg supports various customization options to tailor the output to your needs:
+
+#### Custom Templates
+
+You can provide your own HTML template using the `--template` option:
+
+```bash
+ndg -i ./docs -o ./html -T "My Project" -t ./my-template.html
+```
+
+The template should include the following placeholders:
+
+- `{{title}}` - Document title
+- `{{content}}` - Main content area
+- `{{toc}}` - Table of contents
+- `{{doc_nav}}` - Navigation links to other documents
+- `{{has_options}}` - Conditional display for options page link
+
+#### Custom Stylesheet
+
+You can provide your own CSS stylesheet using the `--stylesheet` option:
+
+```bash
+ndg -i ./docs -o ./html -T "My Project" -s ./my-styles.css
+```
+
+#### NixOS Options
+
+To include a page listing NixOS options, provide a path to your options.json
+file:
+
+```bash
+ndg -i ./docs -o ./html -T "My Project" -j ./options.json
+```
+
+The `options.json` should be in the standard NixOS format:
+
+```JSON
+{
+  "option.name": {
+    "type": "string",
+    "description": "Description of the option",
+    "default": "default value",
+    "example": "example value",
+    "declared": "module path"
+  }
 }
 ```
 
-This includes anything that uses `lib.evalModules` underneath, such as a NixOS,
-Home Manager, or Nix-Darwin configuration. For example, in the context of a
-flake:
+## Building from Source
 
-```
-self.nixosConfigurations.myHost
-```
+ndg is written in Rust. To build it from source:
 
-<!-- deno-fmt-ignore-start -->
+- Make sure you have Rust installed (https://rustup.rs/)
+- Clone the repository and enter a dev shell (`nix develop`)
+- Build with `cargo build` (Nix packaging not available yet)
 
-> [!NOTE]
-> `rawModules` and `evaluatedModules` are **mutually exclusive**.
+## License
 
-<!-- deno-fmt-ignore-end -->
-
-[pandoc template]: https://pandoc.org/MANUAL.html#templates
-[pandoc syntax highlighting file]: https://pandoc.org/MANUAL.html#syntax-highlighting
-
-- `title`: the title of your documentation page
-- `sandboxing`: whether to pass `--sandbox` to Pandoc
-- `embedResources`: whether `--self-contained` should be passed to Pandoc in
-  order to generate an entirely self-contained HTML document
-- `templatePath`: path to a [pandoc template]
-- `styleSheetPath`: path to a Sassy CSS (SCSS) file that will compile to CSS
-- `codeThemePath`: path to a [pandoc syntax highlighting file] (note that it
-  must be JSON with a `.theme` extension)
-- `generateLinkAnchors`: whether to generate anchors next to links
-- `optionsDocArgs`: additional arguments to pass to the `nixosOptionsDoc`
-  package
+ndg is available under **Mozilla Public License, version 2.0**. Please see the
+[LICENSE](./LICENSE) file for more details.

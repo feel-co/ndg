@@ -10,3 +10,5 @@
 !/*.nix
 !/pkgs/
 !/.github/workflows/*
+!/src/
+!/rustfmt.toml

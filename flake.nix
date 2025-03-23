@@ -8,10 +8,29 @@
 
   outputs = inputs:
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
-      imports = [./pkgs];
       systems = inputs.nixpkgs.lib.systems.flakeExposed;
-      perSystem = {pkgs, ...}: {
+      perSystem = {
+        self',
+        pkgs,
+        ...
+      }: {
         formatter = pkgs.alejandra;
+
+        devShells.default = pkgs.mkShell {
+          name = "ndg";
+          strictDeps = true;
+          packages = [
+            self'.formatter
+
+            # Poor man's Rust environment
+            pkgs.cargo
+            pkgs.rustc
+            (pkgs.rustfmt.override {asNightly = true;})
+            pkgs.clippy
+          ];
+
+          env.RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
+        };
       };
     };
 }
