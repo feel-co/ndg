@@ -16,6 +16,11 @@
       }: {
         formatter = pkgs.alejandra;
 
+        packages = {
+          ndg = pkgs.callPackage ./nix/package.nix {};
+          default = self'.packages.ndg;
+        };
+
         devShells.default = pkgs.mkShell {
           name = "ndg";
           strictDeps = true;
@@ -25,12 +30,15 @@
             # Poor man's Rust environment
             pkgs.cargo
             pkgs.rustc
-            (pkgs.rustfmt.override {asNightly = true;})
             pkgs.clippy
+            (pkgs.rustfmt.override {asNightly = true;})
           ];
 
           env.RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
         };
+
+        # TODO: add more checks, ideally machine tests
+        checks = self'.packages;
       };
     };
 }

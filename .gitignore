@@ -9,6 +9,11 @@
 !/*.md
 !/*.nix
 !/pkgs/
+!/nix/
 !/.github/workflows/*
 !/src/
+!/Cargo.lock
+!/Cargo.toml
+!/templates
 !/rustfmt.toml
+
