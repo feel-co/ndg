@@ -20,6 +20,16 @@
       </header>
 
       <div class="layout">
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </div>
         <nav id="sidebar" class="sidebar">
           <div class="docs-nav">
             <h2>Documents</h2>
@@ -71,6 +81,68 @@
     </div>
 
     <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Sidebar Toggle
+        const sidebarToggle = document.querySelector(".sidebar-toggle");
+        if (sidebarToggle) {
+          sidebarToggle.addEventListener("click", function () {
+            document.body.classList.toggle("sidebar-collapsed");
+
+            // Save state to localStorage
+            const isCollapsed =
+              document.body.classList.contains("sidebar-collapsed");
+            localStorage.setItem("sidebar-collapsed", isCollapsed);
+          });
+
+          // Restore sidebar state from localStorage
+          const isCollapsed =
+            localStorage.getItem("sidebar-collapsed") === "true";
+          if (isCollapsed) {
+            document.body.classList.add("sidebar-collapsed");
+          }
+        }
+
+        // Process footnotes
+        const content = document.querySelector(".content");
+        const footnoteContainer = document.querySelector(
+          ".footnotes-container",
+        );
+
+        // Find all footnote references and create a footnotes section
+        const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
+        if (footnoteRefs.length > 0) {
+          const footnotesDiv = document.createElement("div");
+          footnotesDiv.className = "footnotes";
+
+          const footnotesHeading = document.createElement("h2");
+          footnotesHeading.textContent = "Footnotes";
+          footnotesDiv.appendChild(footnotesHeading);
+
+          const footnotesList = document.createElement("ol");
+          footnoteContainer.appendChild(footnotesDiv);
+          footnotesDiv.appendChild(footnotesList);
+
+          // Add footnotes
+          document.querySelectorAll(".footnote").forEach((footnote) => {
+            const id = footnote.id;
+            const content = footnote.innerHTML;
+
+            const li = document.createElement("li");
+            li.id = id;
+            li.innerHTML = content;
+
+            // Add backlink
+            const backlink = document.createElement("a");
+            backlink.href = "#fnref:" + id.replace("fn:", "");
+            backlink.className = "footnote-backlink";
+            backlink.textContent = "↩";
+            li.appendChild(backlink);
+
+            footnotesList.appendChild(li);
+          });
+        }
+      });
+
       // Options filter functionality
       document
         .getElementById("options-filter")
@@ -137,48 +209,6 @@
           targetOption.classList.add("highlight");
         }
       }
-
-      document.addEventListener("DOMContentLoaded", function () {
-        // Process footnotes
-        const content = document.querySelector(".content");
-        const footnoteContainer = document.querySelector(
-          ".footnotes-container",
-        );
-
-        // Find all footnote references and create a footnotes section
-        const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
-        if (footnoteRefs.length > 0) {
-          const footnotesDiv = document.createElement("div");
-          footnotesDiv.className = "footnotes";
-
-          const footnotesHeading = document.createElement("h2");
-          footnotesHeading.textContent = "Footnotes";
-          footnotesDiv.appendChild(footnotesHeading);
-
-          const footnotesList = document.createElement("ol");
-          footnoteContainer.appendChild(footnotesDiv);
-          footnotesDiv.appendChild(footnotesList);
-
-          // Add footnotes
-          document.querySelectorAll(".footnote").forEach((footnote) => {
-            const id = footnote.id;
-            const content = footnote.innerHTML;
-
-            const li = document.createElement("li");
-            li.id = id;
-            li.innerHTML = content;
-
-            // Add backlink
-            const backlink = document.createElement("a");
-            backlink.href = "#fnref:" + id.replace("fn:", "");
-            backlink.className = "footnote-backlink";
-            backlink.textContent = "↩";
-            li.appendChild(backlink);
-
-            footnotesList.appendChild(li);
-          });
-        }
-      });
     </script>
   </body>
 </html>

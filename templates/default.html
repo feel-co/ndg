@@ -20,6 +20,16 @@
       </header>
 
       <div class="layout">
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </div>
         <nav id="sidebar" class="sidebar">
           <div class="docs-nav">
             <h2>Documents</h2>
@@ -60,8 +70,61 @@
 
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        // Process footnotes
+        // Sidebar Toggle
+        const sidebarToggle = document.querySelector(".sidebar-toggle");
+        if (sidebarToggle) {
+          sidebarToggle.addEventListener("click", function () {
+            document.body.classList.toggle("sidebar-collapsed");
+
+            // Save state to localStorage
+            const isCollapsed =
+              document.body.classList.contains("sidebar-collapsed");
+            localStorage.setItem("sidebar-collapsed", isCollapsed);
+          });
+
+          // Restore sidebar state from localStorage
+          const isCollapsed =
+            localStorage.getItem("sidebar-collapsed") === "true";
+          if (isCollapsed) {
+            document.body.classList.add("sidebar-collapsed");
+          }
+        }
+
+        // Make headings clickable for anchor links
         const content = document.querySelector(".content");
+        const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6");
+
+        headings.forEach(function (heading) {
+          // Make sure all headings have IDs
+          if (!heading.id) {
+            heading.id = heading.textContent
+              .toLowerCase()
+              .replace(/[^\w\s-]/g, "")
+              .replace(/[\s-]+/g, "-")
+              .trim();
+
+            if (!heading.id) {
+              heading.id =
+                "section-" + Math.random().toString(36).substring(2, 9);
+            }
+          }
+
+          // Make the entire heading clickable
+          heading.addEventListener("click", function (e) {
+            const id = this.id;
+            history.pushState(null, null, "#" + id);
+
+            // Scroll with offset
+            const offset =
+              this.getBoundingClientRect().top + window.scrollY - 80;
+            window.scrollTo({
+              top: offset,
+              behavior: "smooth",
+            });
+          });
+        });
+
+        // Process footnotes
         const footnoteContainer = document.querySelector(
           ".footnotes-container",
         );
@@ -98,6 +161,25 @@
 
             footnotesList.appendChild(li);
           });
+        }
+
+        // Handle initial hash navigation
+        function scrollToElement(element) {
+          if (element) {
+            const offset =
+              element.getBoundingClientRect().top + window.scrollY - 80;
+            window.scrollTo({
+              top: offset,
+              behavior: "smooth",
+            });
+          }
+        }
+
+        if (window.location.hash) {
+          const targetElement = document.querySelector(window.location.hash);
+          if (targetElement) {
+            setTimeout(() => scrollToElement(targetElement), 0);
+          }
         }
       });
     </script>
