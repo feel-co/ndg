@@ -110,11 +110,15 @@ The `options.json` should be in the standard NixOS format:
 
 ## Building from Source
 
-ndg is written in Rust. To build it from source:
+ndg is written in Rust, and a derivation is available.
 
-- Make sure you have Rust installed (https://rustup.rs/)
-- Clone the repository and enter a dev shell (`nix develop`)
-- Build with `cargo build` (Nix packaging not available yet)
+```bash
+nix build .#ndg
+```
+
+Alternatively, it can be built inside the dev shell using direnv or
+`nix
+develop.` Enter a shell, and `cargo build`.
 
 ## License
 
