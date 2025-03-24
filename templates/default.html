@@ -11,11 +11,6 @@
     <div class="container">
       <header>
         <div class="header-left">
-          <button id="sidebar-toggle" aria-label="Toggle sidebar">
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
           <h1 class="site-title"><a href="index.html">{{site_title}}</a></h1>
         </div>
         <div class="search-container">
@@ -65,38 +60,6 @@
 
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        const sidebarToggle = document.getElementById("sidebar-toggle");
-        const sidebar = document.getElementById("sidebar");
-        const container = document.querySelector(".container");
-
-        // Initialize sidebar state (closed on mobile, open on desktop)
-        if (window.innerWidth < 800) {
-          sidebar.classList.add("sidebar-collapsed");
-          container.classList.add("sidebar-hidden");
-        }
-
-        function toggleSidebar() {
-          sidebar.classList.toggle("sidebar-collapsed");
-          container.classList.toggle("sidebar-hidden");
-        }
-
-        sidebarToggle.addEventListener("click", toggleSidebar);
-
-        // Close sidebar on small screens when clicking outside
-        document.addEventListener("click", function (event) {
-          const isSmallScreen = window.innerWidth < 800;
-          const clickedOutsideSidebar =
-            !sidebar.contains(event.target) && event.target !== sidebarToggle;
-
-          if (
-            isSmallScreen &&
-            clickedOutsideSidebar &&
-            !sidebar.classList.contains("sidebar-collapsed")
-          ) {
-            toggleSidebar();
-          }
-        });
-
         // Process footnotes
         const content = document.querySelector(".content");
         const footnoteContainer = document.querySelector(

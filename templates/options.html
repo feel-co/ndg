@@ -10,35 +10,44 @@
   <body>
     <div class="container">
       <header>
-        <div class="header-content">
-          <h1 class="site-title">
-            <a href="index.html">NixOS Documentation</a>
-          </h1>
-          <div class="search-container">
-            <input
-              type="text"
-              id="options-search"
-              placeholder="Search options..."
-            />
-          </div>
+        <div class="header-left">
+          <h1 class="site-title"><a href="index.html">{{site_title}}</a></h1>
+        </div>
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
         </div>
       </header>
 
       <div class="layout">
-        <nav class="sidebar">
+        <nav id="sidebar" class="sidebar">
+          <div class="docs-nav">
+            <h2>Documents</h2>
+            <ul>
+              {{doc_nav}}
+            </ul>
+          </div>
+
+          <div class="toc">
+            <h2>Contents</h2>
+            <ul class="toc-list">
+              {{toc}}
+            </ul>
+          </div>
+
           <div class="navigation">
-            <h3>Navigation</h3>
+            <h2>Navigation</h2>
             <ul>
               <li><a href="index.html">Home</a></li>
-              <li><a href="options.html">Options</a></li>
+              <li class="active"><a href="options.html">Options</a></li>
               <li><a href="search.html">Search</a></li>
             </ul>
           </div>
         </nav>
 
         <main class="content">
-          <h1>NixOS Options</h1>
-          <p>This page lists all available configuration options for NixOS.</p>
+          <h1>{{heading}}</h1>
+          <p>This page lists all available configuration options.</p>
 
           <div class="search-form">
             <input
@@ -50,40 +59,126 @@
 
           <div class="options-container">{{options}}</div>
 
-          <script>
-            // Options filter functionality
-            document
-              .getElementById("options-filter")
-              .addEventListener("input", function (e) {
-                const searchTerm = e.target.value.toLowerCase();
-                document.querySelectorAll(".option").forEach(function (option) {
-                  const name = option
-                    .querySelector(".option-name")
-                    .textContent.toLowerCase();
-                  const description = option
-                    .querySelector(".option-description")
-                    .textContent.toLowerCase();
-
-                  if (
-                    name.includes(searchTerm) ||
-                    description.includes(searchTerm)
-                  ) {
-                    option.style.display = "";
-                  } else {
-                    option.style.display = "none";
-                  }
-                });
-              });
-          </script>
+          <div class="footnotes-container">
+            <!-- Footnotes will be appended here -->
+          </div>
         </main>
       </div>
 
       <footer>
-        <div class="footer-content">
-          <p>Generated with ndg - NixOS Documentation Generator</p>
-          <p>Last updated: 2025-03-23</p>
-        </div>
+        <p>{{footer_text}}</p>
       </footer>
     </div>
+
+    <script>
+      // Options filter functionality
+      document
+        .getElementById("options-filter")
+        .addEventListener("input", function (e) {
+          const searchTerm = e.target.value.toLowerCase();
+          document.querySelectorAll(".option").forEach(function (option) {
+            const name = option
+              .querySelector(".option-name")
+              .textContent.toLowerCase();
+            const description = option
+              .querySelector(".option-description")
+              .textContent.toLowerCase();
+
+            if (name.includes(searchTerm) || description.includes(searchTerm)) {
+              option.style.display = "";
+            } else {
+              option.style.display = "none";
+            }
+          });
+        });
+
+      // Copy link functionality
+      document.querySelectorAll(".copy-link").forEach(function (copyLink) {
+        copyLink.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Get option ID from parent element
+          const option = copyLink.closest(".option");
+          const optionId = option.id;
+
+          // Create URL with hash
+          const url = new URL(window.location.href);
+          url.hash = optionId;
+
+          // Copy to clipboard
+          navigator.clipboard
+            .writeText(url.toString())
+            .then(function () {
+              // Show feedback
+              const feedback = copyLink.nextElementSibling;
+              feedback.style.display = "inline";
+
+              // Hide after 2 seconds
+              setTimeout(function () {
+                feedback.style.display = "none";
+              }, 2000);
+            })
+            .catch(function (err) {
+              console.error("Could not copy link: ", err);
+            });
+        });
+      });
+
+      // Highlight option if it's in the URL hash
+      if (window.location.hash) {
+        const targetOption = document.querySelector(window.location.hash);
+        if (targetOption) {
+          // Scroll to the option with some offset
+          setTimeout(function () {
+            window.scrollTo(0, targetOption.offsetTop - 80);
+          }, 100);
+          // Add highlight class
+          targetOption.classList.add("highlight");
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        // Process footnotes
+        const content = document.querySelector(".content");
+        const footnoteContainer = document.querySelector(
+          ".footnotes-container",
+        );
+
+        // Find all footnote references and create a footnotes section
+        const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
+        if (footnoteRefs.length > 0) {
+          const footnotesDiv = document.createElement("div");
+          footnotesDiv.className = "footnotes";
+
+          const footnotesHeading = document.createElement("h2");
+          footnotesHeading.textContent = "Footnotes";
+          footnotesDiv.appendChild(footnotesHeading);
+
+          const footnotesList = document.createElement("ol");
+          footnoteContainer.appendChild(footnotesDiv);
+          footnotesDiv.appendChild(footnotesList);
+
+          // Add footnotes
+          document.querySelectorAll(".footnote").forEach((footnote) => {
+            const id = footnote.id;
+            const content = footnote.innerHTML;
+
+            const li = document.createElement("li");
+            li.id = id;
+            li.innerHTML = content;
+
+            // Add backlink
+            const backlink = document.createElement("a");
+            backlink.href = "#fnref:" + id.replace("fn:", "");
+            backlink.className = "footnote-backlink";
+            backlink.textContent = "↩";
+            li.appendChild(backlink);
+
+            footnotesList.appendChild(li);
+          });
+        }
+      });
+    </script>
   </body>
 </html>

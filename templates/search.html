@@ -10,110 +10,191 @@
   <body>
     <div class="container">
       <header>
-        <div class="header-content">
-          <h1 class="site-title">
-            <a href="index.html">NixOS Documentation</a>
-          </h1>
-          <div class="search-container">
-            <input
-              type="text"
-              id="search-input"
-              placeholder="Search documentation..."
-            />
-            <div id="search-results" class="search-results"></div>
-          </div>
+        <div class="header-left">
+          <h1 class="site-title"><a href="index.html">{{site_title}}</a></h1>
+        </div>
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
         </div>
       </header>
 
       <div class="layout">
-        <nav class="sidebar">
+        <nav id="sidebar" class="sidebar">
+          <div class="docs-nav">
+            <h2>Documents</h2>
+            <ul>
+              {{doc_nav}}
+            </ul>
+          </div>
+
+          <div class="toc">
+            <h2>Contents</h2>
+            <ul class="toc-list">
+              {{toc}}
+            </ul>
+          </div>
+
           <div class="navigation">
-            <h3>Navigation</h3>
+            <h2>Navigation</h2>
             <ul>
               <li><a href="index.html">Home</a></li>
-              <li><a href="options.html">Options</a></li>
-              <li><a href="search.html">Search</a></li>
+              <li {{has_options}}><a href="options.html">Options</a></li>
+              <li class="active"><a href="search.html">Search</a></li>
             </ul>
           </div>
         </nav>
 
         <main class="content">
-          <h1>Search Documentation</h1>
-          <p>
-            Use the search box below to find content throughout the
-            documentation.
-          </p>
-
-          <div class="search-form">
-            <input
-              type="text"
-              id="full-search"
-              placeholder="Enter search terms..."
-            />
+          <h1>Search</h1>
+          <div class="search-page">
+            <div class="search-form">
+              <input
+                type="text"
+                id="search-page-input"
+                placeholder="Search..."
+                autofocus
+              />
+            </div>
+            <div id="search-page-results" class="search-page-results"></div>
           </div>
-
-          <div id="search-results-container">
-            <h2>Results</h2>
-            <div id="full-search-results"></div>
+          <div class="footnotes-container">
+            <!-- Footnotes will be appended here -->
           </div>
-
-          <script>
-            document.addEventListener("DOMContentLoaded", function () {
-              const searchInput = document.getElementById("full-search");
-              const resultsContainer = document.getElementById(
-                "full-search-results",
-              );
-
-              // Load search data
-              fetch("assets/search-data.json")
-                .then((response) => response.json())
-                .then((data) => {
-                  searchInput.addEventListener("input", function () {
-                    const searchTerm = this.value.toLowerCase();
-                    if (searchTerm.length < 2) {
-                      resultsContainer.innerHTML =
-                        "<p>Please enter at least 2 characters</p>";
-                      return;
-                    }
-
-                    const results = data.filter(
-                      (doc) =>
-                        doc.title.toLowerCase().includes(searchTerm) ||
-                        doc.content.toLowerCase().includes(searchTerm),
-                    );
-
-                    if (results.length === 0) {
-                      resultsContainer.innerHTML = "<p>No results found</p>";
-                    } else {
-                      resultsContainer.innerHTML = results
-                        .slice(0, 20)
-                        .map(
-                          (doc) => `
-                                                <div class="search-result">
-                                                    <h3><a href="${doc.path}">${doc.title}</a></h3>
-                                                    <p>${doc.content.substring(0, 200)}...</p>
-                                                </div>
-                                            `,
-                        )
-                        .join("");
-                    }
-                  });
-                })
-                .catch((error) => {
-                  console.error("Error loading search data:", error);
-                  resultsContainer.innerHTML =
-                    "<p>Error loading search data</p>";
-                });
-            });
-          </script>
         </main>
       </div>
 
       <footer>
-        <div class="footer-content">
-          <p>Generated with ndg | {{current_date}}</p>
-        </div>
+        <p>{{footer_text}}</p>
       </footer>
     </div>
+
+    <script>
+      // Load search data
+      fetch("assets/search-data.json")
+        .then((response) => response.json())
+        .then((data) => {
+          // Store search data globally
+          window.searchData = data;
+
+          // Set up event listener
+          document
+            .getElementById("search-page-input")
+            .addEventListener("input", performSearch);
+
+          // Perform search if URL has query
+          const params = new URLSearchParams(window.location.search);
+          const query = params.get("q");
+          if (query) {
+            document.getElementById("search-page-input").value = query;
+            performSearch({ target: { value: query } });
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading search data:", error);
+          document.getElementById("search-page-results").innerHTML =
+            "<p>Error loading search data</p>";
+        });
+
+      function performSearch(e) {
+        const query = e.target.value.toLowerCase().trim();
+        const resultsContainer = document.getElementById("search-page-results");
+
+        if (query.length < 2) {
+          resultsContainer.innerHTML =
+            "<p>Please enter at least 2 characters to search</p>";
+          return;
+        }
+
+        // Search logic
+        const results = window.searchData.filter(
+          (doc) =>
+            doc.title.toLowerCase().includes(query) ||
+            doc.content.toLowerCase().includes(query),
+        );
+
+        // Display results
+        if (results.length > 0) {
+          let html = '<ul class="search-results-list">';
+          for (const result of results) {
+            const preview = generatePreview(result.content, query);
+            html += `<li class="search-result-item">
+              <a href="${result.path}">
+                <div class="search-result-title">${result.title}</div>
+                <div class="search-result-preview">${preview}</div>
+              </a>
+            </li>`;
+          }
+          html += "</ul>";
+          resultsContainer.innerHTML = html;
+        } else {
+          resultsContainer.innerHTML = "<p>No results found</p>";
+        }
+
+        // Update URL with query
+        const url = new URL(window.location.href);
+        url.searchParams.set("q", query);
+        window.history.replaceState({}, "", url.toString());
+      }
+
+      function generatePreview(content, query) {
+        const maxLength = 150;
+        const lowerContent = content.toLowerCase();
+        const index = lowerContent.indexOf(query);
+
+        if (index === -1) return content.slice(0, maxLength) + "...";
+
+        const start = Math.max(0, index - 50);
+        const end = Math.min(content.length, index + query.length + 50);
+        let preview = content.slice(start, end);
+
+        if (start > 0) preview = "..." + preview;
+        if (end < content.length) preview += "...";
+
+        return preview;
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        // Process footnotes
+        const content = document.querySelector(".content");
+        const footnoteContainer = document.querySelector(
+          ".footnotes-container",
+        );
+
+        // Find all footnote references and create a footnotes section
+        const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
+        if (footnoteRefs.length > 0) {
+          const footnotesDiv = document.createElement("div");
+          footnotesDiv.className = "footnotes";
+
+          const footnotesHeading = document.createElement("h2");
+          footnotesHeading.textContent = "Footnotes";
+          footnotesDiv.appendChild(footnotesHeading);
+
+          const footnotesList = document.createElement("ol");
+          footnoteContainer.appendChild(footnotesDiv);
+          footnotesDiv.appendChild(footnotesList);
+
+          // Add footnotes
+          document.querySelectorAll(".footnote").forEach((footnote) => {
+            const id = footnote.id;
+            const content = footnote.innerHTML;
+
+            const li = document.createElement("li");
+            li.id = id;
+            li.innerHTML = content;
+
+            // Add backlink
+            const backlink = document.createElement("a");
+            backlink.href = "#fnref:" + id.replace("fn:", "");
+            backlink.className = "footnote-backlink";
+            backlink.textContent = "↩";
+            li.appendChild(backlink);
+
+            footnotesList.appendChild(li);
+          });
+        }
+      });
+    </script>
   </body>
 </html>
