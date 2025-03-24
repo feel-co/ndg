@@ -104,7 +104,7 @@ pub fn render(
     }
 
     // Check if active page
-    let has_options = if config.options_json.is_some() {
+    let has_options = if config.module_options.is_some() {
         ""
     } else {
         "style=\"display:none;\""
@@ -344,7 +344,7 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     html = html.replace("{{doc_nav}}", &doc_nav);
 
     // Check if active page
-    let has_options = if config.options_json.is_some() {
+    let has_options = if config.module_options.is_some() {
         ""
     } else {
         "style=\"display:none;\""

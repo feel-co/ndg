@@ -11,7 +11,7 @@ pub struct Config {
     pub output_dir: PathBuf,
 
     /// Path to options.json file (optional)
-    pub options_json: Option<PathBuf>,
+    pub module_options: Option<PathBuf>,
 
     /// Path to custom template file
     pub template_path: Option<PathBuf>,
@@ -49,7 +49,7 @@ impl Default for Config {
         Self {
             input_dir: PathBuf::from("docs"),
             output_dir: PathBuf::from("build"),
-            options_json: None,
+            module_options: None,
             template_path: None,
             stylesheet_path: None,
             assets_dir: None,

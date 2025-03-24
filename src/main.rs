@@ -17,11 +17,12 @@ use config::Config;
 #[derive(Parser, Debug)]
 #[command(author, version)]
 struct Cli {
-    /// Path to options.json file
+    /// Path to a JSON file containing module options in the same format
+    /// expected by nixos-render-docs.
     #[arg(short = 'j', long)]
-    options_json: Option<PathBuf>,
+    module_options: Option<PathBuf>,
 
-    /// Path to markdown files directory
+    /// Path to the directory containing markdown files
     #[arg(short, long)]
     input: PathBuf,
 
@@ -38,7 +39,7 @@ struct Cli {
     stylesheet: Option<PathBuf>,
 
     /// Title of the documentation
-    #[arg(short = 'T', long)] // Changed from 't' to 'T'
+    #[arg(short = 'T', long)]
     title: String,
 
     /// Path to manpage URL mappings JSON file
@@ -74,7 +75,7 @@ fn main() -> Result<()> {
     let config = Config {
         input_dir: cli.input,
         output_dir: cli.output,
-        options_json: cli.options_json,
+        module_options: cli.module_options,
         template_path: cli.template,
         stylesheet_path: cli.stylesheet,
         manpage_urls_path: cli.manpage_urls,
@@ -106,7 +107,7 @@ fn main() -> Result<()> {
         .try_for_each(|file_path| markdown::process_markdown_file(&config, file_path))?;
 
     // Process options.json if provided
-    if let Some(options_path) = &config.options_json {
+    if let Some(options_path) = &config.module_options {
         info!("Processing options.json from {}", options_path.display());
         options::process_options(&config, options_path)?;
     }

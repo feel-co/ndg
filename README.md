@@ -29,16 +29,30 @@ set of modules.
 Usage: ndg [OPTIONS] --input <INPUT> --output <OUTPUT> --title <TITLE>
 
 Options:
-  -j, --options-json <OPTIONS_JSON>  Path to options.json file
-  -i, --input <INPUT>                Path to markdown files directory
-  -o, --output <OUTPUT>              Output directory for generated documentation
-  -t, --template <TEMPLATE>          Path to custom template file
-  -s, --stylesheet <STYLESHEET>      Path to custom stylesheet
-  -T, --title <TITLE>                Title of the documentation
-  -p, --jobs <JOBS>                  Number of threads to use for parallel processing
-  -v, --verbose                      Enable verbose logging
-  -h, --help                         Print help
-  -V, --version                      Print version
+  -j, --module-options <MODULE_OPTIONS>
+          Path to a JSON file containing module options in the same format expected by nixos-render-docs
+  -i, --input <INPUT>
+          Path to the directory containing markdown files
+  -o, --output <OUTPUT>
+          Output directory for generated documentation
+  -t, --template <TEMPLATE>
+          Path to custom template file
+  -s, --stylesheet <STYLESHEET>
+          Path to custom stylesheet
+  -T, --title <TITLE>
+          Title of the documentation
+      --manpage-urls <MANPAGE_URLS>
+          Path to manpage URL mappings JSON file
+  -p, --jobs <JOBS>
+          Number of threads to use for parallel processing
+  -v, --verbose
+          Enable verbose logging
+  -f, --footer <FOOTER>
+          Footer text for the documentation
+  -h, --help
+          Print help
+  -V, --version
+          Print version
 ```
 
 You must give ndg a **input directory** containing your markdown files
@@ -66,7 +80,7 @@ ndg supports various customization options to tailor the output to your needs:
 You can provide your own HTML template using the `--template` option:
 
 ```bash
-ndg -i ./docs -o ./html -T "My Project" -t ./my-template.html
+ndg -i ./docs -o ./html -T "Awesome Project" -t ./my-template.html
 ```
 
 The template should include the following placeholders:
@@ -94,16 +108,32 @@ file:
 ndg -i ./docs -o ./html -T "My Project" -j ./options.json
 ```
 
-The `options.json` should be in the standard NixOS format:
+[nvf]: https://github.com/notashelf/nvf
+
+The `options.json` should be in the standard NixOS format. An example from
+[nvf], created via `pkgs.nixosOptionsDoc`.
 
 ```JSON
 {
-  "option.name": {
-    "type": "string",
-    "description": "Description of the option",
-    "default": "default value",
-    "example": "example value",
-    "declared": "module path"
+  "vim.withRuby": {
+    "declarations": [
+      {
+        "name": "<nvf/modules/wrapper/environment/options.nix>",
+        "url": "https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"
+      }
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "description": "Whether to enable Ruby support in the Neovim wrapper.\n.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "loc": ["vim", "withRuby"],
+    "readOnly": false,
+    "type": "boolean"
   }
 }
 ```
