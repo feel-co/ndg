@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{title}}</title>
     <link rel="stylesheet" href="assets/style.css" />
-    <script defer src="assets/search.js"></script>
   </head>
   <body>
     <div class="container">
@@ -13,6 +12,12 @@
         <div class="header-left">
           <h1 class="site-title"><a href="index.html">{{site_title}}</a></h1>
         </div>
+        <nav class="header-nav">
+          <ul>
+            <li class="active"><a href="options.html">Options</a></li>
+            <li><a href="search.html">Search</a></li>
+          </ul>
+        </nav>
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
@@ -20,7 +25,11 @@
       </header>
 
       <div class="layout">
-        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+        <div
+          class="sidebar-toggle"
+          aria-label="Toggle sidebar"
+          onclick="toggleSidebar()"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -42,15 +51,6 @@
             <h2>Contents</h2>
             <ul class="toc-list">
               {{toc}}
-            </ul>
-          </div>
-
-          <div class="navigation">
-            <h2>Navigation</h2>
-            <ul>
-              <li><a href="index.html">Home</a></li>
-              <li class="active"><a href="options.html">Options</a></li>
-              <li><a href="search.html">Search</a></li>
             </ul>
           </div>
         </nav>
@@ -80,26 +80,12 @@
       </footer>
     </div>
 
+    <script src="assets/search.js" defer></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        // Sidebar Toggle
-        const sidebarToggle = document.querySelector(".sidebar-toggle");
-        if (sidebarToggle) {
-          sidebarToggle.addEventListener("click", function () {
-            document.body.classList.toggle("sidebar-collapsed");
-
-            // Save state to localStorage
-            const isCollapsed =
-              document.body.classList.contains("sidebar-collapsed");
-            localStorage.setItem("sidebar-collapsed", isCollapsed);
-          });
-
-          // Restore sidebar state from localStorage
-          const isCollapsed =
-            localStorage.getItem("sidebar-collapsed") === "true";
-          if (isCollapsed) {
-            document.body.classList.add("sidebar-collapsed");
-          }
+        // Initialize sidebar state from localStorage on page load
+        if (localStorage.getItem("sidebar-collapsed") === "true") {
+          document.body.classList.add("sidebar-collapsed");
         }
 
         // Process footnotes
@@ -141,73 +127,84 @@
             footnotesList.appendChild(li);
           });
         }
-      });
 
-      // Options filter functionality
-      document
-        .getElementById("options-filter")
-        .addEventListener("input", function (e) {
-          const searchTerm = e.target.value.toLowerCase();
-          document.querySelectorAll(".option").forEach(function (option) {
-            const name = option
-              .querySelector(".option-name")
-              .textContent.toLowerCase();
-            const description = option
-              .querySelector(".option-description")
-              .textContent.toLowerCase();
+        // Options filter
+        const optionsFilter = document.getElementById("options-filter");
+        if (optionsFilter) {
+          optionsFilter.addEventListener("input", function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            document.querySelectorAll(".option").forEach(function (option) {
+              const name = option
+                .querySelector(".option-name")
+                .textContent.toLowerCase();
+              const description = option
+                .querySelector(".option-description")
+                .textContent.toLowerCase();
 
-            if (name.includes(searchTerm) || description.includes(searchTerm)) {
-              option.style.display = "";
-            } else {
-              option.style.display = "none";
-            }
+              if (
+                name.includes(searchTerm) ||
+                description.includes(searchTerm)
+              ) {
+                option.style.display = "";
+              } else {
+                option.style.display = "none";
+              }
+            });
+          });
+        }
+
+        // Copy link functionality
+        document.querySelectorAll(".copy-link").forEach(function (copyLink) {
+          copyLink.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Get option ID from parent element
+            const option = copyLink.closest(".option");
+            const optionId = option.id;
+
+            // Create URL with hash
+            const url = new URL(window.location.href);
+            url.hash = optionId;
+
+            // Copy to clipboard
+            navigator.clipboard
+              .writeText(url.toString())
+              .then(function () {
+                // Show feedback
+                const feedback = copyLink.nextElementSibling;
+                feedback.style.display = "inline";
+
+                // Hide after 2 seconds
+                setTimeout(function () {
+                  feedback.style.display = "none";
+                }, 2000);
+              })
+              .catch(function (err) {
+                console.error("Could not copy link: ", err);
+              });
           });
         });
 
-      // Copy link functionality
-      document.querySelectorAll(".copy-link").forEach(function (copyLink) {
-        copyLink.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          // Get option ID from parent element
-          const option = copyLink.closest(".option");
-          const optionId = option.id;
-
-          // Create URL with hash
-          const url = new URL(window.location.href);
-          url.hash = optionId;
-
-          // Copy to clipboard
-          navigator.clipboard
-            .writeText(url.toString())
-            .then(function () {
-              // Show feedback
-              const feedback = copyLink.nextElementSibling;
-              feedback.style.display = "inline";
-
-              // Hide after 2 seconds
-              setTimeout(function () {
-                feedback.style.display = "none";
-              }, 2000);
-            })
-            .catch(function (err) {
-              console.error("Could not copy link: ", err);
-            });
-        });
+        // Highlight option if it's in the URL hash
+        if (window.location.hash) {
+          const targetOption = document.querySelector(window.location.hash);
+          if (targetOption) {
+            // Scroll to the option with some offset
+            setTimeout(function () {
+              window.scrollTo(0, targetOption.offsetTop - 80);
+            }, 100);
+            // Add highlight class
+            targetOption.classList.add("highlight");
+          }
+        }
       });
 
-      // Highlight option if it's in the URL hash
-      if (window.location.hash) {
-        const targetOption = document.querySelector(window.location.hash);
-        if (targetOption) {
-          // Scroll to the option with some offset
-          setTimeout(function () {
-            window.scrollTo(0, targetOption.offsetTop - 80);
-          }, 100);
-          // Add highlight class
-          targetOption.classList.add("highlight");
-        }
+      function toggleSidebar() {
+        document.body.classList.toggle("sidebar-collapsed");
+        const isCollapsed =
+          document.body.classList.contains("sidebar-collapsed");
+        localStorage.setItem("sidebar-collapsed", isCollapsed);
       }
     </script>
   </body>

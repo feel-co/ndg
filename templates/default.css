@@ -212,6 +212,53 @@ header {
   text-decoration: none;
 }
 
+/* Header navigation styling */
+.header-nav {
+  margin: 0 auto 0 var(--space-6);
+}
+
+.header-nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-4);
+}
+
+.header-nav li {
+  position: relative;
+}
+
+.header-nav a {
+  color: var(--header-text);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: var(--space-2) 0;
+  transition: color var(--transition-fast);
+  display: block;
+}
+
+.header-nav a:hover {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+}
+
+.header-nav li.active a {
+  position: relative;
+}
+
+.header-nav li.active a::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--header-text);
+  border-radius: var(--radius-sm);
+}
+
 /* Layout  */
 .layout {
   display: flex;
