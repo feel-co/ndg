@@ -99,9 +99,10 @@ fn extract_title(content: &str) -> Option<String> {
 
     for event in parser {
         match event {
-            Event::Start(Tag::Heading { level, .. })
-                if level == pulldown_cmark::HeadingLevel::H1 =>
-            {
+            Event::Start(Tag::Heading {
+                level: pulldown_cmark::HeadingLevel::H1,
+                ..
+            }) => {
                 in_h1 = true;
             }
             Event::Text(text) if in_h1 => {

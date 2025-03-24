@@ -53,8 +53,7 @@ fn generate_css(config: &Config) -> Result<String> {
 
             // Process SCSS if needed
             if stylesheet_path
-                .extension()
-                .map_or(false, |ext| ext == "scss")
+                .extension().is_some_and(|ext| ext == "scss")
             {
                 grass::from_string(content, &grass::Options::default())
                     .context("Failed to compile SCSS to CSS")?

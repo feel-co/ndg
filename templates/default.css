@@ -167,11 +167,9 @@ a:hover {
 }
 
 code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: monospace;
   background-color: var(--code-bg);
-  padding: 0.2em 0.4em;
   border-radius: 3px;
-  font-size: 0.9em;
 }
 
 pre {
@@ -179,7 +177,6 @@ pre {
   padding: 1rem;
   border-radius: 5px;
   overflow-x: auto;
-  font-size: 0.9em;
 }
 
 pre code {
@@ -455,4 +452,34 @@ img {
 
 .option-reference:hover code {
   text-decoration: underline;
+}
+
+.option-metadata {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+/* Special markup elements */
+.option pre {
+  margin: 0.5em 0;
+  overflow: auto;
+  max-height: 300px;
+}
+
+.command-markup {
+  font-weight: bold;
+}
+
+.env-markup,
+.file-markup,
+.var-markup {
+  font-family: monospace;
+  background-color: var(--code-bg);
+  border-radius: 3px;
+}
+
+.option-markup {
+  color: var(--link-color);
 }

@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
+use lazy_static::lazy_static;
 use log::debug;
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use regex::Regex;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -31,12 +34,25 @@ pub fn collect_markdown_files(input_dir: &Path) -> Result<Vec<PathBuf>> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
+        if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
             files.push(path.to_owned());
         }
     }
 
     Ok(files)
+}
+
+/// Load manpage URL mappings from JSON file
+fn load_manpage_urls(path: &Path) -> Result<HashMap<String, String>> {
+    debug!("Loading manpage URL mappings from {}", path.display());
+    let content = fs::read_to_string(path).context(format!(
+        "Failed to read manpage mappings file: {}",
+        path.display()
+    ))?;
+    let mappings: HashMap<String, String> =
+        serde_json::from_str(&content).context("Failed to parse manpage mappings JSON")?;
+    debug!("Loaded {} manpage URL mappings", mappings.len());
+    Ok(mappings)
 }
 
 /// Process a single markdown file
@@ -48,6 +64,19 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
         "Failed to read markdown file: {}",
         file_path.display()
     ))?;
+
+    // Load manpage URL mappings if configured
+    let manpage_urls = if let Some(mappings_path) = &config.manpage_urls_path {
+        match load_manpage_urls(mappings_path) {
+            Ok(mappings) => Some(mappings),
+            Err(err) => {
+                debug!("Error loading manpage mappings: {}", err);
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     // Extract headers and title
     let (headers, title) = extract_headers(&content);
@@ -69,8 +98,8 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
         }
     }
 
-    // Convert to HTML
-    let html_content = markdown_to_html(&content);
+    // Convert to HTML with nixpkgs flavored markdown
+    let html_content = markdown_to_html(&content, manpage_urls.as_ref());
 
     // Render with template
     let html = template::render(
@@ -90,8 +119,8 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Convert markdown to HTML
-fn markdown_to_html(markdown: &str) -> String {
+/// Convert markdown to HTML with NixOS flavored extensions
+fn markdown_to_html(markdown: &str, manpage_urls: Option<&HashMap<String, String>>) -> String {
     // Set up parser with extensions
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
@@ -99,13 +128,129 @@ fn markdown_to_html(markdown: &str) -> String {
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TASKLISTS);
 
-    let parser = Parser::new_ext(markdown, options);
+    // Pre-process NixOS special markup patterns
+    let processed_markdown = preprocess_special_markup(markdown);
+
+    // Regular parser for standard markdown
+    let parser = Parser::new_ext(&processed_markdown, options);
 
     // Convert to HTML
     let mut html_output = String::new();
     pulldown_cmark::html::push_html(&mut html_output, parser);
 
-    html_output
+    // Post-process HTML for NixOS-specific elements
+    process_nixpkgs_elements(&html_output, manpage_urls)
+}
+
+/// Preprocess special markup patterns like {file}`path` in markdown
+fn preprocess_special_markup(markdown: &str) -> String {
+    lazy_static! {
+        // Match inline NixOS-specific markup patterns
+        static ref COMMAND_MARKUP: Regex = Regex::new(r"\{command\}`([^`]+)`").unwrap();
+        static ref ENV_MARKUP: Regex = Regex::new(r"\{env\}`([^`]+)`").unwrap();
+        static ref FILE_MARKUP: Regex = Regex::new(r"\{file\}`([^`]+)`").unwrap();
+        static ref OPTION_MARKUP: Regex = Regex::new(r"\{option\}`([^`]+)`").unwrap();
+        static ref VAR_MARKUP: Regex = Regex::new(r"\{var\}`([^`]+)`").unwrap();
+        static ref SPAN_MARKUP: Regex = Regex::new(r#"<span class="(\w+)-markup">([^<]+)</span>"#).unwrap();
+    }
+
+    // First convert any existing span markup to our special format
+    let mut result = SPAN_MARKUP
+        .replace_all(markdown, |caps: &regex::Captures| {
+            let markup_type = &caps[1];
+            let content = &caps[2];
+            format!("{{{}}}`{}`", markup_type, content)
+        })
+        .to_string();
+
+    // Replace {command} markup
+    result = COMMAND_MARKUP
+        .replace_all(&result, |caps: &regex::Captures| {
+            format!("<span class=\"command-markup\">{}</span>", &caps[1])
+        })
+        .to_string();
+
+    // Replace {env} markup
+    result = ENV_MARKUP
+        .replace_all(&result, |caps: &regex::Captures| {
+            format!("<span class=\"env-markup\">{}</span>", &caps[1])
+        })
+        .to_string();
+
+    // Replace {file} markup
+    result = FILE_MARKUP
+        .replace_all(&result, |caps: &regex::Captures| {
+            format!("<span class=\"file-markup\">{}</span>", &caps[1])
+        })
+        .to_string();
+
+    // Replace {option} markup
+    result = OPTION_MARKUP
+        .replace_all(&result, |caps: &regex::Captures| {
+            format!("<span class=\"option-markup\">{}</span>", &caps[1])
+        })
+        .to_string();
+
+    // Replace {var} markup
+    result = VAR_MARKUP
+        .replace_all(&result, |caps: &regex::Captures| {
+            format!("<span class=\"var-markup\">{}</span>", &caps[1])
+        })
+        .to_string();
+
+    result
+}
+
+/// Process NixOS-specific elements in the generated HTML
+fn process_nixpkgs_elements(html: &str, manpage_urls: Option<&HashMap<String, String>>) -> String {
+    lazy_static! {
+        // Match command prompts
+        static ref PROMPT_RE: Regex = Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap();
+        // Match manpage references
+        static ref MANPAGE_RE: Regex = Regex::new(r"(\w+)\((\d+)\)").unwrap();
+        // Match option references like `option.path`
+        static ref OPTION_RE: Regex = Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap();
+    }
+
+    // Process command prompts
+    let with_prompts = PROMPT_RE.replace_all(html, |caps: &regex::Captures| {
+        format!(
+            "<code class=\"command\"><span class=\"prompt\">$</span> {}</code>",
+            &caps[1]
+        )
+    });
+
+    // Process manpage references - only if URL mappings are provided
+    let with_manpages = if let Some(urls) = manpage_urls {
+        MANPAGE_RE
+            .replace_all(&with_prompts, |caps: &regex::Captures| {
+                let name = &caps[1];
+                let section = &caps[2];
+                let manpage_ref = format!("{}({})", name, section);
+                if let Some(url) = urls.get(&manpage_ref) {
+                    format!("<a href=\"{}\" class=\"manpage\">{}</a>", url, &manpage_ref)
+                } else {
+                    // No URL mapping found, leave as plain text
+                    manpage_ref
+                }
+            })
+            .to_string()
+    } else {
+        // No manpage URL mappings provided, leave as plain text
+        with_prompts.to_string()
+    };
+
+    // Process option references
+    let with_options = OPTION_RE.replace_all(&with_manpages, |caps: &regex::Captures| {
+        let option_path = &caps[1];
+        let option_id = format!("option-{}", option_path.replace(".", "-"));
+        format!(
+            "<a href=\"options.html#{}\" class=\"option-reference\"><code>{}</code></a>",
+            option_id, option_path
+        )
+    });
+
+    with_options.to_string()
 }
 
 /// Extract headers from markdown content
@@ -182,4 +327,23 @@ fn generate_id(text: &str) -> String {
         .join("-");
 
     id
+}
+
+/// Process markdown string into HTML, useful for option descriptions
+pub fn process_markdown_string(markdown: &str) -> String {
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_FOOTNOTES);
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_TASKLISTS);
+
+    // Pre-process NixOS special markup patterns
+    let processed_markdown = preprocess_special_markup(markdown);
+
+    let parser = Parser::new_ext(&processed_markdown, options);
+    let mut html = String::new();
+    pulldown_cmark::html::push_html(&mut html, parser);
+
+    // Apply nixpkgs-specific processing - no manpage URLs for option descriptions
+    process_nixpkgs_elements(&html, None)
 }

@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
 use log::{info, LevelFilter};
-use num_cpus;
 use rayon::prelude::*;
 use std::fs;
 use std::path::PathBuf;
@@ -42,6 +41,10 @@ struct Cli {
     #[arg(short = 'T', long)] // Changed from 't' to 'T'
     title: String,
 
+    /// Path to manpage URL mappings JSON file
+    #[arg(long = "manpage-urls")]
+    manpage_urls: Option<PathBuf>,
+
     /// Number of threads to use for parallel processing
     #[arg(short = 'p', long = "jobs")]
     jobs: Option<usize>,
@@ -74,8 +77,12 @@ fn main() -> Result<()> {
         options_json: cli.options_json,
         template_path: cli.template,
         stylesheet_path: cli.stylesheet,
+        manpage_urls_path: cli.manpage_urls,
         title: cli.title,
         jobs: cli.jobs,
+        footer_text: cli
+            .footer
+            .unwrap_or_else(|| "Generated with ndg".to_string()),
         ..Default::default()
     };
 

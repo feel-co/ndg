@@ -150,6 +150,22 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
             option_id, option.name
         ));
 
+        // Option metadata (internal/readOnly)
+        let mut metadata = Vec::new();
+        if option.internal {
+            metadata.push("internal");
+        }
+        if option.read_only {
+            metadata.push("read-only");
+        }
+
+        if !metadata.is_empty() {
+            option_html.push_str(&format!(
+                "  <div class=\"option-metadata\">{}</div>\n",
+                metadata.join(", ")
+            ));
+        }
+
         // Option type
         option_html.push_str(&format!(
             "  <div class=\"option-type\">Type: <code>{}</code></div>\n",
@@ -162,7 +178,7 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
             option.description
         ));
 
-        // Option default
+        // Option default - use inline code for simple values
         if let Some(default_text) = &option.default_text {
             option_html.push_str(&format!(
                 "  <div class=\"option-default\">Default: <code>{}</code></div>\n",
@@ -175,17 +191,32 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
             ));
         }
 
-        // Option example
+        // Option example - use pre only for multiline examples
         if let Some(example_text) = &option.example_text {
-            option_html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <code>{}</code></div>\n",
-                example_text
-            ));
+            if example_text.contains('\n') {
+                option_html.push_str(&format!(
+                    "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>\n",
+                    example_text
+                ));
+            } else {
+                option_html.push_str(&format!(
+                    "  <div class=\"option-example\">Example: <code>{}</code></div>\n",
+                    example_text
+                ));
+            }
         } else if let Some(example_val) = &option.example {
-            option_html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <code>{}</code></div>\n",
-                example_val
-            ));
+            let example_str = example_val.to_string();
+            if example_str.contains('\n') {
+                option_html.push_str(&format!(
+                    "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>\n",
+                    example_str
+                ));
+            } else {
+                option_html.push_str(&format!(
+                    "  <div class=\"option-example\">Example: <code>{}</code></div>\n",
+                    example_str
+                ));
+            }
         }
 
         // Option declared in
@@ -259,8 +290,6 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
 pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result<String> {
     // Get search template
     let template_content = include_str!("../templates/search.html").to_string();
-
-    // Create a local variable to avoid the temporary value issue
     let title_str = context
         .get("title")
         .cloned()

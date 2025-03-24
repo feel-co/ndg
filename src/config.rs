@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// Configuration options for the documentation generator
+/// Configuration options for ndg
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Input directory containing markdown files
@@ -21,6 +21,9 @@ pub struct Config {
 
     /// Directory containing additional assets
     pub assets_dir: Option<PathBuf>,
+
+    /// Path to manpage URL mappings JSON file
+    pub manpage_urls_path: Option<PathBuf>,
 
     /// Title for the documentation
     pub title: String,
@@ -50,6 +53,7 @@ impl Default for Config {
             template_path: None,
             stylesheet_path: None,
             assets_dir: None,
+            manpage_urls_path: None,
             title: "ndg documentation".to_string(),
             jobs: None,
             generate_anchors: true,
