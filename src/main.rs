@@ -38,7 +38,13 @@ struct Cli {
     #[arg(short, long)]
     stylesheet: Option<PathBuf>,
 
-    /// Title of the documentation
+    /// Path to custom Javascript file to include. This can be specified
+    /// multiple times to create multiple script tags in order.
+    #[arg(long, action = clap::ArgAction::Append)]
+    script: Vec<PathBuf>,
+
+    /// Title of the documentation. Will be used in various components via
+    /// the templating options.
     #[arg(short = 'T', long)]
     title: String,
 
@@ -50,7 +56,7 @@ struct Cli {
     #[arg(short = 'p', long = "jobs")]
     jobs: Option<usize>,
 
-    /// Enable verbose logging
+    /// Enable verbose debug logging
     #[arg(short, long)]
     verbose: bool,
 
@@ -78,6 +84,7 @@ fn main() -> Result<()> {
         module_options: cli.module_options,
         template_path: cli.template,
         stylesheet_path: cli.stylesheet,
+        script_paths: cli.script,
         manpage_urls_path: cli.manpage_urls,
         title: cli.title,
         jobs: cli.jobs,

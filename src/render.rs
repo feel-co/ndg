@@ -29,6 +29,40 @@ pub fn copy_assets(config: &Config) -> Result<()> {
         }
     }
 
+    // Copy script files to assets directory
+    if !config.script_paths.is_empty() {
+        for script_path in &config.script_paths {
+            if script_path.exists() {
+                let file_name = script_path.file_name().unwrap_or_default();
+                let dest_path = assets_dir.join(file_name);
+
+                // Read the content and write it rather than copying directly
+                // NOTE: This is to work around a weird file permission bug
+                // that I've experienced, and I'm not sure how necessary it
+                // is. Either way its performance impact is negligible, so
+                // I'm keeping it.
+                match fs::read(script_path) {
+                    Ok(content) => {
+                        if let Err(e) = fs::write(&dest_path, content) {
+                            return Err(anyhow::anyhow!(
+                                "Failed to write script file to {}: {}",
+                                dest_path.display(),
+                                e
+                            ));
+                        }
+                    }
+                    Err(e) => {
+                        return Err(anyhow::anyhow!(
+                            "Failed to read script file {}: {}",
+                            script_path.display(),
+                            e
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
     // Create search.js for search functionality
     if config.generate_search {
         fs::write(
@@ -52,9 +86,7 @@ fn generate_css(config: &Config) -> Result<String> {
             ))?;
 
             // Process SCSS if needed
-            if stylesheet_path
-                .extension().is_some_and(|ext| ext == "scss")
-            {
+            if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
                 grass::from_string(content, &grass::Options::default())
                     .context("Failed to compile SCSS to CSS")?
             } else {

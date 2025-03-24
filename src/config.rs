@@ -19,6 +19,9 @@ pub struct Config {
     /// Path to custom stylesheet
     pub stylesheet_path: Option<PathBuf>,
 
+    /// Paths to custom JavaScript files
+    pub script_paths: Vec<PathBuf>,
+
     /// Directory containing additional assets
     pub assets_dir: Option<PathBuf>,
 
@@ -52,6 +55,7 @@ impl Default for Config {
             module_options: None,
             template_path: None,
             stylesheet_path: None,
+            script_paths: Vec::new(),
             assets_dir: None,
             manpage_urls_path: None,
             title: "ndg documentation".to_string(),
