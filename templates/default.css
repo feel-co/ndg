@@ -10,6 +10,7 @@
   --link-color: #3b82f6;
   --link-hover-color: #2563eb;
   --border-color: #e2e8f0;
+  --table-border-color: #cbd5e1;
   --code-bg: #f1f5f9;
   --header-bg: #1e293b;
   --header-text: #f8fafc;
@@ -557,13 +558,34 @@ th {
   background-color: var(--bg-surface);
   font-weight: 600;
   transition: background-color var(--transition);
+  border-bottom-width: 2px;
 }
 
 tr:nth-child(even) {
   background-color: var(--bg-surface-2);
-  transition: background-color var(--transition);
 }
 
+@media (prefers-color-scheme: light) {
+  :root {
+    --table-border-color: #cbd5e1;
+  }
+
+  th,
+  td {
+    border-color: var(--table-border-color);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --table-border-color: #475569;
+  }
+
+  th,
+  td {
+    border-color: var(--table-border-color);
+  }
+}
 /* Images */
 img {
   max-width: 100%;
