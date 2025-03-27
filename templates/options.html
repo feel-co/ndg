@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{title}}</title>
     <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/search.js"></script>
   </head>
   <body>
     <div class="container">
@@ -14,7 +15,7 @@
         </div>
         <nav class="header-nav">
           <ul>
-            <li class="active"><a href="options.html">Options</a></li>
+            <li {{has_options}}><a href="options.html">Options</a></li>
             <li><a href="search.html">Search</a></li>
           </ul>
         </nav>
@@ -25,11 +26,7 @@
       </header>
 
       <div class="layout">
-        <div
-          class="sidebar-toggle"
-          aria-label="Toggle sidebar"
-          onclick="toggleSidebar()"
-        >
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -49,15 +46,12 @@
 
           <div class="toc">
             <h2>Contents</h2>
-            <ul class="toc-list">
-              {{toc}}
-            </ul>
+            {{toc}}
           </div>
         </nav>
 
         <main class="content">
           <h1>{{heading}}</h1>
-          <p>This page lists all available configuration options.</p>
 
           <div class="search-form">
             <input
@@ -80,12 +74,26 @@
       </footer>
     </div>
 
-    <script src="assets/search.js" defer></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        // Initialize sidebar state from localStorage on page load
-        if (localStorage.getItem("sidebar-collapsed") === "true") {
-          document.body.classList.add("sidebar-collapsed");
+        // Sidebar Toggle
+        const sidebarToggle = document.querySelector(".sidebar-toggle");
+        if (sidebarToggle) {
+          sidebarToggle.addEventListener("click", function () {
+            document.body.classList.toggle("sidebar-collapsed");
+
+            // Save state to localStorage
+            const isCollapsed =
+              document.body.classList.contains("sidebar-collapsed");
+            localStorage.setItem("sidebar-collapsed", isCollapsed);
+          });
+
+          // Restore sidebar state from localStorage
+          const isCollapsed =
+            localStorage.getItem("sidebar-collapsed") === "true";
+          if (isCollapsed) {
+            document.body.classList.add("sidebar-collapsed");
+          }
         }
 
         // Process footnotes
@@ -192,20 +200,16 @@
           if (targetOption) {
             // Scroll to the option with some offset
             setTimeout(function () {
-              window.scrollTo(0, targetOption.offsetTop - 80);
+              window.scrollTo({
+                top: targetOption.offsetTop - 80,
+                behavior: "smooth",
+              });
             }, 100);
             // Add highlight class
             targetOption.classList.add("highlight");
           }
         }
       });
-
-      function toggleSidebar() {
-        document.body.classList.toggle("sidebar-collapsed");
-        const isCollapsed =
-          document.body.classList.contains("sidebar-collapsed");
-        localStorage.setItem("sidebar-collapsed", isCollapsed);
-      }
     </script>
     {{custom_scripts}}
   </body>

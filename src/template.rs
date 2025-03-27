@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use std::{collections::HashMap, fs, path::Path};
+use tera::Tera;
 
 use crate::config::Config;
 use crate::markdown::Header;
@@ -9,6 +10,7 @@ use crate::options::NixOption;
 const DEFAULT_TEMPLATE: &str = include_str!("../templates/default.html");
 const OPTIONS_TEMPLATE: &str = include_str!("../templates/options.html");
 const SEARCH_TEMPLATE: &str = include_str!("../templates/search.html");
+const OPTIONS_TOC_TEMPLATE: &str = include_str!("../templates/options_toc.html");
 
 /// Render a documentation page
 pub fn render(
@@ -56,6 +58,9 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     // Create options HTML
     let options_html = generate_options_html(options);
 
+    // Generate options TOC using Tera templating
+    let options_toc = generate_options_toc(options, config)?;
+
     // Generate document navigation
     let doc_nav = generate_doc_nav(config)?;
 
@@ -72,9 +77,165 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
         .replace("{{custom_scripts}}", &custom_scripts)
         .replace("{{doc_nav}}", &doc_nav)
         .replace("{{has_options}}", "class=\"active\"")
-        .replace("{{toc}}", ""); // No TOC for options page
+        .replace("{{toc}}", &options_toc);
 
     Ok(html)
+}
+
+/// Generate specialized TOC for options page
+fn generate_options_toc(options: &HashMap<String, NixOption>, config: &Config) -> Result<String> {
+    let mut tera = Tera::default();
+    tera.add_raw_template("options_toc", OPTIONS_TOC_TEMPLATE)?;
+
+    // Configured depth or default of 2
+    let depth = config.options_toc_depth.unwrap_or(2);
+
+    let mut grouped_options: HashMap<String, Vec<&NixOption>> = HashMap::new();
+    let mut direct_parent_options: HashMap<String, &NixOption> = HashMap::new();
+
+    for option in options.values() {
+        let parent = get_option_parent(&option.name, depth);
+
+        // Check if this option exactly matches its parent category
+        if option.name == parent {
+            direct_parent_options.insert(parent.clone(), option);
+        }
+
+        // Add to grouped options
+        grouped_options.entry(parent).or_default().push(option);
+    }
+
+    // Separate categories into single options and dropdown categories
+    let mut single_options: Vec<tera::Value> = Vec::new();
+    let mut dropdown_categories: Vec<tera::Value> = Vec::new();
+
+    for (parent, opts) in &grouped_options {
+        let has_multiple_options = opts.len() > 1;
+        let has_child_options = opts.len()
+            > (if direct_parent_options.contains_key(parent) {
+                1
+            } else {
+                0
+            });
+
+        if !has_multiple_options && !has_child_options {
+            // Single option with no children
+            let option = opts[0];
+            let option_value = tera::to_value({
+                let mut map = tera::Map::new();
+                map.insert("name".to_string(), tera::to_value(&option.name)?);
+                map.insert("internal".to_string(), tera::to_value(option.internal)?);
+                map.insert("read_only".to_string(), tera::to_value(option.read_only)?);
+                map
+            })?;
+            single_options.push(option_value);
+        } else {
+            // Category with multiple options or child options
+            let mut category = tera::Map::new();
+            category.insert("name".to_string(), tera::to_value(parent)?);
+            category.insert("count".to_string(), tera::to_value(opts.len())?);
+
+            // Add parent option if it exists
+            if let Some(parent_option) = direct_parent_options.get(parent) {
+                let parent_option_value = tera::to_value({
+                    let mut map = tera::Map::new();
+                    map.insert("name".to_string(), tera::to_value(&parent_option.name)?);
+                    map.insert(
+                        "internal".to_string(),
+                        tera::to_value(parent_option.internal)?,
+                    );
+                    map.insert(
+                        "read_only".to_string(),
+                        tera::to_value(parent_option.read_only)?,
+                    );
+                    map
+                })?;
+                category.insert("parent_option".to_string(), parent_option_value);
+            }
+
+            // Add child options
+            let mut children = Vec::new();
+            let mut child_options: Vec<&NixOption> = opts
+                .iter()
+                .filter(|opt| opt.name != *parent)
+                .copied()
+                .collect();
+
+            // Sort by suffix
+            child_options.sort_by(|a, b| {
+                let a_suffix = a
+                    .name
+                    .strip_prefix(&format!("{}.", parent))
+                    .unwrap_or(&a.name);
+                let b_suffix = b
+                    .name
+                    .strip_prefix(&format!("{}.", parent))
+                    .unwrap_or(&b.name);
+                a_suffix.cmp(b_suffix)
+            });
+
+            for option in child_options {
+                let display_name = option
+                    .name
+                    .strip_prefix(&format!("{}.", parent))
+                    .unwrap_or(&option.name);
+
+                let child_value = tera::to_value({
+                    let mut map = tera::Map::new();
+                    map.insert("name".to_string(), tera::to_value(&option.name)?);
+                    map.insert("display_name".to_string(), tera::to_value(display_name)?);
+                    map.insert("internal".to_string(), tera::to_value(option.internal)?);
+                    map.insert("read_only".to_string(), tera::to_value(option.read_only)?);
+                    map
+                })?;
+                children.push(child_value);
+            }
+
+            category.insert("children".to_string(), tera::to_value(children)?);
+            dropdown_categories.push(tera::to_value(category)?);
+        }
+    }
+
+    // Sort single options alphabetically
+    single_options.sort_by(|a, b| {
+        let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        a_name.cmp(b_name)
+    });
+
+    // Sort dropdown categories
+    dropdown_categories.sort_by(|a, b| {
+        let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
+
+        let a_components = a_name.split('.').count();
+        let b_components = b_name.split('.').count();
+
+        // Sort by component count first
+        match a_components.cmp(&b_components) {
+            std::cmp::Ordering::Equal => a_name.cmp(b_name), // Then alphabetically
+            other => other,
+        }
+    });
+
+    let mut context = tera::Context::new();
+    context.insert("single_options", &single_options);
+    context.insert("dropdown_categories", &dropdown_categories);
+
+    // Render the template
+    let rendered = tera.render("options_toc", &context)?;
+
+    Ok(rendered)
+}
+
+/// Extract the parent category from an option name with configurable depth
+fn get_option_parent(option_name: &str, depth: usize) -> String {
+    let parts: Vec<&str> = option_name.split('.').collect();
+    if parts.len() <= depth {
+        option_name.to_string()
+    } else {
+        parts[..depth].join(".")
+    }
 }
 
 /// Render search page
@@ -187,7 +348,7 @@ fn generate_custom_scripts(config: &Config) -> Result<String> {
     let mut custom_scripts =
         String::with_capacity(config.script_paths.iter().fold(0, |acc, path| {
             if path.exists() {
-                acc + 1000 // Rough estimate for script size
+                acc + 1000 // FIXME: Rough estimate for script size
             } else {
                 acc
             }

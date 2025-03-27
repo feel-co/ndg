@@ -45,6 +45,9 @@ pub struct Config {
 
     /// Text to be inserted in the footer
     pub footer_text: String,
+
+    /// Depth of parent categories in options TOC
+    pub options_toc_depth: Option<usize>,
 }
 
 impl Default for Config {
@@ -64,6 +67,7 @@ impl Default for Config {
             embed_resources: false,
             generate_search: true,
             footer_text: "Generated with ndg".to_string(),
+            options_toc_depth: Some(2),
         }
     }
 }

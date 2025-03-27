@@ -17,11 +17,6 @@ use config::Config;
 #[derive(Parser, Debug)]
 #[command(author, version)]
 struct Cli {
-    /// Path to a JSON file containing module options in the same format
-    /// expected by nixos-render-docs.
-    #[arg(short = 'j', long)]
-    module_options: Option<PathBuf>,
-
     /// Path to the directory containing markdown files
     #[arg(short, long)]
     input: PathBuf,
@@ -29,6 +24,14 @@ struct Cli {
     /// Output directory for generated documentation
     #[arg(short, long)]
     output: PathBuf,
+
+    /// Number of threads to use for parallel processing
+    #[arg(short = 'p', long = "jobs")]
+    jobs: Option<usize>,
+
+    /// Enable verbose debug logging
+    #[arg(short, long)]
+    verbose: bool,
 
     /// Path to custom template file
     #[arg(short, long)]
@@ -48,21 +51,22 @@ struct Cli {
     #[arg(short = 'T', long)]
     title: String,
 
-    /// Path to manpage URL mappings JSON file
-    #[arg(long = "manpage-urls")]
-    manpage_urls: Option<PathBuf>,
-
-    /// Number of threads to use for parallel processing
-    #[arg(short = 'p', long = "jobs")]
-    jobs: Option<usize>,
-
-    /// Enable verbose debug logging
-    #[arg(short, long)]
-    verbose: bool,
-
     /// Footer text for the documentation
     #[arg(short = 'f', long)]
     footer: Option<String>,
+
+    /// Path to a JSON file containing module options in the same format
+    /// expected by nixos-render-docs.
+    #[arg(short = 'j', long)]
+    module_options: Option<PathBuf>,
+
+    /// Depth of parent categories in options TOC
+    #[arg(long = "options-depth", value_parser = clap::value_parser!(usize), default_value = "2")]
+    options_toc_depth: usize,
+
+    /// Path to manpage URL mappings JSON file
+    #[arg(long = "manpage-urls")]
+    manpage_urls: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -91,6 +95,7 @@ fn main() -> Result<()> {
         footer_text: cli
             .footer
             .unwrap_or_else(|| "Generated with ndg".to_string()),
+        options_toc_depth: Some(cli.options_toc_depth),
         ..Default::default()
     };
 
