@@ -136,31 +136,6 @@
           });
         }
 
-        // Options filter
-        const optionsFilter = document.getElementById("options-filter");
-        if (optionsFilter) {
-          optionsFilter.addEventListener("input", function (e) {
-            const searchTerm = e.target.value.toLowerCase();
-            document.querySelectorAll(".option").forEach(function (option) {
-              const name = option
-                .querySelector(".option-name")
-                .textContent.toLowerCase();
-              const description = option
-                .querySelector(".option-description")
-                .textContent.toLowerCase();
-
-              if (
-                name.includes(searchTerm) ||
-                description.includes(searchTerm)
-              ) {
-                option.style.display = "";
-              } else {
-                option.style.display = "none";
-              }
-            });
-          });
-        }
-
         // Copy link functionality
         document.querySelectorAll(".copy-link").forEach(function (copyLink) {
           copyLink.addEventListener("click", function (e) {

@@ -1287,6 +1287,9 @@ h6:hover .copy-link {
 /* Filter styling */
 .search-form {
   margin: var(--space-4) 0;
+  position: relative;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 #options-filter {
@@ -1298,12 +1301,37 @@ h6:hover .copy-link {
   color: var(--text-color);
   font-size: 1rem;
   transition: border-color var(--transition-fast);
+  box-sizing: border-box;
 }
 
 #options-filter:focus {
   outline: none;
   border-color: var(--link-color);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.filter-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-results {
+  margin-top: var(--space-2);
+  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 
 /* Animation */
