@@ -79,7 +79,8 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
                 }
 
                 if let Some(Value::String(desc)) = option_data.get("description") {
-                    option.description = markdown::process_markdown_string(desc);
+                    let processed_desc = escape_html_in_markdown(desc);
+                    option.description = markdown::process_markdown_string(&processed_desc);
                 }
 
                 // Handle default values
@@ -199,6 +200,11 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     ))?;
 
     Ok(())
+}
+
+/// Escape HTML tags in markdown text before it's processed by the markdown processor
+fn escape_html_in_markdown(text: &str) -> String {
+    text.replace("<", "&lt;").replace(">", "&gt;")
 }
 
 /// Extract the value from special JSON structures like literalExpression
