@@ -1,9 +1,6 @@
 use anyhow::{Context, Result};
 use log::debug;
 use std::fs;
-use syntect::highlighting::ThemeSet;
-use syntect::html::highlighted_html_for_string;
-use syntect::parsing::SyntaxSet;
 
 use crate::config::Config;
 
@@ -100,21 +97,4 @@ fn generate_css(config: &Config) -> Result<String> {
     };
 
     Ok(css)
-}
-
-/// Highlight code block with syntax highlighting
-pub fn highlight_code(code: &str, language: &str) -> Result<String> {
-    let syntax_set = SyntaxSet::load_defaults_newlines();
-    let theme_set = ThemeSet::load_defaults();
-
-    let syntax = syntax_set
-        .find_syntax_by_token(language)
-        .unwrap_or_else(|| syntax_set.find_syntax_plain_text());
-
-    let theme = &theme_set.themes["base16-ocean-dark"];
-
-    let html = highlighted_html_for_string(code, &syntax_set, syntax, theme)
-        .context("Failed to highlight code")?;
-
-    Ok(html)
 }
