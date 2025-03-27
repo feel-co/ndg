@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{title}}</title>
+    <title>{{ title }}</title>
     <link rel="stylesheet" href="assets/style.css" />
     <script defer src="assets/search.js"></script>
   </head>
@@ -11,11 +11,11 @@
     <div class="container">
       <header>
         <div class="header-left">
-          <h1 class="site-title"><a href="index.html">{{site_title}}</a></h1>
+          <h1 class="site-title"><a href="index.html">{{ site_title }}</a></h1>
         </div>
         <nav class="header-nav">
           <ul>
-            <li {{has_options}}><a href="options.html">Options</a></li>
+            <li {{ has_options|safe }}><a href="options.html">Options</a></li>
             <li><a href="search.html">Search</a></li>
           </ul>
         </nav>
@@ -40,20 +40,20 @@
           <div class="docs-nav">
             <h2>Documents</h2>
             <ul>
-              {{doc_nav}}
+              {{ doc_nav|safe }}
             </ul>
           </div>
 
           <div class="toc">
             <h2>Contents</h2>
             <ul class="toc-list">
-              {{toc}}
+              {{ toc|safe }}
             </ul>
           </div>
         </nav>
 
         <main class="content">
-          {{content}}
+          {{ content|safe }}
           <div class="footnotes-container">
             <!-- Footnotes will be appended here -->
           </div>
@@ -61,7 +61,7 @@
       </div>
 
       <footer>
-        <p>{{footer_text}}</p>
+        <p>{{ footer_text }}</p>
       </footer>
     </div>
 
@@ -180,6 +180,6 @@
         }
       });
     </script>
-    {{custom_scripts}}
+    {{ custom_scripts|safe }}
   </body>
 </html>

@@ -20,8 +20,9 @@ pub fn render(
     headers: &[Header],
     _rel_path: &Path,
 ) -> Result<String> {
-    // Get template
+    let mut tera = Tera::default();
     let template_content = get_template_content(config)?;
+    tera.add_raw_template("default", &template_content)?;
 
     // Generate table of contents from headers
     let toc = generate_toc(headers);
@@ -39,22 +40,27 @@ pub fn render(
     // Generate custom scripts HTML
     let custom_scripts = generate_custom_scripts(config)?;
 
-    // Replace template variables
-    let html = template_content
-        .replace("{{content}}", content)
-        .replace("{{title}}", title)
-        .replace("{{site_title}}", &config.title)
-        .replace("{{footer_text}}", &config.footer_text)
-        .replace("{{toc}}", &toc)
-        .replace("{{doc_nav}}", &doc_nav)
-        .replace("{{has_options}}", has_options)
-        .replace("{{custom_scripts}}", &custom_scripts);
+    // Create context
+    let mut context = tera::Context::new();
+    context.insert("content", content);
+    context.insert("title", title);
+    context.insert("site_title", &config.title);
+    context.insert("footer_text", &config.footer_text);
+    context.insert("toc", &toc);
+    context.insert("doc_nav", &doc_nav);
+    context.insert("has_options", has_options);
+    context.insert("custom_scripts", &custom_scripts);
 
+    // Render the template
+    let html = tera.render("default", &context)?;
     Ok(html)
 }
 
 /// Render NixOS module options page
 pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> Result<String> {
+    let mut tera = Tera::default();
+    tera.add_raw_template("options", OPTIONS_TEMPLATE)?;
+
     // Create options HTML
     let options_html = generate_options_html(options);
 
@@ -67,18 +73,20 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     // Generate custom scripts HTML
     let custom_scripts = generate_custom_scripts(config)?;
 
-    // Replace template variables
-    let html = OPTIONS_TEMPLATE
-        .replace("{{title}}", &format!("{} - Options", config.title))
-        .replace("{{site_title}}", &config.title)
-        .replace("{{heading}}", &format!("{} Options", config.title))
-        .replace("{{options}}", &options_html)
-        .replace("{{footer_text}}", &config.footer_text)
-        .replace("{{custom_scripts}}", &custom_scripts)
-        .replace("{{doc_nav}}", &doc_nav)
-        .replace("{{has_options}}", "class=\"active\"")
-        .replace("{{toc}}", &options_toc);
+    // Create context
+    let mut context = tera::Context::new();
+    context.insert("title", &format!("{} - Options", config.title));
+    context.insert("site_title", &config.title);
+    context.insert("heading", &format!("{} Options", config.title));
+    context.insert("options", &options_html);
+    context.insert("footer_text", &config.footer_text);
+    context.insert("custom_scripts", &custom_scripts);
+    context.insert("doc_nav", &doc_nav);
+    context.insert("has_options", "class=\"active\"");
+    context.insert("toc", &options_toc);
 
+    // Render the template
+    let html = tera.render("options", &context)?;
     Ok(html)
 }
 
@@ -240,6 +248,9 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 
 /// Render search page
 pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result<String> {
+    let mut tera = Tera::default();
+    tera.add_raw_template("search", SEARCH_TEMPLATE)?;
+
     let title_str = context
         .get("title")
         .cloned()
@@ -258,17 +269,19 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
         "style=\"display:none;\""
     };
 
-    // Replace template variables
-    let html = SEARCH_TEMPLATE
-        .replace("{{title}}", &title_str)
-        .replace("{{site_title}}", &config.title)
-        .replace("{{heading}}", "Search")
-        .replace("{{footer_text}}", &config.footer_text)
-        .replace("{{custom_scripts}}", &custom_scripts)
-        .replace("{{doc_nav}}", &doc_nav)
-        .replace("{{has_options}}", has_options)
-        .replace("{{toc}}", ""); // No TOC for search page
+    // Create Tera context
+    let mut tera_context = tera::Context::new();
+    tera_context.insert("title", &title_str);
+    tera_context.insert("site_title", &config.title);
+    tera_context.insert("heading", "Search");
+    tera_context.insert("footer_text", &config.footer_text);
+    tera_context.insert("custom_scripts", &custom_scripts);
+    tera_context.insert("doc_nav", &doc_nav);
+    tera_context.insert("has_options", has_options);
+    tera_context.insert("toc", ""); // No TOC for search page
 
+    // Render the template
+    let html = tera.render("search", &tera_context)?;
     Ok(html)
 }
 

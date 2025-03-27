@@ -29,26 +29,30 @@ set of modules.
 Usage: ndg [OPTIONS] --input <INPUT> --output <OUTPUT> --title <TITLE>
 
 Options:
-  -j, --module-options <MODULE_OPTIONS>
-          Path to a JSON file containing module options in the same format expected by nixos-render-docs
   -i, --input <INPUT>
           Path to the directory containing markdown files
   -o, --output <OUTPUT>
           Output directory for generated documentation
+  -p, --jobs <JOBS>
+          Number of threads to use for parallel processing
+  -v, --verbose
+          Enable verbose debug logging
   -t, --template <TEMPLATE>
           Path to custom template file
   -s, --stylesheet <STYLESHEET>
           Path to custom stylesheet
+      --script <SCRIPT>
+          Path to custom Javascript file to include. This can be specified multiple times to create multiple script tags in order
   -T, --title <TITLE>
-          Title of the documentation
-      --manpage-urls <MANPAGE_URLS>
-          Path to manpage URL mappings JSON file
-  -p, --jobs <JOBS>
-          Number of threads to use for parallel processing
-  -v, --verbose
-          Enable verbose logging
+          Title of the documentation. Will be used in various components via the templating options
   -f, --footer <FOOTER>
           Footer text for the documentation
+  -j, --module-options <MODULE_OPTIONS>
+          Path to a JSON file containing module options in the same format expected by nixos-render-docs
+      --options-depth <OPTIONS_TOC_DEPTH>
+          Depth of parent categories in options TOC [default: 2]
+      --manpage-urls <MANPAGE_URLS>
+          Path to manpage URL mappings JSON file
   -h, --help
           Print help
   -V, --version
@@ -83,13 +87,14 @@ You can provide your own HTML template using the `--template` option:
 ndg -i ./docs -o ./html -T "Awesome Project" -t ./my-template.html
 ```
 
-The template should include the following placeholders:
+Custom templates use the Tera templating engine, so your templates should use
+Tera syntax:
 
-- `{{title}}` - Document title
-- `{{content}}` - Main content area
-- `{{toc}}` - Table of contents
-- `{{doc_nav}}` - Navigation links to other documents
-- `{{has_options}}` - Conditional display for options page link
+- `{{ title }}` - Document title
+- `{{ content|safe }}` - Main content area (unescaped HTML)
+- `{{ toc|safe }}` - Table of contents (unescaped HTML)
+- `{{ doc_nav|safe }}` - Navigation links to other documents (unescaped HTML)
+- `{{ has_options|safe }}` - Conditional display for options page link
 
 #### Custom Stylesheet
 
@@ -98,6 +103,10 @@ You can provide your own CSS stylesheet using the `--stylesheet` option:
 ```bash
 ndg -i ./docs -o ./html -T "My Project" -s ./my-styles.css
 ```
+
+ndg is able to compile SCSS as well, should you choose to pass it a file with
+the `.scss` extension. The stylesheet will be compiled in runtime, and placed as
+a `.css` file in the output directory.
 
 #### NixOS Options
 
