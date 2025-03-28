@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use log::{info, LevelFilter};
 use rayon::prelude::*;
@@ -16,14 +16,14 @@ use config::Config;
 
 #[derive(Parser, Debug)]
 #[command(author, version)]
-struct Cli {
+pub struct Cli {
     /// Path to the directory containing markdown files
-    #[arg(short, long)]
-    input: PathBuf,
+    #[arg(short, long, required_unless_present = "config_file")]
+    input: Option<PathBuf>,
 
     /// Output directory for generated documentation
-    #[arg(short, long)]
-    output: PathBuf,
+    #[arg(short, long, required_unless_present = "config_file")]
+    output: Option<PathBuf>,
 
     /// Number of threads to use for parallel processing
     #[arg(short = 'p', long = "jobs")]
@@ -49,7 +49,7 @@ struct Cli {
     /// Title of the documentation. Will be used in various components via
     /// the templating options.
     #[arg(short = 'T', long)]
-    title: String,
+    title: Option<String>,
 
     /// Footer text for the documentation
     #[arg(short = 'f', long)]
@@ -61,12 +61,16 @@ struct Cli {
     module_options: Option<PathBuf>,
 
     /// Depth of parent categories in options TOC
-    #[arg(long = "options-depth", value_parser = clap::value_parser!(usize), default_value = "2")]
-    options_toc_depth: usize,
+    #[arg(long = "options-depth", value_parser = clap::value_parser!(usize))]
+    options_toc_depth: Option<usize>,
 
     /// Path to manpage URL mappings JSON file
     #[arg(long = "manpage-urls")]
     manpage_urls: Option<PathBuf>,
+
+    /// Path to configuration file (TOML or JSON)
+    #[arg(short = 'c', long = "config")]
+    config_file: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -81,25 +85,21 @@ fn main() -> Result<()> {
         })
         .init();
 
-    // Create configuration from CLI args
-    let config = Config {
-        input_dir: cli.input,
-        output_dir: cli.output,
-        module_options: cli.module_options,
-        template_path: cli.template,
-        stylesheet_path: cli.stylesheet,
-        script_paths: cli.script,
-        manpage_urls_path: cli.manpage_urls,
-        title: cli.title,
-        jobs: cli.jobs,
-        footer_text: cli
-            .footer
-            .unwrap_or_else(|| "Generated with ndg".to_string()),
-        options_toc_depth: Some(cli.options_toc_depth),
-        ..Default::default()
+    // Create configuration - first load from file if specified, then merge with CLI args
+    let mut config = if let Some(config_path) = &cli.config_file {
+        info!("Loading configuration from {}", config_path.display());
+        Config::from_file(config_path)
+            .with_context(|| format!("Failed to load config from {}", config_path.display()))?
+    } else {
+        Config::default()
     };
 
+    // Merge CLI arguments, which take precedence over config file
+    config.merge_with_cli(&cli);
+
     info!("Starting documentation generation...");
+    info!("Input directory: {}", config.input_dir.display());
+    info!("Output directory: {}", config.output_dir.display());
 
     // Process markdown files
     let markdown_files = markdown::collect_markdown_files(&config.input_dir)?;
@@ -124,8 +124,10 @@ fn main() -> Result<()> {
         options::process_options(&config, options_path)?;
     }
 
-    // Generate search index
-    search::generate_search_index(&config, &markdown_files)?;
+    // Generate search index if enabled
+    if config.generate_search {
+        search::generate_search_index(&config, &markdown_files)?;
+    }
 
     // Copy assets
     render::copy_assets(&config)?;
