@@ -5,6 +5,10 @@ use std::path::Path;
 
 use crate::config::Config;
 
+// Template constants
+const DEFAULT_CSS: &str = include_str!("../templates/default.css");
+const SEARCH_JS: &str = include_str!("../templates/search.js");
+
 /// Copy assets to output directory
 pub fn copy_assets(config: &Config) -> Result<()> {
     // Create assets directory
@@ -23,11 +27,24 @@ pub fn copy_assets(config: &Config) -> Result<()> {
 
     // Create search.js for search functionality
     if config.generate_search {
-        fs::write(
-            assets_dir.join("search.js"),
-            include_str!("../templates/search.js"),
-        )
-        .context("Failed to write search.js")?;
+        // Use template from config if available, otherwise use embedded template
+        let search_js = if let Some(template_path) = config.get_template_path() {
+            let search_js_path = template_path.join("search.js");
+            if search_js_path.exists() {
+                fs::read_to_string(&search_js_path).with_context(|| {
+                    format!(
+                        "Failed to read search.js from: {}",
+                        search_js_path.display()
+                    )
+                })?
+            } else {
+                SEARCH_JS.to_string()
+            }
+        } else {
+            SEARCH_JS.to_string()
+        };
+
+        fs::write(assets_dir.join("search.js"), search_js).context("Failed to write search.js")?;
     }
 
     Ok(())
@@ -70,12 +87,24 @@ fn copy_script_files(config: &Config, assets_dir: &Path) -> Result<()> {
 
 /// Generate CSS from stylesheet
 fn generate_css(config: &Config) -> Result<String> {
-    let default_css = include_str!("../templates/default.css").to_string();
-
     // Use custom stylesheet if provided, otherwise use default
     if let Some(stylesheet_path) = &config.stylesheet_path {
         if !stylesheet_path.exists() {
-            return Ok(default_css);
+            // Check if we have a template directory with default.css
+            if let Some(template_path) = config.get_template_path() {
+                let template_css_path = template_path.join("default.css");
+                if template_css_path.exists() {
+                    let content = fs::read_to_string(&template_css_path).with_context(|| {
+                        format!(
+                            "Failed to read template CSS: {}",
+                            template_css_path.display()
+                        )
+                    })?;
+                    return Ok(content);
+                }
+            }
+            // Fall back to embedded default
+            return Ok(DEFAULT_CSS.to_string());
         }
 
         let content = fs::read_to_string(stylesheet_path)
@@ -89,6 +118,20 @@ fn generate_css(config: &Config) -> Result<String> {
             Ok(content)
         }
     } else {
-        Ok(default_css)
+        // Check if we have a template directory with default.css
+        if let Some(template_path) = config.get_template_path() {
+            let template_css_path = template_path.join("default.css");
+            if template_css_path.exists() {
+                let content = fs::read_to_string(&template_css_path).with_context(|| {
+                    format!(
+                        "Failed to read template CSS: {}",
+                        template_css_path.display()
+                    )
+                })?;
+                return Ok(content);
+            }
+        }
+        // Fall back to embedded default
+        Ok(DEFAULT_CSS.to_string())
     }
 }

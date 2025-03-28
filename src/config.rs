@@ -22,6 +22,10 @@ pub struct Config {
     #[serde(default)]
     pub template_path: Option<PathBuf>,
 
+    /// Path to template directory containing all template files
+    #[serde(default)]
+    pub template_dir: Option<PathBuf>,
+
     /// Path to custom stylesheet
     #[serde(default)]
     pub stylesheet_path: Option<PathBuf>,
@@ -170,10 +174,32 @@ impl Config {
         if cli.manpage_urls.is_some() {
             self.manpage_urls_path = cli.manpage_urls.clone();
         }
+
+        if cli.template.is_some() {
+            self.template_path = cli.template.clone();
+        }
+
+        if cli.template_dir.is_some() {
+            self.template_dir = cli.template_dir.clone();
+        }
     }
 
-    /// Get default template path, either from config or from embedded template
+    /// Get template directory path
     pub fn get_template_path(&self) -> Option<PathBuf> {
-        self.template_path.clone()
+        // Prioritize template_dir if available
+        if let Some(dir) = &self.template_dir {
+            Some(dir.clone())
+        } else if let Some(path) = &self.template_path {
+            // For backward compatibility
+            // Check if path is a directory
+            if path.is_dir() {
+                Some(path.clone())
+            } else {
+                // If template_path is a file, return its parent directory
+                path.parent().map(|p| p.to_path_buf())
+            }
+        } else {
+            None
+        }
     }
 }

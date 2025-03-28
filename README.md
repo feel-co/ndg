@@ -10,23 +10,29 @@
 > ndg is currently in the process of being rewritten. Until the `v2` branch is
 > merged into main, nothing is final. Please proceed with caution.
 
-**ndg** is a fully customizable tool to automatically generate HTML documents
-including but not limited to project documentation from options you use in any
-set of modules.
+**ndg** is a fast, customizable and (relatively) sane tool for automatically
+generating HTML documents including but not limited to project documentation
+from Markdown and options you use in any set of modules.
 
 ### Features
 
-- **Markdown to HTML conversion** with support for all common markdown features
+- **Markdown to HTML conversion** with support for all[^1] Nixpkgs-flavored
+  Commonmark features
 - **Automatic table of contents** generation from document headings
+  - **Title Anchors** - Automatically generates anchors for headings
 - **Search functionality** to quickly find content across documents
-- **NixOS options support** to generate documentation from `options.json`
+- **Nix module options support** to generate documentation from `options.json`
 - **Fully customizable templates** to match your project's style
 - **Multi-threading support** for fast generation of large documentation sets
+
+[^1]: This is a best-effort. Regular commonmark is fully supported, but Nixpkgs
+    additions may sometimes break due to the lack of a clear specification.
+    Please open an issue if this is the case for you.
 
 ## Usage
 
 ```
-Usage: ndg [OPTIONS] --input <INPUT> --output <OUTPUT> --title <TITLE>
+Usage: ndg [OPTIONS]
 
 Options:
   -i, --input <INPUT>
@@ -39,6 +45,8 @@ Options:
           Enable verbose debug logging
   -t, --template <TEMPLATE>
           Path to custom template file
+      --template-dir <TEMPLATE_DIR>
+          Path to directory containing template files (default.html, options.html, etc.) For missing required files, ndg will fall back to its internal templates
   -s, --stylesheet <STYLESHEET>
           Path to custom stylesheet
       --script <SCRIPT>
@@ -50,9 +58,11 @@ Options:
   -j, --module-options <MODULE_OPTIONS>
           Path to a JSON file containing module options in the same format expected by nixos-render-docs
       --options-depth <OPTIONS_TOC_DEPTH>
-          Depth of parent categories in options TOC [default: 2]
+          Depth of parent categories in options TOC
       --manpage-urls <MANPAGE_URLS>
           Path to manpage URL mappings JSON file
+  -c, --config <CONFIG_FILE>
+          Path to configuration file (TOML or JSON)
   -h, --help
           Print help
   -V, --version
@@ -61,7 +71,8 @@ Options:
 
 You must give ndg a **input directory** containing your markdown files
 (`--input`), an **output directory** (`--output`) to put the created files, and
-a **title** (`--title`) for basic functionality.
+a **title** (`--title`) for basic functionality. Alternatively, those can all be
+read from a config file, passed to ndg through the `--config` option.
 
 For example:
 
@@ -81,14 +92,29 @@ ndg supports various customization options to tailor the output to your needs:
 
 #### Custom Templates
 
-You can provide your own HTML template using the `--template` option:
+You can provide your own HTML template using either the `--template` option for
+a single template file:
 
 ```bash
 ndg -i ./docs -o ./html -T "Awesome Project" -t ./my-template.html
 ```
 
+Or use the `--template-dir` option to provide a directory containing multiple
+templates:
+
+```bash
+ndg -i ./docs -o ./html -T "Awesome Project" --template-dir ./my-templates
+```
+
+When using a template directory, ndg will look for the following files:
+
+- `default.html` - Main template for documentation pages
+- `options.html` - Template for options page
+- `search.html` - Template for search page
+- `options_toc.html` - Template for options table of contents
+
 Custom templates use the Tera templating engine, so your templates should use
-Tera syntax:
+Tera syntax. Below are the variables that ndg will attempt to replace.
 
 - `{{ title }}` - Document title
 - `{{ content|safe }}` - Main content area (unescaped HTML)
@@ -152,12 +178,11 @@ The `options.json` should be in the standard NixOS format. An example from
 ndg is written in Rust, and a derivation is available.
 
 ```bash
-nix build .#ndg
+nix build .#ndg -Lv
 ```
 
 Alternatively, it can be built inside the dev shell using direnv or
-`nix
-develop.` Enter a shell, and `cargo build`.
+`nix develop.` Enter a shell, and `cargo build`.
 
 ## License
 

@@ -37,6 +37,11 @@ pub struct Cli {
     #[arg(short, long)]
     template: Option<PathBuf>,
 
+    /// Path to directory containing template files (default.html, options.html, etc.)
+    /// For missing required files, ndg will fall back to its internal templates.
+    #[arg(long = "template-dir")]
+    template_dir: Option<PathBuf>,
+
     /// Path to custom stylesheet
     #[arg(short, long)]
     stylesheet: Option<PathBuf>,

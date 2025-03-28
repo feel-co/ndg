@@ -6,7 +6,7 @@ use crate::config::Config;
 use crate::markdown::Header;
 use crate::options::NixOption;
 
-// Template constants
+// Template constants - these serve as fallbacks
 const DEFAULT_TEMPLATE: &str = include_str!("../templates/default.html");
 const OPTIONS_TEMPLATE: &str = include_str!("../templates/options.html");
 const SEARCH_TEMPLATE: &str = include_str!("../templates/search.html");
@@ -21,7 +21,7 @@ pub fn render(
     _rel_path: &Path,
 ) -> Result<String> {
     let mut tera = Tera::default();
-    let template_content = get_template_content(config)?;
+    let template_content = get_template_content(config, "default.html", DEFAULT_TEMPLATE)?;
     tera.add_raw_template("default", &template_content)?;
 
     // Generate table of contents from headers
@@ -59,13 +59,19 @@ pub fn render(
 /// Render NixOS module options page
 pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> Result<String> {
     let mut tera = Tera::default();
-    tera.add_raw_template("options", OPTIONS_TEMPLATE)?;
+    let options_template = get_template_content(config, "options.html", OPTIONS_TEMPLATE)?;
+    tera.add_raw_template("options", &options_template)?;
 
     // Create options HTML
     let options_html = generate_options_html(options);
 
+    // Load the options_toc template from template directory or use default
+    let options_toc_template =
+        get_template_content(config, "options_toc.html", OPTIONS_TOC_TEMPLATE)?;
+    tera.add_raw_template("options_toc", &options_toc_template)?;
+
     // Generate options TOC using Tera templating
-    let options_toc = generate_options_toc(options, config)?;
+    let options_toc = generate_options_toc(options, config, &tera)?;
 
     // Generate document navigation
     let doc_nav = generate_doc_nav(config)?;
@@ -91,10 +97,11 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
 }
 
 /// Generate specialized TOC for options page
-fn generate_options_toc(options: &HashMap<String, NixOption>, config: &Config) -> Result<String> {
-    let mut tera = Tera::default();
-    tera.add_raw_template("options_toc", OPTIONS_TOC_TEMPLATE)?;
-
+fn generate_options_toc(
+    options: &HashMap<String, NixOption>,
+    config: &Config,
+    tera: &Tera,
+) -> Result<String> {
     // Configured depth or default of 2
     let depth = config.options_toc_depth.unwrap_or(2);
 
@@ -249,7 +256,8 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 /// Render search page
 pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result<String> {
     let mut tera = Tera::default();
-    tera.add_raw_template("search", SEARCH_TEMPLATE)?;
+    let search_template = get_template_content(config, "search.html", SEARCH_TEMPLATE)?;
+    tera.add_raw_template("search", &search_template)?;
 
     let title_str = context
         .get("title")
@@ -285,20 +293,31 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     Ok(html)
 }
 
-/// Get the template content from file or use default
-fn get_template_content(config: &Config) -> Result<String> {
-    if let Some(template_path) = &config.template_path {
+/// Get the template content from file in template directory or use default
+fn get_template_content(config: &Config, template_name: &str, fallback: &str) -> Result<String> {
+    // Try to get the template from the configured template directory
+    if let Some(template_dir) = config.get_template_path() {
+        let template_path = template_dir.join(template_name);
         if template_path.exists() {
-            fs::read_to_string(template_path).context(format!(
-                "Failed to read template file: {}",
-                template_path.display()
-            ))
-        } else {
-            Ok(DEFAULT_TEMPLATE.to_string())
+            return fs::read_to_string(&template_path).with_context(|| {
+                format!("Failed to read template file: {}", template_path.display())
+            });
         }
-    } else {
-        Ok(DEFAULT_TEMPLATE.to_string())
     }
+
+    // If template_path is specified but doesn't point to a directory with our template
+    if let Some(template_path) = &config.template_path {
+        if template_path.exists() && template_name == "default.html" {
+            // XXX: For backward compatibility
+            // If template_path is a file, use it for default.html
+            return fs::read_to_string(template_path).with_context(|| {
+                format!("Failed to read template file: {}", template_path.display())
+            });
+        }
+    }
+
+    // Use fallback embedded template if no custom template found
+    Ok(fallback.to_string())
 }
 
 /// Generate the document navigation HTML
@@ -369,10 +388,9 @@ fn generate_custom_scripts(config: &Config) -> Result<String> {
 
     for script_path in &config.script_paths {
         if script_path.exists() {
-            let script_content = fs::read_to_string(script_path).context(format!(
-                "Failed to read script file: {}",
-                script_path.display()
-            ))?;
+            let script_content = fs::read_to_string(script_path).with_context(|| {
+                format!("Failed to read script file: {}", script_path.display())
+            })?;
             custom_scripts.push_str(&format!("<script>{}</script>\n", script_content));
         }
     }
