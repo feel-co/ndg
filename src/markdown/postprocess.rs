@@ -46,12 +46,11 @@ pub fn process_nixpkgs_elements(
             if let Some(urls) = manpage_urls {
                 if let Some(url) = urls.get(manpage_ref) {
                     return format!(
-                        "<a href=\"{}\" class=\"manpage-reference\">{}</a>",
-                        url, manpage_ref
+                        "<a href=\"{url}\" class=\"manpage-reference\">{manpage_ref}</a>"
                     );
                 }
             }
-            format!("<span class=\"manpage-reference\">{}</span>", manpage_ref)
+            format!("<span class=\"manpage-reference\">{manpage_ref}</span>")
         })
         .to_string();
 
@@ -62,11 +61,10 @@ pub fn process_nixpkgs_elements(
                 let manpage_ref = &caps[1]; // this should be "nix.conf(5)"
                 if let Some(url) = urls.get(manpage_ref) {
                     format!(
-                        "<a href=\"{}\" class=\"manpage-reference\">{}</a>",
-                        url, manpage_ref
+                        "<a href=\"{url}\" class=\"manpage-reference\">{manpage_ref}</a>"
                     )
                 } else {
-                    format!("<span class=\"manpage-reference\">{}</span>", manpage_ref)
+                    format!("<span class=\"manpage-reference\">{manpage_ref}</span>")
                 }
             })
             .to_string()
@@ -83,8 +81,7 @@ pub fn process_nixpkgs_elements(
                 // Direct lookup first
                 if let Some(url) = urls.get(span_content) {
                     return format!(
-                        "<a href=\"{}\" class=\"manpage-reference\">{}</a>",
-                        url, span_content
+                        "<a href=\"{url}\" class=\"manpage-reference\">{span_content}</a>"
                     );
                 }
 
@@ -93,14 +90,12 @@ pub fn process_nixpkgs_elements(
                     let full_ref = "nix.conf(5)";
                     if let Some(url) = urls.get(full_ref) {
                         return format!(
-                            "<a href=\"{}\" class=\"manpage-reference\">{}</a>",
-                            url,
-                            full_ref // show, e.g., "nix.conf(5)" instead of "conf(5)"
+                            "<a href=\"{url}\" class=\"manpage-reference\">{full_ref}</a>" // show, e.g., "nix.conf(5)" instead of "conf(5)"
                         );
                     }
                 }
 
-                format!("<span class=\"manpage-reference\">{}</span>", span_content)
+                format!("<span class=\"manpage-reference\">{span_content}</span>")
             })
             .to_string()
     } else {
@@ -119,8 +114,7 @@ pub fn process_nixpkgs_elements(
         let option_path = &caps[1];
         let option_id = format!("option-{}", option_path.replace('.', "-"));
         format!(
-            "<a href=\"options.html#{}\" class=\"option-reference\"><code>{}</code></a>",
-            option_id, option_path
+            "<a href=\"options.html#{option_id}\" class=\"option-reference\"><code>{option_path}</code></a>"
         )
     });
 
@@ -131,23 +125,21 @@ pub fn process_nixpkgs_elements(
         let suffix = &caps[4];
 
         format!(
-            "<h{} id=\"{}\">{}{}<!-- anchor added --></h{}>",
-            level, id, prefix, suffix, level
+            "<h{level} id=\"{id}\">{prefix}{suffix}<!-- anchor added --></h{level}>"
         )
     });
 
     let with_repl = REPL_RE.replace_all(&with_header_anchors, |caps: &regex::Captures| {
         let content = &caps[1];
         format!(
-            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {}</code>",
-            content
+            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {content}</code>"
         )
     });
 
     let with_inline_anchors =
         BRACKETED_SPAN_RE.replace_all(&with_repl, |caps: &regex::Captures| {
             let id = &caps[1];
-            format!("<span id=\"{}\" class=\"nixos-anchor\"></span>", id)
+            format!("<span id=\"{id}\" class=\"nixos-anchor\"></span>")
         });
 
     let with_roles = MYST_ROLE_RE.replace_all(&with_inline_anchors, |caps: &regex::Captures| {
@@ -155,12 +147,12 @@ pub fn process_nixpkgs_elements(
         let content = &caps[2];
 
         match role_type {
-            "command" => format!("<code class=\"command\">{}</code>", content),
-            "env" => format!("<code class=\"env-var\">{}</code>", content),
-            "file" => format!("<code class=\"file-path\">{}</code>", content),
-            "option" => format!("<code class=\"nixos-option\">{}</code>", content),
-            "var" => format!("<code class=\"nix-var\">{}</code>", content),
-            _ => format!("<span class=\"{}-markup\">{}</span>", role_type, content),
+            "command" => format!("<code class=\"command\">{content}</code>"),
+            "env" => format!("<code class=\"env-var\">{content}</code>"),
+            "file" => format!("<code class=\"file-path\">{content}</code>"),
+            "option" => format!("<code class=\"nixos-option\">{content}</code>"),
+            "var" => format!("<code class=\"nix-var\">{content}</code>"),
+            _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
         }
     });
 

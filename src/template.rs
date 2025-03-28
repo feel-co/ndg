@@ -56,7 +56,7 @@ pub fn render(
     Ok(html)
 }
 
-/// Render NixOS module options page
+/// Render `NixOS` module options page
 pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> Result<String> {
     let mut tera = Tera::default();
     let options_template = get_template_content(config, "options.html", OPTIONS_TEMPLATE)?;
@@ -180,11 +180,11 @@ fn generate_options_toc(
             child_options.sort_by(|a, b| {
                 let a_suffix = a
                     .name
-                    .strip_prefix(&format!("{}.", parent))
+                    .strip_prefix(&format!("{parent}."))
                     .unwrap_or(&a.name);
                 let b_suffix = b
                     .name
-                    .strip_prefix(&format!("{}.", parent))
+                    .strip_prefix(&format!("{parent}."))
                     .unwrap_or(&b.name);
                 a_suffix.cmp(b_suffix)
             });
@@ -192,7 +192,7 @@ fn generate_options_toc(
             for option in child_options {
                 let display_name = option
                     .name
-                    .strip_prefix(&format!("{}.", parent))
+                    .strip_prefix(&format!("{parent}."))
                     .unwrap_or(&option.name);
 
                 let child_value = tera::to_value({
@@ -326,7 +326,7 @@ fn generate_doc_nav(config: &Config) -> Result<String> {
     let entries: Vec<_> = walkdir::WalkDir::new(&config.input_dir)
         .follow_links(true)
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|e| e.path().is_file() && e.path().extension().is_some_and(|ext| ext == "md"))
         .collect();
 
@@ -391,7 +391,7 @@ fn generate_custom_scripts(config: &Config) -> Result<String> {
             let script_content = fs::read_to_string(script_path).with_context(|| {
                 format!("Failed to read script file: {}", script_path.display())
             })?;
-            custom_scripts.push_str(&format!("<script>{}</script>\n", script_content));
+            custom_scripts.push_str(&format!("<script>{script_content}</script>\n"));
         }
     }
 
@@ -449,10 +449,10 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
 
     for key in option_keys {
         let option = &options[key];
-        let option_id = format!("option-{}", option.name.replace(".", "-"));
+        let option_id = format!("option-{}", option.name.replace('.', "-"));
 
         // Open option container with ID for direct linking
-        options_html.push_str(&format!("<div class=\"option\" id=\"{}\">\n", option_id));
+        options_html.push_str(&format!("<div class=\"option\" id=\"{option_id}\">\n"));
 
         // Option name with anchor link and copy button
         options_html.push_str(&format!(
@@ -497,8 +497,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         // Option declared in
         if let Some(declared_in) = &option.declared_in {
             options_html.push_str(&format!(
-                "  <div class=\"option-declared\">Declared in: <code>{}</code></div>\n",
-                declared_in
+                "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>\n"
             ));
         }
 
@@ -513,13 +512,11 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
 fn add_default_value(html: &mut String, option: &NixOption) {
     if let Some(default_text) = &option.default_text {
         html.push_str(&format!(
-            "  <div class=\"option-default\">Default: <code>{}</code></div>\n",
-            default_text
+            "  <div class=\"option-default\">Default: <code>{default_text}</code></div>\n"
         ));
     } else if let Some(default_val) = &option.default {
         html.push_str(&format!(
-            "  <div class=\"option-default\">Default: <code>{}</code></div>\n",
-            default_val
+            "  <div class=\"option-default\">Default: <code>{default_val}</code></div>\n"
         ));
     }
 }
@@ -529,26 +526,22 @@ fn add_example_value(html: &mut String, option: &NixOption) {
     if let Some(example_text) = &option.example_text {
         if example_text.contains('\n') {
             html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>\n",
-                example_text
+                "  <div class=\"option-example\">Example: <pre><code>{example_text}</code></pre></div>\n"
             ));
         } else {
             html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <code>{}</code></div>\n",
-                example_text
+                "  <div class=\"option-example\">Example: <code>{example_text}</code></div>\n"
             ));
         }
     } else if let Some(example_val) = &option.example {
         let example_str = example_val.to_string();
         if example_str.contains('\n') {
             html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>\n",
-                example_str
+                "  <div class=\"option-example\">Example: <pre><code>{example_str}</code></pre></div>\n"
             ));
         } else {
             html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <code>{}</code></div>\n",
-                example_str
+                "  <div class=\"option-example\">Example: <code>{example_str}</code></div>\n"
             ));
         }
     }
