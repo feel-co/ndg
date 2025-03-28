@@ -91,11 +91,11 @@ fn default_footer_text() -> String {
     "Generated with ndg".to_string()
 }
 
-fn default_options_toc_depth() -> Option<usize> {
+const fn default_options_toc_depth() -> Option<usize> {
     Some(2)
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
 }
 
@@ -196,7 +196,7 @@ impl Config {
                 Some(path.clone())
             } else {
                 // If template_path is a file, return its parent directory
-                path.parent().map(|p| p.to_path_buf())
+                path.parent().map(std::path::Path::to_path_buf)
             }
         } else {
             None

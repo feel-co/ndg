@@ -9,7 +9,7 @@ use crate::config::Config;
 use crate::markdown;
 use crate::template;
 
-/// Represents a NixOS configuration option
+/// Represents a `NixOS` configuration option
 #[derive(Debug, Clone)]
 pub struct NixOption {
     /// Option name (e.g., "services.nginx.enable")
@@ -62,8 +62,8 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
             if let Value::Object(option_data) = &value {
                 let mut option = NixOption {
                     name: key.clone(),
-                    type_name: "".to_string(),
-                    description: "".to_string(),
+                    type_name: String::new(),
+                    description: String::new(),
                     default: None,
                     default_text: None,
                     example: None,
@@ -114,19 +114,19 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
                     if !decls.is_empty() {
                         if let Value::Object(decl_obj) = &decls[0] {
                             if let Some(Value::String(name)) = decl_obj.get("name") {
-                                debug!("Found declaration name: {}", name);
+                                debug!("Found declaration name: {name}");
                                 // Convert angle brackets to HTML entities explicitly
                                 // This is the only way to retain `Declared by: < ... >`
-                                let path = name.replace("<", "&lt;").replace(">", "&gt;");
+                                let path = name.replace('<', "&lt;").replace('>', "&gt;");
                                 option.declared_in = Some(path);
                             } else if let Some(Value::String(url)) = decl_obj.get("url") {
-                                debug!("Found declaration url: {}", url);
+                                debug!("Found declaration url: {url}");
                                 option.declared_in = Some(url.clone());
                             }
                         } else if let Value::String(path) = &decls[0] {
-                            debug!("Found declaration string: {}", path);
+                            debug!("Found declaration string: {path}");
                             // Convert angle brackets to HTML entities explicitly
-                            let path = path.replace("<", "&lt;").replace(">", "&gt;");
+                            let path = path.replace('<', "&lt;").replace('>', "&gt;");
                             option.declared_in = Some(path);
                         }
                     }
@@ -175,7 +175,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
                 // Always ensure a fallback for declared_in
                 if option.declared_in.is_none() {
                     option.declared_in = Some("configuration.nix".to_string());
-                    debug!("Using fallback declared_in for {}", key);
+                    debug!("Using fallback declared_in for {key}");
                 }
 
                 options.insert(key, option);
@@ -204,7 +204,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
 /// Escape HTML tags in markdown text before it's processed by the markdown processor
 fn escape_html_in_markdown(text: &str) -> String {
-    text.replace("<", "&lt;").replace(">", "&gt;")
+    text.replace('<', "&lt;").replace('>', "&gt;")
 }
 
 /// Extract the value from special JSON structures like literalExpression

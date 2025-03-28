@@ -26,8 +26,7 @@ pub fn highlight_code(code: &str, language: &str, _config: &Config) -> Result<St
         .find_syntax_by_token(language)
         .unwrap_or_else(|| {
             warn!(
-                "Syntax for '{}' not found, falling back to plain text",
-                language
+                "Syntax for '{language}' not found, falling back to plain text"
             );
             syntax_set.find_syntax_plain_text()
         });

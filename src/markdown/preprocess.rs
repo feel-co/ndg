@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::borrow::Cow;
 
-/// Preprocess markdown with NixOS extensions
+/// Preprocess markdown with `NixOS` extensions
 pub fn preprocess_markdown(markdown: &str) -> String {
     // First process the special markup patterns
     let mut result = preprocess_special_markup(markdown);
@@ -26,8 +26,7 @@ pub fn preprocess_markdown(markdown: &str) -> String {
             let title = &caps[2];
             let image = &caps[3];
             format!(
-                "<figure{}>\n<figcaption>{}</figcaption>\n{}\n</figure>",
-                id_attr, title, image
+                "<figure{id_attr}>\n<figcaption>{title}</figcaption>\n{image}\n</figure>"
             )
         })
         .into_owned();
@@ -47,8 +46,7 @@ pub fn preprocess_markdown(markdown: &str) -> String {
                     let definition = &def_line[4..]; // Skip ":   "
 
                     processed_lines.push(format!(
-                        "<dl>\n<dt>{}</dt>\n<dd>{}</dd>\n</dl>",
-                        term, definition
+                        "<dl>\n<dt>{term}</dt>\n<dd>{definition}</dd>\n</dl>"
                     ));
                     continue;
                 }
@@ -65,21 +63,18 @@ pub fn preprocess_markdown(markdown: &str) -> String {
 
             let title = admonition_type
                 .chars()
-                .next()
-                .map(|c| c.to_uppercase().collect::<String>() + &admonition_type[1..])
-                .unwrap_or_else(|| admonition_type.to_string());
+                .next().map_or_else(|| admonition_type.to_string(), |c| c.to_uppercase().collect::<String>() + &admonition_type[1..]);
 
             // Check if this is an inline admonition
             if let Some(end_cap) = ADMONITION_END_RE.captures(content_part) {
                 let content = end_cap.get(1).map_or("", |m| m.as_str()).trim();
 
                 let mut admon = format!(
-                    "<div class=\"admonition {}\"{}>\n<p class=\"admonition-title\">{}</p>",
-                    admonition_type, id_attr, title
+                    "<div class=\"admonition {admonition_type}\"{id_attr}>\n<p class=\"admonition-title\">{title}</p>"
                 );
 
                 if !content.is_empty() {
-                    admon.push_str(&format!("\n<p>{}</p>", content));
+                    admon.push_str(&format!("\n<p>{content}</p>"));
                 }
 
                 admon.push_str("\n</div>");
@@ -87,8 +82,7 @@ pub fn preprocess_markdown(markdown: &str) -> String {
             } else {
                 // Start a multi-line admonition
                 let mut admon = format!(
-                    "<div class=\"admonition {}\"{}>\n<p class=\"admonition-title\">{}</p>",
-                    admonition_type, id_attr, title
+                    "<div class=\"admonition {admonition_type}\"{id_attr}>\n<p class=\"admonition-title\">{title}</p>"
                 );
 
                 if !content_part.trim().is_empty() {
@@ -110,7 +104,7 @@ pub fn preprocess_markdown(markdown: &str) -> String {
                 .trim();
 
             if !content_before_end.is_empty() {
-                processed_lines.push(format!("<p>{}</p>", content_before_end));
+                processed_lines.push(format!("<p>{content_before_end}</p>"));
             }
 
             processed_lines.push("</div>".to_string());
@@ -150,7 +144,7 @@ fn process_line_markup(line: &str, in_admonition: bool) -> String {
                 .replace_all(&processed, |caps: &regex::Captures| {
                     let heading = &caps[1];
                     let id = &caps[2];
-                    format!("{} <!-- anchor: {} -->", heading, id)
+                    format!("{heading} <!-- anchor: {id} -->")
                 })
                 .into_owned(),
         );
@@ -162,7 +156,7 @@ fn process_line_markup(line: &str, in_admonition: bool) -> String {
             INLINE_ANCHOR_RE
                 .replace_all(&processed, |caps: &regex::Captures| {
                     let id = &caps[1];
-                    format!("<span id=\"{}\"></span>", id)
+                    format!("<span id=\"{id}\"></span>")
                 })
                 .into_owned(),
         );
@@ -206,7 +200,7 @@ pub fn preprocess_special_markup(markdown: &str) -> String {
         .replace_all(markdown, |caps: &regex::Captures| {
             let markup_type = &caps[1];
             let content = &caps[2];
-            format!("<span class=\"{}-markup\">{}</span>", markup_type, content)
+            format!("<span class=\"{markup_type}-markup\">{content}</span>")
         })
         .into_owned()
 }

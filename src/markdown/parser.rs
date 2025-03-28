@@ -59,7 +59,7 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
         match load_manpage_urls(mappings_path) {
             Ok(mappings) => Some(mappings),
             Err(err) => {
-                debug!("Error loading manpage mappings: {}", err);
+                debug!("Error loading manpage mappings: {err}");
                 None
             }
         }
@@ -108,7 +108,7 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Convert markdown to HTML with NixOS flavored extensions and syntax highlighting
+/// Convert markdown to HTML with `NixOS` flavored extensions and syntax highlighting
 fn markdown_to_html(
     markdown: &str,
     manpage_urls: Option<&HashMap<String, String>>,
@@ -158,26 +158,21 @@ fn markdown_to_html(
                 in_code_block = false;
 
                 // Apply syntax highlighting if we have a language specified
-                if !code_block_lang.is_empty() {
-                    match highlight::highlight_code(&code_block_content, &code_block_lang, config) {
-                        Ok(highlighted_html) => {
-                            html_output.push_str(&highlighted_html);
-                        }
-                        Err(_) => {
-                            // Fallback to regular HTML if highlighting fails
-                            html_output.push_str("<pre><code class=\"language-");
-                            html_output.push_str(&code_block_lang);
-                            html_output.push_str("\">");
-
-                            // Use the standalone escape function
-                            escape_html(&code_block_content, &mut html_output);
-
-                            html_output.push_str("</code></pre>");
-                        }
-                    }
-                } else {
+                if code_block_lang.is_empty() {
                     // Regular code block without language specification
                     html_output.push_str("<pre><code>");
+
+                    // Use the standalone escape function
+                    escape_html(&code_block_content, &mut html_output);
+
+                    html_output.push_str("</code></pre>");
+                } else if let Ok(highlighted_html) = highlight::highlight_code(&code_block_content, &code_block_lang, config) {
+                    html_output.push_str(&highlighted_html);
+                } else {
+                    // Fallback to regular HTML if highlighting fails
+                    html_output.push_str("<pre><code class=\"language-");
+                    html_output.push_str(&code_block_lang);
+                    html_output.push_str("\">");
 
                     // Use the standalone escape function
                     escape_html(&code_block_content, &mut html_output);
