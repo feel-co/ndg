@@ -1,9 +1,10 @@
+use std::fs;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use log::{info, LevelFilter};
 use rayon::prelude::*;
-use std::fs;
-use std::path::PathBuf;
 
 mod config;
 mod markdown;
