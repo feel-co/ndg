@@ -7,7 +7,7 @@ license = "MPL"
 authors = ["NotAShelf <raf@notashelf.dev>"]
 
 [dependencies]
-clap = { version = "4.5", default-features = false, features = ["std", "derive"] }
+clap = { version = "4.5", default-features = false, features = ["std", "derive", "help", "usage", "suggestions"] }
 grass = { version = "0.13", default-features = false, features = [] }
 toml = { version = "0.8", default-features = false, features = ["parse"] }
 tera = { version = "1.20", default-features = false }
