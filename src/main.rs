@@ -1,11 +1,10 @@
 use std::fs;
-use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use clap::Parser;
+use anyhow::Result;
 use log::{info, LevelFilter};
 use rayon::prelude::*;
 
+mod cli;
 mod config;
 mod markdown;
 mod options;
@@ -13,74 +12,15 @@ mod render;
 mod search;
 mod template;
 
+use cli::Cli;
 use config::Config;
 
-#[derive(Parser, Debug)]
-#[command(author, version)]
-pub struct Cli {
-    /// Path to the directory containing markdown files
-    #[arg(short, long, required_unless_present = "config_file")]
-    input: Option<PathBuf>,
-
-    /// Output directory for generated documentation
-    #[arg(short, long, required_unless_present = "config_file")]
-    output: Option<PathBuf>,
-
-    /// Number of threads to use for parallel processing
-    #[arg(short = 'p', long = "jobs")]
-    jobs: Option<usize>,
-
-    /// Enable verbose debug logging
-    #[arg(short, long)]
-    verbose: bool,
-
-    /// Path to custom template file
-    #[arg(short, long)]
-    template: Option<PathBuf>,
-
-    /// Path to directory containing template files (default.html, options.html, etc.)
-    /// For missing required files, ndg will fall back to its internal templates.
-    #[arg(long = "template-dir")]
-    template_dir: Option<PathBuf>,
-
-    /// Path to custom stylesheet
-    #[arg(short, long)]
-    stylesheet: Option<PathBuf>,
-
-    /// Path to custom Javascript file to include. This can be specified
-    /// multiple times to create multiple script tags in order.
-    #[arg(long, action = clap::ArgAction::Append)]
-    script: Vec<PathBuf>,
-
-    /// Title of the documentation. Will be used in various components via
-    /// the templating options.
-    #[arg(short = 'T', long)]
-    title: Option<String>,
-
-    /// Footer text for the documentation
-    #[arg(short = 'f', long)]
-    footer: Option<String>,
-
-    /// Path to a JSON file containing module options in the same format
-    /// expected by nixos-render-docs.
-    #[arg(short = 'j', long)]
-    module_options: Option<PathBuf>,
-
-    /// Depth of parent categories in options TOC
-    #[arg(long = "options-depth", value_parser = clap::value_parser!(usize))]
-    options_toc_depth: Option<usize>,
-
-    /// Path to manpage URL mappings JSON file
-    #[arg(long = "manpage-urls")]
-    manpage_urls: Option<PathBuf>,
-
-    /// Path to configuration file (TOML or JSON)
-    #[arg(short = 'c', long = "config")]
-    config_file: Option<PathBuf>,
-}
-
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    // Parse command line arguments
+    let cli = Cli::parse_args();
+
+    // Create configuration from CLI and/or config file
+    let config = Config::load(&cli)?;
 
     // Initialize logging
     env_logger::Builder::new()
@@ -89,19 +29,8 @@ fn main() -> Result<()> {
         } else {
             LevelFilter::Info
         })
+        .write_style(env_logger::WriteStyle::Always)
         .init();
-
-    // Create configuration - first load from file if specified, then merge with CLI args
-    let mut config = if let Some(config_path) = &cli.config_file {
-        info!("Loading configuration from {}", config_path.display());
-        Config::from_file(config_path)
-            .with_context(|| format!("Failed to load config from {}", config_path.display()))?
-    } else {
-        Config::default()
-    };
-
-    // Merge CLI arguments, which take precedence over config file
-    config.merge_with_cli(&cli);
 
     info!("Starting documentation generation...");
     info!("Input directory: {}", config.input_dir.display());
