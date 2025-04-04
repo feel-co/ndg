@@ -5,6 +5,7 @@ use log::{info, LevelFilter};
 use rayon::prelude::*;
 
 mod cli;
+mod completion;
 mod config;
 mod markdown;
 mod options;
@@ -12,12 +13,34 @@ mod render;
 mod search;
 mod template;
 
-use cli::Cli;
+use cli::{Cli, Commands};
 use config::Config;
 
 fn main() -> Result<()> {
     // Parse command line arguments
     let cli = Cli::parse_args();
+
+    // Handle subcommands first, before loading config
+    if let Some(command) = &cli.command {
+        match command {
+            Commands::Generate {
+                output_dir,
+                completions_only,
+                manpage_only,
+            } => {
+                if *completions_only {
+                    completion::generate_shell_completions(output_dir)?;
+                    println!("Shell completions generated in {}", output_dir.display());
+                } else if *manpage_only {
+                    completion::generate_manpage(output_dir)?;
+                    println!("Manpage generated in {}", output_dir.display());
+                } else {
+                    completion::generate_all_artifacts(output_dir)?;
+                }
+                return Ok(());
+            }
+        }
+    }
 
     // Create configuration from CLI and/or config file
     let config = Config::load(&cli)?;

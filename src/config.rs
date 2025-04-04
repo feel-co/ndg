@@ -131,23 +131,34 @@ impl Config {
         }
     }
 
-    /// Create a config from CLI arguments
-    pub fn from_cli(cli: &Cli) -> Self {
-        let mut config = Self::default();
-        config.merge_with_cli(cli);
-        config
-    }
-
     /// Load config from file and CLI arguments
     pub fn load(cli: &Cli) -> Result<Self> {
-        if let Some(config_path) = &cli.config_file {
-            let mut config = Self::from_file(config_path)
-                .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
-            config.merge_with_cli(cli);
-            Ok(config)
+        let mut config = if let Some(config_path) = &cli.config_file {
+            Self::from_file(config_path)
+                .with_context(|| format!("Failed to load config from {}", config_path.display()))?
         } else {
-            Ok(Self::from_cli(cli))
+            Self::default()
+        };
+
+        // Merge CLI arguments
+        config.merge_with_cli(cli);
+
+        // Validate required fields if no config file was specified
+        if cli.config_file.is_none() {
+            if config.input_dir == default_input_dir() && cli.input.is_none() {
+                return Err(anyhow::anyhow!(
+                    "Required argument 'input' not provided. Use --input or a config file."
+                ));
+            }
+
+            if config.output_dir == default_output_dir() && cli.output.is_none() {
+                return Err(anyhow::anyhow!(
+                    "Required argument 'output' not provided. Use --output or a config file."
+                ));
+            }
         }
+
+        Ok(config)
     }
 
     /// Merge CLI arguments into this config, prioritizing CLI values when present
