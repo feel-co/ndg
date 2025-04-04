@@ -1,17 +1,20 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Command, CommandFactory, Parser, Subcommand};
 
 /// Command line interface for ndg
 #[derive(Parser, Debug)]
-#[command(author, version)]
+#[command(author, version, about = "Nix Documentation Generator")]
 pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+
     /// Path to the directory containing markdown files
-    #[arg(short, long, required_unless_present = "config_file")]
+    #[arg(short, long)]
     pub input: Option<PathBuf>,
 
     /// Output directory for generated documentation
-    #[arg(short, long, required_unless_present = "config_file")]
+    #[arg(short, long)]
     pub output: Option<PathBuf>,
 
     /// Number of threads to use for parallel processing
@@ -67,8 +70,30 @@ pub struct Cli {
     pub config_file: Option<PathBuf>,
 }
 
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Generate shell completions and manpages
+    Generate {
+        /// Directory to output generated files
+        #[arg(short, long, default_value = "dist")]
+        output_dir: PathBuf,
+
+        /// Only generate shell completions
+        #[arg(long)]
+        completions_only: bool,
+
+        /// Only generate manpage
+        #[arg(long)]
+        manpage_only: bool,
+    },
+}
+
 impl Cli {
     pub fn parse_args() -> Self {
         Self::parse()
+    }
+
+    pub fn command() -> Command {
+        <Self as CommandFactory>::command()
     }
 }
