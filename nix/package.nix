@@ -15,5 +15,6 @@ rustPlatform.buildRustPackage (finalAttrs: {
     description = "ndg - not a docs generator";
     homepage = "https://github.com/feel-co/ndg";
     license = lib.licenses.mpl20;
+    mainProgram = "ndg";
   };
 })
