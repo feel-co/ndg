@@ -2,40 +2,30 @@
   description = "Streamlined documentation generation for NixOS modules";
 
   inputs = {
-    flake-compat.url = "github:edolstra/flake-compat";
-    flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
+
+    flake-compat.url = "github:edolstra/flake-compat";
   };
 
   outputs = inputs:
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
       systems = inputs.nixpkgs.lib.systems.flakeExposed;
+
+      imports = [
+        ./flake/shell.nix
+        ./flake/packages.nix
+      ];
+
       perSystem = {
         self',
         pkgs,
         ...
       }: {
         formatter = pkgs.alejandra;
-
-        packages = {
-          ndg = pkgs.callPackage ./nix/package.nix {};
-          default = self'.packages.ndg;
-        };
-
-        devShells.default = pkgs.mkShell {
-          name = "ndg";
-          packages = [
-            self'.formatter
-
-            # Poor man's Rust environment
-            pkgs.cargo
-            pkgs.rustc
-            pkgs.clippy
-            (pkgs.rustfmt.override {asNightly = true;})
-          ];
-
-          env.RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
-        };
 
         # TODO: add more checks, ideally machine tests
         checks = self'.packages;
