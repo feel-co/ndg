@@ -24,7 +24,6 @@
 
         devShells.default = pkgs.mkShell {
           name = "ndg";
-          strictDeps = true;
           packages = [
             self'.formatter
 

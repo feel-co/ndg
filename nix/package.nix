@@ -12,23 +12,17 @@ rustPlatform.buildRustPackage (finalAttrs: {
   # TODO: add a filter here
   src = ../.;
   cargoLock.lockFile = finalAttrs.src + /Cargo.lock;
+  useFetchCargoVendor = true;
   enableParallelBuilding = true;
 
   postInstall = ''
-    # Generate manpages and completion files
-    $out/bin/ndg generate --output-dir ./dist
-
-    # Install shell completions
-    installShellCompletion --bash --name ndg.bash ./dist/completions/ndg.bash
-    installShellCompletion --fish --name ndg.fish ./dist/completions/ndg.fish
-    installShellCompletion --zsh --name _ndg ./dist/completions/_ndg
-
-    # Install manpages
-    installManPage ./dist/man/ndg.1
+    $out/bin/ndg generate
+    installShellCompletion dist/completions/{ndg.bash,ndg.fish,_ndg}
+    installManPage dist/man/ndg.1
   '';
 
   meta = {
-    description = "ndg - not a docs generator";
+    description = "not a docs generator";
     homepage = "https://github.com/feel-co/ndg";
     license = lib.licenses.mpl20;
     mainProgram = "ndg";
