@@ -114,6 +114,8 @@ When using a template directory, ndg will look for the following files:
 - `search.html` - Template for search page
 - `options_toc.html` - Template for options table of contents
 
+The default template files are provided in `templates/`.
+
 Custom templates use the Tera templating engine, so your templates should use
 Tera syntax. Below are the variables that ndg will attempt to replace.
 
