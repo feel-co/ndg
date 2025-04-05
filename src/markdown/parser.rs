@@ -1,9 +1,10 @@
-use anyhow::{Context, Result};
-use log::{debug, trace};
-use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use log::{debug, trace};
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use walkdir::WalkDir;
 
 use crate::config::Config;
@@ -70,8 +71,13 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
     // Extract headers and title
     let (headers, title) = extract_headers(&content);
 
+    // Get the input directory from config or return an error
+    let input_dir = config.input_dir.as_ref().ok_or_else(|| {
+        anyhow::anyhow!("Cannot process markdown file: input directory is not configured")
+    })?;
+
     // Determine output path
-    let rel_path = file_path.strip_prefix(&config.input_dir).with_context(|| {
+    let rel_path = file_path.strip_prefix(input_dir).with_context(|| {
         format!(
             "Failed to determine relative path for {}",
             file_path.display()
@@ -166,7 +172,9 @@ fn markdown_to_html(
                     escape_html(&code_block_content, &mut html_output);
 
                     html_output.push_str("</code></pre>");
-                } else if let Ok(highlighted_html) = highlight::highlight_code(&code_block_content, &code_block_lang, config) {
+                } else if let Ok(highlighted_html) =
+                    highlight::highlight_code(&code_block_content, &code_block_lang, config)
+                {
                     html_output.push_str(&highlighted_html);
                 } else {
                     // Fallback to regular HTML if highlighting fails

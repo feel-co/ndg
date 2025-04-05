@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
 use std::{collections::HashMap, fs, path::Path};
+
+use anyhow::{Context, Result};
 use tera::Tera;
 
 use crate::config::Config;
@@ -323,24 +324,34 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
 /// Generate the document navigation HTML
 fn generate_doc_nav(config: &Config) -> Result<String> {
     let mut doc_nav = String::new();
-    let entries: Vec<_> = walkdir::WalkDir::new(&config.input_dir)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_file() && e.path().extension().is_some_and(|ext| ext == "md"))
-        .collect();
 
-    if !entries.is_empty() {
-        for entry in entries {
-            let path = entry.path();
-            if let Ok(rel_doc_path) = path.strip_prefix(&config.input_dir) {
-                let mut html_path = rel_doc_path.to_path_buf();
-                html_path.set_extension("html");
+    // Only process markdown files if input_dir is provided
+    if let Some(input_dir) = &config.input_dir {
+        let entries: Vec<_> = walkdir::WalkDir::new(input_dir)
+            .follow_links(true)
+            .into_iter()
+            .filter_map(std::result::Result::ok)
+            .filter(|e| e.path().is_file() && e.path().extension().is_some_and(|ext| ext == "md"))
+            .collect();
 
-                let page_title = if let Ok(content) = fs::read_to_string(path) {
-                    if let Some(first_line) = content.lines().next() {
-                        if let Some(title) = first_line.strip_prefix("# ") {
-                            title.trim().to_string()
+        if !entries.is_empty() {
+            for entry in entries {
+                let path = entry.path();
+                if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
+                    let mut html_path = rel_doc_path.to_path_buf();
+                    html_path.set_extension("html");
+
+                    let page_title = if let Ok(content) = fs::read_to_string(path) {
+                        if let Some(first_line) = content.lines().next() {
+                            if let Some(title) = first_line.strip_prefix("# ") {
+                                title.trim().to_string()
+                            } else {
+                                html_path
+                                    .file_stem()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string()
+                            }
                         } else {
                             html_path
                                 .file_stem()
@@ -354,22 +365,21 @@ fn generate_doc_nav(config: &Config) -> Result<String> {
                             .unwrap_or_default()
                             .to_string_lossy()
                             .to_string()
-                    }
-                } else {
-                    html_path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string()
-                };
+                    };
 
-                doc_nav.push_str(&format!(
-                    "<li><a href=\"{}\">{}</a></li>\n",
-                    html_path.to_string_lossy(),
-                    page_title
-                ));
+                    doc_nav.push_str(&format!(
+                        "<li><a href=\"{}\">{}</a></li>\n",
+                        html_path.to_string_lossy(),
+                        page_title
+                    ));
+                }
             }
         }
+    }
+
+    // Add link to options page if module_options is configured
+    if doc_nav.is_empty() && config.module_options.is_some() {
+        doc_nav.push_str("<li><a href=\"options.html\">Module Options</a></li>\n");
     }
 
     Ok(doc_nav)

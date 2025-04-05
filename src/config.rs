@@ -10,8 +10,8 @@ use crate::cli::Cli;
 // type-correct and re-usable way. Functions allow for more complex default
 // values that can't be expressed as literals. For example, creating a
 // PathBuf would require execution, not just a literal value. Should be fine.
-fn default_input_dir() -> PathBuf {
-    PathBuf::from("docs")
+fn default_input_dir() -> Option<PathBuf> {
+    None
 }
 
 fn default_output_dir() -> PathBuf {
@@ -39,7 +39,7 @@ const fn default_true() -> bool {
 pub struct Config {
     /// Input directory containing markdown files
     #[serde(default = "default_input_dir")]
-    pub input_dir: PathBuf,
+    pub input_dir: Option<PathBuf>,
 
     /// Output directory for generated documentation
     #[serde(default = "default_output_dir")]
@@ -145,15 +145,27 @@ impl Config {
 
         // Validate required fields if no config file was specified
         if cli.config_file.is_none() {
-            if config.input_dir == default_input_dir() && cli.input.is_none() {
-                return Err(anyhow::anyhow!(
-                    "Required argument 'input' not provided. Use --input or a config file."
-                ));
-            }
-
+            // Input is optional, but output is still required
             if config.output_dir == default_output_dir() && cli.output.is_none() {
                 return Err(anyhow::anyhow!(
                     "Required argument 'output' not provided. Use --output or a config file."
+                ));
+            }
+        }
+
+        // We need *at least one* source of content
+        if config.input_dir.is_none() && config.module_options.is_none() {
+            return Err(anyhow::anyhow!(
+                "At least one of input directory or module options must be provided. Use --input or --module-options."
+            ));
+        }
+
+        // Validate input_dir if it's provided
+        if let Some(ref input_dir) = config.input_dir {
+            if !input_dir.exists() {
+                return Err(anyhow::anyhow!(
+                    "Input directory does not exist: {}",
+                    input_dir.display()
                 ));
             }
         }
@@ -163,8 +175,9 @@ impl Config {
 
     /// Merge CLI arguments into this config, prioritizing CLI values when present
     pub fn merge_with_cli(&mut self, cli: &Cli) {
+        // Set input directory from CLI if provided
         if let Some(input) = &cli.input {
-            self.input_dir = input.clone();
+            self.input_dir = Some(input.clone());
         }
 
         if let Some(output) = &cli.output {

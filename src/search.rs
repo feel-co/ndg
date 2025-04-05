@@ -1,10 +1,11 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use log::info;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use serde::Serialize;
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
 
 use crate::config::Config;
 
@@ -24,6 +25,21 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
     }
 
     info!("Generating search index...");
+
+    // Skip if there are no markdown files
+    if markdown_files.is_empty() {
+        info!("No markdown files to index, skipping search index generation");
+        return Ok(());
+    }
+
+    // Get input_dir reference or return early
+    let input_dir = match &config.input_dir {
+        Some(dir) => dir,
+        None => {
+            info!("No input directory configured, skipping search index generation");
+            return Ok(());
+        }
+    };
 
     // Create search directory
     let search_dir = config.output_dir.join("assets");
@@ -48,7 +64,7 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
 
         let plain_text = strip_markdown(&content);
 
-        let rel_path = file_path.strip_prefix(&config.input_dir).context(format!(
+        let rel_path = file_path.strip_prefix(input_dir).context(format!(
             "Failed to determine relative path for {}",
             file_path.display()
         ))?;
