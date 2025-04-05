@@ -20,7 +20,8 @@ from Markdown and options you use in any set of modules.
   Commonmark features
 - **Automatic table of contents** generation from document headings
   - **Title Anchors** - Automatically generates anchors for headings
-- **Search functionality** to quickly find content across documents
+- **Search functionality** to quickly find content across documents (can be
+  disabled with `--generate-search false`)
 - **Nix module options support** to generate documentation from `options.json`
 - **Fully customizable templates** to match your project's style
 - **Multi-threading support** for fast generation of large documentation sets
@@ -172,6 +173,18 @@ The `options.json` should be in the standard NixOS format. An example from
   }
 }
 ```
+
+#### Search Configuration
+
+By default, ndg generates a search page and a search widget for your
+documentation. You can disable this with:
+
+```bash
+ndg -i ./docs -o ./html -T "My Project" --generate-search false
+```
+
+This will prevent the creation of search.html and the search index data, and the
+search widget won't appear in the navigation.
 
 ## Building from Source
 
