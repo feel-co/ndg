@@ -2,6 +2,7 @@
   lib,
   rustPlatform,
   installShellFiles,
+  stdenv,
 }:
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "ndg";
@@ -15,11 +16,13 @@ rustPlatform.buildRustPackage (finalAttrs: {
   useFetchCargoVendor = true;
   enableParallelBuilding = true;
 
-  postInstall = ''
-    $out/bin/ndg generate
-    installShellCompletion dist/completions/{ndg.bash,ndg.fish,_ndg}
-    installManPage dist/man/ndg.1
-  '';
+  postInstall =
+    lib.optionalString
+    (stdenv.hostPlatform.canExecute stdenv.targetPlatform) ''
+      $out/bin/ndg generate
+      installShellCompletion dist/completions/{ndg.bash,ndg.fish,_ndg}
+      installManPage dist/man/ndg.1
+    '';
 
   meta = {
     description = "not a docs generator";
