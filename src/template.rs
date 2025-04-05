@@ -51,6 +51,7 @@ pub fn render(
     context.insert("doc_nav", &doc_nav);
     context.insert("has_options", has_options);
     context.insert("custom_scripts", &custom_scripts);
+    context.insert("generate_search", &config.generate_search);
 
     // Render the template
     let html = tera.render("default", &context)?;
@@ -91,6 +92,7 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     context.insert("doc_nav", &doc_nav);
     context.insert("has_options", "class=\"active\"");
     context.insert("toc", &options_toc);
+    context.insert("generate_search", &config.generate_search);
 
     // Render the template
     let html = tera.render("options", &context)?;
@@ -256,6 +258,11 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 
 /// Render search page
 pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result<String> {
+    // Skip rendering if search is disabled
+    if !config.generate_search {
+        return Err(anyhow::anyhow!("Search functionality is disabled"));
+    }
+
     let mut tera = Tera::default();
     let search_template = get_template_content(config, "search.html", SEARCH_TEMPLATE)?;
     tera.add_raw_template("search", &search_template)?;
@@ -288,6 +295,7 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     tera_context.insert("doc_nav", &doc_nav);
     tera_context.insert("has_options", has_options);
     tera_context.insert("toc", ""); // No TOC for search page
+    tera_context.insert("generate_search", &true); // Always true for search page
 
     // Render the template
     let html = tera.render("search", &tera_context)?;
@@ -382,6 +390,11 @@ fn generate_doc_nav(config: &Config) -> Result<String> {
         doc_nav.push_str("<li><a href=\"options.html\">Module Options</a></li>\n");
     }
 
+    // Add search link only if search is enabled
+    if config.generate_search {
+        doc_nav.push_str("<li><a href=\"search.html\">Search</a></li>\n");
+    }
+
     Ok(doc_nav)
 }
 
@@ -451,7 +464,7 @@ fn generate_toc(headers: &[Header]) -> String {
 
 /// Generate the options HTML content
 fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
-    let mut options_html = String::with_capacity(options.len() * 500); // Rough estimate for capacity
+    let mut options_html = String::with_capacity(options.len() * 500); // FIXME: Rough estimate for capacity
 
     // Sort options by name
     let mut option_keys: Vec<_> = options.keys().collect();

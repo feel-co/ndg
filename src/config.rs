@@ -219,6 +219,11 @@ impl Config {
         if let Some(manpage_urls) = &cli.manpage_urls {
             self.manpage_urls_path = Some(manpage_urls.clone());
         }
+
+        // Handle the generate-search flag when explicitly set
+        if let Some(generate_search) = cli.generate_search {
+            self.generate_search = generate_search;
+        }
     }
 
     /// Get template directory path

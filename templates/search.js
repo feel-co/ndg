@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
           }
 
-          // Simple search implementation
+          // "Simple" search implementation
           const results = data
             .filter(
               (doc) =>
@@ -68,12 +68,25 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .catch((error) => {
         console.error("Error loading search data:", error);
+        // Create fallback empty search data so search doesn't break
+        // 2025-04-05: raf was an idiot and this became necessary.
+        window.searchData = [];
+        searchInput.addEventListener("input", function() {
+          const searchTerm = this.value.toLowerCase().trim();
+          if (searchTerm.length < 2) {
+            searchResults.innerHTML = "";
+            searchResults.style.display = "none";
+          } else {
+            searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+            searchResults.style.display = "block";
+          }
+        });
       });
   }
 
   // Options filter
-  // FIXME: this is here as a temporary solution, and should be removed
-  // to its own file as soon as possible.
+  // TODO: We can improve the search performance for this while parsing large
+  // files.
   const optionsFilter = document.getElementById("options-filter");
   if (optionsFilter) {
     const optionsContainer = document.querySelector(".options-container");

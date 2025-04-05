@@ -68,6 +68,10 @@ pub struct Cli {
     /// Path to configuration file (TOML or JSON)
     #[arg(short = 'c', long = "config")]
     pub config_file: Option<PathBuf>,
+
+    /// Whether to generate search functionality
+    #[arg(short = 'S', long = "generate-search")]
+    pub generate_search: Option<bool>,
 }
 
 #[derive(Subcommand, Debug)]

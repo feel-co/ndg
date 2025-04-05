@@ -97,7 +97,12 @@ fn main() -> Result<()> {
     // Check if we need to create a fallback index.html
     ensure_index_html_exists(&config, options_processed)?;
 
-    // Generate search index if enabled
+    // Generate search page if enabled
+    if config.generate_search {
+        search::generate_search_index(&config, &markdown_files)?;
+    }
+
+    // Generate search index if enabled and there are markdown files
     if config.generate_search && !markdown_files.is_empty() {
         search::generate_search_index(&config, &markdown_files)?;
     }
