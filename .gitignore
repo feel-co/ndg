@@ -10,7 +10,6 @@
 !/*.nix
 !/pkgs/
 !/nix/
-!/flake/
 !/.github/workflows/*
 !/src/
 !/Cargo.lock
