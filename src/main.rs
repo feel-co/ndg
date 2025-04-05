@@ -95,7 +95,7 @@ fn main() -> Result<()> {
     };
 
     // Check if we need to create a fallback index.html
-    ensure_index_html_exists(&config, &markdown_files, options_processed)?;
+    ensure_index_html_exists(&config, options_processed)?;
 
     // Generate search index if enabled
     if config.generate_search && !markdown_files.is_empty() {
@@ -113,11 +113,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn ensure_index_html_exists(
-    config: &Config,
-    markdown_files: &[std::path::PathBuf],
-    options_processed: bool,
-) -> Result<()> {
+fn ensure_index_html_exists(config: &Config, options_processed: bool) -> Result<()> {
     let index_path = config.output_dir.join("index.html");
 
     // Check if index.html already exists (already generated from index.md)
@@ -138,13 +134,73 @@ fn ensure_index_html_exists(
         }
     }
 
-    // If no content was generated at all, create a basic welcome page
-    if markdown_files.is_empty() && !options_processed {
-        info!("No content found, creating fallback index.html");
-        let content = format!(
-            "<h1>{}</h1>\n<p>Welcome to the documentation.</p>\n<p>No content has been generated. Please provide either markdown files or options.json.</p>",
+    // Create a fallback index page if input directory was provided but no index.md existed
+    if config.input_dir.is_some() {
+        info!("No index.md found, creating fallback index.html");
+
+        let mut content = format!(
+            "<h1>{}</h1>\n<p>This is a fallback page created by ndg.</p>",
             &config.title
         );
+
+        // List other markdown files if they exist
+        if let Some(input_dir) = &config.input_dir {
+            let entries: Vec<_> = walkdir::WalkDir::new(input_dir)
+                .follow_links(true)
+                .into_iter()
+                .filter_map(std::result::Result::ok)
+                .filter(|e| {
+                    e.path().is_file() && e.path().extension().is_some_and(|ext| ext == "md")
+                })
+                .collect();
+
+            if !entries.is_empty() {
+                let mut file_list = String::from("<h2>Available Documents</h2>\n<ul>\n");
+
+                for entry in entries {
+                    if let Ok(rel_path) = entry.path().strip_prefix(input_dir) {
+                        let mut html_path = rel_path.to_path_buf();
+                        html_path.set_extension("html");
+
+                        // Get page title from first heading or filename
+                        let page_title = if let Ok(content) = fs::read_to_string(entry.path()) {
+                            if let Some(first_line) = content.lines().next() {
+                                if let Some(title) = first_line.strip_prefix("# ") {
+                                    title.trim().to_string()
+                                } else {
+                                    html_path
+                                        .file_stem()
+                                        .unwrap_or_default()
+                                        .to_string_lossy()
+                                        .to_string()
+                                }
+                            } else {
+                                html_path
+                                    .file_stem()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string()
+                            }
+                        } else {
+                            html_path
+                                .file_stem()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string()
+                        };
+
+                        file_list.push_str(&format!(
+                            "  <li><a href=\"{}\">{}</a></li>\n",
+                            html_path.to_string_lossy(),
+                            page_title
+                        ));
+                    }
+                }
+
+                file_list.push_str("</ul>");
+                content.push_str(&file_list);
+            }
+        }
 
         // Create a simple HTML document using our template system
         let headers = vec![markdown::Header {
