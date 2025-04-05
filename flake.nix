@@ -2,6 +2,7 @@
   description = "Streamlined documentation generation for NixOS modules";
 
   inputs = {
+    flake-compat.url = "github:edolstra/flake-compat";
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
