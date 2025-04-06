@@ -10,17 +10,17 @@
   outputs = inputs:
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
       systems = inputs.nixpkgs.lib.systems.flakeExposed;
+      imports = [
+        ./flake/packages.nix
+        ./flake/checks.nix
+      ];
+
       perSystem = {
         self',
         pkgs,
         ...
       }: {
         formatter = pkgs.alejandra;
-
-        packages = {
-          ndg = pkgs.callPackage ./nix/package.nix {};
-          default = self'.packages.ndg;
-        };
 
         devShells.default = pkgs.mkShell {
           name = "ndg";

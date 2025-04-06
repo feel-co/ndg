@@ -13,14 +13,15 @@ in
     nativeBuildInputs = [installShellFiles];
 
     src = fs.toSource {
-      root = ../.;
+      root = ../../..;
       fileset = fs.unions [
-        (fs.fileFilter (file: builtins.any file.hasExt ["rs"]) ../src)
-        ../Cargo.lock
-        ../Cargo.toml
-        ../templates
+        (fs.fileFilter (file: builtins.any file.hasExt ["rs"]) ../../../src)
+        ../../../Cargo.lock
+        ../../../Cargo.toml
+        ../../../templates
       ];
     };
+
     cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
     useFetchCargoVendor = true;
     enableParallelBuilding = true;
