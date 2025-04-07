@@ -59,6 +59,7 @@
         <main class="content">
           <h1>{{ heading }}</h1>
 
+          {% if generate_search %}
           <div class="search-form">
             <input
               type="text"
@@ -66,6 +67,7 @@
               placeholder="Filter options..."
             />
           </div>
+          {% endif %}
 
           <div class="options-container">{{ options|safe }}</div>
 
