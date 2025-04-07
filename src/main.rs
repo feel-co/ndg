@@ -20,7 +20,7 @@ fn main() -> Result<()> {
     // Parse command line arguments
     let cli = Cli::parse_args();
 
-    // Handle subcommands first, before loading config
+    // Handle subcommands
     if let Some(command) = &cli.command {
         match command {
             Commands::Generate {
@@ -29,15 +29,19 @@ fn main() -> Result<()> {
                 manpage_only,
             } => {
                 if *completions_only {
-                    completion::generate_shell_completions(output_dir)?;
+                    completion::generate_comp(output_dir)?;
                     println!("Shell completions generated in {}", output_dir.display());
                 } else if *manpage_only {
                     completion::generate_manpage(output_dir)?;
                     println!("Manpage generated in {}", output_dir.display());
                 } else {
-                    completion::generate_all_artifacts(output_dir)?;
+                    completion::generate_all(output_dir)?;
                 }
                 return Ok(());
+            }
+            // Just passing the Options command to the Config handling
+            Commands::Options { .. } => {
+                // This is handled in Config::load and merge_with_cli
             }
         }
     }
@@ -96,11 +100,6 @@ fn main() -> Result<()> {
 
     // Check if we need to create a fallback index.html
     ensure_index_html_exists(&config, options_processed)?;
-
-    // Generate search page if enabled
-    if config.generate_search {
-        search::generate_search_index(&config, &markdown_files)?;
-    }
 
     // Generate search index if enabled and there are markdown files
     if config.generate_search && !markdown_files.is_empty() {

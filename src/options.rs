@@ -207,8 +207,8 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
             (key.clone(), option_clone)
         })
         .map(|(key, mut opt)| {
-            opt.name = opt.name.replace("<", "&lt;").replace(">", "&gt;");
-            (key.clone(), opt)
+            opt.name = opt.name.replace('<', "&lt;").replace('>', "&gt;");
+            (key, opt)
         })
         .collect();
 
@@ -230,31 +230,30 @@ fn format_location(loc_value: &Value, revision: &str) -> (Option<String>, Option
         Value::String(path) => {
             let path_str = path.as_str();
 
-            if !path_str.starts_with('/') {
+            if path_str.starts_with('/') {
+                // Local filesystem path handling
+                let url = format!("file://{path_str}");
+
+                if path_str.contains("nixops") && path_str.contains("/nix/") {
+                    let suffix_index = path_str.find("/nix/").map_or(0, |i| i + 5);
+                    let suffix = &path_str[suffix_index..];
+                    (Some(format!("<nixops/{suffix}>")), Some(url))
+                } else {
+                    (Some(path_str.to_string()), Some(url))
+                }
+            } else {
                 // Path is relative to nixpkgs repo
                 let url = if revision == "local" {
-                    format!("https://github.com/NixOS/nixpkgs/blob/master/{}", path_str)
+                    format!("https://github.com/NixOS/nixpkgs/blob/master/{path_str}")
                 } else {
                     format!(
-                        "https://github.com/NixOS/nixpkgs/blob/{}/{}",
-                        revision, path_str
+                        "https://github.com/NixOS/nixpkgs/blob/{revision}/{path_str}"
                     )
                 };
 
                 // Format display name
-                let display = format!("<nixpkgs/{}>", path_str);
+                let display = format!("<nixpkgs/{path_str}>");
                 (Some(display), Some(url))
-            } else {
-                // Local filesystem path handling
-                let url = format!("file://{}", path_str);
-
-                if path_str.contains("nixops") && path_str.contains("/nix/") {
-                    let suffix_index = path_str.find("/nix/").map(|i| i + 5).unwrap_or(0);
-                    let suffix = &path_str[suffix_index..];
-                    (Some(format!("<nixops/{}>", suffix)), Some(url))
-                } else {
-                    (Some(path_str.to_string()), Some(url))
-                }
             }
         }
 

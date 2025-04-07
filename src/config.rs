@@ -4,13 +4,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::cli::Cli;
+use crate::cli::{Cli, Commands};
 
 // I know this looks silly, but my understanding is that this is the most
 // type-correct and re-usable way. Functions allow for more complex default
 // values that can't be expressed as literals. For example, creating a
 // PathBuf would require execution, not just a literal value. Should be fine.
-fn default_input_dir() -> Option<PathBuf> {
+const fn default_input_dir() -> Option<PathBuf> {
     None
 }
 
@@ -147,12 +147,15 @@ impl Config {
         // Merge CLI arguments
         config.merge_with_cli(cli);
 
-        // Validate required fields if no config file was specified
-        if cli.config_file.is_none() {
-            // Input is optional, but output is still required
-            if config.output_dir == default_output_dir() && cli.output.is_none() {
+        // Get options from command if present
+        if let Some(Commands::Options { .. }) = &cli.command {
+            // Validation is handled in merge_with_cli
+        } else {
+            // No Options command, validate required fields if no config file was specified
+            if cli.config_file.is_none() {
+                // If there's no config file and no Options command, we're missing required data
                 return Err(anyhow::anyhow!(
-                    "Required argument 'output' not provided. Use --output or a config file."
+                    "Neither config file nor 'options' subcommand provided. Use 'ndg options' or provide a config file with --config."
                 ));
             }
         }
@@ -160,7 +163,7 @@ impl Config {
         // We need *at least one* source of content
         if config.input_dir.is_none() && config.module_options.is_none() {
             return Err(anyhow::anyhow!(
-                "At least one of input directory or module options must be provided. Use --input or --module-options."
+                "At least one of input directory or module options must be provided."
             ));
         }
 
@@ -179,58 +182,77 @@ impl Config {
 
     /// Merge CLI arguments into this config, prioritizing CLI values when present
     pub fn merge_with_cli(&mut self, cli: &Cli) {
-        // Set input directory from CLI if provided
-        if let Some(input) = &cli.input {
-            self.input_dir = Some(input.clone());
-        }
+        // Handle options from the Options subcommand if present
+        if let Some(Commands::Options {
+            input_dir,
+            output_dir,
+            jobs,
+            template,
+            template_dir,
+            stylesheet,
+            script,
+            title,
+            footer,
+            module_options,
+            options_toc_depth,
+            manpage_urls,
+            generate_search,
+            revision,
+        }) = &cli.command
+        {
+            // Set input directory from CLI if provided
+            if let Some(input_dir) = input_dir {
+                self.input_dir = Some(input_dir.clone());
+            }
 
-        if let Some(output) = &cli.output {
-            self.output_dir = output.clone();
-        }
+            if let Some(output_dir) = output_dir {
+                self.output_dir = output_dir.clone();
+            }
 
-        self.jobs = cli.jobs.or(self.jobs);
+            self.jobs = jobs.or(self.jobs);
 
-        if let Some(template) = &cli.template {
-            self.template_path = Some(template.clone());
-        }
+            if let Some(template) = template {
+                self.template_path = Some(template.clone());
+            }
 
-        if let Some(template_dir) = &cli.template_dir {
-            self.template_dir = Some(template_dir.clone());
-        }
+            if let Some(template_dir) = template_dir {
+                self.template_dir = Some(template_dir.clone());
+            }
 
-        if let Some(stylesheet) = &cli.stylesheet {
-            self.stylesheet_path = Some(stylesheet.clone());
-        }
+            if let Some(stylesheet) = stylesheet {
+                self.stylesheet_path = Some(stylesheet.clone());
+            }
 
-        if !cli.script.is_empty() {
-            self.script_paths = cli.script.clone();
-        }
+            if !script.is_empty() {
+                self.script_paths = script.clone();
+            }
 
-        if let Some(title) = &cli.title {
-            self.title = title.clone();
-        }
+            if let Some(title) = title {
+                self.title = title.clone();
+            }
 
-        if let Some(footer) = &cli.footer {
-            self.footer_text = footer.clone();
-        }
+            if let Some(footer) = footer {
+                self.footer_text = footer.clone();
+            }
 
-        if let Some(module_options) = &cli.module_options {
-            self.module_options = Some(module_options.clone());
-        }
+            if let Some(module_options) = module_options {
+                self.module_options = Some(module_options.clone());
+            }
 
-        self.options_toc_depth = cli.options_toc_depth.or(self.options_toc_depth);
+            self.options_toc_depth = options_toc_depth.or(self.options_toc_depth);
 
-        if let Some(manpage_urls) = &cli.manpage_urls {
-            self.manpage_urls_path = Some(manpage_urls.clone());
-        }
+            if let Some(manpage_urls) = manpage_urls {
+                self.manpage_urls_path = Some(manpage_urls.clone());
+            }
 
-        // Handle the generate-search flag when explicitly set
-        if let Some(generate_search) = cli.generate_search {
-            self.generate_search = generate_search;
-        }
+            // Handle the generate-search flag when explicitly set
+            if let Some(generate_search_val) = generate_search {
+                self.generate_search = *generate_search_val;
+            }
 
-        if let Some(revision) = &cli.revision {
-            self.revision = revision.clone();
+            if let Some(revision) = revision {
+                self.revision = revision.clone();
+            }
         }
     }
 

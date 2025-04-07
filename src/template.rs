@@ -521,13 +521,11 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         if let Some(declared_in) = &option.declared_in {
             if let Some(url) = &option.declared_in_url {
                 options_html.push_str(&format!(
-                    "  <div class=\"option-declared\">Declared in: <code><a href=\"{}\" target=\"_blank\">{}</a></code></div>\n",
-                    url, declared_in
+                    "  <div class=\"option-declared\">Declared in: <code><a href=\"{url}\" target=\"_blank\">{declared_in}</a></code></div>\n"
                 ));
             } else {
                 options_html.push_str(&format!(
-                    "  <div class=\"option-declared\">Declared in: <code>{}</code></div>\n",
-                    declared_in
+                    "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>\n"
                 ));
             }
         }

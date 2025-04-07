@@ -91,7 +91,7 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
                         // Create search entry for this option
                         documents.push(SearchDocument {
                             id: doc_id.to_string(),
-                            title: format!("Option: {}", key),
+                            title: format!("Option: {key}"),
                             content: description,
                             path: format!("options.html#option-{}", key.replace('.', "-")),
                         });
