@@ -1,9 +1,10 @@
-use anyhow::{Context, Result};
-use log::debug;
-use serde_json::{self, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+
+use anyhow::{Context, Result};
+use log::debug;
+use serde_json::{self, Value};
 
 use crate::config::Config;
 use crate::markdown;
@@ -35,6 +36,9 @@ pub struct NixOption {
 
     /// Path to the file where the option is declared
     pub declared_in: Option<String>,
+
+    /// Option declaration URL for hyperlink
+    pub declared_in_url: Option<String>,
 
     /// Whether this option is internal
     pub internal: bool,
@@ -69,6 +73,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
                     example: None,
                     example_text: None,
                     declared_in: None,
+                    declared_in_url: None,
                     internal: false,
                     read_only: false,
                 };
@@ -109,26 +114,12 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
                     option.example_text = Some(text.clone());
                 }
 
-                // Process declarations
+                // Process declarations with location handling
                 if let Some(Value::Array(decls)) = option_data.get("declarations") {
                     if !decls.is_empty() {
-                        if let Value::Object(decl_obj) = &decls[0] {
-                            if let Some(Value::String(name)) = decl_obj.get("name") {
-                                debug!("Found declaration name: {name}");
-                                // Convert angle brackets to HTML entities explicitly
-                                // This is the only way to retain `Declared by: < ... >`
-                                let path = name.replace('<', "&lt;").replace('>', "&gt;");
-                                option.declared_in = Some(path);
-                            } else if let Some(Value::String(url)) = decl_obj.get("url") {
-                                debug!("Found declaration url: {url}");
-                                option.declared_in = Some(url.clone());
-                            }
-                        } else if let Value::String(path) = &decls[0] {
-                            debug!("Found declaration string: {path}");
-                            // Convert angle brackets to HTML entities explicitly
-                            let path = path.replace('<', "&lt;").replace('>', "&gt;");
-                            option.declared_in = Some(path);
-                        }
+                        let (display, url) = format_location(&decls[0], &config.revision);
+                        option.declared_in = display;
+                        option.declared_in_url = url;
                     }
                 }
 
@@ -151,8 +142,8 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
                 // Use loc as fallback if no declaration
                 if option.declared_in.is_none() {
                     if let Some(Value::Array(loc_data)) = option_data.get("loc") {
-                        if loc_data.len() >= 2 {
-                            // For loc data, join the parts with dots to form a path
+                        if !loc_data.is_empty() {
+                            // For loc data, join the parts to form a path
                             let parts: Vec<String> = loc_data
                                 .iter()
                                 .filter_map(|v| {
@@ -183,12 +174,39 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
         }
     }
 
-    let customized_options = options
+    // Sort options by priority (enable > package > other)
+    let mut sorted_options: Vec<_> = options.into_iter().collect();
+    sorted_options.sort_by(|(name_a, _), (name_b, _)| {
+        // Calculate priority for name_a
+        let priority_a = if name_a.starts_with("enable") {
+            0
+        } else if name_a.starts_with("package") {
+            1
+        } else {
+            2
+        };
+
+        // Calculate priority for name_b
+        let priority_b = if name_b.starts_with("enable") {
+            0
+        } else if name_b.starts_with("package") {
+            1
+        } else {
+            2
+        };
+
+        // Compare by priority first, then by name
+        priority_a.cmp(&priority_b).then_with(|| name_a.cmp(name_b))
+    });
+
+    // Convert back to HashMap preserving the new order
+    let customized_options = sorted_options
         .iter()
         .map(|(key, opt)| {
             let option_clone = opt.clone();
             (key.clone(), option_clone)
-        }).map(|(key, mut opt)| {
+        })
+        .map(|(key, mut opt)| {
             opt.name = opt.name.replace("<", "&lt;").replace(">", "&gt;");
             (key.clone(), opt)
         })
@@ -203,6 +221,65 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     ))?;
 
     Ok(())
+}
+
+/// Format location with URL handling based on nixos-render-docs
+fn format_location(loc_value: &Value, revision: &str) -> (Option<String>, Option<String>) {
+    match loc_value {
+        // Handle string path
+        Value::String(path) => {
+            let path_str = path.as_str();
+
+            if !path_str.starts_with('/') {
+                // Path is relative to nixpkgs repo
+                let url = if revision == "local" {
+                    format!("https://github.com/NixOS/nixpkgs/blob/master/{}", path_str)
+                } else {
+                    format!(
+                        "https://github.com/NixOS/nixpkgs/blob/{}/{}",
+                        revision, path_str
+                    )
+                };
+
+                // Format display name
+                let display = format!("<nixpkgs/{}>", path_str);
+                (Some(display), Some(url))
+            } else {
+                // Local filesystem path handling
+                let url = format!("file://{}", path_str);
+
+                if path_str.contains("nixops") && path_str.contains("/nix/") {
+                    let suffix_index = path_str.find("/nix/").map(|i| i + 5).unwrap_or(0);
+                    let suffix = &path_str[suffix_index..];
+                    (Some(format!("<nixops/{}>", suffix)), Some(url))
+                } else {
+                    (Some(path_str.to_string()), Some(url))
+                }
+            }
+        }
+
+        // Handle object with name and url
+        Value::Object(obj) => {
+            let display = if let Some(Value::String(name)) = obj.get("name") {
+                Some(name.replace('<', "&lt;").replace('>', "&gt;"))
+            } else {
+                None
+            };
+
+            let url = obj.get("url").and_then(|u| {
+                if let Value::String(url_str) = u {
+                    Some(url_str.clone())
+                } else {
+                    None
+                }
+            });
+
+            (display, url)
+        }
+
+        // For other values, return None
+        _ => (None, None),
+    }
 }
 
 /// Escape HTML tags in markdown text before it's processed by the markdown processor

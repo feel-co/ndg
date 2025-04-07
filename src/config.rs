@@ -26,6 +26,10 @@ fn default_footer_text() -> String {
     "Generated with ndg".to_string()
 }
 
+fn default_revision() -> String {
+    "local".to_string()
+}
+
 const fn default_options_toc_depth() -> Option<usize> {
     Some(2)
 }
@@ -85,10 +89,6 @@ pub struct Config {
     #[serde(default = "default_true")]
     pub generate_anchors: bool,
 
-    /// Whether to embed resources in HTML
-    #[serde(default)]
-    pub embed_resources: bool,
-
     /// Whether to generate a search index
     #[serde(default = "default_true")]
     pub generate_search: bool,
@@ -100,6 +100,10 @@ pub struct Config {
     /// Depth of parent categories in options TOC
     #[serde(default = "default_options_toc_depth")]
     pub options_toc_depth: Option<usize>,
+
+    /// GitHub revision for linking to source files
+    #[serde(default = "default_revision")]
+    pub revision: String,
 }
 
 impl Config {
@@ -223,6 +227,10 @@ impl Config {
         // Handle the generate-search flag when explicitly set
         if let Some(generate_search) = cli.generate_search {
             self.generate_search = generate_search;
+        }
+
+        if let Some(revision) = &cli.revision {
+            self.revision = revision.clone();
         }
     }
 

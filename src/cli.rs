@@ -72,6 +72,10 @@ pub struct Cli {
     /// Whether to generate search functionality
     #[arg(short = 'S', long = "generate-search")]
     pub generate_search: Option<bool>,
+
+    /// GitHub revision for linking to source files (defaults to 'local')
+    #[arg(long)]
+    pub revision: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]

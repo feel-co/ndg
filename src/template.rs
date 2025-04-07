@@ -517,11 +517,19 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         // Add example if available
         add_example_value(&mut options_html, option);
 
-        // Option declared in
+        // Option declared in - now with hyperlink support
         if let Some(declared_in) = &option.declared_in {
-            options_html.push_str(&format!(
-                "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>\n"
-            ));
+            if let Some(url) = &option.declared_in_url {
+                options_html.push_str(&format!(
+                    "  <div class=\"option-declared\">Declared in: <code><a href=\"{}\" target=\"_blank\">{}</a></code></div>\n",
+                    url, declared_in
+                ));
+            } else {
+                options_html.push_str(&format!(
+                    "  <div class=\"option-declared\">Declared in: <code>{}</code></div>\n",
+                    declared_in
+                ));
+            }
         }
 
         // Close option div
