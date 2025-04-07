@@ -188,6 +188,9 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
         .map(|(key, opt)| {
             let option_clone = opt.clone();
             (key.clone(), option_clone)
+        }).map(|(key, mut opt)| {
+            opt.name = opt.name.replace("<", "&lt;").replace(">", "&gt;");
+            (key.clone(), opt)
         })
         .collect();
 
