@@ -1,62 +1,48 @@
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{Context, Result};
-use log::{debug, info};
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
-use rayon::prelude::*;
-use regex::Regex;
 use lazy_static::lazy_static;
+use log::{debug, info};
+use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use regex::Regex;
 
-use crate::markdown::parser::Header;
-use crate::markdown::preprocess::{preprocess_markdown, preprocess_special_markup};
 use crate::markdown::extract_headers;
+use crate::markdown::preprocess::{preprocess_markdown, FormatType};
 
 mod formatter;
+#[cfg(test)]
+mod tests;
 
-pub use formatter::escape_manpage;
 use formatter::escape_leading_dot;
+pub use formatter::escape_manpage;
 
-/// Process all markdown files in a directory and convert them to manpages
 pub fn generate_manpages_from_directory(
     input_dir: &Path,
     output_dir: &Path,
     section: u8,
     manual: &str,
-    jobs: Option<usize>,
+    _jobs: Option<usize>,
 ) -> Result<()> {
-    // Ensure output directory exists
     fs::create_dir_all(output_dir)?;
 
-    // Collect markdown files
     info!("Collecting markdown files from {}", input_dir.display());
     let files = crate::markdown::collect_markdown_files(input_dir)?;
-    info!("Found {} markdown files to convert to manpages", files.len());
+    info!(
+        "Found {} markdown files to convert to manpages",
+        files.len()
+    );
 
     if !files.is_empty() {
-        // Process files in parallel if requested
-        if let Some(thread_count) = jobs {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(thread_count)
-                .build_global()?;
-
-            files.par_iter()
-                .try_for_each(|file_path| {
-                    process_markdown_to_manpage(file_path, input_dir, output_dir, section, manual)
-                })?;
-        } else {
-            // Process sequentially
-            for file_path in &files {
-                process_markdown_to_manpage(file_path, input_dir, output_dir, section, manual)?;
-            }
+        for file_path in &files {
+            process_markdown_to_manpage(file_path, input_dir, output_dir, section, manual)?;
         }
     }
 
     Ok(())
 }
 
-/// Process a single markdown file to manpage format
 fn process_markdown_to_manpage(
     file_path: &Path,
     input_dir: &Path,
@@ -66,38 +52,32 @@ fn process_markdown_to_manpage(
 ) -> Result<()> {
     debug!("Converting to manpage: {}", file_path.display());
 
-    // Read markdown
     let content = fs::read_to_string(file_path)
         .with_context(|| format!("Failed to read markdown file: {}", file_path.display()))?;
 
-    // Extract the title from the first h1 heading or use the filename
     let (_, title_opt) = extract_headers(&content);
-    let filename = file_path.file_stem()
-        .unwrap_or_default()
-        .to_string_lossy();
+    let filename = file_path.file_stem().unwrap_or_default().to_string_lossy();
 
     let title = title_opt.unwrap_or_else(|| filename.to_string());
 
-    // Determine output path
     let rel_path = file_path.strip_prefix(input_dir).with_context(|| {
-        format!("Failed to determine relative path for {}", file_path.display())
+        format!(
+            "Failed to determine relative path for {}",
+            file_path.display()
+        )
     })?;
 
     let mut output_path = output_dir.join(rel_path);
-    // Change extension to .{section} for manpages
     output_path.set_extension(section.to_string());
 
-    // Create parent directories if needed
     if let Some(parent) = output_path.parent() {
         if !parent.exists() {
             fs::create_dir_all(parent)?;
         }
     }
 
-    // Convert to manpage format
     let manpage_content = markdown_to_manpage(&content, &title, section, manual)?;
 
-    // Write to output file
     fs::write(&output_path, manpage_content)
         .with_context(|| format!("Failed to write manpage file: {}", output_path.display()))?;
 
@@ -106,195 +86,136 @@ fn process_markdown_to_manpage(
     Ok(())
 }
 
-/// Convert markdown content to manpage format (troff/nroff)
 pub fn markdown_to_manpage(
     markdown: &str,
     title: &str,
     section: u8,
-    manual: &str
+    manual: &str,
 ) -> Result<String> {
-    // Create a buffer for the manpage output with a reasonable capacity
     let mut manpage = Vec::with_capacity(markdown.len() * 2);
 
-    // Process special markup first (similar to preprocess_markdown)
-    let processed_markdown = preprocess_special_markup(&markdown);
+    let processed_markdown = preprocess_markdown(markdown, FormatType::Manpage);
 
-    // Additional preprocessing for NixOS Markdown extensions
-    let processed_markdown = preprocess_nixos_extensions(&processed_markdown);
-
-    // Setup parser
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_FOOTNOTES);
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TASKLISTS);
 
-    // Parse the markdown
     let parser = Parser::new_ext(&processed_markdown, options);
 
-    // Start with manpage header (.TH)
-    // Format: .TH TITLE SECTION DATE SOURCE MANUAL
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     writeln!(manpage, ".\\\" Generated by ndg")?;
-    writeln!(manpage, ".TH \"{}\" \"{}\" \"{}\" \"\" \"{}\"",
-             escape_manpage(title), section, today, escape_manpage(manual))?;
+    writeln!(
+        manpage,
+        ".TH \"{}\" \"{}\" \"{}\" \"\" \"{}\"",
+        escape_manpage(title),
+        section,
+        today,
+        escape_manpage(manual)
+    )?;
 
-    // State tracking
     let mut current_list_level = 0;
     let mut in_list_item = false;
     let mut in_code_block = false;
     let mut code_block_content = String::new();
-    let mut code_block_language = String::new();
-    let mut in_table = false;
-    let mut table_headers = Vec::new();
-    let mut table_rows = Vec::new();
-    let mut current_row = Vec::new();
+    let mut table_headers: Vec<String> = Vec::new();
+    let mut table_rows: Vec<Vec<String>> = Vec::new();
+    let mut current_row: Vec<String> = Vec::new();
     let mut current_cell = String::new();
-    let mut in_definition_list = false;
-    let mut definition_term = String::new();
+    let mut in_header = false;
+    let mut in_row = false;
+    let mut in_table = false;
+    let mut current_item_content = String::new();
 
-    // Process each event
-    let events: Vec<_> = parser.collect();
-    let mut i = 0;
-
-    while i < events.len() {
-        let event = &events[i];
-
+    for event in parser {
         match event {
-            Event::Start(Tag::Heading { level, id, .. }) => {
-                // Close any open sections
+            Event::Start(Tag::Heading { level, .. }) => {
                 if in_list_item {
-                    writeln!(manpage, "")?;
+                    if !current_item_content.is_empty() {
+                        write!(manpage, "{current_item_content}")?;
+                        current_item_content.clear();
+                    }
+                    writeln!(manpage)?;
                     in_list_item = false;
                 }
 
                 let section_macro = match level {
                     HeadingLevel::H1 => ".SH",
-                    _ => ".SS"
+                    _ => ".SS",
                 };
 
-                // Collect the heading text
-                let mut heading_text = String::new();
-                let mut j = i + 1;
-                loop {
-                    if j >= events.len() {
-                        break;
-                    }
-                    match &events[j] {
-                        Event::End(TagEnd::Heading(_)) => break,
-                        Event::Text(text) => heading_text.push_str(text),
-                        Event::Code(code) => {
-                            heading_text.push_str(code);
-                        },
-                        _ => {}
-                    }
-                    j += 1;
-                }
+                write!(manpage, "{section_macro} \"")?;
+            }
 
-                // Handle explicit ID if present
-                if let Some(explicit_id) = id {
-                    // We don't need to do anything with the ID in manpage, but we can comment it
-                    writeln!(manpage, ".\\\" Heading ID: {}", explicit_id)?;
-                }
-
-                // Output the heading
-                writeln!(manpage, "{} \"{}\"", section_macro, escape_manpage(&heading_text))?;
-
-                // Skip ahead
-                i = j;
+            Event::End(TagEnd::Heading(_)) => {
+                writeln!(manpage, "\"")?;
             }
 
             Event::Start(Tag::Paragraph) => {
-                // Start a new paragraph if not in a list
-                if !in_list_item {
+                if in_list_item {
+                    // For paragraphs inside list items, we'll append to current content
+                } else {
                     writeln!(manpage, ".PP")?;
                 }
             }
 
             Event::End(TagEnd::Paragraph) => {
-                writeln!(manpage, "")?;
+                if !in_list_item {
+                    writeln!(manpage)?;
+                }
             }
 
-            Event::Start(Tag::List(ordered)) => {
+            Event::Start(Tag::List(_)) => {
                 current_list_level += 1;
-
                 if current_list_level == 1 {
                     writeln!(manpage, ".RS")?;
-                }
-
-                if let Some(start) = ordered {
-                    if *start != 1 {
-                        writeln!(manpage, ".nr step {}", start - 1)?;
-                    } else {
-                        writeln!(manpage, ".nr step 0")?;
-                    }
                 }
             }
 
             Event::End(TagEnd::List(_)) => {
                 current_list_level -= 1;
-
                 if current_list_level == 0 {
                     writeln!(manpage, ".RE")?;
                 }
-
                 in_list_item = false;
+                current_item_content.clear();
             }
 
             Event::Start(Tag::Item) => {
+                // Write any pending content from previous list item
+                if in_list_item && !current_item_content.is_empty() {
+                    write!(manpage, "{current_item_content}")?;
+                    current_item_content.clear();
+                }
                 in_list_item = true;
                 writeln!(manpage, ".IP \\(bu 2")?;
             }
 
-            Event::Start(Tag::CodeBlock(kind)) => {
+            Event::End(TagEnd::Item) => {
+                // Write the list item content at the end of the item
+                if !current_item_content.is_empty() {
+                    write!(manpage, "{current_item_content}")?;
+                    current_item_content.clear();
+                }
+                // Ensure a newline after each list item
+                writeln!(manpage)?;
+            }
+
+            Event::Start(Tag::CodeBlock(_)) => {
                 in_code_block = true;
                 code_block_content.clear();
-                code_block_language.clear();
-
-                // Get language for syntax highlighting
-                if let CodeBlockKind::Fenced(lang) = kind {
-                    code_block_language = lang.to_string();
-                }
-
                 writeln!(manpage, ".PP")?;
                 writeln!(manpage, ".RS 4")?;
-                writeln!(manpage, ".nf")?; // no-fill mode
+                writeln!(manpage, ".nf")?;
             }
 
             Event::End(TagEnd::CodeBlock) => {
                 in_code_block = false;
-
-                // Special handling for command prompts in code blocks
-                // We need to preprocess for better formatting in manpages
-                let content_lines = code_block_content.lines().collect::<Vec<_>>();
-
-                for line in content_lines {
-                    let processed_line = if line.trim().starts_with('$') {
-                        // Format as a command prompt
-                        let cmd_parts: Vec<&str> = line.splitn(2, '$').collect();
-                        if cmd_parts.len() > 1 {
-                            let command = cmd_parts[1].trim();
-                            format!("$ {}", command)
-                        } else {
-                            line.to_string()
-                        }
-                    } else if line.trim().starts_with("nix-repl>") {
-                        // Format as REPL prompt
-                        let repl_parts: Vec<&str> = line.splitn(2, "nix-repl>").collect();
-                        if repl_parts.len() > 1 {
-                            let code = repl_parts[1].trim();
-                            format!("nix-repl> {}", code)
-                        } else {
-                            line.to_string()
-                        }
-                    } else {
-                        line.to_string()
-                    };
-
-                    writeln!(manpage, "{}", escape_leading_dot(&processed_line))?;
+                for line in code_block_content.lines() {
+                    writeln!(manpage, "{}", escape_leading_dot(line))?;
                 }
-
-                writeln!(manpage, ".fi")?; // fill mode
+                writeln!(manpage, ".fi")?;
                 writeln!(manpage, ".RE")?;
             }
 
@@ -302,164 +223,274 @@ pub fn markdown_to_manpage(
                 in_table = true;
                 table_headers.clear();
                 table_rows.clear();
+            }
 
-                // Collect all table data first
-                let mut in_header = false;
-                let mut in_row = false;
-                let mut j = i + 1;
-
-                // First pass - collect all table data
-                while j < events.len() {
-                    match &events[j] {
-                        Event::End(TagEnd::Table) => break,
-                        Event::Start(Tag::TableHead) => in_header = true,
-                        Event::End(TagEnd::TableHead) => in_header = false,
-                        Event::Start(Tag::TableRow) => {
-                            in_row = true;
-                            current_row = Vec::new();
-                        },
-                        Event::End(TagEnd::TableRow) => {
-                            in_row = false;
-                            if !in_header {
-                                table_rows.push(current_row.clone());
-                            }
-                        },
-                        Event::Start(Tag::TableCell) => {
-                            current_cell = String::new();
-                        },
-                        Event::End(TagEnd::TableCell) => {
-                            if in_header {
-                                table_headers.push(current_cell.clone());
-                            } else if in_row {
-                                current_row.push(current_cell.clone());
-                            }
-                        },
-                        Event::Text(text) => {
-                            current_cell.push_str(text);
-                        },
-                        Event::Code(code) => {
-                            current_cell.push_str(code);
-                        },
-                        _ => {}
-                    }
-                    j += 1;
-                }
-
-                // Now render the table in a reasonable format for manpages
-                writeln!(manpage, ".PP")?;
-                writeln!(manpage, ".TS")?;
-                writeln!(manpage, "tab(|) allbox;")?;
-
-                // Format specifier - all cells left-aligned
-                for _ in 0..table_headers.len().max(1) {
-                    write!(manpage, "l ")?;
-                }
-                writeln!(manpage, ".")?;
-
-                // Table headers
-                if !table_headers.is_empty() {
-                    for (idx, header) in table_headers.iter().enumerate() {
-                        if idx > 0 {
-                            write!(manpage, "|")?;
-                        }
-                        write!(manpage, "{}", escape_manpage(header))?;
-                    }
-                    writeln!(manpage, "")?;
-                }
-
-                // Table data
-                for row in &table_rows {
-                    for (idx, cell) in row.iter().enumerate() {
-                        if idx > 0 {
-                            write!(manpage, "|")?;
-                        }
-                        write!(manpage, "{}", escape_manpage(cell))?;
-                    }
-                    writeln!(manpage, "")?;
-                }
-
-                writeln!(manpage, ".TE")?;
-
-                // Skip ahead
-                i = j;
+            Event::End(TagEnd::Table) => {
                 in_table = false;
-            }
-
-            Event::Start(Tag::FootnoteDefinition(footnote_id)) => {
                 writeln!(manpage, ".PP")?;
-                writeln!(manpage, ".RS")?;
-                write!(manpage, "\\fB[{}]\\fR: ", escape_manpage(footnote_id))?;
+                writeln!(manpage, ".nf")?;
+
+                let max_cols = std::cmp::max(
+                    table_headers.len(),
+                    table_rows
+                        .iter()
+                        .map(|row: &Vec<String>| row.len())
+                        .max()
+                        .unwrap_or(0),
+                );
+
+                let mut col_widths = vec![0; max_cols];
+
+                for (i, header) in table_headers.iter().enumerate() {
+                    if i < col_widths.len() {
+                        col_widths[i] = col_widths[i].max(header.len());
+                    }
+                }
+
+                for row in &table_rows {
+                    for (i, cell) in row.iter().enumerate() {
+                        if i < col_widths.len() {
+                            col_widths[i] = col_widths[i].max(cell.len());
+                        }
+                    }
+                }
+
+                for width in &mut col_widths {
+                    *width += 2;
+                }
+
+                write!(manpage, "┌")?;
+                for (i, &width) in col_widths.iter().enumerate() {
+                    write!(manpage, "{}", "─".repeat(width))?;
+                    if i < col_widths.len() - 1 {
+                        write!(manpage, "┬")?;
+                    }
+                }
+                writeln!(manpage, "┐")?;
+
+                if !table_headers.is_empty() {
+                    write!(manpage, "│")?;
+                    for (i, header) in table_headers.iter().enumerate() {
+                        if i < col_widths.len() {
+                            let padding = col_widths[i] - header.len();
+                            let left_pad = padding / 2;
+                            let right_pad = padding - left_pad;
+
+                            write!(
+                                manpage,
+                                "{}{}{}",
+                                " ".repeat(left_pad),
+                                header,
+                                " ".repeat(right_pad)
+                            )?;
+
+                            if i < table_headers.len() - 1 {
+                                write!(manpage, "│")?;
+                            }
+                        }
+                    }
+                    writeln!(manpage, "│")?;
+
+                    write!(manpage, "├")?;
+                    for (i, &width) in col_widths.iter().enumerate() {
+                        write!(manpage, "{}", "─".repeat(width))?;
+                        if i < col_widths.len() - 1 {
+                            write!(manpage, "┼")?;
+                        }
+                    }
+                    writeln!(manpage, "┤")?;
+                }
+
+                for (row_idx, row) in table_rows.iter().enumerate() {
+                    write!(manpage, "│")?;
+
+                    for (i, cell) in row.iter().enumerate() {
+                        if i < col_widths.len() {
+                            let cell_width: usize = col_widths[i];
+                            let content_width = cell.len();
+                            let padding = cell_width.saturating_sub(content_width);
+                            let left_pad = padding / 2;
+                            let right_pad = padding - left_pad;
+
+                            write!(
+                                manpage,
+                                "{}{}{}",
+                                " ".repeat(left_pad),
+                                cell,
+                                " ".repeat(right_pad)
+                            )?;
+
+                            if i < row.len() - 1 && i < col_widths.len() - 1 {
+                                write!(manpage, "│")?;
+                            }
+                        }
+                    }
+
+                    if row.len() < col_widths.len() {
+                        for i in row.len()..col_widths.len() {
+                            if i > 0 {
+                                write!(manpage, "│")?;
+                            }
+                            write!(manpage, "{}", " ".repeat(col_widths[i]))?;
+                        }
+                    }
+
+                    writeln!(manpage, "│")?;
+
+                    if row_idx < table_rows.len() - 1 {
+                        write!(manpage, "├")?;
+                        for (i, &width) in col_widths.iter().enumerate() {
+                            write!(manpage, "{}", "─".repeat(width))?;
+                            if i < col_widths.len() - 1 {
+                                write!(manpage, "┼")?;
+                            }
+                        }
+                        writeln!(manpage, "┤")?;
+                    }
+                }
+
+                write!(manpage, "└")?;
+                for (i, &width) in col_widths.iter().enumerate() {
+                    write!(manpage, "{}", "─".repeat(width))?;
+                    if i < col_widths.len() - 1 {
+                        write!(manpage, "┴")?;
+                    }
+                }
+                writeln!(manpage, "┘")?;
+                writeln!(manpage, ".fi")?;
             }
 
-            Event::End(TagEnd::FootnoteDefinition) => {
-                writeln!(manpage, "")?;
-                writeln!(manpage, ".RE")?;
+            Event::Start(Tag::TableHead) => {
+                in_header = true;
+            }
+
+            Event::End(TagEnd::TableHead) => {
+                in_header = false;
+            }
+
+            Event::Start(Tag::TableRow) => {
+                in_row = true;
+                current_row.clear();
+            }
+
+            Event::End(TagEnd::TableRow) => {
+                in_row = false;
+                if !in_header {
+                    table_rows.push(current_row.clone());
+                }
+            }
+
+            Event::Start(Tag::TableCell) => {
+                current_cell.clear();
+            }
+
+            Event::End(TagEnd::TableCell) => {
+                if in_header {
+                    table_headers.push(current_cell.clone());
+                } else if in_row {
+                    current_row.push(current_cell.clone());
+                }
             }
 
             Event::Code(text) => {
-                // Code formatting - monospace
-                write!(manpage, "\\fB{}\\fR", escape_manpage(text))?;
+                if in_table {
+                    if in_header || in_row {
+                        current_cell.push_str(&text);
+                    }
+                } else if in_code_block {
+                    code_block_content.push_str(&text);
+                } else if in_list_item {
+                    // For list items, collect the content first
+                    if text.contains("\\fB") || text.contains("\\fI") || text.contains("\\fR") {
+                        current_item_content.push_str(&text);
+                    } else {
+                        current_item_content
+                            .push_str(&format!("\\fB{}\\fR", escape_manpage(&text)));
+                    }
+                } else if text.contains("\\fB") || text.contains("\\fI") || text.contains("\\fR") {
+                    write!(manpage, "{text}")?;
+                } else {
+                    write!(manpage, "\\fB{}\\fR", escape_manpage(&text))?;
+                }
+            }
+
+            Event::Start(Tag::Emphasis) => {
+                if in_list_item {
+                    current_item_content.push_str("\\fI");
+                } else if !in_table && !in_code_block {
+                    write!(manpage, "\\fI")?;
+                }
+            }
+
+            Event::End(TagEnd::Emphasis) => {
+                if in_list_item {
+                    current_item_content.push_str("\\fR");
+                } else if !in_table && !in_code_block {
+                    write!(manpage, "\\fR")?;
+                }
+            }
+
+            Event::Start(Tag::Strong) => {
+                if in_list_item {
+                    current_item_content.push_str("\\fB");
+                } else if !in_table && !in_code_block {
+                    write!(manpage, "\\fB")?;
+                }
+            }
+
+            Event::End(TagEnd::Strong) => {
+                if in_list_item {
+                    current_item_content.push_str("\\fR");
+                } else if !in_table && !in_code_block {
+                    write!(manpage, "\\fR")?;
+                }
             }
 
             Event::Text(text) => {
-                if in_code_block {
-                    code_block_content.push_str(text);
-                } else {
-                    // Special processing for definition lists
-                    if text.starts_with(":   ") && text.len() > 4 {
-                        if !in_definition_list {
-                            in_definition_list = true;
-                            writeln!(manpage, ".RS")?;
-                        }
+                let text_str = text.as_ref();
 
-                        writeln!(manpage, ".TP")?;
-                        writeln!(manpage, "\\fB{}\\fR", escape_manpage(&definition_term))?;
-                        writeln!(manpage, "{}", escape_manpage(&text[4..]))?;
-                    } else if !text.starts_with(":") && text.trim().len() > 0 {
-                        // Check if next event might be a definition
-                        if i + 1 < events.len() {
-                            if let Event::Text(next_text) = &events[i+1] {
-                                if next_text.starts_with(":   ") {
-                                    definition_term = text.to_string();
-                                    // Skip ahead, will be handled in next iteration
-                                    i += 1;
-                                    continue;
-                                }
-                            }
-                        }
-
-                        if in_definition_list {
-                            in_definition_list = false;
-                            writeln!(manpage, ".RE")?;
-                        }
-
-                        // Check for command prompts
-                        if text.trim().starts_with('$') && text.trim().len() > 1 {
-                            let parts: Vec<&str> = text.splitn(2, '$').collect();
-                            if parts.len() > 1 {
-                                let command = parts[1].trim();
-                                writeln!(manpage, "\\fB$\\fR {}", escape_manpage(command))?;
-                            } else {
-                                write!(manpage, "{}", escape_manpage(text))?;
-                            }
+                if text_str.starts_with('.') && !in_code_block && !in_table {
+                    if text_str.starts_with(".PP")
+                        || text_str.starts_with(".RS")
+                        || text_str.starts_with(".RE")
+                        || text_str.starts_with(".B ")
+                        || text_str.starts_with(".TP")
+                        || text_str.starts_with(".br")
+                        || text_str.starts_with(".nf")
+                        || text_str.starts_with(".fi")
+                        || text_str.starts_with(".BR")
+                    {
+                        if in_list_item {
+                            current_item_content.push_str(text_str);
                         } else {
-                            // Process role-based markup (done in preprocess but additional formatting here)
-                            if let Some(processed) = process_special_roles(text) {
-                                write!(manpage, "{}", processed)?;
-                            } else {
-                                write!(manpage, "{}", escape_manpage(text))?;
-                            }
+                            write!(manpage, "{text_str}")?;
                         }
+                    } else if in_header || in_row {
+                        current_cell.push_str(&escape_leading_dot(text_str));
+                    } else if in_list_item {
+                        current_item_content.push_str(&escape_leading_dot(text_str));
                     } else {
-                        write!(manpage, "{}", escape_manpage(text))?;
+                        write!(manpage, "{}", escape_leading_dot(text_str))?;
                     }
+                } else if in_table {
+                    if in_header || in_row {
+                        current_cell.push_str(text_str);
+                    }
+                } else if in_code_block {
+                    code_block_content.push_str(text_str);
+                } else if in_list_item {
+                    current_item_content.push_str(&escape_manpage(text_str));
+                } else {
+                    write!(manpage, "{}", escape_manpage(text_str))?;
                 }
             }
 
             Event::SoftBreak => {
                 if in_code_block {
                     code_block_content.push('\n');
-                } else {
+                } else if in_list_item {
+                    current_item_content.push(' ');
+                } else if !in_table {
                     write!(manpage, " ")?;
                 }
             }
@@ -467,216 +498,78 @@ pub fn markdown_to_manpage(
             Event::HardBreak => {
                 if in_code_block {
                     code_block_content.push('\n');
-                } else {
+                } else if in_list_item {
+                    current_item_content.push_str("\n.br\n");
+                } else if !in_table {
                     writeln!(manpage, ".br")?;
                 }
             }
 
-            Event::Start(Tag::Emphasis) => {
-                write!(manpage, "\\fI")?;
-            }
-
-            Event::End(TagEnd::Emphasis) => {
-                write!(manpage, "\\fR")?;
-            }
-
-            Event::Start(Tag::Strong) => {
-                write!(manpage, "\\fB")?;
-            }
-
-            Event::End(TagEnd::Strong) => {
-                write!(manpage, "\\fR")?;
-            }
-
-            Event::Start(Tag::Link { dest_url, .. }) => {
-                // For links, collect the link text and add URL in parentheses when appropriate
-                let mut link_text = String::new();
-                let mut j = i + 1;
-
-                while j < events.len() {
-                    match &events[j] {
-                        Event::End(TagEnd::Link) => break,
-                        Event::Text(text) => link_text.push_str(text),
-                        Event::Code(code) => {
-                            link_text.push_str(code);
-                        },
-                        _ => {}
-                    }
-                    j += 1;
-                }
-
-                // Output link text
-                write!(manpage, "{}", escape_manpage(&link_text))?;
-
-                // Only show URL if it's a real URL (not just an anchor)
-                if !dest_url.starts_with('#') && link_text != dest_url.to_string()
-                   && !dest_url.is_empty() {
-                    write!(manpage, " ({})", dest_url)?;
-                }
-
-                // Skip ahead
-                i = j;
-            }
-
             Event::FootnoteReference(footnote_id) => {
-                write!(manpage, "[{}]", escape_manpage(footnote_id))?;
+                let formatted = format!("[{}]", escape_manpage(&footnote_id));
+                if in_list_item {
+                    current_item_content.push_str(&formatted);
+                } else {
+                    write!(manpage, "{formatted}")?;
+                }
             }
 
             Event::TaskListMarker(checked) => {
-                write!(manpage, "[{}] ", if checked { "x" } else { " " })?;
+                let formatted = format!("[{}] ", if checked { "x" } else { " " });
+                if in_list_item {
+                    current_item_content.push_str(&formatted);
+                } else {
+                    write!(manpage, "{formatted}")?;
+                }
             }
 
-            Event::Html(html) => {
-                // Process admonition blocks specially
-                if html.contains("class=\"admonition") {
-                    // Extract type and title
-                    let mut admonition_type = "note".to_string();
-                    let mut title = "Note".to_string();
-
-                    // Extract admonition type
-                    if let Some(type_start) = html.find("admonition ") {
-                        if let Some(type_end) = html[type_start + 10..].find("\"") {
-                            admonition_type = html[type_start + 10..type_start + 10 + type_end].to_string();
-                        }
-                    }
-
-                    // Extract title
-                    if let Some(title_idx) = html.find("class=\"admonition-title\"") {
-                        if let Some(title_end_tag) = html[title_idx..].find("</p>") {
-                            if let Some(title_start_tag) = html[title_idx..title_idx + title_end_tag].rfind(">") {
-                                title = html[title_idx + title_start_tag + 1..title_idx + title_end_tag].to_string();
-                            }
-                        }
-                    }
-
-                    // Format as a boxed section
-                    writeln!(manpage, ".PP")?;
-                    writeln!(manpage, ".RS")?;
-                    writeln!(manpage, ".B \"{}\"", title)?;
-                }
-                else if html.contains("</div>") {
-                    // End of an admonition or similar block
-                    writeln!(manpage, ".RE")?;
-                }
-                else if html.contains("<figure") {
-                    // Start of a figure
-                    writeln!(manpage, ".PP")?;
-                    writeln!(manpage, ".RS")?;
-                }
-                else if html.contains("</figure>") {
-                    // End of a figure
-                    writeln!(manpage, ".RE")?;
-                }
-                else if html.contains("<figcaption>") {
-                    // Figure caption - extract the text
-                    let caption_start = html.find("<figcaption>").map(|i| i + 12).unwrap_or(0);
-                    let caption_end = html.find("</figcaption>").unwrap_or(html.len());
-
-                    if caption_start < caption_end {
-                        let caption = &html[caption_start..caption_end];
-                        writeln!(manpage, ".B \"{}\"", escape_manpage(caption))?;
-                    }
-                }
-                // All other HTML is ignored in manpages
-            }
-
-            // For all other events, we'll just ignore them
             _ => {}
         }
-
-        i += 1;
     }
 
-    // Clean up any open states
-    if in_definition_list {
-        writeln!(manpage, ".RE")?;
-    }
+    let mut result = String::from_utf8(manpage)?;
 
-    Ok(String::from_utf8(manpage)?)
-}
-
-/// Preprocess Nixpkgs markdown extensions before parsing
-fn preprocess_nixos_extensions(markdown: &str) -> String {
     lazy_static! {
-        // Regex for finding inline anchors
-        static ref INLINE_ANCHOR_RE: Regex = Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap();
-
-        // Regex for auto-links to anchors
-        static ref AUTO_LINK_RE: Regex = Regex::new(r"\[\]\((#[a-zA-Z0-9_-]+)\)").unwrap();
-
-        // Regex for heading anchors
-        static ref HEADING_ANCHOR_RE: Regex =
-            Regex::new(r"^(#+\s+.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap();
+        static ref LIST_ITEM_CLEANUP: Regex = Regex::new("(\\\\f[BI][^\\\\]+\\\\fR)\\.IP").unwrap();
+        static ref STRAY_IP_BULLET: Regex = Regex::new("\\.IP • 2").unwrap();
+        static ref TRAILING_RE: Regex = Regex::new("\\\\fR\\.RE").unwrap();
+        static ref DOUBLE_NEWLINE_RE: Regex = Regex::new("\n\n").unwrap();
+        static ref DUPLICATE_PP: Regex = Regex::new("\\.PP\n\\.PP").unwrap();
+        static ref EXAMPLE_HASH_CLEANUP: Regex = Regex::new("Example:\\s*# (.+)").unwrap();
+        static ref INLINE_PP_RE: Regex = Regex::new(r"([^\n])\s*\.PP\s+").unwrap();
+        static ref ADMONITION_PARAGRAPH_FIX: Regex =
+            Regex::new("(.PP\n[A-Z][a-z]+: .+)(\\.PP)").unwrap();
     }
 
-    // Process line by line
-    let mut result = String::with_capacity(markdown.len());
+    // Fix duplicate paragraph markers
+    result = DUPLICATE_PP.replace_all(&result, ".PP").to_string();
 
-    for line in markdown.lines() {
-        // Process heading anchors
-        let line = if HEADING_ANCHOR_RE.is_match(line) {
-            HEADING_ANCHOR_RE.replace(line, |caps: &regex::Captures| {
-                let heading = &caps[1];
-                // Keep the heading but add a comment with the anchor name
-                format!("{} <!-- anchor: {} -->", heading, &caps[2])
-            }).to_string()
-        } else {
-            line.to_string()
-        };
+    // Clean up list item markup
+    result = LIST_ITEM_CLEANUP
+        .replace_all(&result, "$1\n.IP")
+        .to_string();
 
-        // Process inline anchors (turn to inline marker)
-        let line = INLINE_ANCHOR_RE.replace_all(&line, |caps: &regex::Captures| {
-            let id = &caps[1];
-            format!("[{}]", id)
-        });
+    // Fix example admonitions with # in title
+    result = EXAMPLE_HASH_CLEANUP
+        .replace_all(&result, "Example: $1")
+        .to_string();
 
-        // Process auto-links
-        let line = AUTO_LINK_RE.replace_all(&line, |caps: &regex::Captures| {
-            let anchor = &caps[1];
-            format!("[{}]({})", anchor.trim_start_matches('#'), anchor)
-        });
+    // Fix paragraph breaks within admonitions
+    result = ADMONITION_PARAGRAPH_FIX
+        .replace_all(&result, "$1\n.br\n")
+        .to_string();
 
-        result.push_str(&line);
-        result.push('\n');
-    }
+    result = TRAILING_RE.replace_all(&result, "\\fR\n.RE").to_string();
+    result = STRAY_IP_BULLET.replace_all(&result, "").to_string();
 
-    result
-}
+    // Normalize multiple newlines to single newlines where appropriate
+    result = DOUBLE_NEWLINE_RE.replace_all(&result, "\n").to_string();
+    result = INLINE_PP_RE.replace_all(&result, "$1\n.PP\n").to_string();
 
-/// Process special marked-up roles for manpage
-fn process_special_roles(text: &str) -> Option<String> {
-    lazy_static! {
-        static ref ROLE_PATTERN: Regex =
-            Regex::new(r"<span class=\"([a-zA-Z]+)-markup\">([^<]+)</span>").unwrap();
+    // Fix escaping issues: we want \f not \\f for troff formatting codes
+    result = result.replace("\\\\fB", "\\fB");
+    result = result.replace("\\\\fI", "\\fI");
+    result = result.replace("\\\\fR", "\\fR");
 
-        static ref MANPAGE_REF_PATTERN: Regex =
-            Regex::new(r"<span class=\"manpage-reference\">([^<]+)</span>").unwrap();
-    }
-
-    // Handle special roles
-    let text = ROLE_PATTERN.replace_all(text, |caps: &regex::Captures| {
-        let role_type = &caps[1];
-        let content = &caps[2];
-
-        match role_type {
-            "command" => format!("\\fB{}\\fR", content),
-            "env" => format!("\\fI{}\\fR", content),
-            "file" => format!("\\fI{}\\fR", content),
-            "option" => format!("\\fB{}\\fR", content),
-            "var" => format!("\\fI{}\\fR", content),
-            "manpage" => format!("\\fB{}\\fR", content),
-            _ => content.to_string(),
-        }
-    });
-
-    // Handle manpage references
-    let text = MANPAGE_REF_PATTERN.replace_all(&text, |caps: &regex::Captures| {
-        format!("\\fB{}\\fR", &caps[1])
-    });
-
-    if text != text {
-        Some(text.to_string())
-    } else {
-        None
-    }
+    Ok(result)
 }

@@ -10,7 +10,7 @@ use walkdir::WalkDir;
 use crate::config::Config;
 use crate::markdown::highlight;
 use crate::markdown::postprocess::{extract_headers, process_nixpkgs_elements};
-use crate::markdown::preprocess::{preprocess_markdown, preprocess_special_markup};
+use crate::markdown::preprocess::{preprocess_markdown, FormatType};
 use crate::markdown::utils::escape_html;
 use crate::template;
 
@@ -128,11 +128,8 @@ fn markdown_to_html(
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_SMART_PUNCTUATION);
 
-    // Pre-process markdown for NixOS extensions
-    let processed_markdown = preprocess_markdown(markdown);
-
-    // Also apply special markup processing
-    let processed_markdown = preprocess_special_markup(&processed_markdown);
+    // Pre-process markdown for NixOS extensions - use HTML format type
+    let processed_markdown = preprocess_markdown(markdown, FormatType::Html);
 
     // Estimate capacity needed for HTML output
     // I don't have clear metrics, but typically HTML is 2-3x larger than markdown
@@ -231,11 +228,8 @@ fn load_manpage_urls(path: &Path) -> Result<HashMap<String, String>> {
 
 /// Process markdown string into HTML, useful for option descriptions
 pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
-    // Pre-process for NixOS extensions
-    let processed_markdown = preprocess_markdown(markdown);
-
-    // Also apply special markup processing
-    let processed_markdown = preprocess_special_markup(&processed_markdown);
+    // Pre-process for NixOS extensions - use HTML format type
+    let processed_markdown = preprocess_markdown(markdown, FormatType::Html);
 
     // Convert to HTML with syntax highlighting
     let html = markdown_to_html(&processed_markdown, None, config);
