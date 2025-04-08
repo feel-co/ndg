@@ -53,7 +53,7 @@ in
     runCommandLocal "ndg-builder" {nativeBuildInputs = [ndg];} ''
       mkdir -p $out
 
-      ndg --jobs $NIX_BUILD_CORES --output "$out" --title "${title}" \
+      ndg options --jobs $NIX_BUILD_CORES --output "$out" --title "${title}" \
         --module-options "${configJSON}/share/doc/nixos/options.json" \
         ${optionalString (inputDir != null) ''--input ${inputDir} \''}
         ${optionalString (scripts != []) ''${concatMapStringsSep "-" (x: "--script ${x}") scripts} \''}
