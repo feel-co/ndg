@@ -7,6 +7,7 @@ use rayon::prelude::*;
 mod cli;
 mod completion;
 mod config;
+mod manpage;
 mod markdown;
 mod options;
 mod render;
@@ -19,6 +20,16 @@ use config::Config;
 fn main() -> Result<()> {
     // Parse command line arguments
     let cli = Cli::parse_args();
+
+    // Initialize logging first so we can log during command handling
+    env_logger::Builder::new()
+        .filter_level(if cli.verbose {
+            LevelFilter::Debug
+        } else {
+            LevelFilter::Info
+        })
+        .write_style(env_logger::WriteStyle::Always)
+        .init();
 
     // Handle subcommands
     if let Some(command) = &cli.command {
@@ -39,6 +50,40 @@ fn main() -> Result<()> {
                 }
                 return Ok(());
             }
+
+            Commands::Manpage {
+                input_dir,
+                output_dir,
+                section,
+                manual,
+                jobs,
+            } => {
+                info!("Generating manpages from markdown files");
+
+                // Ensure output directory exists
+                fs::create_dir_all(output_dir)?;
+
+                // Use config's title as manual name if not specified
+                let config = config::Config::default(); // Create minimal config
+                let manual_name = manual.as_deref().unwrap_or(&config.title);
+
+                // Process markdown files to manpages - now using the dedicated module
+                manpage::generate_manpages_from_directory(
+                    input_dir,
+                    output_dir,
+                    *section,
+                    manual_name,
+                    *jobs,
+                )?;
+
+                info!(
+                    "Manpages generated successfully in {}",
+                    output_dir.display()
+                );
+
+                return Ok(());
+            }
+
             // Just passing the Options command to the Config handling
             Commands::Options { .. } => {
                 // This is handled in Config::load and merge_with_cli
@@ -48,16 +93,6 @@ fn main() -> Result<()> {
 
     // Create configuration from CLI and/or config file
     let config = Config::load(&cli)?;
-
-    // Initialize logging
-    env_logger::Builder::new()
-        .filter_level(if cli.verbose {
-            LevelFilter::Debug
-        } else {
-            LevelFilter::Info
-        })
-        .write_style(env_logger::WriteStyle::Always)
-        .init();
 
     info!("Starting documentation generation...");
 

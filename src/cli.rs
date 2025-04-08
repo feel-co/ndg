@@ -97,6 +97,29 @@ pub enum Commands {
         #[arg(long)]
         revision: Option<String>,
     },
+
+    /// Generate manpages from markdown files
+    Manpage {
+        /// Path to the directory containing markdown files
+        #[arg(short, long)]
+        input_dir: PathBuf,
+
+        /// Output directory for generated manpages
+        #[arg(short, long)]
+        output_dir: PathBuf,
+
+        /// Section number for the manpages (1-9)
+        #[arg(short, long, default_value = "1")]
+        section: u8,
+
+        /// Name of the manual (defaults to the title from config)
+        #[arg(short, long)]
+        manual: Option<String>,
+
+        /// Number of threads to use for parallel processing
+        #[arg(short = 'p', long = "jobs")]
+        jobs: Option<usize>,
+    },
 }
 
 impl Cli {
