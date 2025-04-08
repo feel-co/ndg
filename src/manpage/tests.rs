@@ -46,19 +46,39 @@ Title for this example
     // Print the result to debug
     println!("RESULT:\n{result}");
 
-    // Test that list items are properly separated with correct formatting
-    assert!(result.contains("\\fBrm -rfi\\fR") || result.contains("\\fBrm \\-rfi\\fR"));
+    // Test role formatting with properly escaped dash (\-)
+    assert!(result.contains("\\fBnix.conf\\fR(5)"));
+    assert!(result.contains("\\fBrm \\-rfi\\fR"));
     assert!(result.contains("\\fIXDG_DATA_DIRS\\fR"));
+    assert!(result.contains("\\fI/etc/passwd\\fR"));
+    assert!(result.contains("\\fBnetworking.useDHCP\\fR"));
 
-    // Make sure items don't run together
-    assert!(!result.contains(".IP \\(bu 2\n\\fBrm -rfi\\fR.IP"));
-    assert!(!result.contains(".IP \\(bu 2\n\\fIXDG_DATA_DIRS\\fR.IP"));
+    // Test list items formatting
+    assert!(result.contains(".IP \\(bu 2\n\\fBrm \\-rfi\\fR"));
+    assert!(!result.contains(".IP \\(bu 2\n\\fBrm \\-rfi\\fR.IP"));
 
-    // Check for proper admonition formatting - indented blocks with bold titles
-    assert!(result.contains("\\fBWarning\\fR\n.br\nThis is a warning"));
+    // Check admonition formatting with proper paragraph formatting
+    assert!(result.contains(".PP\n\\fBWarning:\\fR This is a warning"));
+    assert!(result.contains(".PP\n\\fBImportant:\\fR This is important"));
 
-    // Check for proper troff formatting codes (single backslashes)
+    // Multi-paragraph admonition
+    assert!(result.contains("\\fBNote:\\fR This is a note"));
+    assert!(result.contains(".PP\nblah blah blah blah blah and blah"));
+
+    assert!(result.contains(".PP\n\\fBTip:\\fR This is a tip"));
+    assert!(result.contains(".PP\n\\fBExample:\\fR Title for this example"));
+
+    // Validate no inline paragraph directives
+    assert!(!result.contains("\\fBNote:\\fR This is a note .PP"));
+    assert!(!result.contains("Example: .PP"));
+
+    // Ensure proper troff formatting codes (single backslashes)
     assert!(!result.contains("\\\\fB"));
     assert!(!result.contains("\\\\fI"));
     assert!(!result.contains("\\\\fR"));
+
+    // Make sure sections are properly formatted
+    assert!(result.contains(".SH \"Test Document\""));
+    assert!(result.contains(".SS \"Roles\""));
+    assert!(result.contains(".SS \"Admonitions\""));
 }
