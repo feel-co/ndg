@@ -55,21 +55,28 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
     let content = fs::read_to_string(file_path)
         .with_context(|| format!("Failed to read markdown file: {}", file_path.display()))?;
 
+    // Extract headers and title early to avoid parsing the document twice
+    let (headers, title) = extract_headers(&content);
+
     // Load manpage URL mappings if configured
-    let manpage_urls = if let Some(mappings_path) = &config.manpage_urls_path {
-        match load_manpage_urls(mappings_path) {
-            Ok(mappings) => Some(mappings),
-            Err(err) => {
-                debug!("Error loading manpage mappings: {err}");
-                None
+    let manpage_urls = if content.contains("{manpage}")
+        || content.contains("manpage-markup")
+        || content.contains("manpage-reference")
+    {
+        if let Some(mappings_path) = &config.manpage_urls_path {
+            match load_manpage_urls(mappings_path) {
+                Ok(mappings) => Some(mappings),
+                Err(err) => {
+                    debug!("Error loading manpage mappings: {err}");
+                    None
+                }
             }
+        } else {
+            None
         }
     } else {
         None
     };
-
-    // Extract headers and title
-    let (headers, title) = extract_headers(&content);
 
     // Get the input directory from config or return an error
     let input_dir = config.input_dir.as_ref().ok_or_else(|| {
@@ -114,7 +121,9 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Convert markdown to HTML with `NixOS` flavored extensions and syntax highlighting
+/// Convert markdown to HTML with NixOS flavored extensions and syntax highlighting
+/// While there is no official 'spec' for NixOS flavored markdown, a document that
+/// highlights its features can be found in Nixpkgs.
 fn markdown_to_html(
     markdown: &str,
     manpage_urls: Option<&HashMap<String, String>>,
@@ -128,22 +137,39 @@ fn markdown_to_html(
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_SMART_PUNCTUATION);
 
-    // Pre-process markdown for NixOS extensions - use HTML format type
+    // Pre-process markdown for NixOS extensions, use HTML format type
     let processed_markdown = preprocess_markdown(markdown, FormatType::Html);
 
     // Estimate capacity needed for HTML output
-    // I don't have clear metrics, but typically HTML is 2-3x larger than markdown
-    // for the same document.
+    // XXX: this is more aggressive than my previous implementation but I fear
+    // it is not very safe. Worth revisiting.
     let estimated_capacity = processed_markdown.len() * 3;
     let mut html_output = String::with_capacity(estimated_capacity);
 
-    // Allocate reasonable capacity for code blocks too
+    // Process the document in one pass to avoid multiple string allocations
+    process_document_to_html(&processed_markdown, &mut html_output, config);
+
+    // Post-process HTML for NixOS-specific elements
+    process_nixpkgs_elements(&html_output, manpage_urls)
+}
+
+// Process markdown document to HTML in a single pass
+fn process_document_to_html(markdown: &str, html_output: &mut String, config: &Config) {
+    // Set up parser with extensions
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_FOOTNOTES);
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_TASKLISTS);
+    options.insert(Options::ENABLE_SMART_PUNCTUATION);
+
+    // Create parser
+    let parser = Parser::new_ext(markdown, options);
+
+    // Allocate reasonable capacity for code blocks
     let mut code_block_lang = String::with_capacity(16);
     let mut code_block_content = String::with_capacity(512);
     let mut in_code_block = false;
-
-    // Create parser
-    let parser = Parser::new_ext(&processed_markdown, options);
 
     for event in parser {
         match event {
@@ -166,7 +192,7 @@ fn markdown_to_html(
                     html_output.push_str("<pre><code>");
 
                     // Use the standalone escape function
-                    escape_html(&code_block_content, &mut html_output);
+                    escape_html(&code_block_content, html_output);
 
                     html_output.push_str("</code></pre>");
                 } else if let Ok(highlighted_html) =
@@ -180,7 +206,7 @@ fn markdown_to_html(
                     html_output.push_str("\">");
 
                     // Use the standalone escape function
-                    escape_html(&code_block_content, &mut html_output);
+                    escape_html(&code_block_content, html_output);
 
                     html_output.push_str("</code></pre>");
                 }
@@ -192,7 +218,7 @@ fn markdown_to_html(
                 } else {
                     // Regular text handling
                     pulldown_cmark::html::push_html(
-                        &mut html_output,
+                        html_output,
                         std::iter::once(Event::Text(text)),
                     );
                 }
@@ -200,14 +226,11 @@ fn markdown_to_html(
             _ => {
                 // For all other events, if we're not in a code block, push to HTML as usual
                 if !in_code_block {
-                    pulldown_cmark::html::push_html(&mut html_output, std::iter::once(event));
+                    pulldown_cmark::html::push_html(html_output, std::iter::once(event));
                 }
             }
         }
     }
-
-    // Post-process HTML for NixOS-specific elements
-    process_nixpkgs_elements(&html_output, manpage_urls)
 }
 
 /// Load manpage URL mappings from JSON file
@@ -228,12 +251,16 @@ fn load_manpage_urls(path: &Path) -> Result<HashMap<String, String>> {
 
 /// Process markdown string into HTML, useful for option descriptions
 pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
-    // Pre-process for NixOS extensions - use HTML format type
+    // Pre-process for NixOS extensions, uses HTML format type
     let processed_markdown = preprocess_markdown(markdown, FormatType::Html);
 
-    // Convert to HTML with syntax highlighting
-    let html = markdown_to_html(&processed_markdown, None, config);
+    // Estimate capacity and generate HTML directly to avoid string copies
+    let estimated_capacity = processed_markdown.len() * 3;
+    let mut html_output = String::with_capacity(estimated_capacity);
+
+    // Process document in one pass
+    process_document_to_html(&processed_markdown, &mut html_output, config);
 
     // Apply nixpkgs-specific processing
-    process_nixpkgs_elements(&html, None)
+    process_nixpkgs_elements(&html_output, None)
 }
