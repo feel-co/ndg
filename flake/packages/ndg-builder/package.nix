@@ -1,6 +1,5 @@
 {
   lib,
-  pkgs,
   # Build Dependencies
   ndg,
   runCommandLocal,
