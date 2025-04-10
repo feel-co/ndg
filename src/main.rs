@@ -9,7 +9,6 @@ mod config;
 mod formatter;
 mod html;
 mod manpage;
-mod search;
 mod utils;
 
 use cli::{Cli, Commands};
@@ -93,7 +92,7 @@ fn main() -> Result<()> {
 
     // Generate search index if enabled and there are markdown files
     if config.generate_search && !markdown_files.is_empty() {
-        search::generate_search_index(&config, &markdown_files)?;
+        html::search::generate_search_index(&config, &markdown_files)?;
     }
 
     // Copy assets
