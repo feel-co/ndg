@@ -7,10 +7,10 @@ use crate::config::Config;
 use crate::formatter::{markdown::Header, options::NixOption};
 
 // Template constants - these serve as fallbacks
-const DEFAULT_TEMPLATE: &str = include_str!("../templates/default.html");
-const OPTIONS_TEMPLATE: &str = include_str!("../templates/options.html");
-const SEARCH_TEMPLATE: &str = include_str!("../templates/search.html");
-const OPTIONS_TOC_TEMPLATE: &str = include_str!("../templates/options_toc.html");
+const DEFAULT_TEMPLATE: &str = include_str!("../../templates/default.html");
+const OPTIONS_TEMPLATE: &str = include_str!("../../templates/options.html");
+const SEARCH_TEMPLATE: &str = include_str!("../../templates/search.html");
+const OPTIONS_TOC_TEMPLATE: &str = include_str!("../../templates/options_toc.html");
 
 /// Render a documentation page
 pub fn render(

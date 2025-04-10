@@ -9,6 +9,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::config::Config;
+use crate::html;
 
 /// Search document data structure
 #[derive(Debug, Serialize)]
@@ -205,7 +206,7 @@ pub fn create_search_page(config: &Config) -> Result<()> {
     context.insert("title", format!("{} - Search", config.title));
 
     // Render the search page using the template
-    let html = crate::template::render_search(config, &context)?;
+    let html = html::template::render_search(config, &context)?;
 
     // Write the search page to the output directory
     let search_page_path = config.output_dir.join("search.html");

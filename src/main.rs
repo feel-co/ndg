@@ -7,9 +7,9 @@ mod cli;
 mod completion;
 mod config;
 mod formatter;
+mod html;
 mod manpage;
 mod search;
-mod template;
 mod utils;
 
 use cli::{Cli, Commands};

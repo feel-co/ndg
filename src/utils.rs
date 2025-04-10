@@ -10,8 +10,8 @@ use rayon::prelude::*;
 use crate::completion;
 use crate::config::Config;
 use crate::formatter::{markdown, options};
+use crate::html;
 use crate::manpage;
-use crate::template;
 
 // Template constants
 const DEFAULT_CSS: &str = include_str!("../templates/default.css");
@@ -335,7 +335,7 @@ pub fn ensure_index_html_exists(
             id: "welcome".to_string(),
         }];
 
-        let html = template::render(
+        let html = html::template::render(
             config,
             &content,
             &config.title,

@@ -8,7 +8,7 @@ use serde_json::{self, Value};
 
 use crate::config::Config;
 use crate::formatter::markdown;
-use crate::template;
+use crate::html::template;
 
 /// Represents a `NixOS` configuration option
 #[derive(Debug, Clone)]
