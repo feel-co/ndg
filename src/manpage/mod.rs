@@ -6,14 +6,12 @@ use anyhow::{Context, Result};
 use log::{debug, info};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
-use crate::markdown::extract_headers;
-use crate::markdown::preprocess::{preprocess_markdown, FormatType};
+use crate::formatter::manpage::process_markdown_for_manpage;
+use crate::formatter::manpage::{escape_leading_dot, escape_manpage, postprocess_manpage};
+use crate::formatter::markdown::{collect_markdown_files, extract_headers};
 
-mod formatter;
 #[cfg(test)]
 mod tests;
-
-use formatter::{escape_leading_dot, escape_manpage, postprocess_manpage};
 
 /// Generate man pages from markdown files in a directory
 pub fn generate_manpages_from_directory(
@@ -26,7 +24,7 @@ pub fn generate_manpages_from_directory(
     fs::create_dir_all(output_dir)?;
 
     info!("Collecting markdown files from {}", input_dir.display());
-    let files = crate::markdown::collect_markdown_files(input_dir)?;
+    let files = collect_markdown_files(input_dir)?;
     info!(
         "Found {} markdown files to convert to manpages",
         files.len()
@@ -91,8 +89,8 @@ pub fn markdown_to_manpage(
 ) -> Result<String> {
     let mut manpage = Vec::with_capacity(markdown.len() * 2);
 
-    // Preprocess the markdown for man page format
-    let processed_markdown = preprocess_markdown(markdown, FormatType::Manpage);
+    // Preprocess the markdown for man page format using the new parser
+    let processed_markdown = process_markdown_for_manpage(markdown);
 
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
