@@ -4,8 +4,7 @@ use anyhow::{Context, Result};
 use tera::Tera;
 
 use crate::config::Config;
-use crate::markdown::Header;
-use crate::options::NixOption;
+use crate::formatter::{markdown::Header, options::NixOption};
 
 // Template constants - these serve as fallbacks
 const DEFAULT_TEMPLATE: &str = include_str!("../templates/default.html");
