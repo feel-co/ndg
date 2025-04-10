@@ -8,9 +8,9 @@ mod completion;
 mod config;
 mod formatter;
 mod manpage;
-mod render;
 mod search;
 mod template;
+mod utils;
 
 use cli::{Cli, Commands};
 use config::Config;
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
                 completions_only,
                 manpage_only,
             } => {
-                return render::handle_generate_command(
+                return utils::handle_generate_command(
                     output_dir,
                     *completions_only,
                     *manpage_only,
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
                 manual,
                 jobs,
             } => {
-                return render::handle_manpage_command(
+                return utils::handle_manpage_command(
                     input_dir,
                     output_dir,
                     (*section).into(),
@@ -83,13 +83,13 @@ fn main() -> Result<()> {
         .build_global()?;
 
     // Process markdown files if input directory is provided
-    let markdown_files = render::process_markdown_files(&config)?;
+    let markdown_files = utils::process_markdown_files(&config)?;
 
     // Process options.json if provided
-    let options_processed = render::process_options_file(&config)?;
+    let options_processed = utils::process_options_file(&config)?;
 
     // Check if we need to create a fallback index.html
-    render::ensure_index_html_exists(&config, options_processed, &markdown_files)?;
+    utils::ensure_index_html_exists(&config, options_processed, &markdown_files)?;
 
     // Generate search index if enabled and there are markdown files
     if config.generate_search && !markdown_files.is_empty() {
@@ -97,7 +97,7 @@ fn main() -> Result<()> {
     }
 
     // Copy assets
-    render::copy_assets(&config)?;
+    utils::copy_assets(&config)?;
 
     info!(
         "Documentation generated successfully in {}",
