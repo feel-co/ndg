@@ -994,6 +994,23 @@ fn load_manpage_urls(path: &Path) -> Result<HashMap<String, String>> {
 
 /// Process markdown string into HTML, useful for option descriptions
 pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
-    let (html, _, _) = process_markdown(markdown, None, config);
+    // Load manpage URL mappings if needed
+    let manpage_urls = if markdown.contains("{manpage}") {
+        if let Some(mappings_path) = &config.manpage_urls_path {
+            match load_manpage_urls(mappings_path) {
+                Ok(mappings) => Some(mappings),
+                Err(err) => {
+                    debug!("Error loading manpage mappings: {err}");
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let (html, _, _) = process_markdown(markdown, manpage_urls.as_ref(), config);
     html
 }
