@@ -52,9 +52,9 @@ in
     runCommandLocal "ndg-builder" {nativeBuildInputs = [ndg];} ''
       mkdir -p $out
 
-      ndg options --jobs $NIX_BUILD_CORES --output "$out" --title "${title}" \
+      ndg options --jobs $NIX_BUILD_CORES --output-dir "$out" --title "${title}" \
         --module-options "${configJSON}/share/doc/nixos/options.json" \
-        ${optionalString (inputDir != null) ''--input ${inputDir} \''}
+        ${optionalString (inputDir != null) ''--input-dir ${inputDir} \''}
         ${optionalString (scripts != []) ''${concatMapStringsSep "-" (x: "--script ${x}") scripts} \''}
         ${optionalString (stylesheet != null) ''--stylesheet ${toString stylesheet} \''}
         ${optionalString verbose ''--verbose \''}
