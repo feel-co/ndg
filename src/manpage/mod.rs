@@ -22,7 +22,7 @@ struct List {
 }
 
 impl List {
-    fn new(width: usize, next_idx: Option<usize>, compact: bool, level: usize) -> Self {
+    const fn new(width: usize, next_idx: Option<usize>, compact: bool, level: usize) -> Self {
         Self {
             width,
             next_idx,
@@ -86,7 +86,7 @@ fn man_escape(s: &str) -> String {
 /// Escape a leading dot to prevent it from being interpreted as a troff command
 fn escape_leading_dot(text: &str) -> String {
     if text.starts_with('.') || text.starts_with('\'') {
-        format!("\\&{}", text)
+        format!("\\&{text}")
     } else {
         text.to_string()
     }
@@ -267,7 +267,7 @@ impl ManpageRendererState {
 
     fn maybe_parbreak(&mut self, suffix: &str) -> String {
         let result = if self.do_parbreak_stack.last().copied().unwrap_or(false) {
-            format!(".sp{}", suffix)
+            format!(".sp{suffix}")
         } else {
             String::new()
         };
@@ -281,7 +281,7 @@ impl ManpageRendererState {
 
     fn push_font(&mut self, font: &str) -> String {
         self.font_stack.push(font.to_string());
-        format!("\\f{}", font)
+        format!("\\f{font}")
     }
 
     fn pop_font(&mut self) -> String {
@@ -291,7 +291,7 @@ impl ManpageRendererState {
             Some(font) => font,
             None => &default,
         };
-        format!("\\f{}", prev)
+        format!("\\f{prev}")
     }
 
     fn start_list_item(&mut self, ordered: bool) -> String {
@@ -309,7 +309,7 @@ impl ManpageRendererState {
 
         let marker = if ordered {
             if let Some(idx) = list.next_idx {
-                let marker = format!("{}.", idx);
+                let marker = format!("{idx}.");
                 list.next_idx = Some(idx + 1);
                 marker
             } else {
@@ -356,7 +356,7 @@ impl ManpageRendererState {
         let mut result = String::new();
         result.push_str(".sp\n");
         result.push_str(".RS 4\n");
-        result.push_str(&format!("\\fB{}:\\fP ", title));
+        result.push_str(&format!("\\fB{title}:\\fP "));
 
         // Split content by lines and properly indent
         let lines: Vec<&str> = content.lines().collect();
@@ -377,12 +377,12 @@ impl ManpageRendererState {
 /// Preprocess markdown to handle role-based markup and custom syntax
 fn preprocess_content(content: &str) -> String {
     let mut result = String::new();
-    let mut lines = content.lines().peekable();
+    let lines = content.lines().peekable();
     let mut in_admonition = false;
     let mut admonition_content = String::new();
     let mut admonition_type = String::new();
 
-    while let Some(line) = lines.next() {
+    for line in lines {
         // Process headings with explicit anchors
         if let Some(caps) = HEADING_ANCHOR.captures(line) {
             let level_signs = caps.get(1).map_or("", |m| m.as_str()); // Get level signs if present
@@ -397,9 +397,9 @@ fn preprocess_content(content: &str) -> String {
             };
 
             let formatted_line = if let Some(id_str) = id {
-                format!("{} {} <!-- anchor: {} -->", level_str, text, id_str)
+                format!("{level_str} {text} <!-- anchor: {id_str} -->")
             } else {
-                format!("{} {}", level_str, text)
+                format!("{level_str} {text}")
             };
 
             result.push_str(&formatted_line);
@@ -414,8 +414,7 @@ fn preprocess_content(content: &str) -> String {
             let content = caps.get(3).unwrap().as_str();
 
             result.push_str(&format!(
-                "{} <!-- nixos-anchor-id:{} -->{}\n",
-                list_marker, anchor, content
+                "{list_marker} <!-- nixos-anchor-id:{anchor} -->{content}\n"
             ));
             continue;
         }
@@ -433,8 +432,7 @@ fn preprocess_content(content: &str) -> String {
 
                 // Format the admonition - this will be processed properly during event handling
                 result.push_str(&format!(
-                    ".ADMONITION_START {} {}\n",
-                    admonition_type, content
+                    ".ADMONITION_START {admonition_type} {content}\n"
                 ));
                 result.push_str(".ADMONITION_END\n");
 
@@ -481,34 +479,34 @@ fn preprocess_content(content: &str) -> String {
             let content = &caps[2];
 
             match role_type {
-                "command" => format!("\\fB{}\\fP", content),
-                "env" => format!("\\fI{}\\fP", content),
-                "file" => format!("\\fI{}\\fP", content),
-                "option" => format!("\\fB{}\\fP", content),
-                "var" => format!("\\fI{}\\fP", content),
+                "command" => format!("\\fB{content}\\fP"),
+                "env" => format!("\\fI{content}\\fP"),
+                "file" => format!("\\fI{content}\\fP"),
+                "option" => format!("\\fB{content}\\fP"),
+                "var" => format!("\\fI{content}\\fP"),
                 "manpage" => {
                     if let Some((page, section)) = content.rsplit_once('(') {
                         let page = page.trim();
                         let section = section.trim_end_matches(')');
-                        format!("\\fB{}\\fP({})", page, section)
+                        format!("\\fB{page}\\fP({section})")
                     } else {
-                        format!("\\fB{}\\fP", content)
+                        format!("\\fB{content}\\fP")
                     }
                 }
-                _ => format!("\\fI{}\\fP", content),
+                _ => format!("\\fI{content}\\fP"),
             }
         });
 
         // Process command prompts
         let processed = COMMAND_PROMPT.replace_all(&processed, |caps: &regex::Captures| {
             let command = &caps[1];
-            format!("$ \\fB{}\\fP", command)
+            format!("$ \\fB{command}\\fP")
         });
 
         // Process REPL prompts
         let processed = REPL_PROMPT.replace_all(&processed, |caps: &regex::Captures| {
             let expr = &caps[1];
-            format!("nix-repl> \\fB{}\\fP", expr)
+            format!("nix-repl> \\fB{expr}\\fP")
         });
 
         // Process inline anchors (remove them)
@@ -517,13 +515,13 @@ fn preprocess_content(content: &str) -> String {
         // Process auto links
         let processed = AUTO_EMPTY_LINK_RE.replace_all(&processed, |caps: &regex::Captures| {
             let anchor = &caps[1];
-            format!("[{}]", anchor)
+            format!("[{anchor}]")
         });
 
         let processed = AUTO_SECTION_LINK_RE.replace_all(&processed, |caps: &regex::Captures| {
             let text = &caps[1];
             let anchor = &caps[2];
-            format!("{} [{}]", text, anchor)
+            format!("{text} [{anchor}]")
         });
 
         result.push_str(&processed);
@@ -549,7 +547,7 @@ fn process_event(
                 HeadingLevel::H1 => ".SH",
                 _ => ".SS",
             };
-            write!(output, "{} \"", section_macro)?;
+            write!(output, "{section_macro} \"")?;
         }
 
         Event::End(TagEnd::Heading(_)) => {
@@ -558,7 +556,7 @@ fn process_event(
 
         Event::Start(Tag::Paragraph) => {
             if state.in_admonition {
-                state.admonition_content.push_str("\n");
+                state.admonition_content.push('\n');
             } else {
                 writeln!(output, "{}", state.maybe_parbreak(""))?;
             }
@@ -596,11 +594,10 @@ fn process_event(
             let is_ordered = state
                 .list_stack
                 .last()
-                .map(|list| list.next_idx.is_some())
-                .unwrap_or(false);
+                .is_some_and(|list| list.next_idx.is_some());
 
             let list_item_markup = state.start_list_item(is_ordered);
-            write!(output, "{}", list_item_markup)?;
+            write!(output, "{list_item_markup}")?;
         }
 
         Event::End(TagEnd::Item) => {
@@ -665,7 +662,7 @@ fn process_event(
                     let content = parts[2];
 
                     let formatted = state.format_admonition(admonition_type, content);
-                    write!(output, "{}", formatted)?;
+                    write!(output, "{formatted}")?;
                 }
                 return Ok(());
             } else if text_str == ".ADMONITION_END" {
@@ -676,12 +673,10 @@ fn process_event(
             // Handle normal text
             if state.in_admonition {
                 state.admonition_content.push_str(&man_escape(text_str));
+            } else if text_str.starts_with('.') {
+                write!(output, "{}", escape_leading_dot(text_str))?;
             } else {
-                if text_str.starts_with('.') {
-                    write!(output, "{}", escape_leading_dot(text_str))?;
-                } else {
-                    write!(output, "{}", man_escape(text_str))?;
-                }
+                write!(output, "{}", man_escape(text_str))?;
             }
         }
 
@@ -708,7 +703,7 @@ fn process_event(
 
         Event::HardBreak => {
             if state.in_admonition {
-                state.admonition_content.push_str("\n");
+                state.admonition_content.push('\n');
             } else {
                 writeln!(output, ".br")?;
             }

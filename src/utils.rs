@@ -297,7 +297,7 @@ pub fn extract_page_title(
 }
 
 /// Ensure that index.html exists in the output directory
-pub fn ensure_index_html_exists(
+pub fn ensure_index(
     config: &Config,
     options_processed: bool,
     markdown_files: &[std::path::PathBuf],

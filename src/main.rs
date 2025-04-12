@@ -88,7 +88,7 @@ fn main() -> Result<()> {
     let options_processed = utils::process_options_file(&config)?;
 
     // Check if we need to create a fallback index.html
-    utils::ensure_index_html_exists(&config, options_processed, &markdown_files)?;
+    utils::ensure_index(&config, options_processed, &markdown_files)?;
 
     // Generate search index if enabled and there are markdown files
     if config.generate_search && !markdown_files.is_empty() {
