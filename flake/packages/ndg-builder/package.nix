@@ -34,6 +34,7 @@
   inputDir ? null,
   stylesheet ? null,
   verbose ? false,
+  manpageUrls ? null,
 } @ args: let
   inherit (lib.asserts) assertMsg;
 in
@@ -57,5 +58,6 @@ in
         ${optionalString (inputDir != null) ''--input-dir ${inputDir} \''}
         ${optionalString (scripts != []) ''${concatMapStringsSep "-" (x: "--script ${x}") scripts} \''}
         ${optionalString (stylesheet != null) ''--stylesheet ${toString stylesheet} \''}
+        ${optionalString (manpageUrls != null) ''--manpage-urls ${manpageUrls} \''}
         ${optionalString verbose ''--verbose \''}
     ''
