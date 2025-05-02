@@ -4,6 +4,7 @@
   ndg,
   runCommandLocal,
   nixosOptionsDoc,
+  path, # pkgs.path required for manpage URLs
   # Options
   checkModules ? false,
   rawModules ? [
@@ -33,8 +34,9 @@
   scripts ? [],
   inputDir ? null,
   stylesheet ? null,
-  verbose ? false,
+  verbose ? true,
   manpageUrls ? null,
+  optionsDepth ? 2,
 } @ args: let
   inherit (lib.asserts) assertMsg;
 in
@@ -50,14 +52,17 @@ in
       ))
       .optionsJSON;
   in
-    runCommandLocal "ndg-builder" {nativeBuildInputs = [ndg];} ''
-      mkdir -p $out
+    runCommandLocal "ndg-builder" {nativeBuildInputs = [ndg];} (
+      ''
+        mkdir -p $out
 
-      ndg options --jobs $NIX_BUILD_CORES --output-dir "$out" --title "${title}" \
-        --module-options "${configJSON}/share/doc/nixos/options.json" \
-        ${optionalString (inputDir != null) ''--input-dir ${inputDir} \''}
-        ${optionalString (scripts != []) ''${concatMapStringsSep "-" (x: "--script ${x}") scripts} \''}
-        ${optionalString (stylesheet != null) ''--stylesheet ${toString stylesheet} \''}
-        ${optionalString (manpageUrls != null) ''--manpage-urls ${manpageUrls} \''}
-        ${optionalString verbose ''--verbose \''}
-    ''
+        ndg ${optionalString verbose "--verbose"} options \
+          --jobs $NIX_BUILD_CORES --output-dir "$out" --title "${title}" \
+          --module-options "${configJSON}/share/doc/nixos/options.json" \
+      ''
+      + optionalString (scripts != []) ''${concatMapStringsSep "-" (x: "--script ${x}") scripts} \''
+      + optionalString (stylesheet != null) ''--stylesheet ${toString stylesheet} \''
+      + optionalString (inputDir != null) ''--input-dir ${inputDir} \''
+      + optionalString (manpageUrls != null) ''--manpage-urls ${manpageUrls} \''
+      + "--options-depth ${toString optionsDepth}"
+    )
