@@ -13,34 +13,7 @@
       imports = [
         ./flake/packages.nix
         ./flake/checks.nix
+        ./flake/shell.nix
       ];
-
-      perSystem = {
-        self',
-        pkgs,
-        ...
-      }: {
-        formatter = pkgs.alejandra;
-
-        devShells.default = pkgs.mkShell {
-          name = "ndg";
-          packages = [
-            self'.formatter
-
-            # Poor man's Rust environment
-            pkgs.cargo
-            pkgs.rustc
-            pkgs.clippy # lints
-            pkgs.lldb # debugger
-            (pkgs.rustfmt.override {asNightly = true;}) # formatter
-            pkgs.rust-analyzer-unwrapped
-          ];
-
-          env.RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
-        };
-
-        # TODO: add more checks, ideally machine tests
-        checks = self'.packages;
-      };
     };
 }
