@@ -35,15 +35,15 @@ several features such as
 
 ## Usage
 
-ndg now has several subcommands to handle different tasks:
+ndg has several subcommands to handle different documentation tasks:
 
 ```
 Usage: ndg [OPTIONS] [COMMAND]
 
 Commands:
-  generate  Generate shell completions and manpages
-  html      Generate HTML documents from options
-  manpage   Generate manpage from options
+  generate  Generate shell completions and manpages for ndg itself
+  html      Generate HTML documentation from markdown files and/or module options
+  manpage   Generate manpage from module options
   help      Print this message or the help of the given subcommand(s)
 
 Options:
@@ -72,7 +72,7 @@ Options:
   -s, --stylesheet <STYLESHEET>
           Path to custom stylesheet
       --script <SCRIPT>
-          Path to custom Javascript file to include
+          Path to custom Javascript file to include. Can be specified multiple times to include multiple script files.
   -T, --title <TITLE>
           Title of the documentation
   -f, --footer <FOOTER>
@@ -159,6 +159,58 @@ Tera syntax. Below are the variables that ndg will attempt to replace.
 - `{{ toc|safe }}` - Table of contents (unescaped HTML)
 - `{{ doc_nav|safe }}` - Navigation links to other documents (unescaped HTML)
 - `{{ has_options|safe }}` - Conditional display for options page link
+- `{{ footer_text }}` - Footer text specified via the --footer option
+- `{{ generate_search }}` - Boolean indicating whether search functionality is enabled
+- `{{ stylesheet_path }}` - Path to the stylesheet
+- `{{ script_paths }}` - List of paths to script files
+
+Each template can use these variables as needed. For example, in the `default.html` template:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ stylesheet_path }}">
+    {% for script_path in script_paths %}
+    <script src="{{ script_path }}"></script>
+    {% endfor %}
+</head>
+<body>
+    <header>
+        <h1>{{ title }}</h1>
+        {% if generate_search %}
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search documentation...">
+            <a href="search.html" class="search-button">Advanced Search</a>
+        </div>
+        {% endif %}
+    </header>
+    
+    <div class="container">
+        <nav class="sidebar">
+            {{ toc|safe }}
+            {{ doc_nav|safe }}
+            {% if has_options %}
+            <div class="options-link">
+                <a href="options.html">Module Options</a>
+            </div>
+            {% endif %}
+        </nav>
+        
+        <main class="content">
+            {{ content|safe }}
+        </main>
+    </div>
+    
+    <footer>
+        <p>{{ footer_text }}</p>
+    </footer>
+</body>
+</html>
+```
 
 #### Custom Stylesheet
 
@@ -178,7 +230,7 @@ To include a page listing NixOS options, provide a path to your `options.json`
 file:
 
 ```bash
-ndg options -i ./docs -o ./html -T "My Project" -j ./options.json
+ndg html -i ./docs -o ./html -T "My Project" -j ./options.json
 ```
 
 [nvf]: https://github.com/notashelf/nvf
@@ -238,7 +290,7 @@ The simplest way to install ndg is directly from its flake:
 nix profile install github:feel-co/ndg
 
 # Or run without installing
-nix run github:feel-co/ndg -- options -i ./docs -o ./result -T "My Project"
+nix run github:feel-co/ndg -- html -i ./docs -o ./result -T "My Project"
 ```
 
 #### Using ndg-builder
@@ -302,7 +354,7 @@ let
     nativeBuildInputs = [ pkgs.ndg ];
   } ''
     mkdir -p $out
-    ndg options \
+    ndg html \
       --input-dir ${./docs} \
       --output-dir $out \
       --title "My Project Documentation" \
@@ -321,7 +373,7 @@ This approach correctly handles the generation of options documentation using `n
 
 - **Use multi-threading** for large documentation sets:
   ```bash
-  ndg options -i ./docs -o ./html -T "My Project" -p $(nproc)
+  ndg html -i ./docs -o ./html -T "My Project" -p $(nproc)
   ```
 
 - **Selectively disable features** you don't need:
@@ -330,7 +382,7 @@ This approach correctly handles the generation of options documentation using `n
   ndg html -i ./docs -o ./html -T "My Project" --generate-search false
 
   # Disable syntax highlighting for better performance
-  ndg options -i ./docs -o ./html -T "My Project" --highlight-code false
+  ndg html -i ./docs -o ./html -T "My Project" --highlight-code false
   ```
 
 ### Styling Tips
@@ -357,7 +409,7 @@ This approach correctly handles the generation of options documentation using `n
 
 - **Link to source with revision**: Use the `--revision` option to specify a GitHub revision for source links:
   ```bash
-  ndg options -i ./docs -o ./html -T "My Project" --revision "main"
+  ndg html -i ./docs -o ./html -T "My Project" --revision "main"
   ```
 
 ### Configuration Management
