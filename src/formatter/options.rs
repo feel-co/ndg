@@ -80,7 +80,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
                 // Process fields from the option data
                 if let Some(Value::String(type_name)) = option_data.get("type") {
-                    option.type_name = type_name.clone();
+                    option.type_name.clone_from(type_name);
                 }
 
                 if let Some(Value::String(desc)) = option_data.get("description") {
@@ -290,17 +290,7 @@ fn extract_value_from_json(value: &Value) -> Option<String> {
         // literalExpression and similar structured values
         if let Some(Value::String(type_name)) = obj.get("_type") {
             match type_name.as_str() {
-                "literalExpression" => {
-                    if let Some(Value::String(text)) = obj.get("text") {
-                        return Some(text.clone());
-                    }
-                }
-                "literalDocBook" => {
-                    if let Some(Value::String(text)) = obj.get("text") {
-                        return Some(text.clone());
-                    }
-                }
-                "literalMD" => {
+                "literalExpression" | "literalDocBook" | "literalMD" => {
                     if let Some(Value::String(text)) = obj.get("text") {
                         return Some(text.clone());
                     }

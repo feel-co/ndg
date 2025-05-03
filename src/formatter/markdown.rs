@@ -88,7 +88,7 @@ lazy_static! {
 }
 
 /// Collect all markdown files from the input directory
-pub fn collect_markdown_files(input_dir: &Path) -> Result<Vec<PathBuf>> {
+pub fn collect_markdown_files(input_dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::with_capacity(100);
 
     for entry in WalkDir::new(input_dir)
@@ -103,7 +103,7 @@ pub fn collect_markdown_files(input_dir: &Path) -> Result<Vec<PathBuf>> {
     }
 
     trace!("Found {} markdown files to process", files.len());
-    Ok(files)
+    files
 }
 
 /// Process a single markdown file
@@ -119,17 +119,13 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
         || content.contains("manpage-markup")
         || content.contains("manpage-reference")
     {
-        if let Some(mappings_path) = &config.manpage_urls_path {
-            match load_manpage_urls(mappings_path) {
+        config.manpage_urls_path.as_ref().and_then(|mappings_path| match load_manpage_urls(mappings_path) {
                 Ok(mappings) => Some(mappings),
                 Err(err) => {
                     debug!("Error loading manpage mappings: {err}");
                     None
                 }
-            }
-        } else {
-            None
-        }
+            })
     } else {
         None
     };
@@ -211,7 +207,7 @@ pub fn process_markdown(
 fn preprocess_inline_anchors(content: &str) -> String {
     // First handle list items with anchors at the beginning
     let mut result = String::with_capacity(content.len() + 100);
-    let lines = content.lines().peekable();
+    let lines = content.lines();
 
     for line in lines {
         if let Some(caps) = LIST_ITEM_WITH_ANCHOR_RE.captures(line) {
@@ -220,9 +216,8 @@ fn preprocess_inline_anchors(content: &str) -> String {
             let content = caps.get(3).unwrap().as_str();
 
             // Use a span tag that will be preserved in the HTML output
-            result.push_str(&format!(
-                "{list_marker} <span id=\"{id}\" class=\"nixos-anchor\"></span>{content}\n"
-            ));
+            use std::fmt::Write;
+            writeln!(result, "{list_marker} <span id=\"{id}\" class=\"nixos-anchor\"></span>{content}").unwrap();
         } else {
             result.push_str(line);
             result.push('\n');
@@ -345,6 +340,7 @@ fn preprocess_block_elements(content: &str) -> String {
             ));
 
             // Skip ahead to the end of the figure block
+            let mut lines = content.lines().peekable();
             while let Some(next_line) = lines.peek() {
                 if next_line.trim() == ":::" {
                     lines.next(); // Consume the closing marker
@@ -546,10 +542,10 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
                     if !code_block_lang.is_empty() {
                         html_output.push_str(" class=\"language-");
                         html_output.push_str(&code_block_lang);
-                        html_output.push_str("\"");
+                        html_output.push('"');
                     }
 
-                    html_output.push_str(">");
+                    html_output.push('>');
                     escape_html(&code_block_content, &mut html_output);
                     html_output.push_str("</code></pre>");
                 } else if let Ok(highlighted) =
@@ -667,7 +663,7 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     });
 
     // Process any remaining inline anchors
-    result = process_remaining_inline_anchors(result);
+    result = process_remaining_inline_anchors(&result);
 
     // Process empty auto-links
     result = process_html_elements(&result, &AUTO_EMPTY_LINK_RE, |caps| {
@@ -751,10 +747,10 @@ pub fn process_manpage_roles(
 }
 
 /// Process any remaining inline anchor syntax that wasn't caught earlier
-fn process_remaining_inline_anchors(html: String) -> String {
+fn process_remaining_inline_anchors(html: &str) -> String {
     // First process bracketed spans
     let result = BRACKETED_SPAN_RE
-        .replace_all(&html, |caps: &regex::Captures| {
+        .replace_all(html, |caps: &regex::Captures| {
             let id = &caps[1];
             format!("<span id=\"{id}\" class=\"nixos-anchor\"></span>")
         })
@@ -784,7 +780,7 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
     for line in content.lines() {
         if let Some(caps) = EXPLICIT_ANCHOR_RE.captures(line) {
             found_headers_with_regex = true;
-            let level = caps[1].len() as u8;
+            let level = u8::try_from(caps[1].len()).expect("Header level should fit in u8");
             let text = caps[2].trim().to_string();
 
             // Use explicit anchor if provided, otherwise generate one

@@ -100,9 +100,8 @@ fn generate_css(config: &Config) -> Result<String> {
             if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
                 return grass::from_string(content, &grass::Options::default())
                     .context("Failed to compile SCSS to CSS");
-            } else {
-                return Ok(content);
             }
+            return Ok(content);
         }
     }
 
@@ -159,7 +158,7 @@ pub fn generate_options_manpage(
 pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>> {
     if let Some(ref input_dir) = config.input_dir {
         info!("Input directory: {}", input_dir.display());
-        let files = markdown::collect_markdown_files(input_dir)?;
+        let files = markdown::collect_markdown_files(input_dir);
         info!("Found {} markdown files", files.len());
 
         if !files.is_empty() {
@@ -191,7 +190,7 @@ pub fn process_options_file(config: &Config) -> Result<bool> {
 pub fn create_fallback_index(
     config: &Config,
     markdown_files: &[std::path::PathBuf],
-) -> Result<String> {
+) -> String {
     let mut content = format!(
         "<h1>{}</h1>\n<p>This is a fallback page created by ndg.</p>",
         &config.title
@@ -209,13 +208,13 @@ pub fn create_fallback_index(
                     html_path.set_extension("html");
 
                     // Get page title from first heading or filename
-                    let page_title = extract_page_title(file_path, &html_path)?;
+                    let page_title = extract_page_title(file_path, &html_path);
 
-                    file_list.push_str(&format!(
-                        "  <li><a href=\"{}\">{}</a></li>\n",
+                    use std::fmt::Write;
+                    writeln!(file_list, "  <li><a href=\"{}\">{}</a></li>",
                         html_path.to_string_lossy(),
                         page_title
-                    ));
+                    ).unwrap();
                 }
             }
 
@@ -224,14 +223,14 @@ pub fn create_fallback_index(
         }
     }
 
-    Ok(content)
+    content
 }
 
 /// Extract the page title from a markdown file
 pub fn extract_page_title(
     file_path: &std::path::Path,
     html_path: &std::path::Path,
-) -> Result<String> {
+) -> String {
     let default_title = html_path
         .file_stem()
         .unwrap_or_default()
@@ -242,16 +241,12 @@ pub fn extract_page_title(
     match fs::read_to_string(file_path) {
         Ok(content) => {
             if let Some(first_line) = content.lines().next() {
-                if let Some(title) = first_line.strip_prefix("# ") {
-                    Ok(title.trim().to_string())
-                } else {
-                    Ok(default_title)
-                }
+                first_line.strip_prefix("# ").map_or(default_title, |title| title.trim().to_string())
             } else {
-                Ok(default_title)
+                default_title
             }
         }
-        Err(_) => Ok(default_title),
+        Err(_) => default_title,
     }
 }
 
@@ -285,7 +280,7 @@ pub fn ensure_index(
     if config.input_dir.is_some() {
         info!("No index.md found, creating fallback index.html");
 
-        let content = create_fallback_index(config, markdown_files)?;
+        let content = create_fallback_index(config, markdown_files);
 
         // Create a simple HTML document using our template system
         let headers = vec![markdown::Header {

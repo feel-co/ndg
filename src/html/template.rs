@@ -28,7 +28,7 @@ pub fn render(
     let toc = generate_toc(headers);
 
     // Generate document navigation
-    let doc_nav = generate_doc_nav(config)?;
+    let doc_nav = generate_doc_nav(config);
 
     // Check if options are available
     let has_options = if config.module_options.is_some() {
@@ -75,7 +75,7 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     let options_toc = generate_options_toc(options, config, &tera)?;
 
     // Generate document navigation
-    let doc_nav = generate_doc_nav(config)?;
+    let doc_nav = generate_doc_nav(config);
 
     // Generate custom scripts HTML
     let custom_scripts = generate_custom_scripts(config)?;
@@ -105,7 +105,7 @@ fn generate_options_toc(
     tera: &Tera,
 ) -> Result<String> {
     // Configured depth or default of 2
-    let depth = config.options_toc_depth.unwrap_or(2);
+    let depth = config.options_toc_depth;
 
     let mut grouped_options: HashMap<String, Vec<&NixOption>> = HashMap::new();
     let mut direct_parent_options: HashMap<String, &NixOption> = HashMap::new();
@@ -128,12 +128,7 @@ fn generate_options_toc(
 
     for (parent, opts) in &grouped_options {
         let has_multiple_options = opts.len() > 1;
-        let has_child_options = opts.len()
-            > (if direct_parent_options.contains_key(parent) {
-                1
-            } else {
-                0
-            });
+        let has_child_options = opts.len() > usize::from(direct_parent_options.contains_key(parent));
 
         if !has_multiple_options && !has_child_options {
             // Single option with no children
@@ -272,7 +267,7 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
         .unwrap_or_else(|| format!("{} - Search", config.title));
 
     // Generate document navigation
-    let doc_nav = generate_doc_nav(config)?;
+    let doc_nav = generate_doc_nav(config);
 
     // Generate custom scripts HTML
     let custom_scripts = generate_custom_scripts(config)?;
@@ -285,19 +280,19 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     };
 
     // Create Tera context
-    let mut tera_context = tera::Context::new();
-    tera_context.insert("title", &title_str);
-    tera_context.insert("site_title", &config.title);
-    tera_context.insert("heading", "Search");
-    tera_context.insert("footer_text", &config.footer_text);
-    tera_context.insert("custom_scripts", &custom_scripts);
-    tera_context.insert("doc_nav", &doc_nav);
-    tera_context.insert("has_options", has_options);
-    tera_context.insert("toc", ""); // No TOC for search page
-    tera_context.insert("generate_search", &true); // Always true for search page
+    let mut template_context = tera::Context::new();
+    template_context.insert("title", &title_str);
+    template_context.insert("site_title", &config.title);
+    template_context.insert("heading", "Search");
+    template_context.insert("footer_text", &config.footer_text);
+    template_context.insert("custom_scripts", &custom_scripts);
+    template_context.insert("doc_nav", &doc_nav);
+    template_context.insert("has_options", has_options);
+    template_context.insert("toc", ""); // No TOC for search page
+    template_context.insert("generate_search", &true); // Always true for search page
 
     // Render the template
-    let html = tera.render("search", &tera_context)?;
+    let html = tera.render("search", &template_context)?;
     Ok(html)
 }
 
@@ -329,7 +324,7 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
 }
 
 /// Generate the document navigation HTML
-fn generate_doc_nav(config: &Config) -> Result<String> {
+fn generate_doc_nav(config: &Config) -> String {
     let mut doc_nav = String::new();
 
     // Only process markdown files if input_dir is provided
@@ -348,37 +343,31 @@ fn generate_doc_nav(config: &Config) -> Result<String> {
                     let mut html_path = rel_doc_path.to_path_buf();
                     html_path.set_extension("html");
 
-                    let page_title = if let Ok(content) = fs::read_to_string(path) {
-                        if let Some(first_line) = content.lines().next() {
-                            if let Some(title) = first_line.strip_prefix("# ") {
-                                title.trim().to_string()
-                            } else {
-                                html_path
-                                    .file_stem()
-                                    .unwrap_or_default()
-                                    .to_string_lossy()
-                                    .to_string()
-                            }
-                        } else {
-                            html_path
-                                .file_stem()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string()
-                        }
-                    } else {
-                        html_path
-                            .file_stem()
+                    let page_title = fs::read_to_string(path).map_or_else(
+                        |_| html_path.file_stem()
                             .unwrap_or_default()
                             .to_string_lossy()
-                            .to_string()
-                    };
+                            .to_string(),
+                        |content| content.lines().next().map_or_else(
+                            || html_path.file_stem()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string(),
+                            |first_line| first_line.strip_prefix("# ").map_or_else(
+                                || html_path.file_stem()
+                                    .unwrap_or_default()
+                                    .to_string_lossy()
+                                    .to_string(),
+                                |title| title.trim().to_string()
+                            )
+                        )
+                    );
 
-                    doc_nav.push_str(&format!(
-                        "<li><a href=\"{}\">{}</a></li>\n",
+                    use std::fmt::Write;
+                    writeln!(doc_nav, "<li><a href=\"{}\">{}</a></li>",
                         html_path.to_string_lossy(),
                         page_title
-                    ));
+                    ).unwrap();
                 }
             }
         }
@@ -394,7 +383,7 @@ fn generate_doc_nav(config: &Config) -> Result<String> {
         doc_nav.push_str("<li><a href=\"search.html\">Search</a></li>\n");
     }
 
-    Ok(doc_nav)
+    doc_nav
 }
 
 /// Generate custom scripts HTML
@@ -413,7 +402,8 @@ fn generate_custom_scripts(config: &Config) -> Result<String> {
             let script_content = fs::read_to_string(script_path).with_context(|| {
                 format!("Failed to read script file: {}", script_path.display())
             })?;
-            custom_scripts.push_str(&format!("<script>{script_content}</script>\n"));
+            use std::fmt::Write;
+            writeln!(custom_scripts, "<script>{script_content}</script>").unwrap();
         }
     }
 
@@ -445,7 +435,8 @@ fn generate_toc(headers: &[Header]) -> String {
                 toc.push_str("</li><li>");
             }
 
-            toc.push_str(&format!("<a href=\"#{}\">{}</a>", header.id, header.text));
+            use std::fmt::Write;
+            writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, header.text).unwrap();
         }
     }
 
@@ -474,13 +465,14 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         let option_id = format!("option-{}", option.name.replace('.', "-"));
 
         // Open option container with ID for direct linking
-        options_html.push_str(&format!("<div class=\"option\" id=\"{option_id}\">\n"));
+        use std::fmt::Write;
+        writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">").unwrap();
 
         // Option name with anchor link and copy button
-        options_html.push_str(&format!(
+        write!(options_html,
             "  <h3 class=\"option-name\">\n    <a href=\"#{}\" class=\"option-anchor\">{}</a>\n    <span class=\"copy-link\" title=\"Copy link to this option\"></span>\n    <span class=\"copy-feedback\">Link copied!</span>\n  </h3>\n",
             option_id, option.name
-        ));
+        ).unwrap();
 
         // Option metadata (internal/readOnly)
         let mut metadata = Vec::new();
@@ -492,23 +484,23 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         }
 
         if !metadata.is_empty() {
-            options_html.push_str(&format!(
-                "  <div class=\"option-metadata\">{}</div>\n",
+            writeln!(options_html,
+                "  <div class=\"option-metadata\">{}</div>",
                 metadata.join(", ")
-            ));
+            ).unwrap();
         }
 
         // Option type
-        options_html.push_str(&format!(
-            "  <div class=\"option-type\">Type: <code>{}</code></div>\n",
+        writeln!(options_html,
+            "  <div class=\"option-type\">Type: <code>{}</code></div>",
             option.type_name
-        ));
+        ).unwrap();
 
         // Option description
-        options_html.push_str(&format!(
-            "  <div class=\"option-description\">{}</div>\n",
+        writeln!(options_html,
+            "  <div class=\"option-description\">{}</div>",
             option.description
-        ));
+        ).unwrap();
 
         // Add default value if available
         add_default_value(&mut options_html, option);
@@ -519,13 +511,13 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         // Option declared in - now with hyperlink support
         if let Some(declared_in) = &option.declared_in {
             if let Some(url) = &option.declared_in_url {
-                options_html.push_str(&format!(
-                    "  <div class=\"option-declared\">Declared in: <code><a href=\"{url}\" target=\"_blank\">{declared_in}</a></code></div>\n"
-                ));
+                writeln!(options_html,
+                    "  <div class=\"option-declared\">Declared in: <code><a href=\"{url}\" target=\"_blank\">{declared_in}</a></code></div>"
+                ).unwrap();
             } else {
-                options_html.push_str(&format!(
-                    "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>\n"
-                ));
+                writeln!(options_html,
+                    "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>"
+                ).unwrap();
             }
         }
 
@@ -538,39 +530,33 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
 
 /// Add default value to options HTML
 fn add_default_value(html: &mut String, option: &NixOption) {
+    use std::fmt::Write;
     if let Some(default_text) = &option.default_text {
-        html.push_str(&format!(
-            "  <div class=\"option-default\">Default: <code>{default_text}</code></div>\n"
-        ));
+        writeln!(html, "  <div class=\"option-default\">Default: <code>{default_text}</code></div>").unwrap();
     } else if let Some(default_val) = &option.default {
-        html.push_str(&format!(
-            "  <div class=\"option-default\">Default: <code>{default_val}</code></div>\n"
-        ));
+        writeln!(html, "  <div class=\"option-default\">Default: <code>{default_val}</code></div>").unwrap();
     }
 }
 
 /// Add example value to options HTML
 fn add_example_value(html: &mut String, option: &NixOption) {
+    use std::fmt::Write;
     if let Some(example_text) = &option.example_text {
         if example_text.contains('\n') {
-            html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <pre><code>{example_text}</code></pre></div>\n"
-            ));
+            writeln!(html, "  <div class=\"option-example\">Example: <pre><code>{example_text}</code></pre></div>"
+            ).unwrap();
         } else {
-            html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <code>{example_text}</code></div>\n"
-            ));
+            writeln!(html, "  <div class=\"option-example\">Example: <code>{example_text}</code></div>"
+            ).unwrap();
         }
     } else if let Some(example_val) = &option.example {
         let example_str = example_val.to_string();
         if example_str.contains('\n') {
-            html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <pre><code>{example_str}</code></pre></div>\n"
-            ));
+            writeln!(html, "  <div class=\"option-example\">Example: <pre><code>{example_str}</code></pre></div>"
+            ).unwrap();
         } else {
-            html.push_str(&format!(
-                "  <div class=\"option-example\">Example: <code>{example_str}</code></div>\n"
-            ));
+            writeln!(html, "  <div class=\"option-example\">Example: <code>{example_str}</code></div>"
+            ).unwrap();
         }
     }
 }

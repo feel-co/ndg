@@ -30,7 +30,8 @@ lazy_static! {
 
     // Admonition patterns for pre-processed content
     static ref ADMONITION_START: Regex = Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap();
-    static ref ADMONITION_END: Regex = Regex::new(r"\.ADMONITION_END").unwrap();
+    // Don't use regex for simple string matching
+    // static ref ADMONITION_END: Regex = Regex::new(r"\.ADMONITION_END").unwrap();
 
     // Markdown list items
     static ref LIST_ITEM: Regex = Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap();
@@ -91,14 +92,12 @@ pub fn generate_manpage(
     let manpage_title = title.unwrap_or("Module Options");
 
     // Determine output file path
-    let output_file = if let Some(path) = output_path {
-        path.to_path_buf()
-    } else {
+    let output_file = output_path.map_or_else(|| {
         let safe_title = manpage_title
             .to_lowercase()
             .replace(|c: char| !c.is_alphanumeric(), "-");
         Path::new(&format!("{safe_title}.{section}")).to_path_buf()
-    };
+    }, std::path::Path::to_path_buf);
 
     // Create output file
     let mut file = fs::File::create(&output_file).context(format!(
@@ -118,16 +117,14 @@ pub fn generate_manpage(
         man_escape(manpage_title)
     )?;
 
-    // Write header if provided
+    // Write header information
+    writeln!(file, ".SH NAME")?;
+    writeln!(file, "{}", man_escape(manpage_title))?;
+    writeln!(file, ".SH DESCRIPTION")?;
+
     if let Some(header_text) = header {
-        writeln!(file, ".SH NAME")?;
-        writeln!(file, "{}", man_escape(manpage_title))?;
-        writeln!(file, ".SH DESCRIPTION")?;
         writeln!(file, "{}", process_description(header_text))?;
     } else {
-        writeln!(file, ".SH NAME")?;
-        writeln!(file, "{}", man_escape(manpage_title))?;
-        writeln!(file, ".SH DESCRIPTION")?;
         writeln!(file, "Available configuration options")?;
     }
 
@@ -269,11 +266,11 @@ fn parse_option(key: &str, option_data: &serde_json::Map<String, Value>) -> NixO
 
     // Process fields from the option data
     if let Some(Value::String(type_name)) = option_data.get("type") {
-        option.type_name = type_name.clone();
+        option.type_name.clone_from(type_name);
     }
 
     if let Some(Value::String(desc)) = option_data.get("description") {
-        option.description = desc.clone();
+        option.description.clone_from(desc);
     }
 
     // Handle default values
@@ -344,22 +341,24 @@ fn process_description(text: &str) -> String {
         .lines()
         .map(|line| {
             // Process list items
-            if let Some(captures) = LIST_ITEM.captures(line) {
+            LIST_ITEM.captures(line).map_or_else(|| {
+                NUMBERED_LIST_ITEM.captures(line).map_or_else(|| {
+                    // Process inline markdown for regular lines
+                    process_inline_markdown(line)
+                }, |captures| {
+                    let content = &captures[1];
+                    format!(
+                        ".sp\n.RS 4\n\\h'-2'\\fB1.\\fP\\h'1'\\c\n{}\n.RE",
+                        process_inline_markdown(content)
+                    )
+                })
+            }, |captures| {
                 let content = &captures[1];
                 format!(
                     ".sp\n.RS 4\n\\h'-2'\\fB\\[u2022]\\fP\\h'1'\\c\n{}\n.RE",
                     process_inline_markdown(content)
                 )
-            } else if let Some(captures) = NUMBERED_LIST_ITEM.captures(line) {
-                let content = &captures[1];
-                format!(
-                    ".sp\n.RS 4\n\\h'-2'\\fB1.\\fP\\h'1'\\c\n{}\n.RE",
-                    process_inline_markdown(content)
-                )
-            } else {
-                // Process inline markdown for regular lines
-                process_inline_markdown(line)
-            }
+            })
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -517,11 +516,11 @@ fn process_repl_prompts(text: &str) -> String {
 /// Process admonition blocks (:::)
 fn process_admonitions(text: &str) -> String {
     let mut result = String::new();
-    let mut in_admonition = false;
+    let mut _in_admonition = false;
 
     for line in text.lines() {
         if let Some(caps) = ADMONITION_START.captures(line) {
-            in_admonition = true;
+            _in_admonition = true;
             let adm_type = &caps[1];
             let title = match adm_type.to_lowercase().as_str() {
                 "note" => "Note",
@@ -544,13 +543,11 @@ fn process_admonitions(text: &str) -> String {
                 result.push_str(content);
             }
             result.push('\n');
-        } else if ADMONITION_END.is_match(line) {
-            in_admonition = false;
+        } else if line.contains(".ADMONITION_END") {
+            _in_admonition = false;
             result.push_str(".RE\n");
-        } else if in_admonition {
-            result.push_str(line);
-            result.push('\n');
         } else {
+            // Handle both in_admonition and normal lines the same way
             result.push_str(line);
             result.push('\n');
         }
@@ -634,17 +631,7 @@ fn extract_value_from_json(value: &Value) -> Option<String> {
         // literalExpression and similar structured values
         if let Some(Value::String(type_name)) = obj.get("_type") {
             match type_name.as_str() {
-                "literalExpression" => {
-                    if let Some(Value::String(text)) = obj.get("text") {
-                        return Some(text.clone());
-                    }
-                }
-                "literalDocBook" => {
-                    if let Some(Value::String(text)) = obj.get("text") {
-                        return Some(text.clone());
-                    }
-                }
-                "literalMD" => {
+                "literalExpression" | "literalDocBook" | "literalMD" => {
                     if let Some(Value::String(text)) = obj.get("text") {
                         return Some(text.clone());
                     }

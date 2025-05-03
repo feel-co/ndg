@@ -30,8 +30,8 @@ fn default_revision() -> String {
     "local".to_string()
 }
 
-const fn default_options_toc_depth() -> Option<usize> {
-    Some(2)
+const fn default_options_toc_depth() -> usize {
+    2
 }
 
 const fn default_true() -> bool {
@@ -99,7 +99,7 @@ pub struct Config {
 
     /// Depth of parent categories in options TOC
     #[serde(default = "default_options_toc_depth")]
-    pub options_toc_depth: Option<usize>,
+    pub options_toc_depth: usize,
 
     /// Whether to enable syntax highlighting for code blocks
     #[serde(default = "default_true")]
@@ -118,8 +118,10 @@ impl Config {
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {}", path.display()))?;
 
-        if let Some(ext) = path.extension() {
-            match ext.to_str().unwrap_or("").to_lowercase().as_str() {
+        path.extension().map_or_else(|| Err(anyhow::anyhow!(
+                "Config file has no extension: {}",
+                path.display()
+            )), |ext| match ext.to_str().unwrap_or("").to_lowercase().as_str() {
                 "json" => serde_json::from_str(&content).with_context(|| {
                     format!("Failed to parse JSON config from {}", path.display())
                 }),
@@ -130,13 +132,7 @@ impl Config {
                     "Unsupported config file format: {}",
                     path.display()
                 )),
-            }
-        } else {
-            Err(anyhow::anyhow!(
-                "Config file has no extension: {}",
-                path.display()
-            ))
-        }
+            })
     }
 
     /// Load config from file and CLI arguments
@@ -211,7 +207,7 @@ impl Config {
             }
 
             if let Some(output_dir) = output_dir {
-                self.output_dir = output_dir.clone();
+                self.output_dir.clone_from(output_dir);
             }
 
             self.jobs = jobs.or(self.jobs);
@@ -229,22 +225,24 @@ impl Config {
             }
 
             if !script.is_empty() {
-                self.script_paths = script.clone();
+                self.script_paths.clone_from(script);
             }
 
             if let Some(title) = title {
-                self.title = title.clone();
+                self.title.clone_from(title);
             }
 
             if let Some(footer) = footer {
-                self.footer_text = footer.clone();
+                self.footer_text.clone_from(footer);
             }
 
             if let Some(module_options) = module_options {
                 self.module_options = Some(module_options.clone());
             }
 
-            self.options_toc_depth = options_toc_depth.or(self.options_toc_depth);
+            if let Some(toc_depth) = options_toc_depth {
+                self.options_toc_depth = *toc_depth;
+            }
 
             if let Some(manpage_urls) = manpage_urls {
                 self.manpage_urls_path = Some(manpage_urls.clone());
@@ -261,7 +259,7 @@ impl Config {
             }
 
             if let Some(revision) = revision {
-                self.revision = revision.clone();
+                self.revision.clone_from(revision);
             }
         }
     }

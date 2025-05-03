@@ -34,10 +34,7 @@ where
 /// Capitalize the first letter of a string
 pub fn capitalize_first(s: &str) -> String {
     let mut chars = s.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
-    }
+    chars.next().map_or_else(String::new, |c| c.to_uppercase().collect::<String>() + chars.as_str())
 }
 
 // We'll keep this function despite being marked as unused
@@ -66,15 +63,13 @@ pub fn process_manpage_references(
         MANPAGE_MARKUP_RE
             .replace_all(&text, |caps: &regex::Captures| {
                 let manpage_ref = &caps[1];
-                if let Some(urls) = manpage_urls {
-                    if let Some(url) = urls.get(manpage_ref) {
-                        format!("<a href=\"{url}\" class=\"manpage-reference\">{manpage_ref}</a>")
-                    } else {
-                        format!("<span class=\"manpage-reference\">{manpage_ref}</span>")
-                    }
-                } else {
-                    format!("<span class=\"manpage-reference\">{manpage_ref}</span>")
-                }
+                manpage_urls.map_or_else(
+                    || format!("<span class=\"manpage-reference\">{manpage_ref}</span>"),
+                    |urls| urls.get(manpage_ref).map_or_else(
+                        || format!("<span class=\"manpage-reference\">{manpage_ref}</span>"),
+                        |url| format!("<a href=\"{url}\" class=\"manpage-reference\">{manpage_ref}</a>")
+                    )
+                )
             })
             .to_string()
     } else {
@@ -85,37 +80,50 @@ pub fn process_manpage_references(
     MANPAGE_REFERENCE_RE
         .replace_all(&result, |caps: &regex::Captures| {
             let span_content = &caps[1];
-            if let Some(urls) = manpage_urls {
-                if let Some(url) = urls.get(span_content) {
-                    if is_html {
-                        format!("<a href=\"{url}\" class=\"manpage-reference\">{span_content}</a>")
-                    } else {
-                        // Format for troff/manpage
-                        format!("\\fB{span_content}\\fP")
-                    }
-                } else {
-                    // Special case for conf(5)
-                    if span_content == "conf(5)" {
-                        let full_ref = "nix.conf(5)";
-                        if let Some(url) = urls.get(full_ref) {
-                            if is_html {
-                                return format!(
-                                    "<a href=\"{url}\" class=\"manpage-reference\">{full_ref}</a>"
-                                );
-                            }
-                        }
-                    }
+
+            manpage_urls.map_or_else(
+                || {
+                    // No manpage URLs available
                     if is_html {
                         format!("<span class=\"manpage-reference\">{span_content}</span>")
                     } else {
                         format!("\\fB{span_content}\\fP")
                     }
+                },
+                |urls| {
+                    urls.get(span_content).map_or_else(
+                        || {
+                            // URL not found for this manpage reference
+                            // Special case for conf(5)
+                            if span_content == "conf(5)" {
+                                let full_ref = "nix.conf(5)";
+                                if let Some(url) = urls.get(full_ref) {
+                                    if is_html {
+                                        return format!(
+                                            "<a href=\"{url}\" class=\"manpage-reference\">{full_ref}</a>"
+                                        );
+                                    }
+                                }
+                            }
+
+                            if is_html {
+                                format!("<span class=\"manpage-reference\">{span_content}</span>")
+                            } else {
+                                format!("\\fB{span_content}\\fP")
+                            }
+                        },
+                        |url| {
+                            // URL found
+                            if is_html {
+                                format!("<a href=\"{url}\" class=\"manpage-reference\">{span_content}</a>")
+                            } else {
+                                // Format for troff/manpage
+                                format!("\\fB{span_content}\\fP")
+                            }
+                        }
+                    )
                 }
-            } else if is_html {
-                format!("<span class=\"manpage-reference\">{span_content}</span>")
-            } else {
-                format!("\\fB{span_content}\\fP")
-            }
+            )
         })
         .to_string()
 }
@@ -137,18 +145,14 @@ pub fn process_roles(
                 // HTML formatting
                 match role_type {
                     "manpage" => {
-                        if let Some(urls) = manpage_urls {
-                            if let Some(url) = urls.get(content) {
-                                format!(
-                                    "<a href=\"{url}\" class=\"manpage-reference\">{content}</a>"
-                                )
-                            } else {
-                                format!("<span class=\"manpage-reference\">{content}</span>")
-                            }
-                        } else {
-                            format!("<span class=\"manpage-reference\">{content}</span>")
-                        }
-                    }
+                        manpage_urls.map_or_else(
+                            || format!("<span class=\"manpage-reference\">{content}</span>"),
+                            |urls| urls.get(content).map_or_else(
+                                || format!("<span class=\"manpage-reference\">{content}</span>"),
+                                |url| format!("<a href=\"{url}\" class=\"manpage-reference\">{content}</a>")
+                            )
+                        )
+                    },
                     "command" => format!("<code class=\"command\">{content}</code>"),
                     "env" => format!("<code class=\"env-var\">{content}</code>"),
                     "file" => format!("<code class=\"file-path\">{content}</code>"),
@@ -159,11 +163,8 @@ pub fn process_roles(
             } else {
                 // Troff formatting for man pages
                 match role_type {
-                    "command" => format!("\\fB{content}\\fP"),
-                    "env" => format!("\\fI{content}\\fP"),
-                    "file" => format!("\\fI{content}\\fP"),
-                    "option" => format!("\\fB{content}\\fP"),
-                    "var" => format!("\\fI{content}\\fP"),
+                    "command" | "option" => format!("\\fB{content}\\fP"),
+                    "env" | "file" | "var" => format!("\\fI{content}\\fP"),
                     "manpage" => {
                         if let Some((page, section)) = content.rsplit_once('(') {
                             let page = page.trim();
@@ -193,7 +194,7 @@ pub fn process_command_prompts(text: &str, is_html: bool) -> String {
         COMMAND_PROMPT
             .replace_all(text, |caps: &regex::Captures| {
                 let cmd = &caps[1];
-                format!("\\f[C]$ {}\\fP", cmd)
+                format!("\\f[C]$ {cmd}\\fP")
             })
             .to_string()
     }
@@ -212,7 +213,7 @@ pub fn process_repl_prompts(text: &str, is_html: bool) -> String {
         REPL_PROMPT
             .replace_all(text, |caps: &regex::Captures| {
                 let expr = &caps[1];
-                format!("\\f[C]nix-repl> {}\\fP", expr)
+                format!("\\f[C]nix-repl> {expr}\\fP")
             })
             .to_string()
     }
