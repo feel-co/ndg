@@ -92,8 +92,9 @@ fn generate_css(config: &Config) -> Result<String> {
     // Check for custom stylesheet
     if let Some(stylesheet_path) = &config.stylesheet_path {
         if stylesheet_path.exists() {
-            let content = fs::read_to_string(stylesheet_path)
-                .with_context(|| format!("Failed to read stylesheet: {}", stylesheet_path.display()))?;
+            let content = fs::read_to_string(stylesheet_path).with_context(|| {
+                format!("Failed to read stylesheet: {}", stylesheet_path.display())
+            })?;
 
             // Process SCSS if needed
             if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
@@ -109,8 +110,12 @@ fn generate_css(config: &Config) -> Result<String> {
     if let Some(template_path) = config.get_template_path() {
         let template_css_path = template_path.join("default.css");
         if template_css_path.exists() {
-            return fs::read_to_string(&template_css_path)
-                .with_context(|| format!("Failed to read template CSS: {}", template_css_path.display()));
+            return fs::read_to_string(&template_css_path).with_context(|| {
+                format!(
+                    "Failed to read template CSS: {}",
+                    template_css_path.display()
+                )
+            });
         }
     }
 

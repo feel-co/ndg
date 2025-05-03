@@ -541,14 +541,14 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
                 if code_block_lang.is_empty() || !config.highlight_code {
                     // Plain code block or highlighting disabled
                     html_output.push_str("<pre><code");
-                    
+
                     // Add language class if available, even when highlighting is disabled
                     if !code_block_lang.is_empty() {
                         html_output.push_str(" class=\"language-");
                         html_output.push_str(&code_block_lang);
                         html_output.push_str("\"");
                     }
-                    
+
                     html_output.push_str(">");
                     escape_html(&code_block_content, &mut html_output);
                     html_output.push_str("</code></pre>");

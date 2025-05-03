@@ -9,8 +9,8 @@ use rayon::prelude::*;
 use regex::Regex;
 use serde_json::{self, Value};
 
-use crate::formatter::options::NixOption;
 use crate::formatter::markup;
+use crate::formatter::options::NixOption;
 use crate::manpage::{escape_leading_dot, get_roff_escapes, man_escape};
 
 // Define regex patterns for processing markdown in options

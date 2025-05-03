@@ -269,15 +269,18 @@ impl Config {
     /// Get template directory path or file parent
     pub fn get_template_path(&self) -> Option<PathBuf> {
         // First check explicit template directory
-        self.template_dir.clone()
+        self.template_dir
+            .clone()
             // Then check if template_path is a directory or use its parent
-            .or_else(|| self.template_path.as_ref().and_then(|path| {
-                if path.is_dir() {
-                    Some(path.clone())
-                } else {
-                    path.parent().map(PathBuf::from)
-                }
-            }))
+            .or_else(|| {
+                self.template_path.as_ref().and_then(|path| {
+                    if path.is_dir() {
+                        Some(path.clone())
+                    } else {
+                        path.parent().map(PathBuf::from)
+                    }
+                })
+            })
     }
 
     /// Get template file path for a specific template name
@@ -289,7 +292,7 @@ impl Config {
                 return Some(path.clone());
             }
         }
-        
+
         // Otherwise check template directory
         self.get_template_path().map(|dir| dir.join(name))
     }
