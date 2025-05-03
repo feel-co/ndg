@@ -211,6 +211,9 @@ impl Config {
          }
       }
 
+      // Validate all paths
+      config.validate_paths()?;
+
       Ok(config)
    }
 
@@ -259,8 +262,10 @@ impl Config {
             self.stylesheet_path = Some(stylesheet.clone());
          }
 
+         // Append script paths rather than replacing them
          if !script.is_empty() {
-            self.script_paths.clone_from(script);
+            // Append CLI scripts to existing ones rather than replacing
+            self.script_paths.extend(script.iter().cloned());
          }
 
          if let Some(title) = title {
@@ -377,5 +382,127 @@ impl Config {
       }
       
       None
+   }
+
+   /// Validate all paths specified in the configuration
+   pub fn validate_paths(&self) -> Result<()> {
+      let mut errors = Vec::new();
+      
+      // Module options file should exist if specified
+      if let Some(ref module_options) = self.module_options {
+         if !module_options.exists() {
+            errors.push(format!(
+               "Module options file does not exist: {}",
+               module_options.display()
+            ));
+         } else if !module_options.is_file() {
+            errors.push(format!(
+               "Module options path is not a file: {}",
+               module_options.display()
+            ));
+         }
+      }
+      
+      // Template path should exist if specified
+      if let Some(ref template_path) = self.template_path {
+         if !template_path.exists() {
+            errors.push(format!(
+               "Template file does not exist: {}",
+               template_path.display()
+            ));
+         }
+      }
+      
+      // Template directory should exist if specified
+      if let Some(ref template_dir) = self.template_dir {
+         if !template_dir.exists() {
+            errors.push(format!(
+               "Template directory does not exist: {}",
+               template_dir.display()
+            ));
+         } else if !template_dir.is_dir() {
+            errors.push(format!(
+               "Template directory path is not a directory: {}",
+               template_dir.display()
+            ));
+         }
+      }
+      
+      // Stylesheet should exist if specified
+      if let Some(ref stylesheet_path) = self.stylesheet_path {
+         if !stylesheet_path.exists() {
+            errors.push(format!(
+               "Stylesheet file does not exist: {}",
+               stylesheet_path.display()
+            ));
+         } else if !stylesheet_path.is_file() {
+            errors.push(format!(
+               "Stylesheet path is not a file: {}",
+               stylesheet_path.display()
+            ));
+         }
+      }
+      
+      // Assets directory should exist if specified
+      if let Some(ref assets_dir) = self.assets_dir {
+         if !assets_dir.exists() {
+            errors.push(format!(
+               "Assets directory does not exist: {}",
+               assets_dir.display()
+            ));
+         } else if !assets_dir.is_dir() {
+            errors.push(format!(
+               "Assets directory path is not a directory: {}",
+               assets_dir.display()
+            ));
+         }
+      }
+      
+      // Manpage URLs file should exist if specified
+      if let Some(ref manpage_urls_path) = self.manpage_urls_path {
+         if !manpage_urls_path.exists() {
+            errors.push(format!(
+               "Manpage URLs file does not exist: {}",
+               manpage_urls_path.display()
+            ));
+         } else if !manpage_urls_path.is_file() {
+            errors.push(format!(
+               "Manpage URLs path is not a file: {}",
+               manpage_urls_path.display()
+            ));
+         }
+      }
+      
+      // Script files should exist if specified
+      for (index, script_path) in self.script_paths.iter().enumerate() {
+         if !script_path.exists() {
+            errors.push(format!(
+               "Script file {} does not exist: {}",
+               index + 1,
+               script_path.display()
+            ));
+         } else if !script_path.is_file() {
+            errors.push(format!(
+               "Script path {} is not a file: {}",
+               index + 1,
+               script_path.display()
+            ));
+         }
+      }
+      
+      // Check for template/template-dir conflict and log a warning
+      if self.template_path.is_some() && self.template_dir.is_some() {
+         log::warn!(
+            "Both template file and template directory are specified. Template file will only be used if it matches the requested template name."
+         );
+      }
+      
+      // Return error if we found any issues
+      if !errors.is_empty() {
+         let error_message = errors.join("\n");
+         return Err(anyhow::anyhow!("Configuration path validation errors:\n{}", error_message));
+      }
+      
+      Ok(())
    }
 }
