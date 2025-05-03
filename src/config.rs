@@ -1,278 +1,302 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+   fs,
+   path::{
+      Path,
+      PathBuf,
+   },
+};
 
-use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use anyhow::{
+   Context,
+   Result,
+};
+use serde::{
+   Deserialize,
+   Serialize,
+};
 
-use crate::cli::{Cli, Commands};
+use crate::cli::{
+   Cli,
+   Commands,
+};
 
 // I know this looks silly, but my understanding is that this is the most
 // type-correct and re-usable way. Functions allow for more complex default
 // values that can't be expressed as literals. For example, creating a
 // PathBuf would require execution, not just a literal value. Should be fine.
 const fn default_input_dir() -> Option<PathBuf> {
-    None
+   None
 }
 
 fn default_output_dir() -> PathBuf {
-    PathBuf::from("build")
+   PathBuf::from("build")
 }
 
 fn default_title() -> String {
-    "ndg documentation".to_string()
+   "ndg documentation".to_string()
 }
 
 fn default_footer_text() -> String {
-    "Generated with ndg".to_string()
+   "Generated with ndg".to_string()
 }
 
 fn default_revision() -> String {
-    "local".to_string()
+   "local".to_string()
 }
 
 const fn default_options_toc_depth() -> usize {
-    2
+   2
 }
 
 const fn default_true() -> bool {
-    true
+   true
 }
 
 /// Configuration options for ndg
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
-    /// Input directory containing markdown files
-    #[serde(default = "default_input_dir")]
-    pub input_dir: Option<PathBuf>,
+   /// Input directory containing markdown files
+   #[serde(default = "default_input_dir")]
+   pub input_dir: Option<PathBuf>,
 
-    /// Output directory for generated documentation
-    #[serde(default = "default_output_dir")]
-    pub output_dir: PathBuf,
+   /// Output directory for generated documentation
+   #[serde(default = "default_output_dir")]
+   pub output_dir: PathBuf,
 
-    /// Path to options.json file (optional)
-    #[serde(default)]
-    pub module_options: Option<PathBuf>,
+   /// Path to options.json file (optional)
+   #[serde(default)]
+   pub module_options: Option<PathBuf>,
 
-    /// Path to custom template file
-    #[serde(default)]
-    pub template_path: Option<PathBuf>,
+   /// Path to custom template file
+   #[serde(default)]
+   pub template_path: Option<PathBuf>,
 
-    /// Path to template directory containing all template files
-    #[serde(default)]
-    pub template_dir: Option<PathBuf>,
+   /// Path to template directory containing all template files
+   #[serde(default)]
+   pub template_dir: Option<PathBuf>,
 
-    /// Path to custom stylesheet
-    #[serde(default)]
-    pub stylesheet_path: Option<PathBuf>,
+   /// Path to custom stylesheet
+   #[serde(default)]
+   pub stylesheet_path: Option<PathBuf>,
 
-    /// Paths to custom JavaScript files
-    #[serde(default)]
-    pub script_paths: Vec<PathBuf>,
+   /// Paths to custom JavaScript files
+   #[serde(default)]
+   pub script_paths: Vec<PathBuf>,
 
-    /// Directory containing additional assets
-    #[serde(default)]
-    pub assets_dir: Option<PathBuf>,
+   /// Directory containing additional assets
+   #[serde(default)]
+   pub assets_dir: Option<PathBuf>,
 
-    /// Path to manpage URL mappings JSON file
-    #[serde(default)]
-    pub manpage_urls_path: Option<PathBuf>,
+   /// Path to manpage URL mappings JSON file
+   #[serde(default)]
+   pub manpage_urls_path: Option<PathBuf>,
 
-    /// Title for the documentation
-    #[serde(default = "default_title")]
-    pub title: String,
+   /// Title for the documentation
+   #[serde(default = "default_title")]
+   pub title: String,
 
-    /// Number of threads to use for parallel processing
-    #[serde(default)]
-    pub jobs: Option<usize>,
+   /// Number of threads to use for parallel processing
+   #[serde(default)]
+   pub jobs: Option<usize>,
 
-    /// Whether to generate anchors for headings
-    #[serde(default = "default_true")]
-    pub generate_anchors: bool,
+   /// Whether to generate anchors for headings
+   #[serde(default = "default_true")]
+   pub generate_anchors: bool,
 
-    /// Whether to generate a search index
-    #[serde(default = "default_true")]
-    pub generate_search: bool,
+   /// Whether to generate a search index
+   #[serde(default = "default_true")]
+   pub generate_search: bool,
 
-    /// Text to be inserted in the footer
-    #[serde(default = "default_footer_text")]
-    pub footer_text: String,
+   /// Text to be inserted in the footer
+   #[serde(default = "default_footer_text")]
+   pub footer_text: String,
 
-    /// Depth of parent categories in options TOC
-    #[serde(default = "default_options_toc_depth")]
-    pub options_toc_depth: usize,
+   /// Depth of parent categories in options TOC
+   #[serde(default = "default_options_toc_depth")]
+   pub options_toc_depth: usize,
 
-    /// Whether to enable syntax highlighting for code blocks
-    #[serde(default = "default_true")]
-    pub highlight_code: bool,
+   /// Whether to enable syntax highlighting for code blocks
+   #[serde(default = "default_true")]
+   pub highlight_code: bool,
 
-    /// GitHub revision for linking to source files
-    #[serde(default = "default_revision")]
-    pub revision: String,
+   /// GitHub revision for linking to source files
+   #[serde(default = "default_revision")]
+   pub revision: String,
 }
 
 impl Config {
-    /// Create a new configuration from a file
-    /// Only TOML and JSON are supported for the time being.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let path = path.as_ref();
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read config file: {}", path.display()))?;
+   /// Create a new configuration from a file
+   /// Only TOML and JSON are supported for the time being.
+   pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+      let path = path.as_ref();
+      let content = fs::read_to_string(path)
+         .with_context(|| format!("Failed to read config file: {}", path.display()))?;
 
-        path.extension().map_or_else(
-            || {
-                Err(anyhow::anyhow!(
-                    "Config file has no extension: {}",
-                    path.display()
-                ))
-            },
-            |ext| match ext.to_str().unwrap_or("").to_lowercase().as_str() {
-                "json" => serde_json::from_str(&content).with_context(|| {
-                    format!("Failed to parse JSON config from {}", path.display())
-                }),
-                "toml" => toml::from_str(&content).with_context(|| {
-                    format!("Failed to parse TOML config from {}", path.display())
-                }),
-                _ => Err(anyhow::anyhow!(
-                    "Unsupported config file format: {}",
-                    path.display()
-                )),
-            },
-        )
-    }
-
-    /// Load config from file and CLI arguments
-    pub fn load(cli: &Cli) -> Result<Self> {
-        let mut config = if let Some(config_path) = &cli.config_file {
-            Self::from_file(config_path)
-                .with_context(|| format!("Failed to load config from {}", config_path.display()))?
-        } else {
-            Self::default()
-        };
-
-        // Merge CLI arguments
-        config.merge_with_cli(cli);
-
-        // Get options from command if present
-        if let Some(Commands::Html { .. }) = &cli.command {
-            // Validation is handled in merge_with_cli
-        } else {
-            // No Html command, validate required fields if no config file was specified
-            if cli.config_file.is_none() {
-                // If there's no config file and no Html command, we're missing required data
-                return Err(anyhow::anyhow!(
-                    "Neither config file nor 'html' subcommand provided. Use 'ndg html' or provide a config file with --config."
-                ));
+      path.extension().map_or_else(
+         || {
+            Err(anyhow::anyhow!(
+               "Config file has no extension: {}",
+               path.display()
+            ))
+         },
+         |ext| {
+            match ext.to_str().unwrap_or("").to_lowercase().as_str() {
+               "json" => {
+                  serde_json::from_str(&content).with_context(|| {
+                     format!("Failed to parse JSON config from {}", path.display())
+                  })
+               },
+               "toml" => {
+                  toml::from_str(&content).with_context(|| {
+                     format!("Failed to parse TOML config from {}", path.display())
+                  })
+               },
+               _ => {
+                  Err(anyhow::anyhow!(
+                     "Unsupported config file format: {}",
+                     path.display()
+                  ))
+               },
             }
-        }
+         },
+      )
+   }
 
-        // We need *at least one* source of content
-        if config.input_dir.is_none() && config.module_options.is_none() {
+   /// Load config from file and CLI arguments
+   pub fn load(cli: &Cli) -> Result<Self> {
+      let mut config = if let Some(config_path) = &cli.config_file {
+         Self::from_file(config_path)
+            .with_context(|| format!("Failed to load config from {}", config_path.display()))?
+      } else {
+         Self::default()
+      };
+
+      // Merge CLI arguments
+      config.merge_with_cli(cli);
+
+      // Get options from command if present
+      if let Some(Commands::Html { .. }) = &cli.command {
+         // Validation is handled in merge_with_cli
+      } else {
+         // No Html command, validate required fields if no config file was specified
+         if cli.config_file.is_none() {
+            // If there's no config file and no Html command, we're missing required data
             return Err(anyhow::anyhow!(
-                "At least one of input directory or module options must be provided."
+               "Neither config file nor 'html' subcommand provided. Use 'ndg html' or provide a \
+                config file with --config."
             ));
-        }
+         }
+      }
 
-        // Validate input_dir if it's provided
-        if let Some(ref input_dir) = config.input_dir {
-            if !input_dir.exists() {
-                return Err(anyhow::anyhow!(
-                    "Input directory does not exist: {}",
-                    input_dir.display()
-                ));
-            }
-        }
+      // We need *at least one* source of content
+      if config.input_dir.is_none() && config.module_options.is_none() {
+         return Err(anyhow::anyhow!(
+            "At least one of input directory or module options must be provided."
+         ));
+      }
 
-        Ok(config)
-    }
+      // Validate input_dir if it's provided
+      if let Some(ref input_dir) = config.input_dir {
+         if !input_dir.exists() {
+            return Err(anyhow::anyhow!(
+               "Input directory does not exist: {}",
+               input_dir.display()
+            ));
+         }
+      }
 
-    /// Merge CLI arguments into this config, prioritizing CLI values when present
-    pub fn merge_with_cli(&mut self, cli: &Cli) {
-        // Handle options from the Html subcommand if present
-        if let Some(Commands::Html {
-            input_dir,
-            output_dir,
-            jobs,
-            template,
-            template_dir,
-            stylesheet,
-            script,
-            title,
-            footer,
-            module_options,
-            options_toc_depth,
-            manpage_urls,
-            generate_search,
-            highlight_code,
-            revision,
-        }) = &cli.command
-        {
-            // Set input directory from CLI if provided
-            if let Some(input_dir) = input_dir {
-                self.input_dir = Some(input_dir.clone());
-            }
+      Ok(config)
+   }
 
-            if let Some(output_dir) = output_dir {
-                self.output_dir.clone_from(output_dir);
-            }
+   /// Merge CLI arguments into this config, prioritizing CLI values when
+   /// present
+   pub fn merge_with_cli(&mut self, cli: &Cli) {
+      // Handle options from the Html subcommand if present
+      if let Some(Commands::Html {
+         input_dir,
+         output_dir,
+         jobs,
+         template,
+         template_dir,
+         stylesheet,
+         script,
+         title,
+         footer,
+         module_options,
+         options_toc_depth,
+         manpage_urls,
+         generate_search,
+         highlight_code,
+         revision,
+      }) = &cli.command
+      {
+         // Set input directory from CLI if provided
+         if let Some(input_dir) = input_dir {
+            self.input_dir = Some(input_dir.clone());
+         }
 
-            self.jobs = jobs.or(self.jobs);
+         if let Some(output_dir) = output_dir {
+            self.output_dir.clone_from(output_dir);
+         }
 
-            if let Some(template) = template {
-                self.template_path = Some(template.clone());
-            }
+         self.jobs = jobs.or(self.jobs);
 
-            if let Some(template_dir) = template_dir {
-                self.template_dir = Some(template_dir.clone());
-            }
+         if let Some(template) = template {
+            self.template_path = Some(template.clone());
+         }
 
-            if let Some(stylesheet) = stylesheet {
-                self.stylesheet_path = Some(stylesheet.clone());
-            }
+         if let Some(template_dir) = template_dir {
+            self.template_dir = Some(template_dir.clone());
+         }
 
-            if !script.is_empty() {
-                self.script_paths.clone_from(script);
-            }
+         if let Some(stylesheet) = stylesheet {
+            self.stylesheet_path = Some(stylesheet.clone());
+         }
 
-            if let Some(title) = title {
-                self.title.clone_from(title);
-            }
+         if !script.is_empty() {
+            self.script_paths.clone_from(script);
+         }
 
-            if let Some(footer) = footer {
-                self.footer_text.clone_from(footer);
-            }
+         if let Some(title) = title {
+            self.title.clone_from(title);
+         }
 
-            if let Some(module_options) = module_options {
-                self.module_options = Some(module_options.clone());
-            }
+         if let Some(footer) = footer {
+            self.footer_text.clone_from(footer);
+         }
 
-            if let Some(toc_depth) = options_toc_depth {
-                self.options_toc_depth = *toc_depth;
-            }
+         if let Some(module_options) = module_options {
+            self.module_options = Some(module_options.clone());
+         }
 
-            if let Some(manpage_urls) = manpage_urls {
-                self.manpage_urls_path = Some(manpage_urls.clone());
-            }
+         if let Some(toc_depth) = options_toc_depth {
+            self.options_toc_depth = *toc_depth;
+         }
 
-            // Handle the generate-search flag when explicitly set
-            if let Some(generate_search_val) = generate_search {
-                self.generate_search = *generate_search_val;
-            }
+         if let Some(manpage_urls) = manpage_urls {
+            self.manpage_urls_path = Some(manpage_urls.clone());
+         }
 
-            // Handle the highlight-code flag when explicitly set
-            if let Some(highlight_code_val) = highlight_code {
-                self.highlight_code = *highlight_code_val;
-            }
+         // Handle the generate-search flag when explicitly set
+         if let Some(generate_search_val) = generate_search {
+            self.generate_search = *generate_search_val;
+         }
 
-            if let Some(revision) = revision {
-                self.revision.clone_from(revision);
-            }
-        }
-    }
+         // Handle the highlight-code flag when explicitly set
+         if let Some(highlight_code_val) = highlight_code {
+            self.highlight_code = *highlight_code_val;
+         }
 
-    /// Get template directory path or file parent
-    pub fn get_template_path(&self) -> Option<PathBuf> {
-        // First check explicit template directory
-        self.template_dir
+         if let Some(revision) = revision {
+            self.revision.clone_from(revision);
+         }
+      }
+   }
+
+   /// Get template directory path or file parent
+   pub fn get_template_path(&self) -> Option<PathBuf> {
+      // First check explicit template directory
+      self.template_dir
             .clone()
             // Then check if template_path is a directory or use its parent
             .or_else(|| {
@@ -284,19 +308,20 @@ impl Config {
                     }
                 })
             })
-    }
+   }
 
-    /// Get template file path for a specific template name
-    pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
-        // First check if there's a direct template path and it matches the name
-        if let Some(path) = &self.template_path {
-            // Only use template_path if it's a file and its filename matches the requested name
-            if path.is_file() && path.file_name().is_some_and(|fname| fname == name) {
-                return Some(path.clone());
-            }
-        }
+   /// Get template file path for a specific template name
+   pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
+      // First check if there's a direct template path and it matches the name
+      if let Some(path) = &self.template_path {
+         // Only use template_path if it's a file and its filename matches the requested
+         // name
+         if path.is_file() && path.file_name().is_some_and(|fname| fname == name) {
+            return Some(path.clone());
+         }
+      }
 
-        // Otherwise check template directory
-        self.get_template_path().map(|dir| dir.join(name))
-    }
+      // Otherwise check template directory
+      self.get_template_path().map(|dir| dir.join(name))
+   }
 }
