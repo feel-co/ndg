@@ -61,16 +61,20 @@ fn main() -> Result<()> {
                 );
             }
 
-            // Just passing the Options command to the Config handling
-            Commands::Options { .. } => {
-                // This is handled in Config::load and merge_with_cli
-            }
+            // The Options command is handled in Config::load and merge_with_cli
+            Commands::Options { .. } => {}
         }
     }
 
     // Create configuration from CLI and/or config file
     let config = Config::load(&cli)?;
 
+    // Run the main documentation generation process
+    generate_documentation(&config)
+}
+
+/// Main documentation generation process
+fn generate_documentation(config: &Config) -> Result<()> {
     info!("Starting documentation generation...");
 
     // Ensure output directory exists
@@ -84,21 +88,21 @@ fn main() -> Result<()> {
         .build_global()?;
 
     // Process markdown files if input directory is provided
-    let markdown_files = utils::process_markdown_files(&config)?;
+    let markdown_files = utils::process_markdown_files(config)?;
 
     // Process options.json if provided
-    let options_processed = utils::process_options_file(&config)?;
+    let options_processed = utils::process_options_file(config)?;
 
     // Check if we need to create a fallback index.html
-    utils::ensure_index(&config, options_processed, &markdown_files)?;
+    utils::ensure_index(config, options_processed, &markdown_files)?;
 
     // Generate search index if enabled and there are markdown files
     if config.generate_search && !markdown_files.is_empty() {
-        html::search::generate_search_index(&config, &markdown_files)?;
+        html::search::generate_search_index(config, &markdown_files)?;
     }
 
     // Copy assets
-    utils::copy_assets(&config)?;
+    utils::copy_assets(config)?;
 
     info!(
         "Documentation generated successfully in {}",

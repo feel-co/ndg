@@ -256,20 +256,31 @@ impl Config {
         }
     }
 
-    /// Get template directory path
+    /// Get template directory path or file parent
     pub fn get_template_path(&self) -> Option<PathBuf> {
         // First check explicit template directory
-        self.template_dir
-            .clone()
-            // Then check if template_path is a directory
-            .or_else(|| {
-                self.template_path.as_ref().and_then(|path| {
-                    if path.is_dir() {
-                        Some(path.clone())
-                    } else {
-                        path.parent().map(PathBuf::from)
-                    }
-                })
-            })
+        self.template_dir.clone()
+            // Then check if template_path is a directory or use its parent
+            .or_else(|| self.template_path.as_ref().and_then(|path| {
+                if path.is_dir() {
+                    Some(path.clone())
+                } else {
+                    path.parent().map(PathBuf::from)
+                }
+            }))
+    }
+
+    /// Get template file path for a specific template name
+    pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
+        // First check if there's a direct template path and it matches the name
+        if let Some(path) = &self.template_path {
+            // Only use template_path if it's a file and its filename matches the requested name
+            if path.is_file() && path.file_name().is_some_and(|fname| fname == name) {
+                return Some(path.clone());
+            }
+        }
+        
+        // Otherwise check template directory
+        self.get_template_path().map(|dir| dir.join(name))
     }
 }

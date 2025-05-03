@@ -35,15 +35,10 @@ pub fn copy_assets(config: &Config) -> Result<()> {
     // Create search.js for search functionality
     if config.generate_search {
         // Use template from config if available, otherwise use embedded template
-        let search_js = if let Some(template_path) = config.get_template_path() {
-            let search_js_path = template_path.join("search.js");
-            if search_js_path.exists() {
-                fs::read_to_string(&search_js_path).with_context(|| {
-                    format!(
-                        "Failed to read search.js from: {}",
-                        search_js_path.display()
-                    )
-                })?
+        let search_js = if let Some(path) = config.get_template_file("search.js") {
+            if path.exists() {
+                fs::read_to_string(&path)
+                    .with_context(|| format!("Failed to read search.js from: {}", path.display()))?
             } else {
                 SEARCH_JS.to_string()
             }
@@ -94,53 +89,33 @@ fn copy_script_files(config: &Config, assets_dir: &Path) -> Result<()> {
 
 /// Generate CSS from stylesheet
 fn generate_css(config: &Config) -> Result<String> {
-    // Use custom stylesheet if provided, otherwise use default
+    // Check for custom stylesheet
     if let Some(stylesheet_path) = &config.stylesheet_path {
-        if !stylesheet_path.exists() {
-            // Check if we have a template directory with default.css
-            if let Some(template_path) = config.get_template_path() {
-                let template_css_path = template_path.join("default.css");
-                if template_css_path.exists() {
-                    let content = fs::read_to_string(&template_css_path).with_context(|| {
-                        format!(
-                            "Failed to read template CSS: {}",
-                            template_css_path.display()
-                        )
-                    })?;
-                    return Ok(content);
-                }
-            }
-            // Fall back to embedded default
-            return Ok(DEFAULT_CSS.to_string());
-        }
+        if stylesheet_path.exists() {
+            let content = fs::read_to_string(stylesheet_path)
+                .with_context(|| format!("Failed to read stylesheet: {}", stylesheet_path.display()))?;
 
-        let content = fs::read_to_string(stylesheet_path)
-            .with_context(|| format!("Failed to read stylesheet: {}", stylesheet_path.display()))?;
-
-        // Process SCSS if needed
-        if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
-            grass::from_string(content, &grass::Options::default())
-                .context("Failed to compile SCSS to CSS")
-        } else {
-            Ok(content)
-        }
-    } else {
-        // Check if we have a template directory with default.css
-        if let Some(template_path) = config.get_template_path() {
-            let template_css_path = template_path.join("default.css");
-            if template_css_path.exists() {
-                let content = fs::read_to_string(&template_css_path).with_context(|| {
-                    format!(
-                        "Failed to read template CSS: {}",
-                        template_css_path.display()
-                    )
-                })?;
+            // Process SCSS if needed
+            if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
+                return grass::from_string(content, &grass::Options::default())
+                    .context("Failed to compile SCSS to CSS");
+            } else {
                 return Ok(content);
             }
         }
-        // Fall back to embedded default
-        Ok(DEFAULT_CSS.to_string())
     }
+
+    // Fall back to template CSS if available
+    if let Some(template_path) = config.get_template_path() {
+        let template_css_path = template_path.join("default.css");
+        if template_css_path.exists() {
+            return fs::read_to_string(&template_css_path)
+                .with_context(|| format!("Failed to read template CSS: {}", template_css_path.display()));
+        }
+    }
+
+    // Fall back to embedded default
+    Ok(DEFAULT_CSS.to_string())
 }
 
 /// Handle the generate command

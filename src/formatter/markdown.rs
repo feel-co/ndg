@@ -28,14 +28,17 @@ pub struct Header {
     pub id: String,
 }
 
-// Define regex patterns
+// Define regex pattern groups to organize them by functionality
 lazy_static! {
-    // Role patterns
+    // Role and markup patterns
     pub static ref ROLE_PATTERN: Regex = Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap();
+    pub static ref MYST_ROLE_RE: Regex = Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap();
 
-    // Terminal prompts
+    // Terminal and REPL patterns
     pub static ref COMMAND_PROMPT: Regex = Regex::new(r"`\s*\$\s+([^`]+)`").unwrap();
     pub static ref REPL_PROMPT: Regex = Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap();
+    pub static ref PROMPT_RE: Regex = Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap();
+    pub static ref REPL_RE: Regex = Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap();
 
     // Heading and anchor patterns
     pub static ref HEADING_ANCHOR: Regex = Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap();
@@ -43,32 +46,32 @@ lazy_static! {
     pub static ref AUTO_EMPTY_LINK_RE: Regex = Regex::new(r"\[\]\((#[a-zA-Z0-9_-]+)\)").unwrap();
     pub static ref AUTO_SECTION_LINK_RE: Regex = Regex::new(r"\[([^\]]+)\]\((#[a-zA-Z0-9_-]+)\)").unwrap();
     pub static ref HTML_EMPTY_LINK_RE: Regex = Regex::new(r#"<a href="(#[a-zA-Z0-9_-]+)"></a>"#).unwrap();
+    pub static ref RAW_INLINE_ANCHOR_RE: Regex = Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap();
 
-    // List item with anchor pattern
+    // List item patterns
     pub static ref LIST_ITEM_WITH_ANCHOR_RE: Regex = Regex::new(r"^(\s*[-*+]|\s*\d+\.)\s+\[\]\{#([a-zA-Z0-9_-]+)\}(.*)$").unwrap();
-    pub static ref LIST_ITEM_ID_MARKER_RE: Regex =
-        Regex::new(r"<li><!-- nixos-anchor-id:([a-zA-Z0-9_-]+) -->").unwrap();
+    pub static ref LIST_ITEM_ID_MARKER_RE: Regex = Regex::new(r"<li><!-- nixos-anchor-id:([a-zA-Z0-9_-]+) -->").unwrap();
+    pub static ref LIST_ITEM_ANCHOR_RE: Regex = Regex::new(r"<li>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</li>").unwrap();
 
-    // Option references
+    // Option reference patterns
     pub static ref OPTION_REF: Regex = Regex::new(r"`([a-zA-Z][\w\.]+(\.[\w]+)+)`").unwrap();
+    pub static ref OPTION_RE: Regex = Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap();
 
-    // Admonition patterns
+    // Block element patterns
     pub static ref ADMONITION_START_RE: Regex = Regex::new(r"^:::\s*\{\.([a-zA-Z]+)(?:\s+#([a-zA-Z0-9_-]+))?\}(.*)$").unwrap();
     pub static ref ADMONITION_END_RE: Regex = Regex::new(r"^(.*?):::$").unwrap();
-
-    // Figure pattern
     pub static ref FIGURE_RE: Regex = Regex::new(r":::\s*\{\.figure(?:\s+#([a-zA-Z0-9_-]+))?\}\s*\n#\s+(.+)\n([\s\S]*?)\s*:::").unwrap();
-
-    // Definition list pattern
+    
+    // Definition list patterns
     pub static ref DEF_LIST_TERM_RE: Regex = Regex::new(r"^([^:].+)$").unwrap();
     pub static ref DEF_LIST_DEF_RE: Regex = Regex::new(r"^:   (.+)$").unwrap();
 
-    // For processing HTML
+    // Manpage patterns
     pub static ref MANPAGE_ROLE_RE: Regex = Regex::new(r"\{manpage\}`([^`]+)`").unwrap();
     pub static ref MANPAGE_MARKUP_RE: Regex = Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap();
     pub static ref MANPAGE_REFERENCE_RE: Regex = Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap();
-    pub static ref PROMPT_RE: Regex = Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap();
-    pub static ref OPTION_RE: Regex = Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap();
+
+    // Header patterns for post-processing
     pub static ref HEADER_ID_RE: Regex = Regex::new(r"<h([1-6])>(.*?)\s*<!--\s*anchor:\s*([a-zA-Z0-9_-]+)\s*-->(.*?)</h[1-6]>").unwrap();
     pub static ref HEADER_H1_WITH_ID_RE: Regex = Regex::new(r"<h1>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h1>").unwrap();
     pub static ref HEADER_H2_WITH_ID_RE: Regex = Regex::new(r"<h2>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h2>").unwrap();
@@ -76,12 +79,11 @@ lazy_static! {
     pub static ref HEADER_H4_WITH_ID_RE: Regex = Regex::new(r"<h4>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h4>").unwrap();
     pub static ref HEADER_H5_WITH_ID_RE: Regex = Regex::new(r"<h5>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h5>").unwrap();
     pub static ref HEADER_H6_WITH_ID_RE: Regex = Regex::new(r"<h6>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h6>").unwrap();
-    pub static ref REPL_RE: Regex = Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap();
+
+    // Other HTML post-processing patterns
     pub static ref BRACKETED_SPAN_RE: Regex = Regex::new(r#"<p><span id="([^"]+)"></span></p>"#).unwrap();
-    pub static ref RAW_INLINE_ANCHOR_RE: Regex = Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap();
-    pub static ref MYST_ROLE_RE: Regex = Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap();
-    pub static ref LIST_ITEM_ANCHOR_RE: Regex = Regex::new(r"<li>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</li>").unwrap();
     pub static ref P_TAG_ANCHOR_RE: Regex = Regex::new(r"<p>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</p>").unwrap();
+    pub static ref EXPLICIT_ANCHOR_RE: Regex = Regex::new(r"^(#+)\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?\s*$").unwrap();
 }
 
 /// Collect all markdown files from the input directory
@@ -583,95 +585,135 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
     html_output
 }
 
-/// Post-process HTML to handle any remaining elements
+/// Process HTML to handle any remaining elements
 fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>>) -> String {
     let mut result = html;
 
     // Process list item ID markers
-    result = LIST_ITEM_ID_MARKER_RE
-        .replace_all(&result, |caps: &regex::Captures| {
-            let id = &caps[1];
-            format!("<li><span id=\"{id}\" class=\"nixos-anchor\"></span>")
-        })
-        .to_string();
+    result = process_html_elements(&result, &LIST_ITEM_ID_MARKER_RE, |caps| {
+        let id = &caps[1];
+        format!("<li><span id=\"{id}\" class=\"nixos-anchor\"></span>")
+    });
 
     // Process manpage roles that were directly in HTML
     result = process_manpage_roles(result, manpage_urls);
 
     // Process command prompts
-    result = process_command_prompts(result);
+    result = process_html_elements(&result, &PROMPT_RE, |caps| {
+        format!(
+            "<code class=\"terminal\"><span class=\"prompt\">$</span> {} </code>",
+            &caps[1]
+        )
+    });
 
     // Process REPL prompts
-    result = process_repl_prompts(result);
+    result = process_html_elements(&result, &REPL_RE, |caps| {
+        let content = &caps[1];
+        format!(
+            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {content}</code>"
+        )
+    });
 
     // Process option references
-    result = process_option_references(result);
+    result = process_html_elements(&result, &OPTION_RE, |caps| {
+        let option_path = &caps[1];
+        let option_id = format!("option-{}", option_path.replace('.', "-"));
+        format!(
+            "<a href=\"options.html#{option_id}\" class=\"option-reference\"><code>{option_path}</code></a>"
+        )
+    });
 
     // Process header anchors (both explicit and added by comments)
-    result = process_header_anchors(result);
+    result = process_html_elements(&result, &HEADER_ID_RE, |caps| {
+        let level = &caps[1];
+        let prefix = &caps[2];
+        let id = &caps[3];
+        let suffix = &caps[4];
+
+        format!("<h{level} id=\"{id}\">{prefix}{suffix}<!-- anchor added --></h{level}>")
+    });
 
     // Process any remaining header anchors (with {#id} notation in the header text)
     result = process_headers_with_inline_anchors(result);
 
     // Process MyST roles
-    result = process_myst_roles(result);
+    result = process_html_elements(&result, &MYST_ROLE_RE, |caps| {
+        let role_type = &caps[1];
+        let content = &caps[2];
+
+        match role_type {
+            "command" => format!("<code class=\"command\">{content}</code>"),
+            "env" => format!("<code class=\"env-var\">{content}</code>"),
+            "file" => format!("<code class=\"file-path\">{content}</code>"),
+            "option" => format!("<code class=\"nixos-option\">{content}</code>"),
+            "var" => format!("<code class=\"nix-var\">{content}</code>"),
+            _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
+        }
+    });
 
     // Process any remaining inline anchors in list items
-    result = process_list_item_anchors(result);
+    result = process_html_elements(&result, &LIST_ITEM_ANCHOR_RE, |caps| {
+        let id = &caps[1];
+        let content = &caps[2];
+        format!("<li><span id=\"{id}\" class=\"nixos-anchor\"></span>{content}</li>")
+    });
 
     // Process inline anchors in paragraphs
-    result = process_paragraph_anchors(result);
+    result = process_html_elements(&result, &P_TAG_ANCHOR_RE, |caps| {
+        let id = &caps[1];
+        let content = &caps[2];
+        format!("<p><span id=\"{id}\" class=\"nixos-anchor\"></span>{content}</p>")
+    });
 
     // Process any remaining inline anchors
     result = process_remaining_inline_anchors(result);
 
     // Process empty auto-links
-    result = process_empty_auto_links(result);
+    result = process_html_elements(&result, &AUTO_EMPTY_LINK_RE, |caps| {
+        let anchor = &caps[1];
+        let display_text = humanize_anchor_id(anchor);
+        format!("<a href=\"{anchor}\">{display_text}</a>")
+    });
 
     // Process empty links in HTML output
-    result = process_html_empty_links(result);
+    result = process_html_elements(&result, &HTML_EMPTY_LINK_RE, |caps| {
+        let anchor = &caps[1];
+        let display_text = humanize_anchor_id(anchor);
+        format!("<a href=\"{anchor}\">{display_text}</a>")
+    });
 
     result
 }
 
-/// Process header anchors
-fn process_header_anchors(html: String) -> String {
-    HEADER_ID_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let level = &caps[1];
-            let prefix = &caps[2];
-            let id = &caps[3];
-            let suffix = &caps[4];
-
-            format!("<h{level} id=\"{id}\">{prefix}{suffix}<!-- anchor added --></h{level}>")
-        })
-        .to_string()
+/// Process HTML elements with a generic transformation function
+fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
+where
+    F: Fn(&regex::Captures) -> String,
+{
+    regex.replace_all(html, transform).to_string()
 }
 
 /// Process headers that have {#id} within the header text
 fn process_headers_with_inline_anchors(html: String) -> String {
     let header_types = [
-        &*HEADER_H1_WITH_ID_RE,
-        &*HEADER_H2_WITH_ID_RE,
-        &*HEADER_H3_WITH_ID_RE,
-        &*HEADER_H4_WITH_ID_RE,
-        &*HEADER_H5_WITH_ID_RE,
-        &*HEADER_H6_WITH_ID_RE,
+        (&*HEADER_H1_WITH_ID_RE, 1),
+        (&*HEADER_H2_WITH_ID_RE, 2),
+        (&*HEADER_H3_WITH_ID_RE, 3),
+        (&*HEADER_H4_WITH_ID_RE, 4),
+        (&*HEADER_H5_WITH_ID_RE, 5),
+        (&*HEADER_H6_WITH_ID_RE, 6),
     ];
 
     let mut result = html;
 
-    for (i, regex) in header_types.iter().enumerate() {
-        let level = i + 1;
-        result = regex
-            .replace_all(&result, |caps: &regex::Captures| {
-                let prefix = &caps[1];
-                let id = &caps[2];
-                let suffix = &caps[3];
+    for (regex, level) in header_types {
+        result = process_html_elements(&result, regex, |caps: &regex::Captures| {
+            let prefix = &caps[1];
+            let id = &caps[2];
+            let suffix = &caps[3];
 
-                format!("<h{level} id=\"{id}\">{prefix}{suffix}</h{level}>")
-            })
-            .to_string();
+            format!("<h{level} id=\"{id}\">{prefix}{suffix}</h{level}>")
+        });
     }
 
     result
@@ -703,35 +745,6 @@ fn humanize_anchor_id(anchor: &str) -> String {
         })
         .collect::<Vec<String>>()
         .join(" ")
-}
-
-/// Process empty auto-links with format `[](#anchor)`
-/// by creating readable text from the anchor id
-fn process_empty_auto_links(html: String) -> String {
-    AUTO_EMPTY_LINK_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let anchor = &caps[1];
-
-            // Create a humanized version of the anchor ID for display
-            let display_text = humanize_anchor_id(anchor);
-
-            format!("<a href=\"{anchor}\">{display_text}</a>")
-        })
-        .to_string()
-}
-
-/// Process empty HTML links (as generated by `pulldown_cmark`)
-fn process_html_empty_links(html: String) -> String {
-    HTML_EMPTY_LINK_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let anchor = &caps[1];
-
-            // Create a humanized version of the anchor ID for display
-            let display_text = humanize_anchor_id(anchor);
-
-            format!("<a href=\"{anchor}\">{display_text}</a>")
-        })
-        .to_string()
 }
 
 /// Process manpage roles in the HTML
@@ -783,96 +796,15 @@ pub fn process_manpage_roles(
     result
 }
 
-/// Process command prompts
-pub fn process_command_prompts(html: String) -> String {
-    PROMPT_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            format!(
-                "<code class=\"terminal\"><span class=\"prompt\">$</span> {}</code>",
-                &caps[1]
-            )
-        })
-        .to_string()
-}
-
-/// Process REPL prompts
-pub fn process_repl_prompts(html: String) -> String {
-    REPL_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let content = &caps[1];
-            format!(
-            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {content}</code>"
-        )
-        })
-        .to_string()
-}
-
-/// Process option references
-pub fn process_option_references(html: String) -> String {
-    OPTION_RE.replace_all(&html, |caps: &regex::Captures| {
-        let option_path = &caps[1];
-        let option_id = format!("option-{}", option_path.replace('.', "-"));
-        format!(
-            "<a href=\"options.html#{option_id}\" class=\"option-reference\"><code>{option_path}</code></a>"
-        )
-    }).to_string()
-}
-
-/// Process `MyST`-like roles supporteed by Nixpkgs flavored markdown
-fn process_myst_roles(html: String) -> String {
-    MYST_ROLE_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let role_type = &caps[1];
-            let content = &caps[2];
-
-            match role_type {
-                "command" => format!("<code class=\"command\">{content}</code>"),
-                "env" => format!("<code class=\"env-var\">{content}</code>"),
-                "file" => format!("<code class=\"file-path\">{content}</code>"),
-                "option" => format!("<code class=\"nixos-option\">{content}</code>"),
-                "var" => format!("<code class=\"nix-var\">{content}</code>"),
-                _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
-            }
-        })
-        .to_string()
-}
-
-/// Process inline anchors in list items
-fn process_list_item_anchors(html: String) -> String {
-    LIST_ITEM_ANCHOR_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let id = &caps[1];
-            let content = &caps[2];
-            format!("<li><span id=\"{id}\" class=\"nixos-anchor\"></span>{content}</li>")
-        })
-        .to_string()
-}
-
-/// Process inline anchors in paragraphs
-fn process_paragraph_anchors(html: String) -> String {
-    P_TAG_ANCHOR_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let id = &caps[1];
-            let content = &caps[2];
-            format!("<p><span id=\"{id}\" class=\"nixos-anchor\"></span>{content}</p>")
-        })
-        .to_string()
-}
-
-/// Process inline anchors that might be enclosed in paragraph tags
-fn process_bracketed_span_anchors(html: String) -> String {
-    BRACKETED_SPAN_RE
+/// Process any remaining inline anchor syntax that wasn't caught earlier
+fn process_remaining_inline_anchors(html: String) -> String {
+    // First process bracketed spans
+    let result = BRACKETED_SPAN_RE
         .replace_all(&html, |caps: &regex::Captures| {
             let id = &caps[1];
             format!("<span id=\"{id}\" class=\"nixos-anchor\"></span>")
         })
-        .to_string()
-}
-
-/// Process any remaining inline anchor syntax that wasn't caught earlier
-fn process_remaining_inline_anchors(html: String) -> String {
-    // First process bracketed spans
-    let result = process_bracketed_span_anchors(html);
+        .to_string();
 
     // Then catch any remaining raw inline anchors
     RAW_INLINE_ANCHOR_RE
