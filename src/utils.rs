@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::fs;
 use std::path::Path;
 
@@ -162,37 +161,17 @@ pub fn handle_generate_command(
     Ok(())
 }
 
-/// Handle the manpage command
-pub fn handle_manpage_command(
-    input_dir: &std::path::Path,
-    output_dir: &std::path::Path,
-    section: i32,
-    manual: &Option<String>,
-    jobs: usize,
+/// Generate a manpage from options JSON
+pub fn generate_options_manpage(
+    module_options: &Path,
+    output_file: Option<&Path>,
+    title: Option<&str>,
+    header: Option<&str>,
+    footer: Option<&str>,
+    section: u8,
 ) -> Result<()> {
-    info!("Generating manpages from markdown files");
-
-    // Ensure output directory exists
-    fs::create_dir_all(output_dir)?;
-
-    // Use config's title as manual name if not specified
-    let config = crate::config::Config::default();
-    let manual_name = manual.as_deref().unwrap_or(&config.title);
-
-    // Process markdown files to manpages
-    manpage::generate_manpages_from_directory(
-        input_dir,
-        output_dir,
-        section.try_into().unwrap(),
-        manual_name,
-        Some(jobs),
-    )?;
-
-    info!(
-        "Manpages generated successfully in {}",
-        output_dir.display()
-    );
-
+    info!("Generating manpage from options JSON");
+    manpage::generate_manpage(module_options, output_file, title, header, footer, section)?;
     Ok(())
 }
 

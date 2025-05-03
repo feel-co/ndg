@@ -44,18 +44,20 @@ fn main() -> Result<()> {
             }
 
             Commands::Manpage {
-                input_dir,
-                output_dir,
+                module_options,
+                output_file,
+                header,
+                footer,
+                title,
                 section,
-                manual,
-                jobs,
             } => {
-                return utils::handle_manpage_command(
-                    input_dir,
-                    output_dir,
-                    (*section).into(),
-                    manual,
-                    jobs.unwrap_or(1),
+                return utils::generate_options_manpage(
+                    module_options,
+                    output_file.as_deref(),
+                    title.as_deref(),
+                    header.as_deref(),
+                    footer.as_deref(),
+                    *section,
                 );
             }
 

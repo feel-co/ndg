@@ -98,27 +98,31 @@ pub enum Commands {
         revision: Option<String>,
     },
 
-    /// Generate manpages from markdown files
+    /// Generate manpage from options
     Manpage {
-        /// Path to the directory containing markdown files
-        #[arg(short, long)]
-        input_dir: PathBuf,
+        /// Path to a JSON file containing module options
+        #[arg(short = 'j', long, required = true)]
+        module_options: PathBuf,
 
-        /// Output directory for generated manpages
+        /// Output file for the generated manpage
         #[arg(short, long)]
-        output_dir: PathBuf,
+        output_file: Option<PathBuf>,
 
-        /// Section number for the manpages (1-9)
-        #[arg(short, long, default_value = "1")]
+        /// Header text to include at the beginning of the manpage
+        #[arg(short = 'H', long)]
+        header: Option<String>,
+
+        /// Footer text to include at the end of the manpage
+        #[arg(short = 'F', long)]
+        footer: Option<String>,
+
+        /// Title for the manpage
+        #[arg(short = 'T', long)]
+        title: Option<String>,
+
+        /// Section number for the manpage
+        #[arg(short = 's', long, default_value = "5")]
         section: u8,
-
-        /// Name of the manual (defaults to the title from config)
-        #[arg(short, long)]
-        manual: Option<String>,
-
-        /// Number of threads to use for parallel processing
-        #[arg(short = 'p', long = "jobs")]
-        jobs: Option<usize>,
     },
 }
 
