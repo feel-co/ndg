@@ -165,8 +165,14 @@ impl Config {
    /// Load config from file and CLI arguments
    pub fn load(cli: &Cli) -> Result<Self> {
       let mut config = if let Some(config_path) = &cli.config_file {
+         // Config file explicitly specified via CLI
          Self::from_file(config_path)
             .with_context(|| format!("Failed to load config from {}", config_path.display()))?
+      } else if let Some(discovered_config) = Self::find_config_file() {
+         // Found a config file in a standard location
+         log::info!("Using discovered config file: {}", discovered_config.display());
+         Self::from_file(&discovered_config)
+            .with_context(|| format!("Failed to load discovered config from {}", discovered_config.display()))?
       } else {
          Self::default()
       };
@@ -179,8 +185,8 @@ impl Config {
          // Validation is handled in merge_with_cli
       } else {
          // No Html command, validate required fields if no config file was specified
-         if cli.config_file.is_none() {
-            // If there's no config file and no Html command, we're missing required data
+         if cli.config_file.is_none() && Self::find_config_file().is_none() {
+            // If there's no config file (explicit or discovered) and no Html command, we're missing required data
             return Err(anyhow::anyhow!(
                "Neither config file nor 'html' subcommand provided. Use 'ndg html' or provide a \
                 config file with --config."
@@ -323,5 +329,53 @@ impl Config {
 
       // Otherwise check template directory
       self.get_template_path().map(|dir| dir.join(name))
+   }
+
+   /// Search for config files in common locations
+   pub fn find_config_file() -> Option<PathBuf> {
+      // Common config file names to look for
+      let config_filenames = [
+         "ndg.toml",
+         "ndg.json",
+         ".ndg.toml",
+         ".ndg.json",
+         ".config/ndg.toml",
+         ".config/ndg.json",
+      ];
+      
+      // First try current directory
+      let current_dir = std::env::current_dir().ok()?;
+      
+      // Check each filename in the current directory
+      for filename in &config_filenames {
+         let config_path = current_dir.join(filename);
+         if config_path.exists() {
+            return Some(config_path);
+         }
+      }
+      
+      // If we have a $XDG_CONFIG_HOME environment variable, check there too
+      if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
+         let xdg_config_dir = PathBuf::from(xdg_config_home);
+         for filename in &["ndg.toml", "ndg.json"] {
+            let config_path = xdg_config_dir.join(filename);
+            if config_path.exists() {
+               return Some(config_path);
+            }
+         }
+      }
+      
+      // Then check $HOME/.config/ndg/
+      if let Ok(home) = std::env::var("HOME") {
+         let home_config_dir = PathBuf::from(home).join(".config").join("ndg");
+         for filename in &["config.toml", "config.json"] {
+            let config_path = home_config_dir.join(filename);
+            if config_path.exists() {
+               return Some(config_path);
+            }
+         }
+      }
+      
+      None
    }
 }
