@@ -87,7 +87,7 @@ pub fn generate_manpage(
     options.sort_by(|a, b| a.name.cmp(&b.name));
 
     // Generate the manpage
-    let manpage_title = title.unwrap_or("Nix Configuration Options");
+    let manpage_title = title.unwrap_or("Module Options");
 
     // Determine output file path
     let output_file = if let Some(path) = output_path {
@@ -96,7 +96,7 @@ pub fn generate_manpage(
         let safe_title = manpage_title
             .to_lowercase()
             .replace(|c: char| !c.is_alphanumeric(), "-");
-        Path::new(&format!("{}.{}", safe_title, section)).to_path_buf()
+        Path::new(&format!("{safe_title}.{section}")).to_path_buf()
     };
 
     // Create output file
@@ -114,7 +114,7 @@ pub fn generate_manpage(
         man_escape(manpage_title),
         section,
         today,
-        man_escape("Nix Manual")
+        man_escape(manpage_title)
     )?;
 
     // Write header if provided
@@ -125,17 +125,9 @@ pub fn generate_manpage(
         writeln!(file, "{}", process_description(header_text))?;
     } else {
         writeln!(file, ".SH NAME")?;
-        writeln!(
-            file,
-            "{} \\- Nix configuration options",
-            man_escape(manpage_title)
-        )?;
+        writeln!(file, "{}", man_escape(manpage_title))?;
         writeln!(file, ".SH DESCRIPTION")?;
-        writeln!(
-            file,
-            "Available configuration options for {}.",
-            man_escape(manpage_title)
-        )?;
+        writeln!(file, "Available configuration options")?;
     }
 
     // Write options section
@@ -229,10 +221,14 @@ pub fn generate_manpage(
         writeln!(file, "{}", process_description(footer_text))?;
     }
 
-    // Add standard sections
+    // Add SEE ALSO section
+    // Extract base name without extension to use in see also
+    let file_base_name = options_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("configuration");
+
     writeln!(file, ".SH SEE ALSO")?;
-    writeln!(file, ".BR nix.conf (5)")?;
-    writeln!(file, ".BR nix (1)")?;
 
     info!("Generated manpage: {}", output_file.display());
 
@@ -243,16 +239,16 @@ pub fn generate_manpage(
 fn process_raw_type(s: &str) -> String {
     // Replace common escape sequences with their troff equivalents
     let s = s
-        .replace("\"", "\\[u201C]") // ppening double quote
+        .replace('"', "\\[u201C]") // opening double quote
         .replace("\\n", "\\en") // newline
-        .replace("'", "\\[u2019]") // single quote
-        .replace("-", "\\-") // hyphen
-        .replace(".", "\\&."); // period
+        .replace('\'', "\\[u2019]") // single quote
+        .replace('-', "\\-") // hyphen
+        .replace('.', "\\&."); // period
 
     // For closing quote after \n
-    let s = s.replace("\\en\"", "\\en\\[u201D]");
+    
 
-    s
+    s.replace("\\en\"", "\\en\\[u201D]")
 }
 
 /// Parse a single option from JSON data
@@ -376,13 +372,13 @@ fn process_description(text: &str) -> String {
 fn preserve_existing_formatting(text: &str) -> String {
     // Replace troff formatting temporarily
     let with_placeholders = TROFF_FORMATTING.replace_all(text, |caps: &regex::Captures| {
-        format!("__TROFF_FORMAT_{}__", caps[0].replace("\\", ""))
+        format!("__TROFF_FORMAT_{}__", caps[0].replace('\\', ""))
     });
 
     // Replace troff escapes temporarily
     let with_all_placeholders = TROFF_ESCAPE
         .replace_all(&with_placeholders, |caps: &regex::Captures| {
-            format!("__TROFF_ESCAPE_{}__", caps[0].replace("\\", ""))
+            format!("__TROFF_ESCAPE_{}__", caps[0].replace('\\', ""))
         });
 
     with_all_placeholders.to_string()
@@ -396,11 +392,11 @@ fn restore_formatting(text: &str) -> String {
         .replace("__TROFF_FORMAT_fP__", "\\fP")
         .replace("__TROFF_FORMAT_fR__", "\\fR");
 
-    let with_escapes = with_formats
-        .replace("__TROFF_ESCAPE_(__", "\\(")
-        .replace("__TROFF_ESCAPE_\\__", "\\\\");
+    
 
-    with_escapes
+    with_formats
+        .replace("__TROFF_ESCAPE_(__", "\\(")
+        .replace("__TROFF_ESCAPE_\\__", "\\\\")
 }
 
 /// Process inline markdown elements like roles, code, etc.
@@ -438,7 +434,7 @@ fn process_markdown_links(text: &str) -> String {
             let url = &caps[2];
 
             // For manpages, we can't have clickable links, so we format as text + URL
-            format!("\\fB[{}]\\fP ({})", link_text, url)
+            format!("\\fB[{link_text}]\\fP ({url})")
         })
         .to_string()
 }
@@ -505,7 +501,6 @@ fn selective_man_escape(text: &str) -> String {
 }
 
 /// Process all MyST-like roles in text, converting to appropriate troff formatting
-/// This is partially based on nixos-render-docs.
 fn process_roles(text: &str) -> String {
     ROLE_PATTERN
         .replace_all(text, |caps: &regex::Captures| {
@@ -513,21 +508,21 @@ fn process_roles(text: &str) -> String {
             let content = &caps[2];
 
             match role_type {
-                "command" => format!("\\fB{}\\fP", content),
-                "env" => format!("\\fI{}\\fP", content),
-                "file" => format!("\\fI{}\\fP", content),
-                "option" => format!("\\fB{}\\fP", content),
-                "var" => format!("\\fI{}\\fP", content),
+                "command" => format!("\\fB{content}\\fP"),
+                "env" => format!("\\fI{content}\\fP"),
+                "file" => format!("\\fI{content}\\fP"),
+                "option" => format!("\\fB{content}\\fP"),
+                "var" => format!("\\fI{content}\\fP"),
                 "manpage" => {
                     if let Some((page, section)) = content.rsplit_once('(') {
                         let page = page.trim();
                         let section = section.trim_end_matches(')');
-                        format!("\\fB{}\\fP({})", page, section)
+                        format!("\\fB{page}\\fP({section})")
                     } else {
-                        format!("\\fB{}\\fP", content)
+                        format!("\\fB{content}\\fP")
                     }
                 }
-                _ => format!("\\fI{}\\fP", content),
+                _ => format!("\\fI{content}\\fP"),
             }
         })
         .to_string()
@@ -538,7 +533,7 @@ fn process_command_prompts(text: &str) -> String {
     COMMAND_PROMPT
         .replace_all(text, |caps: &regex::Captures| {
             let command = &caps[1];
-            format!("$ \\fB{}\\fP", command)
+            format!("$ \\fB{command}\\fP")
         })
         .to_string()
 }
@@ -548,7 +543,7 @@ fn process_repl_prompts(text: &str) -> String {
     REPL_PROMPT
         .replace_all(text, |caps: &regex::Captures| {
             let expr = &caps[1];
-            format!("nix-repl> \\fB{}\\fP", expr)
+            format!("nix-repl> \\fB{expr}\\fP")
         })
         .to_string()
 }
@@ -596,7 +591,6 @@ fn process_admonitions(text: &str) -> String {
     }
 
     // Basic replacement for any pre-processed admonitions
-    // FIXME: A more sophisticated processor will be necessary for those later. I don't like this.
     result
         .replace(".ADMONITION_START note", ".sp\n.RS 4\n\\fBNote\\fP\n.br")
         .replace(
@@ -625,7 +619,7 @@ fn process_inline_code(text: &str) -> String {
     INLINE_CODE
         .replace_all(text, |caps: &regex::Captures| {
             let code = &caps[1];
-            format!("\\fR\\(oq{}\\(cq\\fP", code)
+            format!("\\fR\\(oq{code}\\(cq\\fP")
         })
         .to_string()
 }
@@ -660,16 +654,16 @@ fn process_example(text: &str) -> String {
     let with_formatting_restored = restore_formatting(&with_repl);
 
     // Ensure every line doesn't start with a dot
-    let escaped = escape_leading_dots(&selective_man_escape(&with_formatting_restored));
+    
 
     // Return the processed example
-    escaped
+    escape_leading_dots(&selective_man_escape(&with_formatting_restored))
 }
 
 /// Ensure no leading dots in any line of text
 fn escape_leading_dots(text: &str) -> String {
     text.lines()
-        .map(|line| escape_leading_dot(line))
+        .map(escape_leading_dot)
         .collect::<Vec<_>>()
         .join("\n")
 }
