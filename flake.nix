@@ -30,9 +30,10 @@
             # Poor man's Rust environment
             pkgs.cargo
             pkgs.rustc
-            pkgs.clippy
-            (pkgs.rustfmt.override {asNightly = true;})
-            pkgs.lldb
+            pkgs.clippy # lints
+            pkgs.lldb # debugger
+            (pkgs.rustfmt.override {asNightly = true;}) # formatter
+            pkgs.rust-analyzer-unwrapped
           ];
 
           env.RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
