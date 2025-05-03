@@ -32,6 +32,7 @@
             pkgs.rustc
             pkgs.clippy
             (pkgs.rustfmt.override {asNightly = true;})
+            pkgs.lldb
           ];
 
           env.RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
