@@ -29,7 +29,12 @@ fn modified_theme() -> &'static Theme {
 }
 
 /// Apply syntax highlighting to codeblocks
-pub fn highlight_code(code: &str, language: &str, _config: &Config) -> Result<String> {
+pub fn highlight_code(code: &str, language: &str, config: &Config) -> Result<String> {
+    // Skip highlighting if it's disabled in config
+    if !config.highlight_code {
+        return Err(anyhow::anyhow!("Syntax highlighting is disabled"));
+    }
+
     let syntax_set = syntax_set();
 
     let syntax = syntax_set

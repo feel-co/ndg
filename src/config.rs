@@ -101,6 +101,10 @@ pub struct Config {
     #[serde(default = "default_options_toc_depth")]
     pub options_toc_depth: Option<usize>,
 
+    /// Whether to enable syntax highlighting for code blocks
+    #[serde(default = "default_true")]
+    pub highlight_code: bool,
+
     /// GitHub revision for linking to source files
     #[serde(default = "default_revision")]
     pub revision: String,
@@ -197,6 +201,7 @@ impl Config {
             options_toc_depth,
             manpage_urls,
             generate_search,
+            highlight_code,
             revision,
         }) = &cli.command
         {
@@ -248,6 +253,11 @@ impl Config {
             // Handle the generate-search flag when explicitly set
             if let Some(generate_search_val) = generate_search {
                 self.generate_search = *generate_search_val;
+            }
+
+            // Handle the highlight-code flag when explicitly set
+            if let Some(highlight_code_val) = highlight_code {
+                self.highlight_code = *highlight_code_val;
             }
 
             if let Some(revision) = revision {
