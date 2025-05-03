@@ -128,7 +128,8 @@ fn generate_options_toc(
 
     for (parent, opts) in &grouped_options {
         let has_multiple_options = opts.len() > 1;
-        let has_child_options = opts.len() > usize::from(direct_parent_options.contains_key(parent));
+        let has_child_options =
+            opts.len() > usize::from(direct_parent_options.contains_key(parent));
 
         if !has_multiple_options && !has_child_options {
             // Single option with no children
@@ -344,30 +345,46 @@ fn generate_doc_nav(config: &Config) -> String {
                     html_path.set_extension("html");
 
                     let page_title = fs::read_to_string(path).map_or_else(
-                        |_| html_path.file_stem()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string(),
-                        |content| content.lines().next().map_or_else(
-                            || html_path.file_stem()
+                        |_| {
+                            html_path
+                                .file_stem()
                                 .unwrap_or_default()
                                 .to_string_lossy()
-                                .to_string(),
-                            |first_line| first_line.strip_prefix("# ").map_or_else(
-                                || html_path.file_stem()
-                                    .unwrap_or_default()
-                                    .to_string_lossy()
-                                    .to_string(),
-                                |title| title.trim().to_string()
+                                .to_string()
+                        },
+                        |content| {
+                            content.lines().next().map_or_else(
+                                || {
+                                    html_path
+                                        .file_stem()
+                                        .unwrap_or_default()
+                                        .to_string_lossy()
+                                        .to_string()
+                                },
+                                |first_line| {
+                                    first_line.strip_prefix("# ").map_or_else(
+                                        || {
+                                            html_path
+                                                .file_stem()
+                                                .unwrap_or_default()
+                                                .to_string_lossy()
+                                                .to_string()
+                                        },
+                                        |title| title.trim().to_string(),
+                                    )
+                                },
                             )
-                        )
+                        },
                     );
 
                     use std::fmt::Write;
-                    writeln!(doc_nav, "<li><a href=\"{}\">{}</a></li>",
+                    writeln!(
+                        doc_nav,
+                        "<li><a href=\"{}\">{}</a></li>",
                         html_path.to_string_lossy(),
                         page_title
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
             }
         }
@@ -484,23 +501,29 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         }
 
         if !metadata.is_empty() {
-            writeln!(options_html,
+            writeln!(
+                options_html,
                 "  <div class=\"option-metadata\">{}</div>",
                 metadata.join(", ")
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         // Option type
-        writeln!(options_html,
+        writeln!(
+            options_html,
             "  <div class=\"option-type\">Type: <code>{}</code></div>",
             option.type_name
-        ).unwrap();
+        )
+        .unwrap();
 
         // Option description
-        writeln!(options_html,
+        writeln!(
+            options_html,
             "  <div class=\"option-description\">{}</div>",
             option.description
-        ).unwrap();
+        )
+        .unwrap();
 
         // Add default value if available
         add_default_value(&mut options_html, option);
@@ -517,7 +540,8 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
             } else {
                 writeln!(options_html,
                     "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>"
-                ).unwrap();
+                )
+                .unwrap();
             }
         }
 
@@ -532,9 +556,17 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
 fn add_default_value(html: &mut String, option: &NixOption) {
     use std::fmt::Write;
     if let Some(default_text) = &option.default_text {
-        writeln!(html, "  <div class=\"option-default\">Default: <code>{default_text}</code></div>").unwrap();
+        writeln!(
+            html,
+            "  <div class=\"option-default\">Default: <code>{default_text}</code></div>"
+        )
+        .unwrap();
     } else if let Some(default_val) = &option.default {
-        writeln!(html, "  <div class=\"option-default\">Default: <code>{default_val}</code></div>").unwrap();
+        writeln!(
+            html,
+            "  <div class=\"option-default\">Default: <code>{default_val}</code></div>"
+        )
+        .unwrap();
     }
 }
 
@@ -546,8 +578,11 @@ fn add_example_value(html: &mut String, option: &NixOption) {
             writeln!(html, "  <div class=\"option-example\">Example: <pre><code>{example_text}</code></pre></div>"
             ).unwrap();
         } else {
-            writeln!(html, "  <div class=\"option-example\">Example: <code>{example_text}</code></div>"
-            ).unwrap();
+            writeln!(
+                html,
+                "  <div class=\"option-example\">Example: <code>{example_text}</code></div>"
+            )
+            .unwrap();
         }
     } else if let Some(example_val) = &option.example {
         let example_str = example_val.to_string();
@@ -555,8 +590,11 @@ fn add_example_value(html: &mut String, option: &NixOption) {
             writeln!(html, "  <div class=\"option-example\">Example: <pre><code>{example_str}</code></pre></div>"
             ).unwrap();
         } else {
-            writeln!(html, "  <div class=\"option-example\">Example: <code>{example_str}</code></div>"
-            ).unwrap();
+            writeln!(
+                html,
+                "  <div class=\"option-example\">Example: <code>{example_str}</code></div>"
+            )
+            .unwrap();
         }
     }
 }

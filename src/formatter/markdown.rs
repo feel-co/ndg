@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
-use lazy_static::lazy_static;
 use log::{debug, trace};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use regex::Regex;
@@ -30,62 +30,104 @@ pub struct Header {
 }
 
 // Define regex pattern groups to organize them by functionality
-lazy_static! {
-    // Role and markup patterns
-    pub static ref ROLE_PATTERN: Regex = Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap();
-    pub static ref MYST_ROLE_RE: Regex = Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap();
+// Role and markup patterns
+pub static ROLE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
+pub static MYST_ROLE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap());
 
-    // Terminal and REPL patterns
-    pub static ref COMMAND_PROMPT: Regex = Regex::new(r"`\s*\$\s+([^`]+)`").unwrap();
-    pub static ref REPL_PROMPT: Regex = Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap();
-    pub static ref PROMPT_RE: Regex = Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap();
-    pub static ref REPL_RE: Regex = Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap();
+// Terminal and REPL patterns
+pub static COMMAND_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
+pub static REPL_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
+static PROMPT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap());
+static REPL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap());
 
-    // Heading and anchor patterns
-    pub static ref HEADING_ANCHOR: Regex = Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap();
-    pub static ref INLINE_ANCHOR: Regex = Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap();
-    pub static ref AUTO_EMPTY_LINK_RE: Regex = Regex::new(r"\[\]\((#[a-zA-Z0-9_-]+)\)").unwrap();
-    pub static ref AUTO_SECTION_LINK_RE: Regex = Regex::new(r"\[([^\]]+)\]\((#[a-zA-Z0-9_-]+)\)").unwrap();
-    pub static ref HTML_EMPTY_LINK_RE: Regex = Regex::new(r#"<a href="(#[a-zA-Z0-9_-]+)"></a>"#).unwrap();
-    pub static ref RAW_INLINE_ANCHOR_RE: Regex = Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap();
+// Heading and anchor patterns
+pub static HEADING_ANCHOR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap());
+pub static INLINE_ANCHOR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap());
+static AUTO_EMPTY_LINK_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[\]\((#[a-zA-Z0-9_-]+)\)").unwrap());
+#[allow(dead_code)]
+static AUTO_SECTION_LINK_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\((#[a-zA-Z0-9_-]+)\)").unwrap());
+static HTML_EMPTY_LINK_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"<a href="(#[a-zA-Z0-9_-]+)"></a>"#).unwrap());
+pub static RAW_INLINE_ANCHOR_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap());
 
-    // List item patterns
-    pub static ref LIST_ITEM_WITH_ANCHOR_RE: Regex = Regex::new(r"^(\s*[-*+]|\s*\d+\.)\s+\[\]\{#([a-zA-Z0-9_-]+)\}(.*)$").unwrap();
-    pub static ref LIST_ITEM_ID_MARKER_RE: Regex = Regex::new(r"<li><!-- nixos-anchor-id:([a-zA-Z0-9_-]+) -->").unwrap();
-    pub static ref LIST_ITEM_ANCHOR_RE: Regex = Regex::new(r"<li>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</li>").unwrap();
+// List item patterns
+pub static LIST_ITEM_WITH_ANCHOR_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(\s*[-*+]|\s*\d+\.)\s+\[\]\{#([a-zA-Z0-9_-]+)\}(.*)$").unwrap());
+static LIST_ITEM_ID_MARKER_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<li><!-- nixos-anchor-id:([a-zA-Z0-9_-]+) -->").unwrap());
+static LIST_ITEM_ANCHOR_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<li>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</li>").unwrap());
 
-    // Option reference patterns
-    pub static ref OPTION_REF: Regex = Regex::new(r"`([a-zA-Z][\w\.]+(\.[\w]+)+)`").unwrap();
-    pub static ref OPTION_RE: Regex = Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap();
+// Option reference patterns
+#[allow(dead_code)]
+static OPTION_REF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`([a-zA-Z][\w\.]+(\.[\w]+)+)`").unwrap());
+static OPTION_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap());
 
-    // Block element patterns
-    pub static ref ADMONITION_START_RE: Regex = Regex::new(r"^:::\s*\{\.([a-zA-Z]+)(?:\s+#([a-zA-Z0-9_-]+))?\}(.*)$").unwrap();
-    pub static ref ADMONITION_END_RE: Regex = Regex::new(r"^(.*?):::$").unwrap();
-    pub static ref FIGURE_RE: Regex = Regex::new(r":::\s*\{\.figure(?:\s+#([a-zA-Z0-9_-]+))?\}\s*\n#\s+(.+)\n([\s\S]*?)\s*:::").unwrap();
+// Block element patterns
+pub static ADMONITION_START_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^:::\s*\{\.([a-zA-Z]+)(?:\s+#([a-zA-Z0-9_-]+))?\}(.*)$").unwrap()
+});
+pub static ADMONITION_END_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(.*?):::$").unwrap());
+pub static FIGURE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r":::\s*\{\.figure(?:\s+#([a-zA-Z0-9_-]+))?\}\s*\n#\s+(.+)\n([\s\S]*?)\s*:::")
+        .unwrap()
+});
 
-    // Definition list patterns
-    pub static ref DEF_LIST_TERM_RE: Regex = Regex::new(r"^([^:].+)$").unwrap();
-    pub static ref DEF_LIST_DEF_RE: Regex = Regex::new(r"^:   (.+)$").unwrap();
+// Definition list patterns
+#[allow(dead_code)]
+static DEF_LIST_TERM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([^:].+)$").unwrap());
+#[allow(dead_code)]
+static DEF_LIST_DEF_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^:   (.+)$").unwrap());
 
-    // Manpage patterns
-    pub static ref MANPAGE_ROLE_RE: Regex = Regex::new(r"\{manpage\}`([^`]+)`").unwrap();
-    pub static ref MANPAGE_MARKUP_RE: Regex = Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap();
-    pub static ref MANPAGE_REFERENCE_RE: Regex = Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap();
+// Manpage patterns
+#[allow(dead_code)]
+static MANPAGE_ROLE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{manpage\}`([^`]+)`").unwrap());
+#[allow(dead_code)]
+static MANPAGE_MARKUP_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap());
+#[allow(dead_code)]
+static MANPAGE_REFERENCE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap());
 
-    // Header patterns for post-processing
-    pub static ref HEADER_ID_RE: Regex = Regex::new(r"<h([1-6])>(.*?)\s*<!--\s*anchor:\s*([a-zA-Z0-9_-]+)\s*-->(.*?)</h[1-6]>").unwrap();
-    pub static ref HEADER_H1_WITH_ID_RE: Regex = Regex::new(r"<h1>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h1>").unwrap();
-    pub static ref HEADER_H2_WITH_ID_RE: Regex = Regex::new(r"<h2>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h2>").unwrap();
-    pub static ref HEADER_H3_WITH_ID_RE: Regex = Regex::new(r"<h3>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h3>").unwrap();
-    pub static ref HEADER_H4_WITH_ID_RE: Regex = Regex::new(r"<h4>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h4>").unwrap();
-    pub static ref HEADER_H5_WITH_ID_RE: Regex = Regex::new(r"<h5>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h5>").unwrap();
-    pub static ref HEADER_H6_WITH_ID_RE: Regex = Regex::new(r"<h6>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h6>").unwrap();
+// Header patterns for post-processing
+static HEADER_ID_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"<h([1-6])>(.*?)\s*<!--\s*anchor:\s*([a-zA-Z0-9_-]+)\s*-->(.*?)</h[1-6]>").unwrap()
+});
+static HEADER_H1_WITH_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<h1>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h1>").unwrap());
+static HEADER_H2_WITH_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<h2>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h2>").unwrap());
+static HEADER_H3_WITH_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<h3>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h3>").unwrap());
+static HEADER_H4_WITH_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<h4>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h4>").unwrap());
+static HEADER_H5_WITH_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<h5>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h5>").unwrap());
+static HEADER_H6_WITH_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<h6>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h6>").unwrap());
 
-    // Other HTML post-processing patterns
-    pub static ref BRACKETED_SPAN_RE: Regex = Regex::new(r#"<p><span id="([^"]+)"></span></p>"#).unwrap();
-    pub static ref P_TAG_ANCHOR_RE: Regex = Regex::new(r"<p>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</p>").unwrap();
-    pub static ref EXPLICIT_ANCHOR_RE: Regex = Regex::new(r"^(#+)\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?\s*$").unwrap();
-}
+// Other HTML post-processing patterns
+static BRACKETED_SPAN_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"<p><span id="([^"]+)"></span></p>"#).unwrap());
+static P_TAG_ANCHOR_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<p>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</p>").unwrap());
+pub static EXPLICIT_ANCHOR_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(#+)\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?\s*$").unwrap());
 
 /// Collect all markdown files from the input directory
 pub fn collect_markdown_files(input_dir: &Path) -> Vec<PathBuf> {
@@ -119,13 +161,15 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
         || content.contains("manpage-markup")
         || content.contains("manpage-reference")
     {
-        config.manpage_urls_path.as_ref().and_then(|mappings_path| match load_manpage_urls(mappings_path) {
+        config.manpage_urls_path.as_ref().and_then(|mappings_path| {
+            match load_manpage_urls(mappings_path) {
                 Ok(mappings) => Some(mappings),
                 Err(err) => {
                     debug!("Error loading manpage mappings: {err}");
                     None
                 }
-            })
+            }
+        })
     } else {
         None
     };
@@ -217,7 +261,11 @@ fn preprocess_inline_anchors(content: &str) -> String {
 
             // Use a span tag that will be preserved in the HTML output
             use std::fmt::Write;
-            writeln!(result, "{list_marker} <span id=\"{id}\" class=\"nixos-anchor\"></span>{content}").unwrap();
+            writeln!(
+                result,
+                "{list_marker} <span id=\"{id}\" class=\"nixos-anchor\"></span>{content}"
+            )
+            .unwrap();
         } else {
             result.push_str(line);
             result.push('\n');
@@ -767,11 +815,6 @@ fn process_remaining_inline_anchors(html: &str) -> String {
 
 /// Extract headers from markdown content
 pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
-    lazy_static! {
-        static ref EXPLICIT_ANCHOR_RE: Regex =
-            Regex::new(r"^(#+)\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?\s*$").unwrap();
-    }
-
     let mut headers = Vec::new();
     let mut title = None;
     let mut found_headers_with_regex = false;

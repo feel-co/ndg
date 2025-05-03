@@ -1,9 +1,9 @@
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
-use lazy_static::lazy_static;
 use log::info;
 use rayon::prelude::*;
 use regex::Regex;
@@ -14,36 +14,43 @@ use crate::formatter::options::NixOption;
 use crate::manpage::{escape_leading_dot, get_roff_escapes, man_escape};
 
 // Define regex patterns for processing markdown in options
-lazy_static! {
-    // Role patterns
-    static ref ROLE_PATTERN: Regex = Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap();
+// Role patterns
+#[allow(dead_code)]
+static ROLE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
 
-    // Terminal prompts
-    static ref COMMAND_PROMPT: Regex = Regex::new(r"`\s*\$\s+([^`]+)`").unwrap();
-    static ref REPL_PROMPT: Regex = Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap();
+// Terminal prompts
+#[allow(dead_code)]
+static COMMAND_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
+#[allow(dead_code)]
+static REPL_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
 
-    // Inline code
-    static ref INLINE_CODE: Regex = Regex::new(r"`([^`]+)`").unwrap();
+// Inline code
+#[allow(dead_code)]
+static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([^`]+)`").unwrap());
 
-    // HTML tags
-    static ref HTML_TAGS: Regex = Regex::new(r"</?[a-zA-Z][^>]*>").unwrap();
+// HTML tags
+static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"</?[a-zA-Z][^>]*>").unwrap());
 
-    // Admonition patterns for pre-processed content
-    static ref ADMONITION_START: Regex = Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap();
-    // Don't use regex for simple string matching
-    // static ref ADMONITION_END: Regex = Regex::new(r"\.ADMONITION_END").unwrap();
+// Admonition patterns for pre-processed content
+static ADMONITION_START: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap());
+// Don't use regex for simple string matching with ADMONITION_END
 
-    // Markdown list items
-    static ref LIST_ITEM: Regex = Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap();
-    static ref NUMBERED_LIST_ITEM: Regex = Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap();
+// Markdown list items
+static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap());
+static NUMBERED_LIST_ITEM: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap());
 
-    // Markdown links
-    static ref MARKDOWN_LINK: Regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
+// Markdown links
+static MARKDOWN_LINK: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap());
 
-    // Existing troff formatting codes - don't double escape these
-    static ref TROFF_FORMATTING: Regex = Regex::new(r"\\f[BIPR]").unwrap();
-    static ref TROFF_ESCAPE: Regex = Regex::new(r"\\[\\(]").unwrap();
-}
+// Existing troff formatting codes - don't double escape these
+static TROFF_FORMATTING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\f[BIPR]").unwrap());
+static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\[\\(]").unwrap());
 
 /// Generate a manpage from options JSON
 pub fn generate_manpage(
@@ -92,12 +99,15 @@ pub fn generate_manpage(
     let manpage_title = title.unwrap_or("Module Options");
 
     // Determine output file path
-    let output_file = output_path.map_or_else(|| {
-        let safe_title = manpage_title
-            .to_lowercase()
-            .replace(|c: char| !c.is_alphanumeric(), "-");
-        Path::new(&format!("{safe_title}.{section}")).to_path_buf()
-    }, std::path::Path::to_path_buf);
+    let output_file = output_path.map_or_else(
+        || {
+            let safe_title = manpage_title
+                .to_lowercase()
+                .replace(|c: char| !c.is_alphanumeric(), "-");
+            Path::new(&format!("{safe_title}.{section}")).to_path_buf()
+        },
+        std::path::Path::to_path_buf,
+    );
 
     // Create output file
     let mut file = fs::File::create(&output_file).context(format!(
@@ -341,24 +351,30 @@ fn process_description(text: &str) -> String {
         .lines()
         .map(|line| {
             // Process list items
-            LIST_ITEM.captures(line).map_or_else(|| {
-                NUMBERED_LIST_ITEM.captures(line).map_or_else(|| {
-                    // Process inline markdown for regular lines
-                    process_inline_markdown(line)
-                }, |captures| {
+            LIST_ITEM.captures(line).map_or_else(
+                || {
+                    NUMBERED_LIST_ITEM.captures(line).map_or_else(
+                        || {
+                            // Process inline markdown for regular lines
+                            process_inline_markdown(line)
+                        },
+                        |captures| {
+                            let content = &captures[1];
+                            format!(
+                                ".sp\n.RS 4\n\\h'-2'\\fB1.\\fP\\h'1'\\c\n{}\n.RE",
+                                process_inline_markdown(content)
+                            )
+                        },
+                    )
+                },
+                |captures| {
                     let content = &captures[1];
                     format!(
-                        ".sp\n.RS 4\n\\h'-2'\\fB1.\\fP\\h'1'\\c\n{}\n.RE",
+                        ".sp\n.RS 4\n\\h'-2'\\fB\\[u2022]\\fP\\h'1'\\c\n{}\n.RE",
                         process_inline_markdown(content)
                     )
-                })
-            }, |captures| {
-                let content = &captures[1];
-                format!(
-                    ".sp\n.RS 4\n\\h'-2'\\fB\\[u2022]\\fP\\h'1'\\c\n{}\n.RE",
-                    process_inline_markdown(content)
-                )
-            })
+                },
+            )
         })
         .collect::<Vec<_>>()
         .join("\n");

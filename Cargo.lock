@@ -659,7 +659,6 @@ dependencies = [
  "env_logger",
  "fs_extra",
  "grass",
- "lazy_static",
  "log",
  "num_cpus",
  "pulldown-cmark",

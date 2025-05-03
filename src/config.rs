@@ -118,10 +118,14 @@ impl Config {
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {}", path.display()))?;
 
-        path.extension().map_or_else(|| Err(anyhow::anyhow!(
-                "Config file has no extension: {}",
-                path.display()
-            )), |ext| match ext.to_str().unwrap_or("").to_lowercase().as_str() {
+        path.extension().map_or_else(
+            || {
+                Err(anyhow::anyhow!(
+                    "Config file has no extension: {}",
+                    path.display()
+                ))
+            },
+            |ext| match ext.to_str().unwrap_or("").to_lowercase().as_str() {
                 "json" => serde_json::from_str(&content).with_context(|| {
                     format!("Failed to parse JSON config from {}", path.display())
                 }),
@@ -132,7 +136,8 @@ impl Config {
                     "Unsupported config file format: {}",
                     path.display()
                 )),
-            })
+            },
+        )
     }
 
     /// Load config from file and CLI arguments

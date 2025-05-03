@@ -1,27 +1,36 @@
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
-use lazy_static::lazy_static;
 use regex::Regex;
 
 // Common regex patterns used across markdown and manpage generation
-lazy_static! {
-    // Role patterns for syntax like {command}`ls -l`
-    pub static ref ROLE_PATTERN: Regex = Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap();
+// Role patterns for syntax like {command}`ls -l`
+pub static ROLE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
 
-    // Terminal command prompt patterns
-    pub static ref COMMAND_PROMPT: Regex = Regex::new(r"`\s*\$\s+([^`]+)`").unwrap();
-    pub static ref REPL_PROMPT: Regex = Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap();
-    pub static ref PROMPT_RE: Regex = Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap();
-    pub static ref REPL_RE: Regex = Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap();
+// Terminal command prompt patterns
+pub static COMMAND_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
+pub static REPL_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
+#[allow(dead_code)]
+static PROMPT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap());
+#[allow(dead_code)]
+static REPL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap());
 
-    // Inline code pattern
-    pub static ref INLINE_CODE: Regex = Regex::new(r"`([^`]+)`").unwrap();
+// Inline code pattern
+pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([^`]+)`").unwrap());
 
-    // Manpage reference patterns
-    pub static ref MANPAGE_ROLE_RE: Regex = Regex::new(r"\{manpage\}`([^`]+)`").unwrap();
-    pub static ref MANPAGE_MARKUP_RE: Regex = Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap();
-    pub static ref MANPAGE_REFERENCE_RE: Regex = Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap();
-}
+// Manpage reference patterns
+#[allow(dead_code)]
+static MANPAGE_ROLE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{manpage\}`([^`]+)`").unwrap());
+pub static MANPAGE_MARKUP_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap());
+pub static MANPAGE_REFERENCE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap());
 
 /// Apply a regex transformation to HTML elements using the provided function
 pub fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
@@ -34,20 +43,9 @@ where
 /// Capitalize the first letter of a string
 pub fn capitalize_first(s: &str) -> String {
     let mut chars = s.chars();
-    chars.next().map_or_else(String::new, |c| c.to_uppercase().collect::<String>() + chars.as_str())
-}
-
-// We'll keep this function despite being marked as unused
-// It's a utility that might be needed in the future
-// and removing it could break functionality if other code
-// begins using it during development
-pub fn humanize_anchor_id(anchor: &str) -> String {
-    anchor
-        .replace('-', " ")
-        .split_whitespace()
-        .map(capitalize_first)
-        .collect::<Vec<_>>()
-        .join(" ")
+    chars.next().map_or_else(String::new, |c| {
+        c.to_uppercase().collect::<String>() + chars.as_str()
+    })
 }
 
 /// Process manpage references, optionally with URL links

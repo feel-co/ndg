@@ -187,10 +187,7 @@ pub fn process_options_file(config: &Config) -> Result<bool> {
 }
 
 /// Create a fallback index page
-pub fn create_fallback_index(
-    config: &Config,
-    markdown_files: &[std::path::PathBuf],
-) -> String {
+pub fn create_fallback_index(config: &Config, markdown_files: &[std::path::PathBuf]) -> String {
     let mut content = format!(
         "<h1>{}</h1>\n<p>This is a fallback page created by ndg.</p>",
         &config.title
@@ -211,10 +208,13 @@ pub fn create_fallback_index(
                     let page_title = extract_page_title(file_path, &html_path);
 
                     use std::fmt::Write;
-                    writeln!(file_list, "  <li><a href=\"{}\">{}</a></li>",
+                    writeln!(
+                        file_list,
+                        "  <li><a href=\"{}\">{}</a></li>",
                         html_path.to_string_lossy(),
                         page_title
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
             }
 
@@ -227,10 +227,7 @@ pub fn create_fallback_index(
 }
 
 /// Extract the page title from a markdown file
-pub fn extract_page_title(
-    file_path: &std::path::Path,
-    html_path: &std::path::Path,
-) -> String {
+pub fn extract_page_title(file_path: &std::path::Path, html_path: &std::path::Path) -> String {
     let default_title = html_path
         .file_stem()
         .unwrap_or_default()
@@ -241,7 +238,9 @@ pub fn extract_page_title(
     match fs::read_to_string(file_path) {
         Ok(content) => {
             if let Some(first_line) = content.lines().next() {
-                first_line.strip_prefix("# ").map_or(default_title, |title| title.trim().to_string())
+                first_line
+                    .strip_prefix("# ")
+                    .map_or(default_title, |title| title.trim().to_string())
             } else {
                 default_title
             }
