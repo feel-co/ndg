@@ -6,25 +6,28 @@
 
 ## What is it?
 
-> [!WARNING]
-> ndg is currently in the process of being rewritten. Until the `v2` branch is
-> merged into main, nothing is final. Please proceed with caution.
-
-**ndg** is a fast, customizable and (relatively) sane tool for automatically
-generating HTML documents including but not limited to project documentation
-from Markdown and options you use in any set of modules.
+**ndg** is a fast, customizable and convenient utility for generating HTML
+documents and manpages for your Nix related projects from Markdown and
+options you use in any set of modules. It can be considered a more opinionated
+and more specialized MdBook, focusing on Nix-related projects. Though it can
+also be used outside of Nix projects.
 
 ### Features
 
-- **Markdown to HTML conversion** with support for all[^1] Nixpkgs-flavored
-  Commonmark features
-- **Automatic table of contents** generation from document headings
+We would like for ndg to be fast, but also flexible and powerful. It boasts
+several features such as
+
+- **Markdown to HTML and Manpage conversion** with support for all[^1]
+   Nixpkgs-flavored Commonmark features.
+- **Useful Markdown Companions**
+  - **Automatic table of contents** generation from document headings
   - **Title Anchors** - Automatically generates anchors for headings
 - **Search functionality** to quickly find content across documents (can be
-  disabled with `--generate-search false`)
+  disabled with `--generate-search/-S false`)
 - **Nix module options support** to generate documentation from `options.json`
-- **Fully customizable templates** to match your project's style
+- **Fully customizable templates** to match your project's style fully
 - **Multi-threading support** for fast generation of large documentation sets
+- **Incredibly fast** documentation generation for all scenarios
 
 [^1]: This is a best-effort. Regular commonmark is fully supported, but Nixpkgs
     additions may sometimes break due to the lack of a clear specification.
@@ -32,57 +35,89 @@ from Markdown and options you use in any set of modules.
 
 ## Usage
 
+ndg now has several subcommands to handle different tasks:
+
 ```
-Usage: ndg [OPTIONS]
+Usage: ndg [OPTIONS] [COMMAND]
+
+Commands:
+  generate  Generate shell completions and manpages
+  html      Generate HTML documents from options
+  manpage   Generate manpage from options
+  help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -i, --input <INPUT>
+  -v, --verbose               Enable verbose debug logging
+  -c, --config <CONFIG_FILE>  Path to configuration file (TOML or JSON)
+  -h, --help                  Print help
+  -V, --version               Print version
+```
+
+
+The first subcommand in ndg's compartmentalized architecture is for
+HTML generation. The `html` subcommand includes the following options:
+
+```
+Options:
+  -i, --input-dir <INPUT_DIR>
           Path to the directory containing markdown files
-  -o, --output <OUTPUT>
+  -o, --output-dir <OUTPUT_DIR>
           Output directory for generated documentation
   -p, --jobs <JOBS>
           Number of threads to use for parallel processing
-  -v, --verbose
-          Enable verbose debug logging
   -t, --template <TEMPLATE>
           Path to custom template file
       --template-dir <TEMPLATE_DIR>
-          Path to directory containing template files (default.html, options.html, etc.) For missing required files, ndg will fall back to its internal templates
+          Path to directory containing template files (default.html, options.html, etc.)
   -s, --stylesheet <STYLESHEET>
           Path to custom stylesheet
       --script <SCRIPT>
-          Path to custom Javascript file to include. This can be specified multiple times to create multiple script tags in order
+          Path to custom Javascript file to include
   -T, --title <TITLE>
-          Title of the documentation. Will be used in various components via the templating options
+          Title of the documentation
   -f, --footer <FOOTER>
           Footer text for the documentation
   -j, --module-options <MODULE_OPTIONS>
-          Path to a JSON file containing module options in the same format expected by nixos-render-docs
+          Path to a JSON file containing module options
       --options-depth <OPTIONS_TOC_DEPTH>
           Depth of parent categories in options TOC
       --manpage-urls <MANPAGE_URLS>
           Path to manpage URL mappings JSON file
-  -c, --config <CONFIG_FILE>
-          Path to configuration file (TOML or JSON)
+      --generate-search <GENERATE_SEARCH>
+          Whether to generate search functionality
+      --highlight-code <HIGHLIGHT_CODE>
+          Whether to enable syntax highlighting for code blocks
+      --revision <REVISION>
+          GitHub revision for linking to source files
   -h, --help
           Print help
-  -V, --version
-          Print version
 ```
 
 You must give ndg a **input directory** containing your markdown files
-(`--input`), an **output directory** (`--output`) to put the created files, and
+(`--input-dir`), an **output directory** (`--output-dir`) to put the created files, and
 a **title** (`--title`) for basic functionality. Alternatively, those can all be
 read from a config file, passed to ndg through the `--config` option.
 
 For example:
 
 ```bash
-ndg -i ./ndg-example/docs -o ./ndg-example/html -T "Awesome Nix Project"
+ndg html -i ./ndg-example/docs -o ./ndg-example/html -T "Awesome Nix Project"
 ```
 
 where `./ndg-example/docs` contains markdown files that you would like to
 convert, and `./ndg-example/html` is the result directory.
+
+The `manpage` subcommand allows generating a manpage from your options:
+
+```bash
+ndg manpage -j ./options.json -o ./man/project.5 -T "My Project" -s 5
+```
+
+The `generate` subcommand helps create shell completions and manpages for ndg itself:
+
+```bash
+ndg generate -o ./dist
+```
 
 Optionally you may pass an `options.json` to also render an `options.html` page
 for a listing of your module options.
@@ -97,14 +132,14 @@ You can provide your own HTML template using either the `--template` option for
 a single template file:
 
 ```bash
-ndg -i ./docs -o ./html -T "Awesome Project" -t ./my-template.html
+ndg html -i ./docs -o ./html -T "Awesome Project" -t ./my-template.html
 ```
 
 Or use the `--template-dir` option to provide a directory containing multiple
 templates:
 
 ```bash
-ndg -i ./docs -o ./html -T "Awesome Project" --template-dir ./my-templates
+ndg html -i ./docs -o ./html -T "Awesome Project" --template-dir ./my-templates
 ```
 
 When using a template directory, ndg will look for the following files:
@@ -130,7 +165,7 @@ Tera syntax. Below are the variables that ndg will attempt to replace.
 You can provide your own CSS stylesheet using the `--stylesheet` option:
 
 ```bash
-ndg -i ./docs -o ./html -T "My Project" -s ./my-styles.css
+ndg html -i ./docs -o ./html -T "My Project" -s ./my-styles.css
 ```
 
 ndg is able to compile SCSS as well, should you choose to pass it a file with
@@ -143,7 +178,7 @@ To include a page listing NixOS options, provide a path to your `options.json`
 file:
 
 ```bash
-ndg -i ./docs -o ./html -T "My Project" -j ./options.json
+ndg options -i ./docs -o ./html -T "My Project" -j ./options.json
 ```
 
 [nvf]: https://github.com/notashelf/nvf
@@ -182,11 +217,193 @@ By default, ndg generates a search page and a search widget for your
 documentation. You can disable this with:
 
 ```bash
-ndg -i ./docs -o ./html -T "My Project" --generate-search false
+ndg html -i ./docs -o ./html -T "My Project" --generate-search false
 ```
 
 This will prevent the creation of search.html and the search index data, and the
 search widget won't appear in the navigation.
+
+## Nix Integration
+
+### Using ndg with Nix
+
+ndg can be integrated into Nix builds to generate documentation for your projects. Here are several ways to use ndg with Nix:
+
+#### Installing from the Flake
+
+The simplest way to install ndg is directly from its flake:
+
+```bash
+# Install to your profile
+nix profile install github:feel-co/ndg
+
+# Or run without installing
+nix run github:feel-co/ndg -- options -i ./docs -o ./result -T "My Project"
+```
+
+#### Using ndg-builder
+
+The recommended way to generate documentation in Nix builds is to use the included `ndg-builder` function, which properly handles all the complexities:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    ndg.url = "github:feel-co/ndg";
+  };
+
+  outputs = { self, nixpkgs, ndg, ... }:
+    let
+      system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      packages.${system}.docs = ndg.packages.${system}.ndg-builder {
+        title = "My Project Documentation";
+        inputDir = ./docs;
+        stylesheet = ./assets/style.css;
+        scripts = [ ./assets/custom.js ];
+
+        # For module options
+        rawModules = [
+          ./modules/options.nix
+          {
+            options.example.option = pkgs.lib.mkOption {
+              type = pkgs.lib.types.str;
+              default = "value";
+              description = "An example option";
+            };
+          }
+        ];
+
+        # Optional: set the depth of options TOC
+        optionsDepth = 3;
+      };
+  };
+}
+```
+
+#### Manual Approach Using runCommandLocal
+
+If you need more control, you can use `runCommandLocal` directly:
+
+```nix
+let
+  pkgs = import <nixpkgs> { };
+
+  # Generate options JSON properly
+  optionsJSON = (pkgs.nixosOptionsDoc {
+    options = (pkgs.lib.evalModules {
+      modules = [ ./modules/options.nix ];
+    }).options;
+  }).optionsJSON;
+
+  # Generate documentation
+  docs = pkgs.runCommandLocal "project-docs" {
+    nativeBuildInputs = [ pkgs.ndg ];
+  } ''
+    mkdir -p $out
+    ndg options \
+      --input-dir ${./docs} \
+      --output-dir $out \
+      --title "My Project Documentation" \
+      --module-options ${optionsJSON}/share/doc/nixos/options.json \
+      --jobs $NIX_BUILD_CORES
+  '';
+in
+  docs
+```
+
+This approach correctly handles the generation of options documentation using `nixosOptionsDoc` and properly passes the result to ndg.
+
+## Pro Tips & Best Practices
+
+### Performance Optimization
+
+- **Use multi-threading** for large documentation sets:
+  ```bash
+  ndg options -i ./docs -o ./html -T "My Project" -p $(nproc)
+  ```
+
+- **Selectively disable features** you don't need:
+  ```bash
+  # Disable search if you don't need it
+  ndg html -i ./docs -o ./html -T "My Project" --generate-search false
+
+  # Disable syntax highlighting for better performance
+  ndg options -i ./docs -o ./html -T "My Project" --highlight-code false
+  ```
+
+### Styling Tips
+
+- **Use SCSS for complex stylesheets**: ndg automatically compiles SCSS files, allowing you to use variables, nesting, and mixins.
+
+- **Customize specific pages**: When using a template directory, you can have different templates for different page types:
+  ```
+  templates/
+    default.html    # For regular markdown pages
+    options.html    # For the options page
+    search.html     # For the search page
+  ```
+
+### Content Organization
+
+- **Use consistent header levels**: ndg generates the table of contents based on heading levels. Start with `h1` (`#`) for the title, then use `h2` (`##`) for major sections.
+
+- **Structure your options with depth in mind**: The `--options-depth` parameter controls how the options TOC is generated. Organize your options to create a logical hierarchy.
+
+- **Create an index.md file**: Place an `index.md` file in your input directory to serve as the landing page.
+
+### GitHub Integration
+
+- **Link to source with revision**: Use the `--revision` option to specify a GitHub revision for source links:
+  ```bash
+  ndg options -i ./docs -o ./html -T "My Project" --revision "main"
+  ```
+
+### Configuration Management
+
+- **Create per-project config files**: For projects with complex documentation, create a dedicated `ndg.toml` file:
+  ```toml
+  input_dir = "docs"
+  output_dir = "site"
+  title = "Project Documentation"
+  footer = "© 2025 My Organization"
+  jobs = 8
+  generate_search = true
+  highlight_code = true
+  options_toc_depth = 2
+  stylesheet = "assets/custom.scss"
+  script = ["assets/main.js", "assets/search-enhancer.js"]
+  module_options = "generated/options.json"
+  ```
+
+- **Generate shell completions** once and save them to your shell configuration:
+  ```bash
+  # Generate and install completions
+  mkdir -p ~/.local/share/bash-completion/completions
+  ndg generate -o /tmp/ndg-gen
+  cp /tmp/ndg-gen/completions/ndg.bash ~/.local/share/bash-completion/completions/ndg
+  ```
+
+### Content Enhancement
+
+- **Use admonitions for important content**:
+  ```markdown
+  ::: {.warning}
+  This is a critical warning that users should pay attention to!
+  :::
+
+  ::: {.tip}
+  Here's a helpful tip to make your life easier.
+  :::
+  ```
+
+- **Create custom ID anchors** for important sections:
+  ```markdown
+  ## Installation {#installation}
+
+  Refer to the [installation instructions](#installation) above.
+  ```
 
 ## Building from Source
 

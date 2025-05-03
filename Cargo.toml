@@ -1,22 +1,35 @@
 [package]
 name = "ndg"
-version = "0.1.0"
+version = "2.0.0"
 edition = "2021"
 description = "ndg - not a docs generator"
 license = "MPL"
 authors = ["NotAShelf <raf@notashelf.dev>"]
 
 [dependencies]
-chrono = { version = "0.4.40",  default-features = false, features = ["std", "clock"] }
-clap = { version = "4.5", default-features = false, features = ["std", "derive", "help", "usage", "suggestions"] }
+chrono = { version = "0.4.40", default-features = false, features = [
+    "std",
+    "clock",
+] }
+clap = { version = "4.5", default-features = false, features = [
+    "std",
+    "derive",
+    "help",
+    "usage",
+    "suggestions",
+] }
 grass = { version = "0.13", default-features = false, features = [] }
 toml = { version = "0.8", default-features = false, features = ["parse"] }
 tera = { version = "1.20", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", default-features = false, features = [
+    "preserve_order",
+] }
 clap_complete = "4.5"
 clap_mangen = "0.2"
-pulldown-cmark = "0.13"
+pulldown-cmark = { version = "0.11", default-features = false, features = [
+    "html",
+] }
 walkdir = "2.5"
 syntect = "5.2"
 two-face = "0.4"
@@ -37,4 +50,3 @@ opt-level = "s"
 lto = "thin"
 codegen-units = 1
 panic = "abort"
-

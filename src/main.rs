@@ -61,8 +61,8 @@ fn main() -> Result<()> {
                 );
             }
 
-            // The Options command is handled in Config::load and merge_with_cli
-            Commands::Options { .. } => {}
+            // The Html command is handled in Config::load and merge_with_cli
+            Commands::Html { .. } => {}
         }
     }
 

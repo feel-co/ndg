@@ -35,8 +35,8 @@ pub enum Commands {
         manpage_only: bool,
     },
 
-    /// Process documentation options
-    Options {
+    /// Process documentation and generate HTML
+    Html {
         /// Path to the directory containing markdown files
         #[arg(short, long)]
         input_dir: Option<PathBuf>,

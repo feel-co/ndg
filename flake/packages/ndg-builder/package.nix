@@ -56,7 +56,7 @@ in
       ''
         mkdir -p $out
 
-        ndg ${optionalString verbose "--verbose"} options \
+        ndg ${optionalString verbose "--verbose"} html \
           --jobs $NIX_BUILD_CORES --output-dir "$out" --title "${title}" \
           --module-options "${configJSON}/share/doc/nixos/options.json" \
       ''

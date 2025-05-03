@@ -153,14 +153,14 @@ impl Config {
         config.merge_with_cli(cli);
 
         // Get options from command if present
-        if let Some(Commands::Options { .. }) = &cli.command {
+        if let Some(Commands::Html { .. }) = &cli.command {
             // Validation is handled in merge_with_cli
         } else {
-            // No Options command, validate required fields if no config file was specified
+            // No Html command, validate required fields if no config file was specified
             if cli.config_file.is_none() {
-                // If there's no config file and no Options command, we're missing required data
+                // If there's no config file and no Html command, we're missing required data
                 return Err(anyhow::anyhow!(
-                    "Neither config file nor 'options' subcommand provided. Use 'ndg options' or provide a config file with --config."
+                    "Neither config file nor 'html' subcommand provided. Use 'ndg html' or provide a config file with --config."
                 ));
             }
         }
@@ -187,8 +187,8 @@ impl Config {
 
     /// Merge CLI arguments into this config, prioritizing CLI values when present
     pub fn merge_with_cli(&mut self, cli: &Cli) {
-        // Handle options from the Options subcommand if present
-        if let Some(Commands::Options {
+        // Handle options from the Html subcommand if present
+        if let Some(Commands::Html {
             input_dir,
             output_dir,
             jobs,
