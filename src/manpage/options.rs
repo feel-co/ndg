@@ -10,6 +10,7 @@ use regex::Regex;
 use serde_json::{self, Value};
 
 use crate::formatter::options::NixOption;
+use crate::formatter::markup;
 use crate::manpage::{escape_leading_dot, get_roff_escapes, man_escape};
 
 // Define regex patterns for processing markdown in options
@@ -223,7 +224,7 @@ pub fn generate_manpage(
 
     // Add SEE ALSO section
     // Extract base name without extension to use in see also
-    let file_base_name = options_path
+    let _file_base_name = options_path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("configuration");
@@ -246,7 +247,6 @@ fn process_raw_type(s: &str) -> String {
         .replace('.', "\\&."); // period
 
     // For closing quote after \n
-    
 
     s.replace("\\en\"", "\\en\\[u201D]")
 }
@@ -392,8 +392,6 @@ fn restore_formatting(text: &str) -> String {
         .replace("__TROFF_FORMAT_fP__", "\\fP")
         .replace("__TROFF_FORMAT_fR__", "\\fR");
 
-    
-
     with_formats
         .replace("__TROFF_ESCAPE_(__", "\\(")
         .replace("__TROFF_ESCAPE_\\__", "\\\\")
@@ -500,52 +498,20 @@ fn selective_man_escape(text: &str) -> String {
     result
 }
 
-/// Process all MyST-like roles in text, converting to appropriate troff formatting
+/// Process all role-based formatting in text
 fn process_roles(text: &str) -> String {
-    ROLE_PATTERN
-        .replace_all(text, |caps: &regex::Captures| {
-            let role_type = &caps[1];
-            let content = &caps[2];
-
-            match role_type {
-                "command" => format!("\\fB{content}\\fP"),
-                "env" => format!("\\fI{content}\\fP"),
-                "file" => format!("\\fI{content}\\fP"),
-                "option" => format!("\\fB{content}\\fP"),
-                "var" => format!("\\fI{content}\\fP"),
-                "manpage" => {
-                    if let Some((page, section)) = content.rsplit_once('(') {
-                        let page = page.trim();
-                        let section = section.trim_end_matches(')');
-                        format!("\\fB{page}\\fP({section})")
-                    } else {
-                        format!("\\fB{content}\\fP")
-                    }
-                }
-                _ => format!("\\fI{content}\\fP"),
-            }
-        })
-        .to_string()
+    // Using shared implementation for text role processing, specifically for troff output format
+    markup::process_roles(text, None, false)
 }
 
 /// Process command prompts ($ command)
 fn process_command_prompts(text: &str) -> String {
-    COMMAND_PROMPT
-        .replace_all(text, |caps: &regex::Captures| {
-            let command = &caps[1];
-            format!("$ \\fB{command}\\fP")
-        })
-        .to_string()
+    markup::process_command_prompts(text, false)
 }
 
 /// Process REPL prompts (nix-repl> command)
 fn process_repl_prompts(text: &str) -> String {
-    REPL_PROMPT
-        .replace_all(text, |caps: &regex::Captures| {
-            let expr = &caps[1];
-            format!("nix-repl> \\fB{expr}\\fP")
-        })
-        .to_string()
+    markup::process_repl_prompts(text, false)
 }
 
 /// Process admonition blocks (:::)
@@ -616,12 +582,7 @@ fn process_admonitions(text: &str) -> String {
 
 /// Process inline code blocks
 fn process_inline_code(text: &str) -> String {
-    INLINE_CODE
-        .replace_all(text, |caps: &regex::Captures| {
-            let code = &caps[1];
-            format!("\\fR\\(oq{code}\\(cq\\fP")
-        })
-        .to_string()
+    markup::process_inline_code(text, false)
 }
 
 /// Process option values (for defaults and examples)
@@ -654,7 +615,6 @@ fn process_example(text: &str) -> String {
     let with_formatting_restored = restore_formatting(&with_repl);
 
     // Ensure every line doesn't start with a dot
-    
 
     // Return the processed example
     escape_leading_dots(&selective_man_escape(&with_formatting_restored))

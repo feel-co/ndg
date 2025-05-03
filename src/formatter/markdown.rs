@@ -10,6 +10,7 @@ use regex::Regex;
 use walkdir::WalkDir;
 
 use crate::config::Config;
+use crate::formatter::markup;
 use crate::html::{
     highlight, template,
     utils::{escape_html, generate_id},
@@ -61,7 +62,7 @@ lazy_static! {
     pub static ref ADMONITION_START_RE: Regex = Regex::new(r"^:::\s*\{\.([a-zA-Z]+)(?:\s+#([a-zA-Z0-9_-]+))?\}(.*)$").unwrap();
     pub static ref ADMONITION_END_RE: Regex = Regex::new(r"^(.*?):::$").unwrap();
     pub static ref FIGURE_RE: Regex = Regex::new(r":::\s*\{\.figure(?:\s+#([a-zA-Z0-9_-]+))?\}\s*\n#\s+(.+)\n([\s\S]*?)\s*:::").unwrap();
-    
+
     // Definition list patterns
     pub static ref DEF_LIST_TERM_RE: Regex = Regex::new(r"^([^:].+)$").unwrap();
     pub static ref DEF_LIST_DEF_RE: Regex = Regex::new(r"^:   (.+)$").unwrap();
@@ -481,7 +482,7 @@ fn process_markdown_content(content: &str) -> String {
 /// Process an admonition and convert it to HTML
 fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) -> String {
     let id_attr = id.map_or(String::new(), |id| format!(" id=\"{id}\""));
-    let title = capitalize_first(admonition_type);
+    let title = markup::capitalize_first(admonition_type);
 
     // Process the content as Markdown to HTML
     // We need to make sure the content has proper line breaks for list items
@@ -496,15 +497,6 @@ fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) ->
     format!(
         "<div class=\"admonition {admonition_type}\"{id_attr}>\n<p class=\"admonition-title\">{title}</p>\n{processed_content}</div>"
     )
-}
-
-/// Capitalize the first letter of a string
-fn capitalize_first(s: &str) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(c) => c.to_uppercase().chain(chars).collect(),
-    }
 }
 
 /// Convert markdown to HTML using `pulldown_cmark` with syntax highlighting
@@ -685,12 +677,12 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     result
 }
 
-/// Process HTML elements with a generic transformation function
+/// Apply a regex transformation to HTML content
 fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
 where
     F: Fn(&regex::Captures) -> String,
 {
-    regex.replace_all(html, transform).to_string()
+    markup::process_html_elements(html, regex, transform)
 }
 
 /// Process headers that have {#id} within the header text
@@ -736,13 +728,7 @@ fn humanize_anchor_id(anchor: &str) -> String {
     // Capitalize each word
     spaced
         .split_whitespace()
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(c) => c.to_uppercase().chain(chars).collect(),
-            }
-        })
+        .map(markup::capitalize_first)
         .collect::<Vec<String>>()
         .join(" ")
 }
@@ -752,48 +738,7 @@ pub fn process_manpage_roles(
     html: String,
     manpage_urls: Option<&HashMap<String, String>>,
 ) -> String {
-    // Handle any remaining manpage markup
-    let mut result = MANPAGE_MARKUP_RE
-        .replace_all(&html, |caps: &regex::Captures| {
-            let manpage_ref = &caps[1];
-            if let Some(urls) = manpage_urls {
-                if let Some(url) = urls.get(manpage_ref) {
-                    format!("<a href=\"{url}\" class=\"manpage-reference\">{manpage_ref}</a>")
-                } else {
-                    format!("<span class=\"manpage-reference\">{manpage_ref}</span>")
-                }
-            } else {
-                format!("<span class=\"manpage-reference\">{manpage_ref}</span>")
-            }
-        })
-        .to_string();
-
-    // Handle already processed manpage references
-    result = MANPAGE_REFERENCE_RE
-        .replace_all(&result, |caps: &regex::Captures| {
-            let span_content = &caps[1];
-            if let Some(urls) = manpage_urls {
-                if let Some(url) = urls.get(span_content) {
-                    format!("<a href=\"{url}\" class=\"manpage-reference\">{span_content}</a>")
-                } else {
-                    // Special case handling
-                    if span_content == "conf(5)" {
-                        let full_ref = "nix.conf(5)";
-                        if let Some(url) = urls.get(full_ref) {
-                            return format!(
-                                "<a href=\"{url}\" class=\"manpage-reference\">{full_ref}</a>"
-                            );
-                        }
-                    }
-                    format!("<span class=\"manpage-reference\">{span_content}</span>")
-                }
-            } else {
-                format!("<span class=\"manpage-reference\">{span_content}</span>")
-            }
-        })
-        .to_string();
-
-    result
+    markup::process_manpage_references(html, manpage_urls, true)
 }
 
 /// Process any remaining inline anchor syntax that wasn't caught earlier
