@@ -16,5 +16,6 @@
 !/Cargo.lock
 !/Cargo.toml
 !/templates
-!/rustfmt.toml
+!/.rustfmt.toml
+!/.clippy.toml
 
