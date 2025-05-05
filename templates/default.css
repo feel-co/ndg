@@ -66,7 +66,8 @@
     --link-color: #60a5fa;
     --link-hover-color: #93c5fd;
     --border-color: #334155;
-    --code-bg: #1e293b;
+    --code-bg: #111827;
+    --code-border: #2d3748;
     --header-bg: #0f172a;
     --header-text: #f8fafc;
     --sidebar-bg: #1e293b;
@@ -486,6 +487,7 @@ code {
   font-size: 0.875em;
   transition: background-color var(--transition);
   letter-spacing: -0.025em;
+  border: 1px solid var(--code-border);
 }
 
 pre {
@@ -735,7 +737,7 @@ img {
   transition:
     transform var(--transition-fast),
     border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var (--transition-fast);
 }
 
 .search-page-results .search-result-item:hover {
@@ -858,7 +860,7 @@ img {
 }
 
 .admonition.warning {
-  border-top: 4px solid var(--admonition-warning-color);
+  border-top: 4px solid var (--admonition-warning-color);
 }
 
 .admonition.warning .admonition-title {
