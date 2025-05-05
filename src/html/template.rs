@@ -1,21 +1,11 @@
-use std::{
-    collections::HashMap,
-    fs,
-    path::Path,
-};
+use std::{collections::HashMap, fs, path::Path};
 
-use anyhow::{
-    Context,
-    Result,
-};
+use anyhow::{Context, Result};
 use tera::Tera;
 
 use crate::{
     config::Config,
-    formatter::{
-        markdown::Header,
-        options::NixOption,
-    },
+    formatter::{markdown::Header, options::NixOption},
 };
 
 // Template constants - these serve as fallbacks
@@ -79,7 +69,8 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     let options_html = generate_options_html(options);
 
     // Load the options_toc template from template directory or use default
-    let options_toc_template = get_template_content(config, "options_toc.html", OPTIONS_TOC_TEMPLATE)?;
+    let options_toc_template =
+        get_template_content(config, "options_toc.html", OPTIONS_TOC_TEMPLATE)?;
     tera.add_raw_template("options_toc", &options_toc_template)?;
 
     // Generate options TOC using Tera templating
@@ -139,7 +130,8 @@ fn generate_options_toc(
 
     for (parent, opts) in &grouped_options {
         let has_multiple_options = opts.len() > 1;
-        let has_child_options = opts.len() > usize::from(direct_parent_options.contains_key(parent));
+        let has_child_options =
+            opts.len() > usize::from(direct_parent_options.contains_key(parent));
 
         if !has_multiple_options && !has_child_options {
             // Single option with no children
@@ -163,8 +155,14 @@ fn generate_options_toc(
                 let parent_option_value = tera::to_value({
                     let mut map = tera::Map::new();
                     map.insert("name".to_string(), tera::to_value(&parent_option.name)?);
-                    map.insert("internal".to_string(), tera::to_value(parent_option.internal)?);
-                    map.insert("read_only".to_string(), tera::to_value(parent_option.read_only)?);
+                    map.insert(
+                        "internal".to_string(),
+                        tera::to_value(parent_option.internal)?,
+                    );
+                    map.insert(
+                        "read_only".to_string(),
+                        tera::to_value(parent_option.read_only)?,
+                    );
                     map
                 })?;
                 category.insert("parent_option".to_string(), parent_option_value);
@@ -172,13 +170,22 @@ fn generate_options_toc(
 
             // Add child options
             let mut children = Vec::new();
-            let mut child_options: Vec<&NixOption> =
-                opts.iter().filter(|opt| opt.name != *parent).copied().collect();
+            let mut child_options: Vec<&NixOption> = opts
+                .iter()
+                .filter(|opt| opt.name != *parent)
+                .copied()
+                .collect();
 
             // Sort by suffix
             child_options.sort_by(|a, b| {
-                let a_suffix = a.name.strip_prefix(&format!("{parent}.")).unwrap_or(&a.name);
-                let b_suffix = b.name.strip_prefix(&format!("{parent}.")).unwrap_or(&b.name);
+                let a_suffix = a
+                    .name
+                    .strip_prefix(&format!("{parent}."))
+                    .unwrap_or(&a.name);
+                let b_suffix = b
+                    .name
+                    .strip_prefix(&format!("{parent}."))
+                    .unwrap_or(&b.name);
                 a_suffix.cmp(b_suffix)
             });
 
@@ -298,8 +305,9 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
     if let Some(template_dir) = config.get_template_path() {
         let template_path = template_dir.join(template_name);
         if template_path.exists() {
-            return fs::read_to_string(&template_path)
-                .with_context(|| format!("Failed to read template file: {}", template_path.display()));
+            return fs::read_to_string(&template_path).with_context(|| {
+                format!("Failed to read template file: {}", template_path.display())
+            });
         }
     }
 
@@ -309,8 +317,9 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
         if template_path.exists() && template_name == "default.html" {
             // XXX: For backward compatibility
             // If template_path is a file, use it for default.html
-            return fs::read_to_string(template_path)
-                .with_context(|| format!("Failed to read template file: {}", template_path.display()));
+            return fs::read_to_string(template_path).with_context(|| {
+                format!("Failed to read template file: {}", template_path.display())
+            });
         }
     }
 
@@ -369,8 +378,9 @@ fn generate_doc_nav(config: &Config) -> String {
                                         },
                                         |title| {
                                             // Clean the title of any inline anchors
-                                            let clean_title =
-                                                anchor_pattern.replace_all(title.trim(), "").to_string();
+                                            let clean_title = anchor_pattern
+                                                .replace_all(title.trim(), "")
+                                                .to_string();
                                             clean_title
                                         },
                                     )
@@ -407,18 +417,20 @@ fn generate_doc_nav(config: &Config) -> String {
 
 /// Generate custom scripts HTML
 fn generate_custom_scripts(config: &Config) -> Result<String> {
-    let mut custom_scripts = String::with_capacity(config.script_paths.iter().fold(0, |acc, path| {
-        if path.exists() {
-            acc + 1000 // FIXME: Rough estimate for script size
-        } else {
-            acc
-        }
-    }));
+    let mut custom_scripts =
+        String::with_capacity(config.script_paths.iter().fold(0, |acc, path| {
+            if path.exists() {
+                acc + 1000 // FIXME: Rough estimate for script size
+            } else {
+                acc
+            }
+        }));
 
     for script_path in &config.script_paths {
         if script_path.exists() {
-            let script_content = fs::read_to_string(script_path)
-                .with_context(|| format!("Failed to read script file: {}", script_path.display()))?;
+            let script_content = fs::read_to_string(script_path).with_context(|| {
+                format!("Failed to read script file: {}", script_path.display())
+            })?;
             use std::fmt::Write;
             writeln!(custom_scripts, "<script>{script_content}</script>").unwrap();
         }
@@ -564,15 +576,27 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
 fn add_default_value(html: &mut String, option: &NixOption) {
     use std::fmt::Write;
     if let Some(default_text) = &option.default_text {
+        // Remove surrounding backticks if present (from literalExpression)
+        let clean_default = if default_text.starts_with('`')
+            && default_text.ends_with('`')
+            && default_text.len() > 2
+        {
+            &default_text[1..default_text.len() - 1]
+        } else {
+            default_text
+        };
+
         writeln!(
             html,
-            "  <div class=\"option-default\">Default: <code>{default_text}</code></div>"
+            "  <div class=\"option-default\">Default: <code>{}</code></div>",
+            clean_default
         )
         .unwrap();
     } else if let Some(default_val) = &option.default {
         writeln!(
             html,
-            "  <div class=\"option-default\">Default: <code>{default_val}</code></div>"
+            "  <div class=\"option-default\">Default: <code>{}</code></div>",
+            default_val
         )
         .unwrap();
     }
@@ -582,31 +606,73 @@ fn add_default_value(html: &mut String, option: &NixOption) {
 fn add_example_value(html: &mut String, option: &NixOption) {
     use std::fmt::Write;
     if let Some(example_text) = &option.example_text {
+        // Process the example text to preserve code formatting
         if example_text.contains('\n') {
+            // Multi-line examples - preserve formatting with pre/code
+            // Process special characters to ensure valid HTML
+            let safe_example = example_text.replace('<', "&lt;").replace('>', "&gt;");
+
+            // Remove backticks if they're surrounding the entire content (from
+            // literalExpression)
+            let trimmed_example = if safe_example.starts_with('`')
+                && safe_example.ends_with('`')
+                && safe_example.len() > 2
+            {
+                &safe_example[1..safe_example.len() - 1]
+            } else {
+                &safe_example
+            };
+
             writeln!(
                 html,
-                "  <div class=\"option-example\">Example: <pre><code>{example_text}</code></pre></div>"
+                "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>",
+                trimmed_example
             )
             .unwrap();
         } else {
-            writeln!(
-                html,
-                "  <div class=\"option-example\">Example: <code>{example_text}</code></div>"
-            )
-            .unwrap();
+            // Check if this is already a code block (surrounded by backticks)
+            if example_text.starts_with('`')
+                && example_text.ends_with('`')
+                && example_text.len() > 2
+            {
+                // This is inline code - extract the content and properly escape it
+                let code_content = &example_text[1..example_text.len() - 1];
+                let safe_content = code_content.replace('<', "&lt;").replace('>', "&gt;");
+                writeln!(
+                    html,
+                    "  <div class=\"option-example\">Example: <code>{}</code></div>",
+                    safe_content
+                )
+                .unwrap();
+            } else {
+                // Regular inline example - still needs escaping
+                let safe_example = example_text.replace('<', "&lt;").replace('>', "&gt;");
+                writeln!(
+                    html,
+                    "  <div class=\"option-example\">Example: <code>{}</code></div>",
+                    safe_example
+                )
+                .unwrap();
+            }
         }
     } else if let Some(example_val) = &option.example {
         let example_str = example_val.to_string();
         if example_str.contains('\n') {
+            // Multi-line JSON examples need special handling
+            let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
             writeln!(
                 html,
-                "  <div class=\"option-example\">Example: <pre><code>{example_str}</code></pre></div>"
+                "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>",
+                safe_example
             )
             .unwrap();
         } else {
+            // Single-line JSON examples
+            let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
             writeln!(
                 html,
-                "  <div class=\"option-example\">Example: <code>{example_str}</code></div>"
+                "  <div class=\"option-example\">Example: <code>{}</code></div>",
+                safe_example
             )
             .unwrap();
         }
