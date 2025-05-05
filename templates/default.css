@@ -509,6 +509,7 @@ pre code {
   padding: 0;
   border-radius: 0;
   font-size: 0.9em;
+  border: none;
 }
 
 pre:hover::before {
@@ -755,7 +756,7 @@ img {
 .search-page-results .search-result-title {
   font-size: 1.125rem;
   font-weight: 600;
-  margin-bottom: var(--space-3);
+  margin-bottom: var (--space-3);
   color: var(--heading-color);
 }
 
