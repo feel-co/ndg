@@ -4,6 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ title }}</title>
+    <style>
+      /* Critical CSS to prevent sidebar flash */
+      body.sidebar-collapsed .sidebar {
+        transform: translateX(-100%);
+      }
+
+      body.sidebar-collapsed .sidebar-toggle {
+        left: 0;
+      }
+
+      body.sidebar-collapsed .sidebar-toggle svg {
+        transform: rotate(180deg);
+      }
+    </style>
+    <script>
+      // Apply sidebar state immediately before any DOM rendering
+      (function() {
+        if (localStorage.getItem("sidebar-collapsed") === "true") {
+          document.documentElement.classList.add("sidebar-collapsed");
+          document.body.classList.add("sidebar-collapsed");
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="assets/style.css" />
     {% if generate_search %}
     <script defer src="assets/search.js"></script>
@@ -42,7 +65,7 @@
             <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
           </svg>
         </div>
-        <nav id="sidebar" class="sidebar">
+        <nav class="sidebar">
           <div class="docs-nav">
             <h2>Documents</h2>
             <ul>
@@ -73,24 +96,17 @@
 
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        // Sidebar Toggle
-        const sidebarToggle = document.querySelector(".sidebar-toggle");
-        if (sidebarToggle) {
-          sidebarToggle.addEventListener("click", function () {
+        // Sidebar Toggle functionality
+        const toggle = document.querySelector(".sidebar-toggle");
+
+        if (toggle) {
+          toggle.addEventListener("click", function () {
             document.body.classList.toggle("sidebar-collapsed");
 
             // Save state to localStorage
-            const isCollapsed =
-              document.body.classList.contains("sidebar-collapsed");
+            const isCollapsed = document.body.classList.contains("sidebar-collapsed");
             localStorage.setItem("sidebar-collapsed", isCollapsed);
           });
-
-          // Restore sidebar state from localStorage
-          const isCollapsed =
-            localStorage.getItem("sidebar-collapsed") === "true";
-          if (isCollapsed) {
-            document.body.classList.add("sidebar-collapsed");
-          }
         }
 
         // Make headings clickable for anchor links

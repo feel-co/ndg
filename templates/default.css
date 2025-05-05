@@ -294,7 +294,8 @@ header {
   transition: transform var(--transition);
 }
 
-.sidebar-collapsed .sidebar {
+.sidebar-collapsed .sidebar,
+.sidebar-collapsed-init .sidebar {
   transform: translateX(-100%);
 }
 
@@ -329,11 +330,13 @@ header {
   transition: transform var(--transition);
 }
 
-.sidebar-collapsed .sidebar-toggle {
+.sidebar-collapsed .sidebar-toggle,
+.sidebar-collapsed-init .sidebar-toggle {
   left: 0;
 }
 
-.sidebar-collapsed .sidebar-toggle svg {
+.sidebar-collapsed .sidebar-toggle svg,
+.sidebar-collapsed-init .sidebar-toggle svg {
   transform: rotate(180deg);
 }
 
@@ -800,7 +803,7 @@ img {
     transform var(--transition-fast),
     color var(--transition-fast);
   font-size: 0.9375rem;
-  color: var(--text-color);
+  color: var (--text-color);
 }
 
 .toc-list a:hover {
@@ -1111,7 +1114,7 @@ h6:hover .copy-link {
     top: 70px;
     left: 0;
     background-color: var(--header-bg);
-    color: var(--header-text);
+    color: var (--header-text);
     border-radius: 0 var(--radius-md) var(--radius-md) 0;
     padding: var(--space-2);
     width: 32px;
@@ -1388,7 +1391,7 @@ h6:hover .copy-link {
 }
 
 .option-type {
-  margin-bottom: var(--space-3);
+  margin-bottom: var (--space-3);
 }
 
 .option-description {
