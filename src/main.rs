@@ -1,13 +1,7 @@
 use std::fs;
 
-use anyhow::{
-    Context,
-    Result,
-};
-use log::{
-    info,
-    LevelFilter,
-};
+use anyhow::{Context, Result};
+use log::{info, LevelFilter};
 
 mod cli;
 mod completion;
@@ -17,10 +11,7 @@ mod html;
 mod manpage;
 mod utils;
 
-use cli::{
-    Cli,
-    Commands,
-};
+use cli::{Cli, Commands};
 use config::Config;
 
 fn main() -> Result<()> {
@@ -56,15 +47,19 @@ fn main() -> Result<()> {
                 // Create parent directories if needed
                 if let Some(parent) = output.parent() {
                     if !parent.exists() {
-                        fs::create_dir_all(parent)
-                            .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
+                        fs::create_dir_all(parent).with_context(|| {
+                            format!("Failed to create directory: {}", parent.display())
+                        })?;
                         info!("Created directory: {}", parent.display());
                     }
                 }
 
                 // Generate the config file
                 Config::generate_default_config(format, output).with_context(|| {
-                    format!("Failed to generate configuration file: {}", output.display())
+                    format!(
+                        "Failed to generate configuration file: {}",
+                        output.display()
+                    )
                 })?;
 
                 info!(
@@ -72,15 +67,19 @@ fn main() -> Result<()> {
                      generation."
                 );
                 return Ok(());
-            },
+            }
 
             Commands::Generate {
                 output_dir,
                 completions_only,
                 manpage_only,
             } => {
-                return utils::handle_generate_command(output_dir, *completions_only, *manpage_only);
-            },
+                return utils::handle_generate_command(
+                    output_dir,
+                    *completions_only,
+                    *manpage_only,
+                );
+            }
 
             Commands::Manpage {
                 module_options,
@@ -98,10 +97,10 @@ fn main() -> Result<()> {
                     footer.as_deref(),
                     *section,
                 );
-            },
+            }
 
             // The Html command is handled in Config::load and merge_with_cli
-            Commands::Html { .. } => {},
+            Commands::Html { .. } => {}
         }
     }
 

@@ -1,11 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{
-    Command,
-    CommandFactory,
-    Parser,
-    Subcommand,
-};
+use clap::{Command, CommandFactory, Parser, Subcommand};
 
 /// Command line interface for ndg
 #[derive(Parser, Debug)]

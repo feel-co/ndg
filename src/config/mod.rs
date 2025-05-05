@@ -2,25 +2,13 @@ pub mod templates;
 
 use std::{
     fs,
-    path::{
-        Path,
-        PathBuf,
-    },
+    path::{Path, PathBuf},
 };
 
-use anyhow::{
-    Context,
-    Result,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 
-use crate::cli::{
-    Cli,
-    Commands,
-};
+use crate::cli::{Cli, Commands};
 
 // I know this looks silly, but my understanding is that this is the most
 // type-correct and re-usable way. Functions allow for more complex default
@@ -141,23 +129,17 @@ impl Config {
                     path.display()
                 ))
             },
-            |ext| {
-                match ext.to_str().unwrap_or("").to_lowercase().as_str() {
-                    "json" => {
-                        serde_json::from_str(&content)
-                            .with_context(|| format!("Failed to parse JSON config from {}", path.display()))
-                    },
-                    "toml" => {
-                        toml::from_str(&content)
-                            .with_context(|| format!("Failed to parse TOML config from {}", path.display()))
-                    },
-                    _ => {
-                        Err(anyhow::anyhow!(
-                            "Unsupported config file format: {}",
-                            path.display()
-                        ))
-                    },
-                }
+            |ext| match ext.to_str().unwrap_or("").to_lowercase().as_str() {
+                "json" => serde_json::from_str(&content).with_context(|| {
+                    format!("Failed to parse JSON config from {}", path.display())
+                }),
+                "toml" => toml::from_str(&content).with_context(|| {
+                    format!("Failed to parse TOML config from {}", path.display())
+                }),
+                _ => Err(anyhow::anyhow!(
+                    "Unsupported config file format: {}",
+                    path.display()
+                )),
             },
         )
     }
@@ -170,7 +152,10 @@ impl Config {
                 .with_context(|| format!("Failed to load config from {}", config_path.display()))?
         } else if let Some(discovered_config) = Self::find_config_file() {
             // Found a config file in a standard location
-            log::info!("Using discovered config file: {}", discovered_config.display());
+            log::info!(
+                "Using discovered config file: {}",
+                discovered_config.display()
+            );
             Self::from_file(&discovered_config).with_context(|| {
                 format!(
                     "Failed to load discovered config from {}",

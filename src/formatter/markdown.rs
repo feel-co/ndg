@@ -1,29 +1,13 @@
 use std::{
     collections::HashMap,
     fs,
-    path::{
-        Path,
-        PathBuf,
-    },
+    path::{Path, PathBuf},
     sync::LazyLock,
 };
 
-use anyhow::{
-    Context,
-    Result,
-};
-use log::{
-    debug,
-    trace,
-};
-use pulldown_cmark::{
-    CodeBlockKind,
-    Event,
-    Options,
-    Parser,
-    Tag,
-    TagEnd,
-};
+use anyhow::{Context, Result};
+use log::{debug, trace};
+use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use regex::Regex;
 use walkdir::WalkDir;
 
@@ -31,12 +15,8 @@ use crate::{
     config::Config,
     formatter::markup,
     html::{
-        highlight,
-        template,
-        utils::{
-            escape_html,
-            generate_id,
-        },
+        highlight, template,
+        utils::{escape_html, generate_id},
     },
 };
 
@@ -55,15 +35,20 @@ pub struct Header {
 
 // Define regex pattern groups to organize them by functionality
 // Role and markup patterns
-pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
+pub static ROLE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
 pub static MYST_ROLE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap());
 
 // Terminal and REPL patterns
-pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
-pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
-static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap());
-static REPL_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap());
+pub static COMMAND_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
+pub static REPL_PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
+static PROMPT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap());
+static REPL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap());
 
 // Heading and anchor patterns
 pub static HEADING_ANCHOR: LazyLock<Regex> =
@@ -90,16 +75,20 @@ static LIST_ITEM_ANCHOR_RE: LazyLock<Regex> =
 
 // Option reference patterns
 #[allow(dead_code)]
-static OPTION_REF: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([a-zA-Z][\w\.]+(\.[\w]+)+)`").unwrap());
+static OPTION_REF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"`([a-zA-Z][\w\.]+(\.[\w]+)+)`").unwrap());
 static OPTION_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap());
 
 // Block element patterns
-pub static ADMONITION_START_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^:::\s*\{\.([a-zA-Z]+)(?:\s+#([a-zA-Z0-9_-]+))?\}(.*)$").unwrap());
-pub static ADMONITION_END_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(.*?):::$").unwrap());
+pub static ADMONITION_START_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^:::\s*\{\.([a-zA-Z]+)(?:\s+#([a-zA-Z0-9_-]+))?\}(.*)$").unwrap()
+});
+pub static ADMONITION_END_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(.*?):::$").unwrap());
 pub static FIGURE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r":::\s*\{\.figure(?:\s+#([a-zA-Z0-9_-]+))?\}\s*\n#\s+(.+)\n([\s\S]*?)\s*:::").unwrap()
+    Regex::new(r":::\s*\{\.figure(?:\s+#([a-zA-Z0-9_-]+))?\}\s*\n#\s+(.+)\n([\s\S]*?)\s*:::")
+        .unwrap()
 });
 
 // Definition list patterns
@@ -110,7 +99,8 @@ static DEF_LIST_DEF_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^:   (.+
 
 // Manpage patterns
 #[allow(dead_code)]
-static MANPAGE_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{manpage\}`([^`]+)`").unwrap());
+static MANPAGE_ROLE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\{manpage\}`([^`]+)`").unwrap());
 #[allow(dead_code)]
 static MANPAGE_MARKUP_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap());
@@ -181,7 +171,7 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
                 Err(err) => {
                     debug!("Error loading manpage mappings: {err}");
                     None
-                },
+                }
             }
         })
     } else {
@@ -192,15 +182,17 @@ pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
     let (html_content, headers, title) = process_markdown(&content, manpage_urls.as_ref(), config);
 
     // Get the input directory from config or return an error
-    let input_dir = config
-        .input_dir
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("Cannot process markdown file: input directory is not configured"))?;
+    let input_dir = config.input_dir.as_ref().ok_or_else(|| {
+        anyhow::anyhow!("Cannot process markdown file: input directory is not configured")
+    })?;
 
     // Determine output path
-    let rel_path = file_path
-        .strip_prefix(input_dir)
-        .with_context(|| format!("Failed to determine relative path for {}", file_path.display()))?;
+    let rel_path = file_path.strip_prefix(input_dir).with_context(|| {
+        format!(
+            "Failed to determine relative path for {}",
+            file_path.display()
+        )
+    })?;
 
     let mut output_path = config.output_dir.join(rel_path);
     output_path.set_extension("html");
@@ -330,14 +322,16 @@ fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, Stri
                 "manpage" => {
                     if let Some(urls) = manpage_urls {
                         if let Some(url) = urls.get(role_content) {
-                            format!("<a href=\"{url}\" class=\"manpage-reference\">{role_content}</a>")
+                            format!(
+                                "<a href=\"{url}\" class=\"manpage-reference\">{role_content}</a>"
+                            )
                         } else {
                             format!("<span class=\"manpage-reference\">{role_content}</span>")
                         }
                     } else {
                         format!("<span class=\"manpage-reference\">{role_content}</span>")
                     }
-                },
+                }
                 "command" => format!("<code class=\"command\">{role_content}</code>"),
                 "env" => format!("<code class=\"env-var\">{role_content}</code>"),
                 "file" => format!("<code class=\"file-path\">{role_content}</code>"),
@@ -360,7 +354,9 @@ fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, Stri
     result = REPL_PROMPT
         .replace_all(&result, |caps: &regex::Captures| {
             let expr = &caps[1];
-            format!("<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {expr}</code>")
+            format!(
+                "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {expr}</code>"
+            )
         })
         .into_owned();
 
@@ -388,7 +384,9 @@ fn preprocess_block_elements(content: &str) -> String {
             let processed_content = process_markdown_content(content);
 
             // Create the figure element
-            let id_attr = id.as_ref().map_or(String::new(), |id| format!(" id=\"{id}\""));
+            let id_attr = id
+                .as_ref()
+                .map_or(String::new(), |id| format!(" id=\"{id}\""));
             processed_lines.push(format!(
                 "<figure{id_attr}>\n<figcaption>{title}</figcaption>\n{processed_content}\n</figure>"
             ));
@@ -414,7 +412,9 @@ fn preprocess_block_elements(content: &str) -> String {
             let def_line = lines.next().unwrap();
             let definition = &def_line[4..];
 
-            processed_lines.push(format!("<dl>\n<dt>{term}</dt>\n<dd>{definition}</dd>\n</dl>"));
+            processed_lines.push(format!(
+                "<dl>\n<dt>{term}</dt>\n<dd>{definition}</dd>\n</dl>"
+            ));
             continue;
         }
 
@@ -423,8 +423,11 @@ fn preprocess_block_elements(content: &str) -> String {
             // Start of a new admonition
             if in_admonition {
                 // Close previous admonition
-                let processed_adm =
-                    process_admonition(&current_adm_type, current_adm_id.as_deref(), &admonition_content);
+                let processed_adm = process_admonition(
+                    &current_adm_type,
+                    current_adm_id.as_deref(),
+                    &admonition_content,
+                );
                 processed_lines.push(processed_adm);
                 admonition_content.clear();
             }
@@ -445,8 +448,11 @@ fn preprocess_block_elements(content: &str) -> String {
                 }
 
                 // Process the admonition
-                let processed_adm =
-                    process_admonition(&current_adm_type, current_adm_id.as_deref(), &admonition_content);
+                let processed_adm = process_admonition(
+                    &current_adm_type,
+                    current_adm_id.as_deref(),
+                    &admonition_content,
+                );
                 processed_lines.push(processed_adm);
                 admonition_content.clear();
                 in_admonition = false;
@@ -467,8 +473,11 @@ fn preprocess_block_elements(content: &str) -> String {
                     admonition_content.push('\n');
                 }
 
-                let processed_adm =
-                    process_admonition(&current_adm_type, current_adm_id.as_deref(), &admonition_content);
+                let processed_adm = process_admonition(
+                    &current_adm_type,
+                    current_adm_id.as_deref(),
+                    &admonition_content,
+                );
                 processed_lines.push(processed_adm);
                 admonition_content.clear();
                 in_admonition = false;
@@ -486,8 +495,11 @@ fn preprocess_block_elements(content: &str) -> String {
 
     // Close any open admonition
     if in_admonition {
-        let processed_adm =
-            process_admonition(&current_adm_type, current_adm_id.as_deref(), &admonition_content);
+        let processed_adm = process_admonition(
+            &current_adm_type,
+            current_adm_id.as_deref(),
+            &admonition_content,
+        );
         processed_lines.push(processed_adm);
     }
 
@@ -570,7 +582,7 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
                 if let CodeBlockKind::Fenced(lang) = kind {
                     code_block_lang.push_str(lang.as_ref());
                 }
-            },
+            }
             Event::End(TagEnd::CodeBlock) => {
                 in_code_block = false;
 
@@ -601,19 +613,22 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
                     escape_html(&code_block_content, &mut html_output);
                     html_output.push_str("</code></pre>");
                 }
-            },
+            }
             Event::Text(text) => {
                 if in_code_block {
                     code_block_content.push_str(text.as_ref());
                 } else {
-                    pulldown_cmark::html::push_html(&mut html_output, std::iter::once(Event::Text(text)));
+                    pulldown_cmark::html::push_html(
+                        &mut html_output,
+                        std::iter::once(Event::Text(text)),
+                    );
                 }
-            },
+            }
             _ => {
                 if !in_code_block {
                     pulldown_cmark::html::push_html(&mut html_output, std::iter::once(event));
                 }
-            },
+            }
         }
     }
 
@@ -644,7 +659,9 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     // Process REPL prompts
     result = process_html_elements(&result, &REPL_RE, |caps| {
         let content = &caps[1];
-        format!("<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {content}</code>")
+        format!(
+            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {content}</code>"
+        )
     });
 
     // Process option references
@@ -775,7 +792,10 @@ fn humanize_anchor_id(anchor: &str) -> String {
 }
 
 /// Process manpage roles in the HTML
-pub fn process_manpage_roles(html: String, manpage_urls: Option<&HashMap<String, String>>) -> String {
+pub fn process_manpage_roles(
+    html: String,
+    manpage_urls: Option<&HashMap<String, String>>,
+) -> String {
     markup::process_manpage_references(html, manpage_urls, true)
 }
 
@@ -863,10 +883,10 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
         match event {
             Event::Start(Tag::CodeBlock(_)) => {
                 in_code_block = true;
-            },
+            }
             Event::End(TagEnd::CodeBlock) => {
                 in_code_block = false;
-            },
+            }
             Event::Start(Tag::Heading { level, .. }) if !in_code_block => {
                 // Only process headers outside of code blocks
                 in_header = true;
@@ -879,10 +899,10 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
                     pulldown_cmark::HeadingLevel::H6 => 6,
                 };
                 current_header_text.clear();
-            },
+            }
             Event::Text(text) | Event::Code(text) if in_header => {
                 current_header_text.push_str(text.as_ref());
-            },
+            }
             Event::End(TagEnd::Heading(_)) if in_header => {
                 in_header = false;
 
@@ -899,8 +919,8 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
                     level: current_level,
                     id,
                 });
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
@@ -933,7 +953,7 @@ pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
                 Err(err) => {
                     debug!("Error loading manpage mappings: {err}");
                     None
-                },
+                }
             }
         } else {
             None
