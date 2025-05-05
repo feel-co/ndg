@@ -41,6 +41,7 @@ ndg has several subcommands to handle different documentation tasks:
 Usage: ndg [OPTIONS] [COMMAND]
 
 Commands:
+  init      Initialize a new NDG configuration file
   generate  Generate shell completions and manpages for ndg itself
   html      Generate HTML documentation from markdown files and/or module options
   manpage   Generate manpage from module options
@@ -53,6 +54,34 @@ Options:
   -V, --version               Print version
 ```
 
+### Getting Started with Configuration
+
+The easiest way to get started with ndg is to use the `init` command to generate a default configuration file:
+
+```bash
+# Generate a default ndg.toml configuration file
+ndg init
+
+# Generate a JSON configuration file instead
+ndg init --format json --output ndg.json
+
+# Generate in a specific location
+ndg init --output configs/ndg.toml
+```
+
+This will create a well-documented configuration file with all available options and their default values. You can then edit this file to customize your documentation generation process.
+
+The generated configuration includes detailed comments for each option, making it easy to understand what each setting does without needing to refer to the documentation.
+
+Once you have a configuration file, ndg will automatically detect it when run from the same directory, or you can specify it explicitly with the `--config` option:
+
+```bash
+# Run with automatically detected config
+ndg html
+
+# Run with explicitly specified config
+ndg html --config path/to/ndg.toml
+```
 
 The first subcommand in ndg's compartmentalized architecture is for
 HTML generation. The `html` subcommand includes the following options:
