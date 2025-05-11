@@ -19,6 +19,10 @@ static PROMPT_RE: LazyLock<Regex> =
 static REPL_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap());
 
+// GitHub Flavored Markdown autolink patterns
+pub static AUTOLINK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(https?://[^\s<>]+)").unwrap());
+
 // Inline code pattern
 pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([^`]+)`").unwrap());
 

@@ -372,7 +372,65 @@ fn preprocess_block_elements(content: &str) -> String {
     let mut current_adm_type = String::new();
     let mut current_adm_id = None;
 
+    // For GitHub-style callouts
+    // XXX: This was, by far, the cheapest implementation for this. Surprisingly.
+    let mut in_github_callout = false;
+    let mut github_callout_type = String::new();
+    let mut github_callout_content = String::new();
+    let github_callout_pattern =
+        regex::Regex::new(r"^\s*>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION|DANGER)\](.*)$")
+            .unwrap();
+
     while let Some(line) = lines.next() {
+        // Process GitHub-style callouts (> [!NOTE] format)
+        if let Some(caps) = github_callout_pattern.captures(line) {
+            if in_github_callout {
+                // Close previous callout
+                let processed_callout = process_admonition(
+                    &github_callout_type.to_lowercase(),
+                    None,
+                    &github_callout_content,
+                );
+                processed_lines.push(processed_callout);
+                github_callout_content.clear();
+            }
+
+            in_github_callout = true;
+            github_callout_type = caps.get(1).unwrap().as_str().to_string();
+            github_callout_content.clear();
+
+            // Add any content on the same line as the callout
+            let content_part = caps.get(2).map_or("", |m| m.as_str()).trim();
+            if !content_part.is_empty() {
+                github_callout_content.push_str(content_part);
+                github_callout_content.push('\n');
+            }
+            continue;
+        }
+
+        // Continue a GitHub-style callout
+        if in_github_callout {
+            // Check if line continues the callout (starts with >)
+            if line.trim_start().starts_with('>') {
+                // Extract content after the >
+                let content = line.trim_start().trim_start_matches('>').trim_start();
+                github_callout_content.push_str(content);
+                github_callout_content.push('\n');
+                continue;
+            } else {
+                // End of callout
+                let processed_callout = process_admonition(
+                    &github_callout_type.to_lowercase(),
+                    None,
+                    &github_callout_content,
+                );
+                processed_lines.push(processed_callout);
+                github_callout_content.clear();
+                in_github_callout = false;
+                // Continue processing the current line normally
+            }
+        }
+
         // Process figures
         if let Some(captures) = FIGURE_RE.captures(line) {
             // Collect figure content
@@ -503,6 +561,16 @@ fn preprocess_block_elements(content: &str) -> String {
         processed_lines.push(processed_adm);
     }
 
+    // Close any open GitHub callout
+    if in_github_callout {
+        let processed_callout = process_admonition(
+            &github_callout_type.to_lowercase(),
+            None,
+            &github_callout_content,
+        );
+        processed_lines.push(processed_callout);
+    }
+
     processed_lines.join("\n")
 }
 
@@ -557,6 +625,8 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_SMART_PUNCTUATION);
+    // GitHub Flavored Markdown specific options
+    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
     // Create parser
     let parser = Parser::new_ext(markdown, options);
@@ -732,6 +802,9 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
         format!("<a href=\"{anchor}\">{display_text}</a>")
     });
 
+    // Process GitHub Flavored Markdown autolinks
+    result = process_autolinks(result);
+
     result
 }
 
@@ -900,10 +973,10 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
                 };
                 current_header_text.clear();
             }
-            Event::Text(text) | Event::Code(text) if in_header => {
+            Event::Text(text) | Event::Code(text) if in_header && !in_code_block => {
                 current_header_text.push_str(text.as_ref());
             }
-            Event::End(TagEnd::Heading(_)) if in_header => {
+            Event::End(TagEnd::Heading(_)) if in_header && !in_code_block => {
                 in_header = false;
 
                 // Generate ID
@@ -964,4 +1037,81 @@ pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
 
     let (html, ..) = process_markdown(markdown, manpage_urls.as_ref(), config);
     html
+}
+
+/// Process GitHub Flavored Markdown autolinks
+fn process_autolinks(html: String) -> String {
+    // Process any text outside of HTML tags and code blocks
+    let mut result = String::new();
+    let mut in_tag = false;
+    let mut in_code = false;
+    let mut current_text = String::new();
+
+    let chars: Vec<char> = html.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        let c = chars[i];
+
+        match c {
+            '<' => {
+                // Process any accumulated text before starting a tag
+                if !in_tag && !in_code && !current_text.is_empty() {
+                    let processed = markup::AUTOLINK_PATTERN.replace_all(
+                        &current_text,
+                        |caps: &regex::Captures| {
+                            let url = &caps[1];
+                            format!("<a href=\"{url}\">{url}</a>")
+                        },
+                    );
+                    result.push_str(&processed);
+                    current_text.clear();
+                }
+                in_tag = true;
+                result.push(c);
+            }
+            '>' => {
+                in_tag = false;
+                result.push(c);
+
+                // Safe way to check for code tags
+                let result_str = result.as_str();
+                let check_len = result_str.len();
+                let start_idx = if check_len > 6 { check_len - 6 } else { 0 };
+                let end_idx = if check_len > 7 { check_len - 7 } else { 0 };
+
+                // Check if we're entering a code block
+                if check_len >= 6 && result_str[start_idx..].ends_with("<code") {
+                    in_code = true;
+                }
+                // Check if we're leaving a code block
+                else if check_len >= 7 && result_str[end_idx..].ends_with("</code>") {
+                    in_code = false;
+                }
+            }
+            _ => {
+                if in_tag || in_code {
+                    // Inside tags or code, don't process
+                    result.push(c);
+                } else {
+                    // Collect text for processing
+                    current_text.push(c);
+                }
+            }
+        }
+
+        i += 1;
+    }
+
+    // Process any remaining text
+    if !current_text.is_empty() {
+        let processed =
+            markup::AUTOLINK_PATTERN.replace_all(&current_text, |caps: &regex::Captures| {
+                let url = &caps[1];
+                format!("<a href=\"{url}\">{url}</a>")
+            });
+        result.push_str(&processed);
+    }
+
+    result
 }
