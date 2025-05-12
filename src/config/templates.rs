@@ -14,7 +14,7 @@ pub enum TemplateError {
 impl fmt::Display for TemplateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnsupportedFormat(format) => write!(f, "Unsupported config format: {}", format),
+            Self::UnsupportedFormat(format) => write!(f, "Unsupported config format: {format}"),
         }
     }
 }
