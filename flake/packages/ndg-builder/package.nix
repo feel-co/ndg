@@ -37,6 +37,7 @@
   verbose ? true,
   manpageUrls ? null,
   optionsDepth ? 2,
+  generateSearch ? true,
 } @ args: let
   inherit (lib.asserts) assertMsg;
 in
@@ -64,5 +65,6 @@ in
       + optionalString (stylesheet != null) ''--stylesheet ${toString stylesheet} \''
       + optionalString (inputDir != null) ''--input-dir ${inputDir} \''
       + optionalString (manpageUrls != null) ''--manpage-urls ${manpageUrls} \''
+      + optionalString generateSearch ''--generate-search true \''
       + "--options-depth ${toString optionsDepth}"
     )
