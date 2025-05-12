@@ -41,7 +41,10 @@ static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
 // Inline code
 #[allow(dead_code)]
 static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"`([^`\n]+)`(?!`)").unwrap_or_else(|e| {
+    // Replace the problematic look-ahead pattern with a simpler pattern
+    // This captures single backtick code blocks but might need post-processing
+    // to filter out cases where there might be double backticks
+    Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
         error!("Failed to compile INLINE_CODE regex in manpage/options.rs: {e}");
         markup::never_matching_regex()
     })

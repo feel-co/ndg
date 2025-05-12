@@ -416,21 +416,45 @@ fn generate_doc_nav(config: &Config) -> String {
 
 /// Generate custom scripts HTML
 fn generate_custom_scripts(config: &Config) -> Result<String> {
-    let mut custom_scripts =
-        String::with_capacity(config.script_paths.iter().fold(0, |acc, path| {
-            if path.exists() {
-                acc + 1000 // FIXME: Rough estimate for script size
-            } else {
-                acc
-            }
-        }));
+    let mut custom_scripts = String::new();
 
-    for script_path in &config.script_paths {
+    // Add the default search.js script if search is enabled
+    if config.generate_search {
+        // Verify that search.js will be included in assets
+        if !config
+            .get_template_file("search.js")
+            .is_some_and(|p| p.exists())
+        {
+            log::debug!("No custom search script found, using built-in template");
+            log::debug!("Using built-in search.js template - no custom search.js found");
+        }
+
+        // Add the script reference. The creation of this file is handled by the
+        // the `copy_assets` function in the utils module.
+        writeln!(custom_scripts, "<script src=\"assets/search.js\"></script>").unwrap();
+    }
+
+    // Add any user scripts from script_paths. This is additive, not replacing. To replace
+    // default content, the user should specify `--template-dir` or `--template` instead.
+    for (index, script_path) in config.script_paths.iter().enumerate() {
         if script_path.exists() {
+            // Only include scripts that actually exist
             let script_content = fs::read_to_string(script_path).with_context(|| {
                 format!("Failed to read script file: {}", script_path.display())
             })?;
+
+            writeln!(
+                custom_scripts,
+                "\n<!-- Custom script {} from: {} -->",
+                index + 1,
+                script_path.display()
+            )
+            .unwrap();
             writeln!(custom_scripts, "<script>{script_content}</script>").unwrap();
+        } else {
+            // Missing scripts are technically harmless, so they are not worth bailing out. We should, however
+            // still log a warning for scripts that don't exist.
+            log::warn!("Script file not found: {}", script_path.display());
         }
     }
 

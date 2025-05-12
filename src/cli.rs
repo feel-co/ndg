@@ -74,9 +74,10 @@ pub enum Commands {
         #[arg(long = "template-dir")]
         template_dir: Option<PathBuf>,
 
-        /// Path to custom stylesheet
-        #[arg(short, long)]
-        stylesheet: Option<PathBuf>,
+        /// Path to custom stylesheet. This can be specified multiple times to
+        /// include multiple stylesheets in order.
+        #[arg(short, long, action = clap::ArgAction::Append)]
+        stylesheet: Vec<PathBuf>,
 
         /// Path to custom Javascript file to include. This can be specified
         /// multiple times to create multiple script tags in order.

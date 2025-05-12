@@ -65,9 +65,9 @@ pub struct Config {
     #[serde(default)]
     pub template_dir: Option<PathBuf>,
 
-    /// Path to custom stylesheet
+    /// Paths to custom stylesheets
     #[serde(default)]
-    pub stylesheet_path: Option<PathBuf>,
+    pub stylesheet_paths: Vec<PathBuf>,
 
     /// Paths to custom JavaScript files
     #[serde(default)]
@@ -248,8 +248,9 @@ impl Config {
                 self.template_dir = Some(template_dir.clone());
             }
 
-            if let Some(stylesheet) = stylesheet {
-                self.stylesheet_path = Some(stylesheet.clone());
+            // Append stylesheet paths rather than replacing them
+            if !stylesheet.is_empty() {
+                self.stylesheet_paths.extend(stylesheet.iter().cloned());
             }
 
             // Append script paths rather than replacing them
@@ -419,15 +420,17 @@ impl Config {
         }
 
         // Stylesheet should exist if specified
-        if let Some(ref stylesheet_path) = self.stylesheet_path {
+        for (index, stylesheet_path) in self.stylesheet_paths.iter().enumerate() {
             if !stylesheet_path.exists() {
                 errors.push(format!(
-                    "Stylesheet file does not exist: {}",
+                    "Stylesheet file {} does not exist: {}",
+                    index + 1,
                     stylesheet_path.display()
                 ));
             } else if !stylesheet_path.is_file() {
                 errors.push(format!(
-                    "Stylesheet path is not a file: {}",
+                    "Stylesheet path {} is not a file: {}",
+                    index + 1,
                     stylesheet_path.display()
                 ));
             }

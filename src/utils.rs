@@ -88,37 +88,64 @@ fn copy_script_files(config: &Config, assets_dir: &Path) -> Result<()> {
 
 /// Generate CSS from stylesheet
 fn generate_css(config: &Config) -> Result<String> {
-    // Check for custom stylesheet
-    if let Some(stylesheet_path) = &config.stylesheet_path {
-        if stylesheet_path.exists() {
-            let content = fs::read_to_string(stylesheet_path).with_context(|| {
-                format!("Failed to read stylesheet: {}", stylesheet_path.display())
-            })?;
+    // Start with the default CSS (always included)
+    let mut combined_css = String::from(DEFAULT_CSS);
 
-            // Process SCSS if needed
-            if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
-                return grass::from_string(content, &grass::Options::default())
-                    .context("Failed to compile SCSS to CSS");
-            }
-            return Ok(content);
-        }
-    }
-
-    // Fall back to template CSS if available
+    // Add custom CSS from template if available
     if let Some(template_path) = config.get_template_path() {
         let template_css_path = template_path.join("default.css");
-        if template_css_path.exists() {
-            return fs::read_to_string(&template_css_path).with_context(|| {
+        if template_css_path.exists() && template_css_path.to_string_lossy() != DEFAULT_CSS {
+            let template_css = fs::read_to_string(&template_css_path).with_context(|| {
                 format!(
                     "Failed to read template CSS: {}",
                     template_css_path.display()
                 )
-            });
+            })?;
+
+            combined_css.push_str("\n\n/* Template CSS: ");
+            combined_css.push_str(&template_css_path.display().to_string());
+            combined_css.push_str(" */\n");
+            combined_css.push_str(&template_css);
         }
     }
 
-    // Fall back to embedded default
-    Ok(DEFAULT_CSS.to_string())
+    // Add any custom stylesheets provided via --stylesheet
+    if !config.stylesheet_paths.is_empty() {
+        // Process each stylesheet in order
+        for (index, stylesheet_path) in config.stylesheet_paths.iter().enumerate() {
+            if stylesheet_path.exists() {
+                let content = fs::read_to_string(stylesheet_path).with_context(|| {
+                    format!(
+                        "Failed to read stylesheet {}: {}",
+                        index + 1,
+                        stylesheet_path.display()
+                    )
+                })?;
+
+                // Process SCSS if needed
+                let processed_content = if stylesheet_path
+                    .extension()
+                    .is_some_and(|ext| ext == "scss")
+                {
+                    grass::from_string(content.clone(), &grass::Options::default()).with_context(
+                        || format!("Failed to compile SCSS to CSS for stylesheet {}", index + 1),
+                    )?
+                } else {
+                    content
+                };
+
+                // Add a comment to separate multiple stylesheets
+                combined_css.push_str("\n\n/* Custom Stylesheet ");
+                combined_css.push_str(&(index + 1).to_string());
+                combined_css.push_str(": ");
+                combined_css.push_str(&stylesheet_path.display().to_string());
+                combined_css.push_str(" */\n");
+                combined_css.push_str(&processed_content);
+            }
+        }
+    }
+
+    Ok(combined_css)
 }
 
 /// Handle the generate command

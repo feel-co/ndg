@@ -90,9 +90,9 @@ pub static MANPAGE_REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// It will never match any input, which is safer than using a trivial regex
 /// like `^$` which would match empty strings.
 pub fn never_matching_regex() -> Regex {
-    // Using a zero-width negative lookahead assertion with a pattern that always matches
+    // Use a pattern that will never match anything
     // This regex will never match anything because it asserts something impossible
-    Regex::new(r"(?!.)").expect("Failed to compile never-matching regex")
+    Regex::new(r"[^\s\S]").expect("Failed to compile never-matching regex")
 }
 
 /// Apply a regex transformation to HTML elements using the provided function
