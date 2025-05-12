@@ -4,21 +4,21 @@ use std::{collections::HashMap, sync::LazyLock};
 
 use regex::Regex;
 
-use crate::formatter;
+use crate::formatter::{self, markup};
 pub use crate::manpage::options::generate_manpage;
 
 // These patterns need to be applied sequentially to preserve troff formatting codes
 pub static TROFF_FORMATTING: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\\f[PBIR]").unwrap_or_else(|e| {
         log::error!("Failed to compile TROFF_FORMATTING regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
 pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\\[\(\[\\\.]").unwrap_or_else(|e| {
         log::error!("Failed to compile TROFF_ESCAPE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 

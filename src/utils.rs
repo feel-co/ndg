@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fmt::Write, fs, path::Path};
 
 use anyhow::{Context, Result};
 use log::{debug, info};
@@ -206,7 +206,6 @@ pub fn create_fallback_index(config: &Config, markdown_files: &[std::path::PathB
                     // Get page title from first heading or filename
                     let page_title = extract_page_title(file_path, &html_path);
 
-                    use std::fmt::Write;
                     writeln!(
                         file_list,
                         "  <li><a href=\"{}\">{}</a></li>",

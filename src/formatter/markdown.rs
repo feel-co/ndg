@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
+    fmt::Write,
     fs,
+    iter::Peekable,
     path::{Path, PathBuf},
+    str::Lines,
     sync::LazyLock,
 };
 
@@ -38,14 +41,14 @@ pub struct Header {
 pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile ROLE_PATTERN regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
 pub static MYST_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap_or_else(|e| {
         error!("Failed to compile MYST_ROLE_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -53,28 +56,28 @@ pub static MYST_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
 pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile COMMAND_PROMPT regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
 pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile REPL_PROMPT regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
 static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap_or_else(|e| {
         error!("Failed to compile PROMPT_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
 static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap_or_else(|e| {
         error!("Failed to compile REPL_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -82,7 +85,7 @@ static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
 pub static HEADING_ANCHOR: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap_or_else(|e| {
         error!("Failed to compile HEADING_ANCHOR regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 pub static INLINE_ANCHOR: LazyLock<Regex> =
@@ -296,7 +299,6 @@ fn preprocess_inline_anchors(content: &str) -> String {
             let content = caps.get(3).unwrap().as_str();
 
             // Use a span tag that will be preserved in the HTML output
-            use std::fmt::Write;
             writeln!(
                 result,
                 "{list_marker} <span id=\"{id}\" class=\"nixos-anchor\"></span>{content}"
@@ -326,7 +328,10 @@ fn preprocess_headers(content: &str) -> String {
         if let Some(caps) = HEADING_ANCHOR.captures(line) {
             let level_signs = caps.get(1).map_or("", |m| m.as_str());
             let text = caps.get(2).unwrap().as_str();
-            let id = caps.get(3).unwrap().as_str();
+            let id = caps.get(3).map_or_else(
+                || generate_id(text),
+                |explicit_id| explicit_id.as_str().to_string(),
+            );
 
             // If there's no level sign, assume it's an h2
             if level_signs.is_empty() {
@@ -352,17 +357,11 @@ fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, Stri
 
             match role_type {
                 "manpage" => {
-                    if let Some(urls) = manpage_urls {
-                        if let Some(url) = urls.get(role_content) {
-                            format!(
-                                "<a href=\"{url}\" class=\"manpage-reference\">{role_content}</a>"
-                            )
-                        } else {
-                            format!("<span class=\"manpage-reference\">{role_content}</span>")
-                        }
-                    } else {
-                        format!("<span class=\"manpage-reference\">{role_content}</span>")
-                    }
+                    manpage_urls.map_or_else(|| format!("<span class=\"manpage-reference\">{role_content}</span>"), |urls| {
+                        urls.get(role_content).map_or_else(|| format!("<span class=\"manpage-reference\">{role_content}</span>"), |url| {
+                            format!("<a href=\"{url}\" class=\"manpage-reference\">{role_content}</a>")
+                        })
+                    })
                 }
                 "command" => format!("<code class=\"command\">{role_content}</code>"),
                 "env" => format!("<code class=\"env-var\">{role_content}</code>"),
@@ -399,6 +398,12 @@ fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, Stri
 fn preprocess_block_elements(content: &str) -> String {
     let mut processed_lines = Vec::new();
     let mut lines = content.lines().peekable();
+    process_admonitions(&mut lines, &mut processed_lines);
+    processed_lines.join("\n")
+}
+
+fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<String>) {
+    // Extracted logic for processing admonitions
     let mut in_admonition = false;
     let mut admonition_content = String::new();
     let mut current_adm_type = String::new();
@@ -449,18 +454,16 @@ fn preprocess_block_elements(content: &str) -> String {
                 github_callout_content.push_str(content);
                 github_callout_content.push('\n');
                 continue;
-            } else {
-                // End of callout
-                let processed_callout = process_admonition(
-                    &github_callout_type.to_lowercase(),
-                    None,
-                    &github_callout_content,
-                );
-                processed_lines.push(processed_callout);
-                github_callout_content.clear();
-                in_github_callout = false;
-                // Continue processing the current line normally
             }
+            // End of callout
+            let processed_callout = process_admonition(
+                &github_callout_type.to_lowercase(),
+                None,
+                &github_callout_content,
+            );
+            processed_lines.push(processed_callout);
+            github_callout_content.clear();
+            in_github_callout = false;
         }
 
         // Process figures
@@ -602,8 +605,6 @@ fn preprocess_block_elements(content: &str) -> String {
         );
         processed_lines.push(processed_callout);
     }
-
-    processed_lines.join("\n")
 }
 
 /// Process markdown content for use in admonitions and other block elements
@@ -660,7 +661,6 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
             options.insert(Options::ENABLE_FOOTNOTES);
             options.insert(Options::ENABLE_STRIKETHROUGH);
             options.insert(Options::ENABLE_TASKLISTS);
-            options.insert(Options::ENABLE_SMART_PUNCTUATION);
             // GitHub Flavored Markdown specific options
             options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
@@ -854,7 +854,7 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     });
 
     // Process GitHub Flavored Markdown autolinks
-    result = process_autolinks(result);
+    result = process_autolinks(&result);
 
     result
 }
@@ -968,11 +968,10 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
             let text = caps[2].trim().to_string();
 
             // Use explicit anchor if provided, otherwise generate one
-            let id = if let Some(explicit_id) = caps.get(3) {
-                explicit_id.as_str().to_string()
-            } else {
-                generate_id(&text)
-            };
+            let id = caps.get(3).map_or_else(
+                || generate_id(&text),
+                |explicit_id| explicit_id.as_str().to_string(),
+            );
 
             // Set title from first h1
             if level == 1 && title.is_none() {
@@ -1071,7 +1070,7 @@ fn load_manpage_urls(path: &Path) -> Result<HashMap<String, String>> {
 pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
     // Load manpage URL mappings if needed
     let manpage_urls = if markdown.contains("{manpage}") {
-        if let Some(mappings_path) = &config.manpage_urls_path {
+        config.manpage_urls_path.as_ref().and_then(|mappings_path| {
             match load_manpage_urls(mappings_path) {
                 Ok(mappings) => Some(mappings),
                 Err(err) => {
@@ -1079,9 +1078,7 @@ pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
                     None
                 }
             }
-        } else {
-            None
-        }
+        })
     } else {
         None
     };
@@ -1091,7 +1088,7 @@ pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
 }
 
 /// Process GitHub Flavored Markdown autolinks
-fn process_autolinks(html: String) -> String {
+fn process_autolinks(html: &str) -> String {
     // Process any text outside of HTML tags and code blocks
     let mut result = String::with_capacity(html.len());
     let mut in_tag = false;
@@ -1100,7 +1097,7 @@ fn process_autolinks(html: String) -> String {
 
     // Uses char iterator instead of indexing to for proper UTF-8 handling
     // FIXME: this is probably not how we want to handle this.
-    let chars = html.chars().peekable();
+    let chars = html.chars();
 
     for c in chars {
         match c {

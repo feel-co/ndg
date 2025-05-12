@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fmt::Write, fs, path::Path};
 
 use anyhow::{Context, Result};
 use tera::Tera;
@@ -43,19 +43,19 @@ pub fn render(
     let custom_scripts = generate_custom_scripts(config)?;
 
     // Create context
-    let mut context = tera::Context::new();
-    context.insert("content", content);
-    context.insert("title", title);
-    context.insert("site_title", &config.title);
-    context.insert("footer_text", &config.footer_text);
-    context.insert("toc", &toc);
-    context.insert("doc_nav", &doc_nav);
-    context.insert("has_options", has_options);
-    context.insert("custom_scripts", &custom_scripts);
-    context.insert("generate_search", &config.generate_search);
+    let mut tera_context = tera::Context::new();
+    tera_context.insert("content", content);
+    tera_context.insert("title", title);
+    tera_context.insert("site_title", &config.title);
+    tera_context.insert("footer_text", &config.footer_text);
+    tera_context.insert("toc", &toc);
+    tera_context.insert("doc_nav", &doc_nav);
+    tera_context.insert("has_options", has_options);
+    tera_context.insert("custom_scripts", &custom_scripts);
+    tera_context.insert("generate_search", &config.generate_search);
 
     // Render the template
-    let html = tera.render("default", &context)?;
+    let html = tera.render("default", &tera_context)?;
     Ok(html)
 }
 
@@ -83,20 +83,20 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     let custom_scripts = generate_custom_scripts(config)?;
 
     // Create context
-    let mut context = tera::Context::new();
-    context.insert("title", &format!("{} - Options", config.title));
-    context.insert("site_title", &config.title);
-    context.insert("heading", &format!("{} Options", config.title));
-    context.insert("options", &options_html);
-    context.insert("footer_text", &config.footer_text);
-    context.insert("custom_scripts", &custom_scripts);
-    context.insert("doc_nav", &doc_nav);
-    context.insert("has_options", "class=\"active\"");
-    context.insert("toc", &options_toc);
-    context.insert("generate_search", &config.generate_search);
+    let mut tera_context = tera::Context::new();
+    tera_context.insert("title", &format!("{} - Options", config.title));
+    tera_context.insert("site_title", &config.title);
+    tera_context.insert("heading", &format!("{} Options", config.title));
+    tera_context.insert("options", &options_html);
+    tera_context.insert("footer_text", &config.footer_text);
+    tera_context.insert("custom_scripts", &custom_scripts);
+    tera_context.insert("doc_nav", &doc_nav);
+    tera_context.insert("has_options", "class=\"active\"");
+    tera_context.insert("toc", &options_toc);
+    tera_context.insert("generate_search", &config.generate_search);
 
     // Render the template
-    let html = tera.render("options", &context)?;
+    let html = tera.render("options", &tera_context)?;
     Ok(html)
 }
 
@@ -233,12 +233,12 @@ fn generate_options_toc(
         }
     });
 
-    let mut context = tera::Context::new();
-    context.insert("single_options", &single_options);
-    context.insert("dropdown_categories", &dropdown_categories);
+    let mut tera_context = tera::Context::new();
+    tera_context.insert("single_options", &single_options);
+    tera_context.insert("dropdown_categories", &dropdown_categories);
 
     // Render the template
-    let rendered = tera.render("options_toc", &context)?;
+    let rendered = tera.render("options_toc", &tera_context)?;
 
     Ok(rendered)
 }
@@ -283,19 +283,19 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     };
 
     // Create Tera context
-    let mut template_context = tera::Context::new();
-    template_context.insert("title", &title_str);
-    template_context.insert("site_title", &config.title);
-    template_context.insert("heading", "Search");
-    template_context.insert("footer_text", &config.footer_text);
-    template_context.insert("custom_scripts", &custom_scripts);
-    template_context.insert("doc_nav", &doc_nav);
-    template_context.insert("has_options", has_options);
-    template_context.insert("toc", ""); // No TOC for search page
-    template_context.insert("generate_search", &true); // Always true for search page
+    let mut tera_context = tera::Context::new();
+    tera_context.insert("title", &title_str);
+    tera_context.insert("site_title", &config.title);
+    tera_context.insert("heading", "Search");
+    tera_context.insert("footer_text", &config.footer_text);
+    tera_context.insert("custom_scripts", &custom_scripts);
+    tera_context.insert("doc_nav", &doc_nav);
+    tera_context.insert("has_options", has_options);
+    tera_context.insert("toc", ""); // No TOC for search page
+    tera_context.insert("generate_search", &true); // Always true for search page
 
     // Render the template
-    let html = tera.render("search", &template_context)?;
+    let html = tera.render("search", &tera_context)?;
     Ok(html)
 }
 
@@ -389,7 +389,6 @@ fn generate_doc_nav(config: &Config) -> String {
                         },
                     );
 
-                    use std::fmt::Write;
                     writeln!(
                         doc_nav,
                         "<li><a href=\"{}\">{}</a></li>",
@@ -431,7 +430,6 @@ fn generate_custom_scripts(config: &Config) -> Result<String> {
             let script_content = fs::read_to_string(script_path).with_context(|| {
                 format!("Failed to read script file: {}", script_path.display())
             })?;
-            use std::fmt::Write;
             writeln!(custom_scripts, "<script>{script_content}</script>").unwrap();
         }
     }
@@ -464,7 +462,6 @@ fn generate_toc(headers: &[Header]) -> String {
                 toc.push_str("</li><li>");
             }
 
-            use std::fmt::Write;
             writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, header.text).unwrap();
         }
     }
@@ -494,7 +491,6 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         let option_id = format!("option-{}", option.name.replace('.', "-"));
 
         // Open option container with ID for direct linking
-        use std::fmt::Write;
         writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">").unwrap();
 
         // Option name with anchor link and copy button
@@ -574,7 +570,6 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
 
 /// Add default value to options HTML
 fn add_default_value(html: &mut String, option: &NixOption) {
-    use std::fmt::Write;
     if let Some(default_text) = &option.default_text {
         // Remove surrounding backticks if present (from literalExpression)
         let clean_default = if default_text.starts_with('`')
@@ -602,7 +597,6 @@ fn add_default_value(html: &mut String, option: &NixOption) {
 
 /// Add example value to options HTML
 fn add_example_value(html: &mut String, option: &NixOption) {
-    use std::fmt::Write;
     if let Some(example_text) = &option.example_text {
         // Process the example text to preserve code formatting
         if example_text.contains('\n') {
@@ -652,9 +646,9 @@ fn add_example_value(html: &mut String, option: &NixOption) {
         }
     } else if let Some(example_val) = &option.example {
         let example_str = example_val.to_string();
+        let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
         if example_str.contains('\n') {
             // Multi-line JSON examples need special handling
-            let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
             writeln!(
                 html,
                 "  <div class=\"option-example\">Example: <pre><code>{safe_example}</code></pre></div>"
@@ -662,7 +656,6 @@ fn add_example_value(html: &mut String, option: &NixOption) {
             .unwrap();
         } else {
             // Single-line JSON examples
-            let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
             writeln!(
                 html,
                 "  <div class=\"option-example\">Example: <code>{safe_example}</code></div>"

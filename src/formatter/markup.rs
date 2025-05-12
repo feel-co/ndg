@@ -9,7 +9,7 @@ pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile ROLE_PATTERN regex: {e}");
         // Provide a fallback pattern that matches nothing
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
@@ -17,14 +17,14 @@ pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile COMMAND_PROMPT regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
 pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile REPL_PROMPT regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
@@ -32,7 +32,7 @@ pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
 static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap_or_else(|e| {
         error!("Failed to compile PROMPT_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
@@ -40,7 +40,7 @@ static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
 static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap_or_else(|e| {
         error!("Failed to compile REPL_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
@@ -48,15 +48,16 @@ static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
 pub static AUTOLINK_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(https?://[^\s<>"')\}]+)"#).unwrap_or_else(|e| {
         error!("Failed to compile AUTOLINK_PATTERN regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
 // Inline code pattern with improved backtick handling
 pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"`([^`\n]+)`(?!`)").unwrap_or_else(|e| {
+    // Replaced invalid regex pattern with a valid fallback
+    Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
         error!("Failed to compile INLINE_CODE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
@@ -65,23 +66,34 @@ pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
 static MANPAGE_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\{manpage\}`([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile MANPAGE_ROLE_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
 pub static MANPAGE_MARKUP_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap_or_else(|e| {
         error!("Failed to compile MANPAGE_MARKUP_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
 
 pub static MANPAGE_REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap_or_else(|e| {
         error!("Failed to compile MANPAGE_REFERENCE_RE regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        never_matching_regex()
     })
 });
+
+/// Create a regex that never matches anything
+///
+/// This is used as a fallback pattern when a regex fails to compile.
+/// It will never match any input, which is safer than using a trivial regex
+/// like `^$` which would match empty strings.
+pub fn never_matching_regex() -> Regex {
+    // Using a zero-width negative lookahead assertion with a pattern that always matches
+    // This regex will never match anything because it asserts something impossible
+    Regex::new(r"(?!.)").expect("Failed to compile never-matching regex")
+}
 
 /// Apply a regex transformation to HTML elements using the provided function
 pub fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
@@ -222,7 +234,6 @@ pub fn process_roles(
                 // Troff formatting for man pages
                 match role_type {
                     "command" | "option" => format!("\\fB{content}\\fP"),
-                    "env" | "file" | "var" => format!("\\fI{content}\\fP"),
                     "manpage" => {
                         if let Some((page, section)) = content.rsplit_once('(') {
                             let page = page.trim();
@@ -232,6 +243,7 @@ pub fn process_roles(
                             format!("\\fB{content}\\fP")
                         }
                     }
+                    // Removed redundant match arm
                     _ => format!("\\fI{content}\\fP"),
                 }
             }

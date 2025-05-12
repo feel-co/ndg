@@ -17,7 +17,7 @@ use crate::{
 static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile ROLE_PATTERN regex in manpage/options.rs: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -26,7 +26,7 @@ static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile COMMAND_PROMPT regex in manpage/options.rs: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -34,7 +34,7 @@ static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
 static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile REPL_PROMPT regex in manpage/options.rs: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -43,7 +43,7 @@ static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
 static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`([^`\n]+)`(?!`)").unwrap_or_else(|e| {
         error!("Failed to compile INLINE_CODE regex in manpage/options.rs: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -51,7 +51,7 @@ static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
 static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"</?[a-zA-Z][^>]*>").unwrap_or_else(|e| {
         error!("Failed to compile HTML_TAGS regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -59,7 +59,7 @@ static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
 static ADMONITION_START: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap_or_else(|e| {
         error!("Failed to compile ADMONITION_START regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 // Don't use regex for simple string matching with ADMONITION_END
@@ -68,14 +68,14 @@ static ADMONITION_START: LazyLock<Regex> = LazyLock::new(|| {
 static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap_or_else(|e| {
         error!("Failed to compile LIST_ITEM regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
 static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap_or_else(|e| {
         error!("Failed to compile NUMBERED_LIST_ITEM regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -83,7 +83,7 @@ static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
 static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap_or_else(|e| {
         error!("Failed to compile MARKDOWN_LINK regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -91,7 +91,7 @@ static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
 static PLACEHOLDER_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"__PRESERVED_FORMAT_(\d+)__").unwrap_or_else(|e| {
         error!("Failed to compile PLACEHOLDER_PATTERN regex: {e}");
-        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        markup::never_matching_regex()
     })
 });
 
@@ -101,7 +101,7 @@ static FORMATTING_CODE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\\f[PBIR]|\\f\[[a-zA-Z]+\]|\\[tf].|\\[uU][0-9A-F]{4}|\\[e&\-%\\ ]").unwrap_or_else(
         |e| {
             error!("Failed to compile FORMATTING_CODE regex: {e}");
-            Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+            markup::never_matching_regex()
         },
     )
 });
