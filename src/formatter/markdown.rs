@@ -262,28 +262,101 @@ pub fn process_markdown(
     manpage_urls: Option<&HashMap<String, String>>,
     config: &Config,
 ) -> (String, Vec<Header>, Option<String>) {
-    // 1. Process admonitions, figures, and definition lists
-    let preprocessed = preprocess_block_elements(content);
+    // 1. Process includes
+    let with_includes = process_file_includes(content, config);
 
-    // 2. Process headers with explicit anchors
+    // 2. Process admonitions, figures, and definition lists
+    let preprocessed = preprocess_block_elements(&with_includes);
+
+    // 3. Process headers with explicit anchors
     let with_headers = preprocess_headers(&preprocessed);
 
-    // 3. Process inline anchors in list items
+    // 4. Process inline anchors in list items
     let with_inline_anchors = preprocess_inline_anchors(&with_headers);
 
-    // 4. Process special roles
+    // 5. Process special roles
     let with_roles = process_role_markup(&with_inline_anchors, manpage_urls);
 
-    // 5. Extract headers
+    // 6. Extract headers
     let (headers, title) = extract_headers(&with_roles);
 
-    // 6. Convert standard markdown to HTML
+    // 7. Convert standard markdown to HTML
     let html_output = convert_to_html(&with_roles, config);
 
-    // 7. Process remaining special elements in the HTML
+    // 8. Process remaining special elements in the HTML
     let processed_html = post_process_html(html_output, manpage_urls);
 
     (processed_html, headers, title)
+}
+
+/// Process include directives in markdown files
+fn process_file_includes(content: &str, config: &Config) -> String {
+    let input_dir = match &config.input_dir {
+        Some(dir) => dir,
+        None => return content.to_string(), // no input directory, return original content
+    };
+
+    // Split content into lines for processing
+    let lines: Vec<&str> = content.lines().collect();
+    let mut processed_content = String::with_capacity(content.len() * 2);
+
+    let mut i = 0;
+    let mut in_code_block = false;
+
+    while i < lines.len() {
+        let line = lines[i].trim();
+
+        // Check for code block start/end
+        if line.starts_with("```") {
+            // If this is a start of a code block that might be an include block
+            if !in_code_block && line == "```{=include=}" {
+                i += 1; // skip the opening line
+
+                // Process file includes until we hit the closing backticks
+                while i < lines.len() && lines[i].trim() != "```" {
+                    let file_path = lines[i].trim();
+                    if !file_path.is_empty() {
+                        let full_path = input_dir.join(file_path);
+
+                        match fs::read_to_string(&full_path) {
+                            Ok(file_content) => {
+                                debug!("Including file: {}", full_path.display());
+                                processed_content
+                                    .push_str(&format!("<!-- Begin include: {file_path} -->\n"));
+                                processed_content.push_str(&file_content);
+                                processed_content
+                                    .push_str(&format!("\n<!-- End include: {file_path} -->\n\n"));
+                            }
+                            Err(err) => {
+                                error!("Failed to include file {}: {}", full_path.display(), err);
+                                processed_content.push_str(&format!(
+                                    "**Error: Could not include file `{file_path}`: {err}**\n\n"
+                                ));
+                            }
+                        }
+                    }
+                    i += 1;
+                }
+
+                // Skip the closing backticks
+                if i < lines.len() && lines[i].trim() == "```" {
+                    i += 1;
+                }
+
+                continue;
+            }
+            // Regular code block toggle
+            in_code_block = !in_code_block;
+        }
+
+        // Add the line normally
+        processed_content.push_str(lines[i]);
+        processed_content.push('\n');
+
+        i += 1;
+    }
+
+    processed_content
 }
 
 /// Process inline anchors by wrapping them in a span with appropriate id
