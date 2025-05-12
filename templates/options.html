@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    {% if generate_search %}
+    <script defer src="assets/search.js"></script>
+    {% endif %}
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-left">
+          <h1 class="site-title"><a href="index.html">{{ site_title }}</a></h1>
+        </div>
+        <nav class="header-nav">
+          <ul>
+            <li {{ has_options|safe }}><a href="options.html">Options</a></li>
+            {% if generate_search %}
+            <li><a href="search.html">Search</a></li>
+            {% endif %}
+          </ul>
+        </nav>
+        {% if generate_search %}
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+        {% endif %}
+      </header>
+
+      <div class="layout">
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </div>
+        <nav id="sidebar" class="sidebar">
+          <div class="docs-nav">
+            <h2>Documents</h2>
+            <ul>
+              {{ doc_nav|safe }}
+            </ul>
+          </div>
+
+          <div class="toc">
+            <h2>Contents</h2>
+            {{ toc|safe }}
+          </div>
+        </nav>
+
+        <main class="content">
+          <h1>{{ heading }}</h1>
+
+          {% if generate_search %}
+          <div class="search-form">
+            <input
+              type="text"
+              id="options-filter"
+              placeholder="Filter options..."
+            />
+          </div>
+          {% endif %}
+
+          <div class="options-container">{{ options|safe }}</div>
+
+          <div class="footnotes-container">
+            <!-- Footnotes will be appended here -->
+          </div>
+        </main>
+      </div>
+
+      <footer>
+        <p>{{ footer_text }}</p>
+      </footer>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Sidebar Toggle
+        const sidebarToggle = document.querySelector(".sidebar-toggle");
+        if (sidebarToggle) {
+          sidebarToggle.addEventListener("click", function () {
+            document.body.classList.toggle("sidebar-collapsed");
+
+            // Save state to localStorage
+            const isCollapsed =
+              document.body.classList.contains("sidebar-collapsed");
+            localStorage.setItem("sidebar-collapsed", isCollapsed);
+          });
+
+          // Restore sidebar state from localStorage
+          const isCollapsed =
+            localStorage.getItem("sidebar-collapsed") === "true";
+          if (isCollapsed) {
+            document.body.classList.add("sidebar-collapsed");
+          }
+        }
+
+        // Process footnotes
+        const content = document.querySelector(".content");
+        const footnoteContainer = document.querySelector(
+          ".footnotes-container",
+        );
+
+        // Find all footnote references and create a footnotes section
+        const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
+        if (footnoteRefs.length > 0) {
+          const footnotesDiv = document.createElement("div");
+          footnotesDiv.className = "footnotes";
+
+          const footnotesHeading = document.createElement("h2");
+          footnotesHeading.textContent = "Footnotes";
+          footnotesDiv.appendChild(footnotesHeading);
+
+          const footnotesList = document.createElement("ol");
+          footnoteContainer.appendChild(footnotesDiv);
+          footnotesDiv.appendChild(footnotesList);
+
+          // Add footnotes
+          document.querySelectorAll(".footnote").forEach((footnote) => {
+            const id = footnote.id;
+            const content = footnote.innerHTML;
+
+            const li = document.createElement("li");
+            li.id = id;
+            li.innerHTML = content;
+
+            // Add backlink
+            const backlink = document.createElement("a");
+            backlink.href = "#fnref:" + id.replace("fn:", "");
+            backlink.className = "footnote-backlink";
+            backlink.textContent = "↩";
+            li.appendChild(backlink);
+
+            footnotesList.appendChild(li);
+          });
+        }
+
+        // Copy link functionality
+        document.querySelectorAll(".copy-link").forEach(function (copyLink) {
+          copyLink.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Get option ID from parent element
+            const option = copyLink.closest(".option");
+            const optionId = option.id;
+
+            // Create URL with hash
+            const url = new URL(window.location.href);
+            url.hash = optionId;
+
+            // Copy to clipboard
+            navigator.clipboard
+              .writeText(url.toString())
+              .then(function () {
+                // Show feedback
+                const feedback = copyLink.nextElementSibling;
+                feedback.style.display = "inline";
+
+                // Hide after 2 seconds
+                setTimeout(function () {
+                  feedback.style.display = "none";
+                }, 2000);
+              })
+              .catch(function (err) {
+                console.error("Could not copy link: ", err);
+              });
+          });
+        });
+
+        // Highlight option if it's in the URL hash
+        if (window.location.hash) {
+          const targetOption = document.querySelector(window.location.hash);
+          if (targetOption) {
+            // Scroll to the option with some offset
+            setTimeout(function () {
+              window.scrollTo({
+                top: targetOption.offsetTop - 80,
+                behavior: "smooth",
+              });
+            }, 100);
+            // Add highlight class
+            targetOption.classList.add("highlight");
+          }
+        }
+      });
+    </script>
+    {{ custom_scripts|safe }}
+  </body>
+</html>
