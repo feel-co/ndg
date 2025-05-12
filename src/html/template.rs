@@ -588,15 +588,13 @@ fn add_default_value(html: &mut String, option: &NixOption) {
 
         writeln!(
             html,
-            "  <div class=\"option-default\">Default: <code>{}</code></div>",
-            clean_default
+            "  <div class=\"option-default\">Default: <code>{clean_default}</code></div>"
         )
         .unwrap();
     } else if let Some(default_val) = &option.default {
         writeln!(
             html,
-            "  <div class=\"option-default\">Default: <code>{}</code></div>",
-            default_val
+            "  <div class=\"option-default\">Default: <code>{default_val}</code></div>"
         )
         .unwrap();
     }
@@ -625,8 +623,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
 
             writeln!(
                 html,
-                "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>",
-                trimmed_example
+                "  <div class=\"option-example\">Example: <pre><code>{trimmed_example}</code></pre></div>"
             )
             .unwrap();
         } else {
@@ -640,8 +637,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                 let safe_content = code_content.replace('<', "&lt;").replace('>', "&gt;");
                 writeln!(
                     html,
-                    "  <div class=\"option-example\">Example: <code>{}</code></div>",
-                    safe_content
+                    "  <div class=\"option-example\">Example: <code>{safe_content}</code></div>"
                 )
                 .unwrap();
             } else {
@@ -649,8 +645,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                 let safe_example = example_text.replace('<', "&lt;").replace('>', "&gt;");
                 writeln!(
                     html,
-                    "  <div class=\"option-example\">Example: <code>{}</code></div>",
-                    safe_example
+                    "  <div class=\"option-example\">Example: <code>{safe_example}</code></div>"
                 )
                 .unwrap();
             }
@@ -662,8 +657,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
             let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
             writeln!(
                 html,
-                "  <div class=\"option-example\">Example: <pre><code>{}</code></pre></div>",
-                safe_example
+                "  <div class=\"option-example\">Example: <pre><code>{safe_example}</code></pre></div>"
             )
             .unwrap();
         } else {
@@ -671,8 +665,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
             let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
             writeln!(
                 html,
-                "  <div class=\"option-example\">Example: <code>{}</code></div>",
-                safe_example
+                "  <div class=\"option-example\">Example: <code>{safe_example}</code></div>"
             )
             .unwrap();
         }

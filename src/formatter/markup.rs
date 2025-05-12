@@ -1,46 +1,97 @@
 use std::{collections::HashMap, sync::LazyLock};
 
+use log::error;
 use regex::Regex;
 
 // Common regex patterns used across markdown and manpage generation
 // Role patterns for syntax like {command}`ls -l`
-pub static ROLE_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
+pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile ROLE_PATTERN regex: {e}");
+        // Provide a fallback pattern that matches nothing
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Terminal command prompt patterns
-pub static COMMAND_PROMPT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
-pub static REPL_PROMPT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
-#[allow(dead_code)]
-static PROMPT_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap());
-#[allow(dead_code)]
-static REPL_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap());
+pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile COMMAND_PROMPT regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
-// GitHub Flavored Markdown autolink patterns
-pub static AUTOLINK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(https?://[^\s<>]+)").unwrap());
+pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile REPL_PROMPT regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
-// Inline code pattern
-pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([^`]+)`").unwrap());
+#[allow(dead_code)]
+static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap_or_else(|e| {
+        error!("Failed to compile PROMPT_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+#[allow(dead_code)]
+static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap_or_else(|e| {
+        error!("Failed to compile REPL_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+// GitHub Flavored Markdown autolink patterns - more specific pattern to avoid false positives
+pub static AUTOLINK_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(https?://[^\s<>"')\}]+)"#).unwrap_or_else(|e| {
+        error!("Failed to compile AUTOLINK_PATTERN regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+// Inline code pattern with improved backtick handling
+pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`([^`\n]+)`(?!`)").unwrap_or_else(|e| {
+        error!("Failed to compile INLINE_CODE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Manpage reference patterns
 #[allow(dead_code)]
-static MANPAGE_ROLE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{manpage\}`([^`]+)`").unwrap());
-pub static MANPAGE_MARKUP_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap());
-pub static MANPAGE_REFERENCE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap());
+static MANPAGE_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\{manpage\}`([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile MANPAGE_ROLE_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+pub static MANPAGE_MARKUP_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap_or_else(|e| {
+        error!("Failed to compile MANPAGE_MARKUP_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+pub static MANPAGE_REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap_or_else(|e| {
+        error!("Failed to compile MANPAGE_REFERENCE_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 /// Apply a regex transformation to HTML elements using the provided function
 pub fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
 where
     F: Fn(&regex::Captures) -> String,
 {
-    regex.replace_all(html, transform).to_string()
+    match regex.replace_all(html, transform) {
+        std::borrow::Cow::Borrowed(_) => html.to_string(),
+        std::borrow::Cow::Owned(s) => s,
+    }
 }
 
 /// Capitalize the first letter of a string
@@ -240,5 +291,41 @@ pub fn process_inline_code(text: &str, is_html: bool) -> String {
                 format!("\\fR\\(oq{code}\\(cq\\fP")
             })
             .to_string()
+    }
+}
+
+/// Apply markup processing to text with safe handling of potential errors
+// This is proof that I can learn from my mistakes sometimes.
+pub fn safely_process_markup<F>(text: &str, process_fn: F, default_on_error: &str) -> String
+where
+    F: FnOnce(&str) -> String,
+{
+    // Avoid processing empty strings
+    if text.is_empty() {
+        return String::new();
+    }
+
+    // Catch any potential panics caused by malformed regex matches or other issues
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| process_fn(text)));
+
+    match result {
+        Ok(processed_text) => processed_text,
+        Err(e) => {
+            // Log the error but allow the program to continue
+            if let Some(error_msg) = e.downcast_ref::<String>() {
+                error!("Error processing markup: {error_msg}");
+            } else if let Some(error_msg) = e.downcast_ref::<&str>() {
+                error!("Error processing markup: {error_msg}");
+            } else {
+                error!("Unknown error occurred while processing markup");
+            }
+
+            // Return the original text or default value to prevent breaking the entire document
+            if default_on_error.is_empty() {
+                text.to_string()
+            } else {
+                default_on_error.to_string()
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use log::{debug, trace};
+use log::{debug, error, trace};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use regex::Regex;
 use walkdir::WalkDir;
@@ -35,24 +35,56 @@ pub struct Header {
 
 // Define regex pattern groups to organize them by functionality
 // Role and markup patterns
-pub static ROLE_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
-pub static MYST_ROLE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap());
+pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile ROLE_PATTERN regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+pub static MYST_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap_or_else(|e| {
+        error!("Failed to compile MYST_ROLE_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Terminal and REPL patterns
-pub static COMMAND_PROMPT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
-pub static REPL_PROMPT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
-static PROMPT_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap());
-static REPL_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap());
+pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile COMMAND_PROMPT regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile REPL_PROMPT regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap_or_else(|e| {
+        error!("Failed to compile PROMPT_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap_or_else(|e| {
+        error!("Failed to compile REPL_RE regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Heading and anchor patterns
-pub static HEADING_ANCHOR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap());
+pub static HEADING_ANCHOR: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap_or_else(|e| {
+        error!("Failed to compile HEADING_ANCHOR regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 pub static INLINE_ANCHOR: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap());
 static AUTO_EMPTY_LINK_RE: LazyLock<Regex> =
@@ -618,91 +650,110 @@ fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) ->
 
 /// Convert markdown to HTML using `pulldown_cmark` with syntax highlighting
 fn convert_to_html(markdown: &str, config: &Config) -> String {
-    // Set up parser options
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
-    options.insert(Options::ENABLE_SMART_PUNCTUATION);
-    // GitHub Flavored Markdown specific options
-    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+    // Implement safe conversion with recovery mechanisms
+    markup::safely_process_markup(
+        markdown,
+        |text| {
+            // Set up parser options
+            let mut options = Options::empty();
+            options.insert(Options::ENABLE_TABLES);
+            options.insert(Options::ENABLE_FOOTNOTES);
+            options.insert(Options::ENABLE_STRIKETHROUGH);
+            options.insert(Options::ENABLE_TASKLISTS);
+            options.insert(Options::ENABLE_SMART_PUNCTUATION);
+            // GitHub Flavored Markdown specific options
+            options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
-    // Create parser
-    let parser = Parser::new_ext(markdown, options);
+            // Create parser
+            let parser = Parser::new_ext(text, options);
 
-    // Estimate capacity for the output
-    let estimated_capacity = markdown.len() * 3;
-    let mut html_output = String::with_capacity(estimated_capacity);
+            // Estimate capacity for the output
+            let estimated_capacity = text.len() * 3;
+            let mut html_output = String::with_capacity(estimated_capacity);
 
-    // Buffer for code blocks
-    let mut in_code_block = false;
-    let mut code_block_lang = String::with_capacity(16);
-    let mut code_block_content = String::with_capacity(512);
+            // Buffer for code blocks
+            let mut in_code_block = false;
+            let mut code_block_lang = String::with_capacity(16);
+            let mut code_block_content = String::with_capacity(512);
 
-    // Process each event
-    for event in parser {
-        match event {
-            Event::Start(Tag::CodeBlock(kind)) => {
-                in_code_block = true;
-                code_block_content.clear();
+            // Process each event
+            for event in parser {
+                match event {
+                    Event::Start(Tag::CodeBlock(kind)) => {
+                        in_code_block = true;
+                        code_block_content.clear();
 
-                // Get language identifier for fenced code blocks
-                code_block_lang.clear();
-                if let CodeBlockKind::Fenced(lang) = kind {
-                    code_block_lang.push_str(lang.as_ref());
-                }
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                in_code_block = false;
-
-                // Handle code blocks based on highlighting setting
-                if code_block_lang.is_empty() || !config.highlight_code {
-                    // Plain code block or highlighting disabled
-                    html_output.push_str("<pre><code");
-
-                    // Add language class if available, even when highlighting is disabled
-                    if !code_block_lang.is_empty() {
-                        html_output.push_str(" class=\"language-");
-                        html_output.push_str(&code_block_lang);
-                        html_output.push('"');
+                        // Get language identifier for fenced code blocks
+                        code_block_lang.clear();
+                        if let CodeBlockKind::Fenced(lang) = kind {
+                            code_block_lang.push_str(lang.as_ref());
+                        }
                     }
+                    Event::End(TagEnd::CodeBlock) => {
+                        in_code_block = false;
 
-                    html_output.push('>');
-                    escape_html(&code_block_content, &mut html_output);
-                    html_output.push_str("</code></pre>");
-                } else if let Ok(highlighted) =
-                    highlight::highlight_code(&code_block_content, &code_block_lang, config)
-                {
-                    html_output.push_str(&highlighted);
-                } else {
-                    // Fallback if highlighting fails
-                    html_output.push_str("<pre><code class=\"language-");
-                    html_output.push_str(&code_block_lang);
-                    html_output.push_str("\">");
-                    escape_html(&code_block_content, &mut html_output);
-                    html_output.push_str("</code></pre>");
-                }
-            }
-            Event::Text(text) => {
-                if in_code_block {
-                    code_block_content.push_str(text.as_ref());
-                } else {
-                    pulldown_cmark::html::push_html(
-                        &mut html_output,
-                        std::iter::once(Event::Text(text)),
-                    );
-                }
-            }
-            _ => {
-                if !in_code_block {
-                    pulldown_cmark::html::push_html(&mut html_output, std::iter::once(event));
-                }
-            }
-        }
-    }
+                        // Handle code blocks based on highlighting setting
+                        if code_block_lang.is_empty() || !config.highlight_code {
+                            // Plain code block or highlighting disabled
+                            html_output.push_str("<pre><code");
 
-    html_output
+                            // Add language class if available, even when highlighting is disabled
+                            if !code_block_lang.is_empty() {
+                                html_output.push_str(" class=\"language-");
+                                html_output.push_str(&code_block_lang);
+                                html_output.push('"');
+                            }
+
+                            html_output.push('>');
+                            escape_html(&code_block_content, &mut html_output);
+                            html_output.push_str("</code></pre>");
+                        } else {
+                            // Try syntax highlighting with fallback if it fails
+                            match highlight::highlight_code(
+                                &code_block_content,
+                                &code_block_lang,
+                                config,
+                            ) {
+                                Ok(highlighted) => {
+                                    html_output.push_str(&highlighted);
+                                }
+                                Err(err) => {
+                                    // Log the error and fallback to non-highlighted code
+                                    debug!("Syntax highlighting failed (lang: {code_block_lang}): {err}");
+                                    html_output.push_str("<pre><code class=\"language-");
+                                    html_output.push_str(&code_block_lang);
+                                    html_output.push_str("\">");
+                                    escape_html(&code_block_content, &mut html_output);
+                                    html_output.push_str("</code></pre>");
+                                }
+                            }
+                        }
+                    }
+                    Event::Text(text) => {
+                        if in_code_block {
+                            code_block_content.push_str(text.as_ref());
+                        } else {
+                            pulldown_cmark::html::push_html(
+                                &mut html_output,
+                                std::iter::once(Event::Text(text)),
+                            );
+                        }
+                    }
+                    _ => {
+                        if !in_code_block {
+                            pulldown_cmark::html::push_html(
+                                &mut html_output,
+                                std::iter::once(event),
+                            );
+                        }
+                    }
+                }
+            }
+
+            html_output
+        },
+        "<div class=\"error\">Error processing markdown content</div>",
+    )
 }
 
 /// Process HTML to handle any remaining elements
@@ -1042,17 +1093,16 @@ pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
 /// Process GitHub Flavored Markdown autolinks
 fn process_autolinks(html: String) -> String {
     // Process any text outside of HTML tags and code blocks
-    let mut result = String::new();
+    let mut result = String::with_capacity(html.len());
     let mut in_tag = false;
     let mut in_code = false;
     let mut current_text = String::new();
 
-    let chars: Vec<char> = html.chars().collect();
-    let mut i = 0;
+    // Uses char iterator instead of indexing to for proper UTF-8 handling
+    // FIXME: this is probably not how we want to handle this.
+    let chars = html.chars().peekable();
 
-    while i < chars.len() {
-        let c = chars[i];
-
+    for c in chars {
         match c {
             '<' => {
                 // Process any accumulated text before starting a tag
@@ -1074,18 +1124,10 @@ fn process_autolinks(html: String) -> String {
                 in_tag = false;
                 result.push(c);
 
-                // Safe way to check for code tags
-                let result_str = result.as_str();
-                let check_len = result_str.len();
-                let start_idx = if check_len > 6 { check_len - 6 } else { 0 };
-                let end_idx = if check_len > 7 { check_len - 7 } else { 0 };
-
-                // Check if we're entering a code block
-                if check_len >= 6 && result_str[start_idx..].ends_with("<code") {
+                // Check if we're entering or leaving a code block
+                if result.ends_with("<code") {
                     in_code = true;
-                }
-                // Check if we're leaving a code block
-                else if check_len >= 7 && result_str[end_idx..].ends_with("</code>") {
+                } else if result.ends_with("</code>") {
                     in_code = false;
                 }
             }
@@ -1099,8 +1141,6 @@ fn process_autolinks(html: String) -> String {
                 }
             }
         }
-
-        i += 1;
     }
 
     // Process any remaining text

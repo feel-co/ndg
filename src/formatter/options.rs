@@ -338,9 +338,8 @@ fn extract_value_from_json(value: &Value) -> Option<String> {
                         // will be used by the renderer to understand this needs special handling
                         if type_name.as_str() == "literalExpression" {
                             return Some(format!("`{}`", text.clone()));
-                        } else {
-                            return Some(text.to_string());
                         }
+                        return Some(text.to_string());
                     }
                 }
                 _ => {}

@@ -1,54 +1,110 @@
 use std::{fs, io::Write, path::Path, sync::LazyLock};
 
 use anyhow::{Context, Result};
-use log::info;
+use log::{error, info};
 use rayon::prelude::*;
 use regex::Regex;
 use serde_json::{self, Value};
 
 use crate::{
     formatter::{markup, options::NixOption},
-    manpage::{escape_leading_dot, get_roff_escapes, man_escape},
+    manpage::{escape_leading_dot, get_roff_escapes, man_escape, TROFF_ESCAPE, TROFF_FORMATTING},
 };
 
 // Define regex patterns for processing markdown in options
 // Role patterns
 #[allow(dead_code)]
-static ROLE_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap());
+static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile ROLE_PATTERN regex in manpage/options.rs: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Terminal prompts
 #[allow(dead_code)]
-static COMMAND_PROMPT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`\s*\$\s+([^`]+)`").unwrap());
+static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile COMMAND_PROMPT regex in manpage/options.rs: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
 #[allow(dead_code)]
-static REPL_PROMPT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap());
+static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
+        error!("Failed to compile REPL_PROMPT regex in manpage/options.rs: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Inline code
 #[allow(dead_code)]
-static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([^`]+)`").unwrap());
+static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"`([^`\n]+)`(?!`)").unwrap_or_else(|e| {
+        error!("Failed to compile INLINE_CODE regex in manpage/options.rs: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // HTML tags
-static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"</?[a-zA-Z][^>]*>").unwrap());
+static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"</?[a-zA-Z][^>]*>").unwrap_or_else(|e| {
+        error!("Failed to compile HTML_TAGS regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Admonition patterns for pre-processed content
-static ADMONITION_START: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap());
+static ADMONITION_START: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap_or_else(|e| {
+        error!("Failed to compile ADMONITION_START regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 // Don't use regex for simple string matching with ADMONITION_END
 
 // Markdown list items
-static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap());
-static NUMBERED_LIST_ITEM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap());
+static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap_or_else(|e| {
+        error!("Failed to compile LIST_ITEM regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap_or_else(|e| {
+        error!("Failed to compile NUMBERED_LIST_ITEM regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
 // Markdown links
-static MARKDOWN_LINK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap());
+static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap_or_else(|e| {
+        error!("Failed to compile MARKDOWN_LINK regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
 
-// Existing troff formatting codes - don't double escape these
-static TROFF_FORMATTING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\f[BIPR]").unwrap());
-static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\[\\(]").unwrap());
+// Pre/post formatting escape
+static PLACEHOLDER_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"__PRESERVED_FORMAT_(\d+)__").unwrap_or_else(|e| {
+        error!("Failed to compile PLACEHOLDER_PATTERN regex: {e}");
+        Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+    })
+});
+
+// Troff formatting codes
+static FORMATTING_CODE: LazyLock<Regex> = LazyLock::new(|| {
+    // More robust pattern that handles both \f and more complex escapes
+    Regex::new(r"\\f[PBIR]|\\f\[[a-zA-Z]+\]|\\[tf].|\\[uU][0-9A-F]{4}|\\[e&\-%\\ ]").unwrap_or_else(
+        |e| {
+            error!("Failed to compile FORMATTING_CODE regex: {e}");
+            Regex::new(r"(?!x)x").expect("Failed to compile fallback regex")
+        },
+    )
+});
 
 /// Generate a manpage from options JSON
 pub fn generate_manpage(
