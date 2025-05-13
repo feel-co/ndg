@@ -33,43 +33,41 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
     let mut documents = Vec::new();
     let mut doc_id = 0;
 
-    // Process markdown files if available
-    if !markdown_files.is_empty() {
-        // Get input_dir reference or return early
-        if let Some(input_dir) = &config.input_dir {
-            for file_path in markdown_files {
-                let content = fs::read_to_string(file_path).context(format!(
-                    "Failed to read file for search indexing: {}",
-                    file_path.display()
-                ))?;
+    // Process markdown files if available and input_dir is provided
+    if !markdown_files.is_empty() && config.input_dir.is_some() {
+        let input_dir = config.input_dir.as_ref().unwrap();
+        for file_path in markdown_files {
+            let content = fs::read_to_string(file_path).context(format!(
+                "Failed to read file for search indexing: {}",
+                file_path.display()
+            ))?;
 
-                let title = extract_title(&content).unwrap_or_else(|| {
-                    file_path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string()
-                });
+            let title = extract_title(&content).unwrap_or_else(|| {
+                file_path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string()
+            });
 
-                let plain_text = strip_markdown(&content);
+            let plain_text = strip_markdown(&content);
 
-                let rel_path = file_path.strip_prefix(input_dir).context(format!(
-                    "Failed to determine relative path for {}",
-                    file_path.display()
-                ))?;
+            let rel_path = file_path.strip_prefix(input_dir).context(format!(
+                "Failed to determine relative path for {}",
+                file_path.display()
+            ))?;
 
-                let mut output_path = rel_path.to_owned();
-                output_path.set_extension("html");
+            let mut output_path = rel_path.to_owned();
+            output_path.set_extension("html");
 
-                documents.push(SearchDocument {
-                    id: doc_id.to_string(),
-                    title,
-                    content: plain_text,
-                    path: output_path.to_string_lossy().to_string(),
-                });
+            documents.push(SearchDocument {
+                id: doc_id.to_string(),
+                title,
+                content: plain_text,
+                path: output_path.to_string_lossy().to_string(),
+            });
 
-                doc_id += 1;
-            }
+            doc_id += 1;
         }
     }
 

@@ -134,8 +134,8 @@ fn generate_documentation(config: &Config) -> Result<()> {
     // Check if we need to create a fallback index.html
     utils::ensure_index(config, options_processed, &markdown_files)?;
 
-    // Generate search index if enabled and there are markdown files
-    if config.generate_search && !markdown_files.is_empty() {
+    // Generate search index if enabled, regardless of whether there are markdown files
+    if config.generate_search {
         html::search::generate_search_index(config, &markdown_files)?;
     }
 
