@@ -7,10 +7,10 @@
 ## What is it?
 
 **ndg** is a fast, customizable and convenient utility for generating HTML
-documents and manpages for your Nix related projects from Markdown and
-options you use in any set of modules. It can be considered a more opinionated
-and more specialized MdBook, focusing on Nix-related projects. Though it can
-also be used outside of Nix projects.
+documents and manpages for your Nix related projects from Markdown and options
+you use in any set of modules. It can be considered a more opinionated and more
+specialized MdBook, focusing on Nix-related projects. Though it can also be used
+outside of Nix projects.
 
 ### Features
 
@@ -18,7 +18,7 @@ We would like for ndg to be fast, but also flexible and powerful. It boasts
 several features such as
 
 - **Markdown to HTML and Manpage conversion** with support for all[^1]
-   Nixpkgs-flavored Commonmark features.
+  Nixpkgs-flavored Commonmark features.
 - **Useful Markdown Companions**
   - **Automatic table of contents** generation from document headings
   - **Title Anchors** - Automatically generates anchors for headings
@@ -56,7 +56,8 @@ Options:
 
 ### Getting Started with Configuration
 
-The easiest way to get started with ndg is to use the `init` command to generate a default configuration file:
+The easiest way to get started with ndg is to use the `init` command to generate
+a default configuration file:
 
 ```bash
 # Generate a default ndg.toml configuration file
@@ -69,11 +70,17 @@ ndg init --format json --output ndg.json
 ndg init --output configs/ndg.toml
 ```
 
-This will create a well-documented configuration file with all available options and their default values. You can then edit this file to customize your documentation generation process.
+This will create a well-documented configuration file with all available options
+and their default values. You can then edit this file to customize your
+documentation generation process.
 
-The generated configuration includes detailed comments for each option, making it easy to understand what each setting does without needing to refer to the documentation.
+The generated configuration includes detailed comments for each option, making
+it easy to understand what each setting does without needing to refer to the
+documentation.
 
-Once you have a configuration file, ndg will automatically detect it when run from the same directory, or you can specify it explicitly with the `--config` option:
+Once you have a configuration file, ndg will automatically detect it when run
+from the same directory, or you can specify it explicitly with the `--config`
+option:
 
 ```bash
 # Run with automatically detected config
@@ -83,8 +90,8 @@ ndg html
 ndg html --config path/to/ndg.toml
 ```
 
-The first subcommand in ndg's compartmentalized architecture is for
-HTML generation. The `html` subcommand includes the following options:
+The first subcommand in ndg's compartmentalized architecture is for HTML
+generation. The `html` subcommand includes the following options:
 
 ```
 Options:
@@ -123,9 +130,9 @@ Options:
 ```
 
 You must give ndg a **input directory** containing your markdown files
-(`--input-dir`), an **output directory** (`--output-dir`) to put the created files, and
-a **title** (`--title`) for basic functionality. Alternatively, those can all be
-read from a config file, passed to ndg through the `--config` option.
+(`--input-dir`), an **output directory** (`--output-dir`) to put the created
+files, and a **title** (`--title`) for basic functionality. Alternatively, those
+can all be read from a config file, passed to ndg through the `--config` option.
 
 For example:
 
@@ -142,7 +149,8 @@ The `manpage` subcommand allows generating a manpage from your options:
 ndg manpage -j ./options.json -o ./man/project.5 -T "My Project" -s 5
 ```
 
-The `generate` subcommand helps create shell completions and manpages for ndg itself:
+The `generate` subcommand helps create shell completions and manpages for ndg
+itself:
 
 ```bash
 ndg generate -o ./dist
@@ -189,16 +197,18 @@ Tera syntax. Below are the variables that ndg will attempt to replace.
 - `{{ doc_nav|safe }}` - Navigation links to other documents (unescaped HTML)
 - `{{ has_options|safe }}` - Conditional display for options page link
 - `{{ footer_text }}` - Footer text specified via the --footer option
-- `{{ generate_search }}` - Boolean indicating whether search functionality is enabled
+- `{{ generate_search }}` - Boolean indicating whether search functionality is
+  enabled
 - `{{ stylesheet_path }}` - Path to the stylesheet
 - `{{ script_paths }}` - List of paths to script files
 
-Each template can use these variables as needed. For example, in the `default.html` template:
+Each template can use these variables as needed. For example, in the
+`default.html` template:
 
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
@@ -206,38 +216,40 @@ Each template can use these variables as needed. For example, in the `default.ht
     {% for script_path in script_paths %}
     <script src="{{ script_path }}"></script>
     {% endfor %}
-</head>
-<body>
+  </head>
+  <body>
     <header>
-        <h1>{{ title }}</h1>
-        {% if generate_search %}
-        <div class="search-container">
-            <input type="text" id="search-input" placeholder="Search documentation...">
-            <a href="search.html" class="search-button">Advanced Search</a>
+      <h1>{{ title }}</h1>
+      {% if generate_search %}
+      <div class="search-container">
+        <input
+          type="text"
+          id="search-input"
+          placeholder="Search documentation..."
+        >
+        <a href="search.html" class="search-button">Advanced Search</a>
+      </div>
+      {% endif %}
+    </header>
+
+    <div class="container">
+      <nav class="sidebar">
+        {{ toc|safe }} {{ doc_nav|safe }} {% if has_options %}
+        <div class="options-link">
+          <a href="options.html">Module Options</a>
         </div>
         {% endif %}
-    </header>
-    
-    <div class="container">
-        <nav class="sidebar">
-            {{ toc|safe }}
-            {{ doc_nav|safe }}
-            {% if has_options %}
-            <div class="options-link">
-                <a href="options.html">Module Options</a>
-            </div>
-            {% endif %}
-        </nav>
-        
-        <main class="content">
-            {{ content|safe }}
-        </main>
+      </nav>
+
+      <main class="content">
+        {{ content|safe }}
+      </main>
     </div>
-    
+
     <footer>
-        <p>{{ footer_text }}</p>
+      <p>{{ footer_text }}</p>
     </footer>
-</body>
+  </body>
 </html>
 ```
 
@@ -308,7 +320,8 @@ search widget won't appear in the navigation.
 
 ### Using ndg with Nix
 
-ndg can be integrated into Nix builds to generate documentation for your projects. Here are several ways to use ndg with Nix:
+ndg can be integrated into Nix builds to generate documentation for your
+projects. Here are several ways to use ndg with Nix:
 
 #### Installing from the Flake
 
@@ -324,7 +337,8 @@ nix run github:feel-co/ndg -- html -i ./docs -o ./result -T "My Project"
 
 #### Using ndg-builder
 
-The recommended way to generate documentation in Nix builds is to use the included `ndg-builder` function, which properly handles all the complexities:
+The recommended way to generate documentation in Nix builds is to use the
+included `ndg-builder` function, which properly handles all the complexities:
 
 ```nix
 {
@@ -338,7 +352,7 @@ The recommended way to generate documentation in Nix builds is to use the includ
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
     in {
-      packages.${system}.docs = ndg.packages.${system}.ndg-builder {
+      packages.${system}.docs = ndg.packages.${system}.ndg-builder.override {
         title = "My Project Documentation";
         inputDir = ./docs;
         stylesheet = ./assets/style.css;
@@ -346,14 +360,17 @@ The recommended way to generate documentation in Nix builds is to use the includ
 
         # For module options
         rawModules = [
+          # From a path
           ./modules/options.nix
-          {
+          
+          # From options
+          ({
             options.example.option = pkgs.lib.mkOption {
               type = pkgs.lib.types.str;
               default = "value";
               description = "An example option";
             };
-          }
+          })
         ];
 
         # Optional: set the depth of options TOC
@@ -394,7 +411,8 @@ in
   docs
 ```
 
-This approach correctly handles the generation of options documentation using `nixosOptionsDoc` and properly passes the result to ndg.
+This approach correctly handles the generation of options documentation using
+`nixosOptionsDoc` and properly passes the result to ndg.
 
 ## Pro Tips & Best Practices
 
@@ -416,9 +434,11 @@ This approach correctly handles the generation of options documentation using `n
 
 ### Styling Tips
 
-- **Use SCSS for complex stylesheets**: ndg automatically compiles SCSS files, allowing you to use variables, nesting, and mixins.
+- **Use SCSS for complex stylesheets**: ndg automatically compiles SCSS files,
+  allowing you to use variables, nesting, and mixins.
 
-- **Customize specific pages**: When using a template directory, you can have different templates for different page types:
+- **Customize specific pages**: When using a template directory, you can have
+  different templates for different page types:
   ```
   templates/
     default.html    # For regular markdown pages
@@ -428,22 +448,29 @@ This approach correctly handles the generation of options documentation using `n
 
 ### Content Organization
 
-- **Use consistent header levels**: ndg generates the table of contents based on heading levels. Start with `h1` (`#`) for the title, then use `h2` (`##`) for major sections.
+- **Use consistent header levels**: ndg generates the table of contents based on
+  heading levels. Start with `h1` (`#`) for the title, then use `h2` (`##`) for
+  major sections.
 
-- **Structure your options with depth in mind**: The `--options-depth` parameter controls how the options TOC is generated. Organize your options to create a logical hierarchy.
+- **Structure your options with depth in mind**: The `--options-depth` parameter
+  controls how the options TOC is generated. Organize your options to create a
+  logical hierarchy.
 
-- **Create an index.md file**: Place an `index.md` file in your input directory to serve as the landing page.
+- **Create an index.md file**: Place an `index.md` file in your input directory
+  to serve as the landing page.
 
 ### GitHub Integration
 
-- **Link to source with revision**: Use the `--revision` option to specify a GitHub revision for source links:
+- **Link to source with revision**: Use the `--revision` option to specify a
+  GitHub revision for source links:
   ```bash
   ndg html -i ./docs -o ./html -T "My Project" --revision "main"
   ```
 
 ### Configuration Management
 
-- **Create per-project config files**: For projects with complex documentation, create a dedicated `ndg.toml` file:
+- **Create per-project config files**: For projects with complex documentation,
+  create a dedicated `ndg.toml` file:
   ```toml
   input_dir = "docs"
   output_dir = "site"
@@ -470,13 +497,10 @@ This approach correctly handles the generation of options documentation using `n
 
 - **Use admonitions for important content**:
   ```markdown
-  ::: {.warning}
-  This is a critical warning that users should pay attention to!
+  ::: {.warning} This is a critical warning that users should pay attention to!
   :::
 
-  ::: {.tip}
-  Here's a helpful tip to make your life easier.
-  :::
+  ::: {.tip} Here's a helpful tip to make your life easier. :::
   ```
 
 - **Create custom ID anchors** for important sections:
