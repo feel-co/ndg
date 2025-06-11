@@ -1,5 +1,7 @@
 {
-  description = "Streamlined documentation generation for NixOS modules";
+  description = ''
+    Fast, customizable and convenient documentation generator for the Nix ecosystem
+  '';
 
   inputs = {
     flake-compat.url = "github:edolstra/flake-compat";
