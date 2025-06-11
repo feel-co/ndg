@@ -41,11 +41,12 @@ ndg has several subcommands to handle different documentation tasks:
 Usage: ndg [OPTIONS] [COMMAND]
 
 Commands:
-  init      Initialize a new NDG configuration file
-  generate  Generate shell completions and manpages for ndg itself
-  html      Generate HTML documentation from markdown files and/or module options
-  manpage   Generate manpage from module options
-  help      Print this message or the help of the given subcommand(s)
+  init              Initialize a new NDG configuration file
+  export-templates  Export default templates to a directory for customization
+  generate          Generate shell completions and manpages for ndg itself
+  html              Generate HTML documentation from markdown files and/or module options
+  manpage           Generate manpage from module options
+  help              Print this message or the help of the given subcommand(s)
 
 Options:
   -v, --verbose               Enable verbose debug logging
@@ -89,6 +90,54 @@ ndg html
 # Run with explicitly specified config
 ndg html --config path/to/ndg.toml
 ```
+
+### Template Customization Made Easy
+
+> [!TIP]
+> One of ndg's most powerful features is its fully customizable template system.
+> To make customization easier, ndg provides an `export-templates` command that
+> extracts all default templates to your filesystem.
+
+```bash
+# Export default templates to a 'templates' directory
+ndg export-templates
+
+# Export to a custom directory
+ndg export-templates --output-dir my-custom-templates
+
+# Overwrite existing files if they exist
+ndg export-templates --force
+```
+
+This command exports all template files that ndg uses internally:
+
+- `default.html` - Main template for documentation pages
+- `options.html` - Template for module options pages
+- `search.html` - Template for the search page
+- `options_toc.html` - Template for options table of contents
+- `default.css` - Default stylesheet
+- `search.js` - Search functionality JavaScript
+
+Once exported, you can customize any of these files and use them with the
+`--template-dir` option:
+
+```bash
+# Export templates and customize them
+ndg export-templates --output-dir my-templates
+
+# Edit the templates as needed
+# vim my-templates/default.html
+
+# Use your custom templates
+ndg html --template-dir my-templates --input-dir docs --output-dir build
+```
+
+This workflow is designed to aid developers avoid rebuilds, and to make sure
+users always start with the latest default templates and can easily update them
+when ndg is upgraded. Though, ndg will fall back to internal templates when none
+are provided.
+
+## Detailed Usage
 
 The first subcommand in ndg's compartmentalized architecture is for HTML
 generation. The `html` subcommand includes the following options:
@@ -165,18 +214,24 @@ ndg supports various customization options to tailor the output to your needs:
 
 #### Custom Templates
 
-You can provide your own HTML template using either the `--template` option for
-a single template file:
+The recommended way to customize templates is to use the `export-templates`
+command to get the default templates, then modify them as needed:
+
+```bash
+# Export all default templates to a directory
+ndg export-templates --output-dir my-templates
+
+# Customize the templates as needed
+# Edit my-templates/default.html, my-templates/default.css, etc.
+
+# Use your custom templates
+ndg html -i ./docs -o ./html -T "Awesome Project" --template-dir ./my-templates
+```
+
+You can also provide a single template file using the `--template` option:
 
 ```bash
 ndg html -i ./docs -o ./html -T "Awesome Project" -t ./my-template.html
-```
-
-Or use the `--template-dir` option to provide a directory containing multiple
-templates:
-
-```bash
-ndg html -i ./docs -o ./html -T "Awesome Project" --template-dir ./my-templates
 ```
 
 When using a template directory, ndg will look for the following files:
@@ -185,8 +240,10 @@ When using a template directory, ndg will look for the following files:
 - `options.html` - Template for options page
 - `search.html` - Template for search page
 - `options_toc.html` - Template for options table of contents
+- `default.css` - Default stylesheet
+- `search.js` - Search functionality JavaScript
 
-The default template files are provided in `templates/`.
+For any missing files, ndg will fall back to its internal templates.
 
 Custom templates use the Tera templating engine, so your templates should use
 Tera syntax. Below are the variables that ndg will attempt to replace.
@@ -419,11 +476,13 @@ This approach correctly handles the generation of options documentation using
 ### Performance Optimization
 
 - **Use multi-threading** for large documentation sets:
+
   ```bash
   ndg html -i ./docs -o ./html -T "My Project" -p $(nproc)
   ```
 
 - **Selectively disable features** you don't need:
+
   ```bash
   # Disable search if you don't need it
   ndg html -i ./docs -o ./html -T "My Project" --generate-search false
@@ -437,9 +496,18 @@ This approach correctly handles the generation of options documentation using
 - **Use SCSS for complex stylesheets**: ndg automatically compiles SCSS files,
   allowing you to use variables, nesting, and mixins.
 
+- **Start with exported templates**: Always begin customization by exporting the
+  default templates:
+
+  ```bash
+  # Export to get the latest defaults
+  ndg export-templates --output-dir my-custom-templates
+  ```
+
 - **Customize specific pages**: When using a template directory, you can have
   different templates for different page types:
-  ```
+
+  ```txt
   templates/
     default.html    # For regular markdown pages
     options.html    # For the options page
@@ -463,6 +531,7 @@ This approach correctly handles the generation of options documentation using
 
 - **Link to source with revision**: Use the `--revision` option to specify a
   GitHub revision for source links:
+
   ```bash
   ndg html -i ./docs -o ./html -T "My Project" --revision "main"
   ```
@@ -471,6 +540,7 @@ This approach correctly handles the generation of options documentation using
 
 - **Create per-project config files**: For projects with complex documentation,
   create a dedicated `ndg.toml` file:
+
   ```toml
   input_dir = "docs"
   output_dir = "site"
@@ -486,6 +556,7 @@ This approach correctly handles the generation of options documentation using
   ```
 
 - **Generate shell completions** once and save them to your shell configuration:
+
   ```bash
   # Generate and install completions
   mkdir -p ~/.local/share/bash-completion/completions
@@ -496,14 +567,19 @@ This approach correctly handles the generation of options documentation using
 ### Content Enhancement
 
 - **Use admonitions for important content**:
-  ```markdown
-  ::: {.warning} This is a critical warning that users should pay attention to!
+
+  ```txt
+  <!-- Admonitions are flexible. -->
+  ::: {.warning}
+  This is a critical warning that users should pay attention to!
   :::
 
+  <!-- Make it inline--> 
   ::: {.tip} Here's a helpful tip to make your life easier. :::
   ```
 
 - **Create custom ID anchors** for important sections:
+
   ```markdown
   ## Installation {#installation}
 
