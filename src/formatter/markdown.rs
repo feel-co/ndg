@@ -792,7 +792,9 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
                                 }
                                 Err(err) => {
                                     // Log the error and fallback to non-highlighted code
-                                    debug!("Syntax highlighting failed (lang: {code_block_lang}): {err}");
+                                    debug!(
+                                        "Syntax highlighting failed (lang: {code_block_lang}): {err}"
+                                    );
                                     html_output.push_str("<pre><code class=\"language-");
                                     html_output.push_str(&code_block_lang);
                                     html_output.push_str("\">");

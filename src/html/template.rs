@@ -306,7 +306,10 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
         let template_path = template_dir.join(template_name);
         if template_path.exists() {
             return fs::read_to_string(&template_path).with_context(|| {
-                format!("Failed to read template file: {}", template_path.display())
+                format!(
+                    "Failed to read custom template file: {}. Check file permissions and ensure the file is valid UTF-8",
+                    template_path.display()
+                )
             });
         }
     }
@@ -318,7 +321,10 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
             // XXX: For backward compatibility
             // If template_path is a file, use it for default.html
             return fs::read_to_string(template_path).with_context(|| {
-                format!("Failed to read template file: {}", template_path.display())
+                format!(
+                    "Failed to read custom template file: {}. Check file permissions and ensure the file is valid UTF-8",
+                    template_path.display()
+                )
             });
         }
     }
