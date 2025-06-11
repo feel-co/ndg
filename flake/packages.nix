@@ -16,12 +16,16 @@
     # instance with ease. This is the top-level alternative to using the
     # module system, a.k.a, `nixpkgs.overlays`.
     overlayAttrs = config.packages;
-    packages = packagesFromDirectoryRecursive {
-      callPackage = callPackageWith (recursiveUpdate pkgs {
-        inherit (self'.packages) ndg;
-      });
+    packages =
+      (packagesFromDirectoryRecursive {
+        callPackage = callPackageWith (recursiveUpdate pkgs {
+          inherit (self'.packages) ndg;
+        });
 
-      directory = ./packages;
-    };
+        directory = ./packages;
+      })
+      // {
+        default = self'.packages.ndg;
+      };
   };
 }

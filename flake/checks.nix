@@ -6,7 +6,7 @@
     ...
   }: {
     checks = {
-      default = self'.checks.nixos;
+      default = self'.checks.nixos // self'.packages;
       nixos = self'.packages.ndg-builder.override {
         evaluatedModules = inputs.nixpkgs.lib.nixosSystem {
           modules = [

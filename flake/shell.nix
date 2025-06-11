@@ -25,8 +25,5 @@
 
       env.RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
     };
-
-    # TODO: add more checks, ideally machine tests
-    checks = self'.packages;
   };
 }

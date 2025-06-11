@@ -5,20 +5,21 @@
   stdenv,
 }: let
   fs = lib.fileset;
+  s = ../../..;
 in
   rustPlatform.buildRustPackage (finalAttrs: {
     pname = "ndg";
-    version = "0.1.0";
+    version = (builtins.fromTOML (builtins.readFile (s + /Cargo.toml))).package.version;
 
     nativeBuildInputs = [installShellFiles];
 
     src = fs.toSource {
-      root = ../../..;
+      root = s;
       fileset = fs.unions [
-        (fs.fileFilter (file: builtins.any file.hasExt ["rs"]) ../../../src)
-        ../../../Cargo.lock
-        ../../../Cargo.toml
-        ../../../templates
+        (fs.fileFilter (file: builtins.any file.hasExt ["rs"]) (s + /src))
+        (s + /Cargo.lock)
+        (s + /Cargo.toml)
+        (s + /templates)
       ];
     };
 
