@@ -1,7 +1,7 @@
 use std::fs;
 
 use anyhow::{Context, Result};
-use log::{info, LevelFilter};
+use log::{LevelFilter, info};
 
 mod cli;
 mod completion;
@@ -66,6 +66,13 @@ fn main() -> Result<()> {
                     "Configuration file created successfully. Edit it to customize your documentation \
                      generation."
                 );
+                return Ok(());
+            }
+
+            Commands::ExportTemplates { output_dir, force } => {
+                Config::export_templates(output_dir, *force).with_context(|| {
+                    format!("Failed to export templates to {}", output_dir.display())
+                })?;
                 return Ok(());
             }
 

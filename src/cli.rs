@@ -35,6 +35,17 @@ pub enum Commands {
         force: bool,
     },
 
+    /// Export default templates to a directory for customization
+    ExportTemplates {
+        /// Output directory for template files
+        #[arg(short, long, default_value = "templates")]
+        output_dir: PathBuf,
+
+        /// Overwrite existing files
+        #[arg(long)]
+        force: bool,
+    },
+
     /// Generate shell completions and manpages
     Generate {
         /// Directory to output generated files
@@ -68,9 +79,9 @@ pub enum Commands {
         #[arg(short, long)]
         template: Option<PathBuf>,
 
-        /// Path to directory containing template files (default.html,
-        /// options.html, etc.) For missing required files, ndg will fall
-        /// back to its internal templates.
+        /// Path to directory containing template files. Use 'ndg export-templates'
+        /// to get the default templates for customization. Templates in this directory
+        /// override built-in templates (default.html, options.html, search.html, etc.)
         #[arg(long = "template-dir")]
         template_dir: Option<PathBuf>,
 

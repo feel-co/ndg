@@ -515,4 +515,64 @@ impl Config {
         log::info!("Created default configuration file: {}", path.display());
         Ok(())
     }
+
+    /// Export embedded templates to a directory for customization
+    pub fn export_templates(output_dir: &Path, force: bool) -> Result<()> {
+        // Create output directory if it doesn't exist
+        fs::create_dir_all(output_dir).with_context(|| {
+            format!(
+                "Failed to create template directory: {}",
+                output_dir.display()
+            )
+        })?;
+
+        // Get all embedded template sources
+        let templates = Self::get_template_sources();
+
+        for (filename, content) in templates {
+            let file_path = output_dir.join(filename);
+
+            // Check if file exists and force flag
+            if file_path.exists() && !force {
+                log::warn!(
+                    "Skipping existing file: {} (use --force to overwrite)",
+                    file_path.display()
+                );
+                continue;
+            }
+
+            fs::write(&file_path, content).with_context(|| {
+                format!("Failed to write template file: {}", file_path.display())
+            })?;
+
+            log::info!("Exported template: {}", file_path.display());
+        }
+
+        log::info!("Templates exported to: {}", output_dir.display());
+        log::info!(
+            "Use --template-dir {} to customize your documentation",
+            output_dir.display()
+        );
+        Ok(())
+    }
+
+    /// Get mapping of template filenames to their embedded content
+    fn get_template_sources() -> std::collections::HashMap<&'static str, &'static str> {
+        let mut templates = std::collections::HashMap::new();
+
+        // HTML templates
+        templates.insert("default.html", include_str!("../../templates/default.html"));
+        templates.insert("options.html", include_str!("../../templates/options.html"));
+        templates.insert("search.html", include_str!("../../templates/search.html"));
+        templates.insert(
+            "options_toc.html",
+            include_str!("../../templates/options_toc.html"),
+        );
+
+        // CSS and JS assets
+        templates.insert("default.css", include_str!("../../templates/default.css"));
+        templates.insert("search.js", include_str!("../../templates/search.js"));
+
+        templates
+    }
 }
