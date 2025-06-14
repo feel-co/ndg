@@ -10,6 +10,8 @@ jobs:
   changes:
     name: Detect Changed Files
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - name: "Get changed files"
         id: changed-files
