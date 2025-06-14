@@ -88,26 +88,24 @@ fn copy_script_files(config: &Config, assets_dir: &Path) -> Result<()> {
 
 /// Generate CSS from stylesheet
 fn generate_css(config: &Config) -> Result<String> {
-    // Start with the default CSS (always included)
-    let mut combined_css = String::from(DEFAULT_CSS);
-
-    // Add custom CSS from template if available
-    if let Some(template_path) = config.get_template_path() {
+    // Use template CSS if available, otherwise use default CSS
+    let mut combined_css = if let Some(template_path) = config.get_template_path() {
         let template_css_path = template_path.join("default.css");
-        if template_css_path.exists() && template_css_path.to_string_lossy() != DEFAULT_CSS {
-            let template_css = fs::read_to_string(&template_css_path).with_context(|| {
+        if template_css_path.exists() {
+            fs::read_to_string(&template_css_path).with_context(|| {
                 format!(
                     "Failed to read template CSS: {}",
                     template_css_path.display()
                 )
-            })?;
-
-            combined_css.push_str("\n\n/* Template CSS: ");
-            combined_css.push_str(&template_css_path.display().to_string());
-            combined_css.push_str(" */\n");
-            combined_css.push_str(&template_css);
+            })?
+        } else {
+            // No template CSS found, use default
+            String::from(DEFAULT_CSS)
         }
-    }
+    } else {
+        // No template directory specified, use default CSS
+        String::from(DEFAULT_CSS)
+    };
 
     // Add any custom stylesheets provided via --stylesheet
     if !config.stylesheet_paths.is_empty() {
