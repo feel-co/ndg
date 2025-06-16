@@ -10,6 +10,7 @@
       name = "ndg";
       packages = [
         self'.formatter
+        pkgs.taplo # TOML formatter
 
         # Poor man's Rust environment
         pkgs.cargo
