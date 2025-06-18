@@ -84,6 +84,162 @@ document.addEventListener("DOMContentLoaded", function () {
       });
   }
 
+  // Mobile search functionality - detect mobile and add click behavior
+  function isMobile() {
+    return window.innerWidth <= 800;
+  }
+
+  if (searchInput) {
+    // Add mobile search behavior
+    searchInput.addEventListener("click", function(e) {
+      if (isMobile()) {
+        e.preventDefault();
+        e.stopPropagation();
+        openMobileSearch();
+      }
+      // On desktop, let the normal click behavior work (focus the input)
+    });
+
+    // Prevent typing on mobile (input should only open popup)
+    searchInput.addEventListener("keydown", function(e) {
+      if (isMobile()) {
+        e.preventDefault();
+        openMobileSearch();
+      }
+    });
+  }
+
+  // Mobile search popup functionality
+  let mobileSearchPopup = document.getElementById("mobile-search-popup");
+  let mobileSearchInput = document.getElementById("mobile-search-input");
+  let mobileSearchResults = document.getElementById("mobile-search-results");
+
+  // Create mobile search popup if it doesn't exist
+  if (!mobileSearchPopup) {
+    mobileSearchPopup = document.createElement("div");
+    mobileSearchPopup.id = "mobile-search-popup";
+    mobileSearchPopup.className = "search-popup";
+    mobileSearchPopup.innerHTML = `
+      <input type="text" id="mobile-search-input" placeholder="Search..." />
+      <div id="mobile-search-results" class="search-results"></div>
+    `;
+    document.body.appendChild(mobileSearchPopup);
+    
+    mobileSearchInput = document.getElementById("mobile-search-input");
+    mobileSearchResults = document.getElementById("mobile-search-results");
+  }
+
+  function openMobileSearch() {
+    if (mobileSearchPopup) {
+      mobileSearchPopup.classList.add("active");
+      // Focus the input after a small delay to ensure the popup is visible
+      setTimeout(() => {
+        if (mobileSearchInput) {
+          mobileSearchInput.focus();
+        }
+      }, 100);
+    }
+  }
+
+  function closeMobileSearch() {
+    if (mobileSearchPopup) {
+      mobileSearchPopup.classList.remove("active");
+      if (mobileSearchInput) {
+        mobileSearchInput.value = "";
+      }
+      if (mobileSearchResults) {
+        mobileSearchResults.innerHTML = "";
+        mobileSearchResults.style.display = "none";
+      }
+    }
+  }
+
+  // Close mobile search when clicking outside
+  document.addEventListener("click", function(event) {
+    if (mobileSearchPopup && mobileSearchPopup.classList.contains("active") &&
+        !mobileSearchPopup.contains(event.target) &&
+        !searchInput.contains(event.target)) {
+      closeMobileSearch();
+    }
+  });
+
+  // Close mobile search on escape key
+  document.addEventListener("keydown", function(event) {
+    if (event.key === "Escape" && mobileSearchPopup && mobileSearchPopup.classList.contains("active")) {
+      closeMobileSearch();
+    }
+  });
+
+  // Mobile search input functionality (reuse search data if available)
+  if (mobileSearchInput && mobileSearchResults) {
+    // Load search data for mobile search
+    fetch("assets/search-data.json")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to load search data");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        mobileSearchInput.addEventListener("input", function () {
+          const searchTerm = this.value.toLowerCase().trim();
+
+          if (searchTerm.length < 2) {
+            mobileSearchResults.innerHTML = "";
+            mobileSearchResults.style.display = "none";
+            return;
+          }
+
+          // "Simple" search implementation
+          const results = data
+            .filter(
+              (doc) =>
+                doc.title.toLowerCase().includes(searchTerm) ||
+                doc.content.toLowerCase().includes(searchTerm),
+            )
+            .slice(0, 10);
+
+          if (results.length > 0) {
+            mobileSearchResults.innerHTML = results
+              .map(
+                (doc) => `
+                          <div class="search-result-item">
+                              <a href="${doc.path}">${doc.title}</a>
+                          </div>
+                      `,
+              )
+              .join("");
+            mobileSearchResults.style.display = "block";
+          } else {
+            mobileSearchResults.innerHTML =
+              '<div class="search-result-item">No results found</div>';
+            mobileSearchResults.style.display = "block";
+          }
+        });
+      })
+      .catch((error) => {
+        console.error("Error loading search data for mobile:", error);
+        mobileSearchInput.addEventListener("input", function() {
+          const searchTerm = this.value.toLowerCase().trim();
+          if (searchTerm.length < 2) {
+            mobileSearchResults.innerHTML = "";
+            mobileSearchResults.style.display = "none";
+          } else {
+            mobileSearchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+            mobileSearchResults.style.display = "block";
+          }
+        });
+      });
+  }
+
+  // Handle window resize to update mobile behavior
+  window.addEventListener('resize', function() {
+    // Close mobile search if window is resized to desktop size
+    if (!isMobile() && mobileSearchPopup && mobileSearchPopup.classList.contains("active")) {
+      closeMobileSearch();
+    }
+  });
+
   // Options filter
   const optionsFilter = document.getElementById("options-filter");
   if (optionsFilter) {
