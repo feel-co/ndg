@@ -49,24 +49,10 @@
         {% if generate_search %}
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Search..." />
-          <button class="search-toggle" id="mobile-search-toggle" aria-label="Toggle search">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
           <div id="search-results" class="search-results"></div>
         </div>
         {% endif %}
       </header>
-
-      <!-- Mobile search popup -->
-      {% if generate_search %}
-      <div class="search-popup" id="mobile-search-popup">
-        <input type="text" id="mobile-search-input" placeholder="Search..." />
-        <div id="mobile-search-results" class="search-results"></div>
-      </div>
-      {% endif %}
 
       <div class="layout">
         <div class="sidebar-toggle" aria-label="Toggle sidebar">
@@ -217,5 +203,16 @@
       });
     </script>
     {{ custom_scripts|safe }}
+
+    <!-- Mobile Search Popup -->
+    <div id="mobile-search-popup" class="mobile-search-popup">
+      <div class="mobile-search-container">
+        <div class="mobile-search-header">
+          <input type="text" id="mobile-search-input" placeholder="Search..." />
+          <button id="close-mobile-search" class="close-mobile-search" aria-label="Close search">&times;</button>
+        </div>
+        <div id="mobile-search-results" class="mobile-search-results"></div>
+      </div>
+    </div>
   </body>
 </html>

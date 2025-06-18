@@ -224,5 +224,16 @@
       }
     </script>
     {{ custom_scripts|safe }}
+
+    <!-- Mobile Search Popup -->
+    <div id="mobile-search-popup" class="mobile-search-popup">
+      <div class="mobile-search-container">
+        <div class="mobile-search-header">
+          <input type="text" id="mobile-search-input" placeholder="Search..." />
+          <button id="close-mobile-search" class="close-mobile-search" aria-label="Close search">&times;</button>
+        </div>
+        <div id="mobile-search-results" class="mobile-search-results"></div>
+      </div>
+    </div>
   </body>
 </html>

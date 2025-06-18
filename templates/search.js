@@ -113,21 +113,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let mobileSearchPopup = document.getElementById("mobile-search-popup");
   let mobileSearchInput = document.getElementById("mobile-search-input");
   let mobileSearchResults = document.getElementById("mobile-search-results");
-
-  // Create mobile search popup if it doesn't exist
-  if (!mobileSearchPopup) {
-    mobileSearchPopup = document.createElement("div");
-    mobileSearchPopup.id = "mobile-search-popup";
-    mobileSearchPopup.className = "search-popup";
-    mobileSearchPopup.innerHTML = `
-      <input type="text" id="mobile-search-input" placeholder="Search..." />
-      <div id="mobile-search-results" class="search-results"></div>
-    `;
-    document.body.appendChild(mobileSearchPopup);
-    
-    mobileSearchInput = document.getElementById("mobile-search-input");
-    mobileSearchResults = document.getElementById("mobile-search-results");
-  }
+  const closeMobileSearchBtn = document.getElementById("close-mobile-search");
 
   function openMobileSearch() {
     if (mobileSearchPopup) {
@@ -152,6 +138,10 @@ document.addEventListener("DOMContentLoaded", function () {
         mobileSearchResults.style.display = "none";
       }
     }
+  }
+
+  if (closeMobileSearchBtn) {
+    closeMobileSearchBtn.addEventListener("click", closeMobileSearch);
   }
 
   // Close mobile search when clicking outside
