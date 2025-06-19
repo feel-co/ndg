@@ -973,6 +973,48 @@ img {
   margin: 0;
 }
 
+.admonition ul,
+.admonition ol {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-8);
+  margin-left: var(--space-8);
+  list-style-position: inside;
+}
+
+.admonition li {
+  margin: var(--space-2) 0;
+  line-height: 1.6;
+  text-indent: -1em;
+  padding-left: 1em;
+}
+
+.admonition li p {
+  display: inline;
+  margin: 0;
+}
+
+.admonition ul ul,
+.admonition ol ol,
+.admonition ul ol,
+.admonition ol ul {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-8);
+  margin-left: 0;
+  list-style-position: outside;
+}
+
+.admonition p {
+  margin: var(--space-3) 0;
+}
+
+.admonition p:first-child {
+  margin-top: 0;
+}
+
+.admonition p:last-child {
+  margin-bottom: 0;
+}
+
 .admonition.note {
   border-top: 4px solid var(--admonition-note-color);
 }
