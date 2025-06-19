@@ -572,6 +572,7 @@ impl Config {
         // CSS and JS assets
         templates.insert("default.css", include_str!("../../templates/default.css"));
         templates.insert("search.js", include_str!("../../templates/search.js"));
+        templates.insert("main.js", include_str!("../../templates/main.js"));
 
         templates
     }

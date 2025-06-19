@@ -14,6 +14,7 @@ use crate::{
 // Template constants
 const DEFAULT_CSS: &str = include_str!("../templates/default.css");
 const SEARCH_JS: &str = include_str!("../templates/search.js");
+const MAIN_JS: &str = include_str!("../templates/main.js");
 
 /// Copy assets to output directory
 pub fn copy_assets(config: &Config) -> Result<()> {
@@ -25,6 +26,9 @@ pub fn copy_assets(config: &Config) -> Result<()> {
     let css = generate_css(config)?;
     fs::write(assets_dir.join("style.css"), css).context("Failed to write CSS file")?;
 
+    // Copy main.js, which is always needed for the default templates
+    copy_template_asset(config, &assets_dir, "main.js", MAIN_JS)?;
+
     // Copy custom assets if they exist
     copy_custom_assets(config, &assets_dir)?;
 
@@ -33,22 +37,32 @@ pub fn copy_assets(config: &Config) -> Result<()> {
 
     // Create search.js for search functionality
     if config.generate_search {
-        // Use template from config if available, otherwise use embedded template
-        let search_js = if let Some(path) = config.get_template_file("search.js") {
-            if path.exists() {
-                fs::read_to_string(&path)
-                    .with_context(|| format!("Failed to read search.js from: {}", path.display()))?
-            } else {
-                SEARCH_JS.to_string()
-            }
-        } else {
-            SEARCH_JS.to_string()
-        };
-
-        fs::write(assets_dir.join("search.js"), search_js).context("Failed to write search.js")?;
+        copy_template_asset(config, &assets_dir, "search.js", SEARCH_JS)?;
     }
 
     Ok(())
+}
+
+/// Copies template asset while still allowing user override
+fn copy_template_asset(
+    config: &Config,
+    assets_dir: &Path,
+    filename: &str,
+    fallback_content: &str,
+) -> Result<()> {
+    let content = if let Some(path) = config.get_template_file(filename) {
+        if path.exists() {
+            fs::read_to_string(&path)
+                .with_context(|| format!("Failed to read {} from: {}", filename, path.display()))?
+        } else {
+            fallback_content.to_string()
+        }
+    } else {
+        fallback_content.to_string()
+    };
+
+    fs::write(assets_dir.join(filename), content)
+        .with_context(|| format!("Failed to write {} to assets directory", filename))
 }
 
 /// Copy custom assets from the configured directory

@@ -44,7 +44,7 @@ static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
     })
 });
 
-// GitHub Flavored Markdown autolink patterns - more specific pattern to avoid false positives
+// GitHub Flavored Markdown autolink patterns
 pub static AUTOLINK_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(https?://[^\s<>"')\}]+)"#).unwrap_or_else(|e| {
         error!("Failed to compile AUTOLINK_PATTERN regex: {e}");
@@ -52,9 +52,8 @@ pub static AUTOLINK_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     })
 });
 
-// Inline code pattern with improved backtick handling
+// Inline code pattern
 pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
-    // Replaced invalid regex pattern with a valid fallback
     Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
         error!("Failed to compile INLINE_CODE regex: {e}");
         never_matching_regex()
@@ -243,7 +242,6 @@ pub fn process_roles(
                             format!("\\fB{content}\\fP")
                         }
                     }
-                    // Removed redundant match arm
                     _ => format!("\\fI{content}\\fP"),
                 }
             }
