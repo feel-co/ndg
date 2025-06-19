@@ -1,13 +1,78 @@
+// Create mobile elements if they don't exist
+function createMobileElements() {
+  // Create mobile sidebar FAB
+  const mobileFab = document.createElement("button");
+  mobileFab.className = "mobile-sidebar-fab";
+  mobileFab.setAttribute("aria-label", "Toggle sidebar menu");
+  mobileFab.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  `;
+
+  // Only show FAB on mobile (max-width: 800px)
+  function updateFabVisibility() {
+    if (window.innerWidth > 800) {
+      if (mobileFab.parentNode) mobileFab.parentNode.removeChild(mobileFab);
+    } else {
+      if (!document.body.contains(mobileFab)) {
+        document.body.appendChild(mobileFab);
+      }
+      mobileFab.style.display = "flex";
+    }
+  }
+  updateFabVisibility();
+  window.addEventListener("resize", updateFabVisibility);
+
+  // Create mobile sidebar container
+  const mobileContainer = document.createElement("div");
+  mobileContainer.className = "mobile-sidebar-container";
+  mobileContainer.innerHTML = `
+    <div class="mobile-sidebar-handle">
+      <div class="mobile-sidebar-dragger"></div>
+    </div>
+    <div class="mobile-sidebar-content">
+      <!-- Sidebar content will be cloned here -->
+    </div>
+  `;
+
+  // Create mobile search popup
+  const mobileSearchPopup = document.createElement("div");
+  mobileSearchPopup.id = "mobile-search-popup";
+  mobileSearchPopup.className = "mobile-search-popup";
+  mobileSearchPopup.innerHTML = `
+    <div class="mobile-search-container">
+      <div class="mobile-search-header">
+        <input type="text" id="mobile-search-input" placeholder="Search..." />
+        <button id="close-mobile-search" class="close-mobile-search" aria-label="Close search">&times;</button>
+      </div>
+      <div id="mobile-search-results" class="mobile-search-results"></div>
+    </div>
+  `;
+
+  // Insert at end of body so it is not affected by .container flex or stacking context
+  document.body.appendChild(mobileContainer);
+  document.body.appendChild(mobileSearchPopup);
+
+  // Immediately populate mobile sidebar content if desktop sidebar exists
+  const desktopSidebar = document.querySelector(".sidebar");
+  const mobileSidebarContent = mobileContainer.querySelector(".mobile-sidebar-content");
+  if (desktopSidebar && mobileSidebarContent) {
+    mobileSidebarContent.innerHTML = desktopSidebar.innerHTML;
+  }
+}
+
+if (!document.querySelector(".mobile-sidebar-fab")) {
+  createMobileElements();
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   // Apply sidebar state immediately before DOM rendering
   if (localStorage.getItem("sidebar-collapsed") === "true") {
     document.documentElement.classList.add("sidebar-collapsed");
     document.body.classList.add("sidebar-collapsed");
-  }
-
-  // Create mobile elements if they don't exist
-  if (!document.querySelector(".mobile-sidebar-fab")) {
-    createMobileElements();
   }
 
   // Desktop Sidebar Toggle
@@ -169,23 +234,25 @@ document.addEventListener("DOMContentLoaded", function () {
   const mobileSidebarHandle = document.querySelector(".mobile-sidebar-handle");
   const desktopSidebar = document.querySelector(".sidebar");
 
-  if (mobileSidebarContainer && mobileSidebarFab && desktopSidebar) {
-    // Clone sidebar content to mobile container
-    // Only clone if the mobile sidebar is empty
-    if (mobileSidebarContent.innerHTML.trim() === "") {
-        mobileSidebarContent.innerHTML = desktopSidebar.innerHTML;
+  // Always set up FAB if it exists
+  if (mobileSidebarFab && mobileSidebarContainer) {
+    // Populate content if desktop sidebar exists
+    if (desktopSidebar && mobileSidebarContent) {
+      mobileSidebarContent.innerHTML = desktopSidebar.innerHTML;
     }
 
     const openMobileSidebar = () => {
       mobileSidebarContainer.classList.add("active");
       mobileSidebarFab.setAttribute("aria-expanded", "true");
       mobileSidebarContainer.setAttribute("aria-hidden", "false");
+      mobileSidebarFab.classList.add("fab-hidden"); // hide FAB when drawer is open
     };
 
     const closeMobileSidebar = () => {
       mobileSidebarContainer.classList.remove("active");
       mobileSidebarFab.setAttribute("aria-expanded", "false");
       mobileSidebarContainer.setAttribute("aria-hidden", "true");
+      mobileSidebarFab.classList.remove("fab-hidden"); // Show FAB when drawer is closed
     };
 
     mobileSidebarFab.addEventListener("click", (e) => {
@@ -197,62 +264,65 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 
-    // Drag functionality
-    let isDragging = false;
-    let startY = 0;
-    let startHeight = 0;
+    // Only set up drag functionality if handle exists
+    if (mobileSidebarHandle) {
+      // Drag functionality
+      let isDragging = false;
+      let startY = 0;
+      let startHeight = 0;
 
-    mobileSidebarHandle.addEventListener("mousedown", (e) => {
-      isDragging = true;
-      startY = e.pageY;
-      startHeight = mobileSidebarContainer.offsetHeight;
-      mobileSidebarHandle.style.cursor = "grabbing";
-      document.body.style.userSelect = "none"; // prevent text selection
-    });
+      mobileSidebarHandle.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        startY = e.pageY;
+        startHeight = mobileSidebarContainer.offsetHeight;
+        mobileSidebarHandle.style.cursor = "grabbing";
+        document.body.style.userSelect = "none"; // prevent text selection
+      });
 
-    mobileSidebarHandle.addEventListener("touchstart", (e) => {
-      isDragging = true;
-      startY = e.touches[0].pageY;
-      startHeight = mobileSidebarContainer.offsetHeight;
-    });
+      mobileSidebarHandle.addEventListener("touchstart", (e) => {
+        isDragging = true;
+        startY = e.touches[0].pageY;
+        startHeight = mobileSidebarContainer.offsetHeight;
+      });
 
-    document.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-      const deltaY = startY - e.pageY;
-      const newHeight = startHeight + deltaY;
-      const vh = window.innerHeight;
-      const minHeight = vh * 0.15;
-      const maxHeight = vh * 0.9;
+      document.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        const deltaY = startY - e.pageY;
+        const newHeight = startHeight + deltaY;
+        const vh = window.innerHeight;
+        const minHeight = vh * 0.15;
+        const maxHeight = vh * 0.9;
 
-      if (newHeight >= minHeight && newHeight <= maxHeight) {
-        mobileSidebarContainer.style.height = `${newHeight}px`;
-      }
-    });
+        if (newHeight >= minHeight && newHeight <= maxHeight) {
+          mobileSidebarContainer.style.height = `${newHeight}px`;
+        }
+      });
 
-    document.addEventListener("touchmove", (e) => {
-      if (!isDragging) return;
-      const deltaY = startY - e.touches[0].pageY;
-      const newHeight = startHeight + deltaY;
-      const vh = window.innerHeight;
-      const minHeight = vh * 0.15;
-      const maxHeight = vh * 0.9;
+      document.addEventListener("touchmove", (e) => {
+        if (!isDragging) return;
+        const deltaY = startY - e.touches[0].pageY;
+        const newHeight = startHeight + deltaY;
+        const vh = window.innerHeight;
+        const minHeight = vh * 0.15;
+        const maxHeight = vh * 0.9;
 
-      if (newHeight >= minHeight && newHeight <= maxHeight) {
-        mobileSidebarContainer.style.height = `${newHeight}px`;
-      }
-    });
+        if (newHeight >= minHeight && newHeight <= maxHeight) {
+          mobileSidebarContainer.style.height = `${newHeight}px`;
+        }
+      });
 
-    document.addEventListener("mouseup", () => {
-      if (isDragging) {
+      document.addEventListener("mouseup", () => {
+        if (isDragging) {
+          isDragging = false;
+          mobileSidebarHandle.style.cursor = "grab";
+          document.body.style.userSelect = "";
+        }
+      });
+
+      document.addEventListener("touchend", () => {
         isDragging = false;
-        mobileSidebarHandle.style.cursor = "grab";
-        document.body.style.userSelect = "";
-      }
-    });
-
-    document.addEventListener("touchend", () => {
-      isDragging = false;
-    });
+      });
+    }
 
     // Close on outside click
     document.addEventListener("click", (event) => {
@@ -509,49 +579,3 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 });
-
-// Create mobile elements if they don't exist
-function createMobileElements() {
-  // Create mobile sidebar FAB
-  const mobileFab = document.createElement("button");
-  mobileFab.className = "mobile-sidebar-fab";
-  mobileFab.setAttribute("aria-label", "Toggle sidebar menu");
-  mobileFab.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="3" y1="12" x2="21" y2="12"></line>
-      <line x1="3" y1="6" x2="21" y2="6"></line>
-      <line x1="3" y1="18" x2="21" y2="18"></line>
-    </svg>
-  `;
-
-  // Create mobile sidebar container
-  const mobileContainer = document.createElement("div");
-  mobileContainer.className = "mobile-sidebar-container";
-  mobileContainer.innerHTML = `
-    <div class="mobile-sidebar-handle">
-      <div class="mobile-sidebar-dragger"></div>
-    </div>
-    <div class="mobile-sidebar-content">
-      <!-- Sidebar content will be cloned here -->
-    </div>
-  `;
-
-  // Create mobile search popup
-  const mobileSearchPopup = document.createElement("div");
-  mobileSearchPopup.id = "mobile-search-popup";
-  mobileSearchPopup.className = "mobile-search-popup";
-  mobileSearchPopup.innerHTML = `
-    <div class="mobile-search-container">
-      <div class="mobile-search-header">
-        <input type="text" id="mobile-search-input" placeholder="Search..." />
-        <button id="close-mobile-search" class="close-mobile-search" aria-label="Close search">&times;</button>
-      </div>
-      <div id="mobile-search-results" class="mobile-search-results"></div>
-    </div>
-  `;
-
-  // Append to body
-  document.body.appendChild(mobileFab);
-  document.body.appendChild(mobileContainer);
-  document.body.appendChild(mobileSearchPopup);
-}
