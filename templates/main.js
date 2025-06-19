@@ -374,9 +374,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const optionsContainer = document.querySelector(".options-container");
     if (!optionsContainer) return;
 
-    const styleEl = document.createElement('style');
-    styleEl.textContent = '.option-hidden{display:none!important}';
-    document.head.appendChild(styleEl);
+    // Only inject the style if it doesn't already exist
+    if (!document.head.querySelector('style[data-options-hidden]')) {
+      const styleEl = document.createElement('style');
+      styleEl.setAttribute('data-options-hidden', '');
+      styleEl.textContent = '.option-hidden{display:none!important}';
+      document.head.appendChild(styleEl);
+    }
 
     // Create filter results counter
     const filterResults = document.createElement("div");
