@@ -20,14 +20,14 @@
     </style>
     <script>
       // Apply sidebar state immediately before any DOM rendering
-      (function() {
+      (function () {
         if (localStorage.getItem("sidebar-collapsed") === "true") {
           document.documentElement.classList.add("sidebar-collapsed");
-          document.body.classList.add("sidebar-collapsed");
         }
       })();
     </script>
     <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/main.js"></script>
     {% if generate_search %}
     <script defer src="assets/search.js"></script>
     {% endif %}
@@ -92,6 +92,24 @@
       <footer>
         <p>{{ footer_text }}</p>
       </footer>
+    </div>
+
+    <!-- Mobile Sidebar -->
+    <button class="mobile-sidebar-fab" aria-label="Toggle sidebar menu">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+
+    <div class="mobile-sidebar-container">
+      <div class="mobile-sidebar-handle">
+        <div class="mobile-sidebar-dragger"></div>
+      </div>
+      <div class="mobile-sidebar-content">
+        <!-- Sidebar content will be cloned here -->
+      </div>
     </div>
 
     <script>

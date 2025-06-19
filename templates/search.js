@@ -1,4 +1,14 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Desktop Sidebar Toggle
+  const sidebarToggle = document.querySelector(".sidebar-toggle");
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", function () {
+      document.body.classList.toggle("sidebar-collapsed");
+      const isCollapsed = document.body.classList.contains("sidebar-collapsed");
+      localStorage.setItem("sidebar-collapsed", isCollapsed);
+    });
+  }
+
   const searchInput = document.getElementById("search-input");
   if (searchInput) {
     const searchResults = document.getElementById("search-results");
@@ -442,4 +452,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
   }
+
+  // Mobile Sidebar Functionality
+  // This functionality has been moved to main.js
 });
