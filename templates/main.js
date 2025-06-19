@@ -1,4 +1,15 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // Apply sidebar state immediately before DOM rendering
+  if (localStorage.getItem("sidebar-collapsed") === "true") {
+    document.documentElement.classList.add("sidebar-collapsed");
+    document.body.classList.add("sidebar-collapsed");
+  }
+
+  // Create mobile elements if they don't exist
+  if (!document.querySelector(".mobile-sidebar-fab")) {
+    createMobileElements();
+  }
+
   // Desktop Sidebar Toggle
   const sidebarToggle = document.querySelector(".sidebar-toggle");
 
@@ -20,12 +31,143 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Make headings clickable for anchor links
+  const content = document.querySelector(".content");
+  if (content) {
+    const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6");
+
+    headings.forEach(function (heading) {
+      // Make sure all headings have IDs
+      if (!heading.id) {
+        heading.id = heading.textContent
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, "")
+          .replace(/[\s-]+/g, "-")
+          .trim();
+
+        if (!heading.id) {
+          heading.id =
+            "section-" + Math.random().toString(36).substring(2, 9);
+        }
+      }
+
+      // Make the entire heading clickable
+      heading.addEventListener("click", function (e) {
+        const id = this.id;
+        history.pushState(null, null, "#" + id);
+
+        // Scroll with offset
+        const offset =
+          this.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({
+          top: offset,
+          behavior: "smooth",
+        });
+      });
+    });
+  }
+
+  // Process footnotes
+  if (content) {
+    const footnoteContainer = document.querySelector(".footnotes-container");
+
+    // Find all footnote references and create a footnotes section
+    const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
+    if (footnoteRefs.length > 0) {
+      const footnotesDiv = document.createElement("div");
+      footnotesDiv.className = "footnotes";
+
+      const footnotesHeading = document.createElement("h2");
+      footnotesHeading.textContent = "Footnotes";
+      footnotesDiv.appendChild(footnotesHeading);
+
+      const footnotesList = document.createElement("ol");
+      footnoteContainer.appendChild(footnotesDiv);
+      footnotesDiv.appendChild(footnotesList);
+
+      // Add footnotes
+      document.querySelectorAll(".footnote").forEach((footnote) => {
+        const id = footnote.id;
+        const content = footnote.innerHTML;
+
+        const li = document.createElement("li");
+        li.id = id;
+        li.innerHTML = content;
+
+        // Add backlink
+        const backlink = document.createElement("a");
+        backlink.href = "#fnref:" + id.replace("fn:", "");
+        backlink.className = "footnote-backlink";
+        backlink.textContent = "↩";
+        li.appendChild(backlink);
+
+        footnotesList.appendChild(li);
+      });
+    }
+  }
+
+  // Copy link functionality
+  document.querySelectorAll(".copy-link").forEach(function (copyLink) {
+    copyLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Get option ID from parent element
+      const option = copyLink.closest(".option");
+      const optionId = option.id;
+
+      // Create URL with hash
+      const url = new URL(window.location.href);
+      url.hash = optionId;
+
+      // Copy to clipboard
+      navigator.clipboard
+        .writeText(url.toString())
+        .then(function () {
+          // Show feedback
+          const feedback = copyLink.nextElementSibling;
+          feedback.style.display = "inline";
+
+          // Hide after 2 seconds
+          setTimeout(function () {
+            feedback.style.display = "none";
+          }, 2000);
+        })
+        .catch(function (err) {
+          console.error("Could not copy link: ", err);
+        });
+    });
+  });
+
+  // Handle initial hash navigation
+  function scrollToElement(element) {
+    if (element) {
+      const offset =
+        element.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({
+        top: offset,
+        behavior: "smooth",
+      });
+    }
+  }
+
+  if (window.location.hash) {
+    const targetElement = document.querySelector(window.location.hash);
+    if (targetElement) {
+      setTimeout(() => scrollToElement(targetElement), 0);
+      // Add highlight class for options page
+      if (targetElement.classList.contains("option")) {
+        targetElement.classList.add("highlight");
+      }
+    }
+  }
+
   // Mobile Sidebar Functionality
-  const mobileSidebarContainer = document.getElementById("mobile-sidebar-container");
-  const mobileSidebarFab = document.getElementById("mobile-sidebar-fab");
-  const mobileSidebarContent = document.getElementById("mobile-sidebar-content");
+  const mobileSidebarContainer = document.querySelector(".mobile-sidebar-container");
+  const mobileSidebarFab = document.querySelector(".mobile-sidebar-fab");
+  const mobileSidebarContent = document.querySelector(".mobile-sidebar-content");
   const mobileSidebarHandle = document.querySelector(".mobile-sidebar-handle");
-  const desktopSidebar = document.getElementById("sidebar");
+  const desktopSidebar = document.querySelector(".sidebar");
 
   if (mobileSidebarContainer && mobileSidebarFab && desktopSidebar) {
     // Clone sidebar content to mobile container
@@ -65,7 +207,7 @@ document.addEventListener("DOMContentLoaded", function () {
       startY = e.pageY;
       startHeight = mobileSidebarContainer.offsetHeight;
       mobileSidebarHandle.style.cursor = "grabbing";
-      document.body.style.userSelect = "none"; // Prevent text selection
+      document.body.style.userSelect = "none"; // prevent text selection
     });
 
     mobileSidebarHandle.addEventListener("touchstart", (e) => {
@@ -128,4 +270,288 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  // Mobile Search Popup
+  const mobileSearchPopup = document.getElementById("mobile-search-popup");
+  const mobileSearchInput = document.getElementById("mobile-search-input");
+  const closeMobileSearchBtn = document.getElementById("close-mobile-search");
+  const mobileSearchResults = document.getElementById("mobile-search-results");
+
+  if (closeMobileSearchBtn && mobileSearchPopup) {
+    closeMobileSearchBtn.addEventListener("click", () => {
+      mobileSearchPopup.classList.remove("active");
+    });
+
+    // Close on escape key
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && mobileSearchPopup.classList.contains("active")) {
+        mobileSearchPopup.classList.remove("active");
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener("click", (event) => {
+      if (mobileSearchPopup.classList.contains("active") &&
+          !mobileSearchPopup.querySelector(".mobile-search-container").contains(event.target)) {
+        mobileSearchPopup.classList.remove("active");
+      }
+    });
+  }
+
+  // Options filter functionality
+  const optionsFilter = document.getElementById("options-filter");
+  if (optionsFilter) {
+    const optionsContainer = document.querySelector(".options-container");
+    if (!optionsContainer) return;
+
+    const styleEl = document.createElement('style');
+    styleEl.textContent = '.option-hidden{display:none!important}';
+    document.head.appendChild(styleEl);
+
+    // Create filter results counter
+    const filterResults = document.createElement("div");
+    filterResults.className = "filter-results";
+    optionsFilter.parentNode.insertBefore(
+      filterResults,
+      optionsFilter.nextSibling,
+    );
+
+    // Detect if we're on a mobile device
+    const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+
+    // Cache all option elements and their searchable content
+    const options = Array.from(document.querySelectorAll(".option"));
+    const totalCount = options.length;
+
+    // Pre-process and optimize searchable content
+    const optionsData = options.map(option => {
+      const nameElem = option.querySelector(".option-name");
+      const descriptionElem = option.querySelector(".option-description");
+      const id = option.id ? option.id.toLowerCase() : "";
+      const name = nameElem ? nameElem.textContent.toLowerCase() : "";
+      const description = descriptionElem ? descriptionElem.textContent.toLowerCase() : "";
+
+      // Extract keywords for faster searching
+      const keywords = (id + " " + name + " " + description)
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 1);
+
+      return {
+        element: option,
+        id,
+        name,
+        description,
+        keywords,
+        searchText: (id + " " + name + " " + description).toLowerCase()
+      };
+    });
+
+    // Chunk size and rendering variables
+    const CHUNK_SIZE = isMobile ? 15 : 40;
+    let pendingRender = null;
+    let currentChunk = 0;
+    let itemsToProcess = [];
+
+    function debounce(func, wait) {
+      let timeout;
+      return function() {
+        const context = this;
+        const args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+      };
+    }
+
+    // Process options in chunks to prevent UI freezing
+    function processNextChunk() {
+      const startIdx = currentChunk * CHUNK_SIZE;
+      const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
+
+      if (startIdx < itemsToProcess.length) {
+        // Process current chunk
+        for (let i = startIdx; i < endIdx; i++) {
+          const item = itemsToProcess[i];
+          if (item.visible) {
+            item.element.classList.remove('option-hidden');
+          } else {
+            item.element.classList.add('option-hidden');
+          }
+        }
+
+        currentChunk++;
+        pendingRender = requestAnimationFrame(processNextChunk);
+      } else {
+        // Finished processing all chunks
+        pendingRender = null;
+        currentChunk = 0;
+        itemsToProcess = [];
+
+        // Update counter at the very end for best performance
+        if (filterResults.visibleCount !== undefined) {
+          if (filterResults.visibleCount < totalCount) {
+            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} options`;
+            filterResults.style.display = "block";
+          } else {
+            filterResults.style.display = "none";
+          }
+        }
+      }
+    }
+
+    function filterOptions() {
+      const searchTerm = optionsFilter.value.toLowerCase().trim();
+
+      // Cancel any pending renders
+      if (pendingRender) {
+        cancelAnimationFrame(pendingRender);
+        pendingRender = null;
+      }
+
+      // Reset
+      currentChunk = 0;
+      itemsToProcess = [];
+
+      // Fast path for empty search
+      if (searchTerm === "") {
+        // On very large datasets, still use chunks for showing all
+        if (totalCount > 200) {
+          itemsToProcess = options.map(element => ({ element, visible: true }));
+          filterResults.visibleCount = totalCount;
+          pendingRender = requestAnimationFrame(processNextChunk);
+        } else {
+          // For smaller datasets, batch update without chunking
+          options.forEach(option => option.classList.remove('option-hidden'));
+          filterResults.style.display = "none";
+        }
+        return;
+      }
+
+      // Prepare search and split into terms for better matching
+      const searchTerms = searchTerm.split(/\s+/).filter(term => term.length > 0);
+      let visibleCount = 0;
+
+      // Optimize based on term count
+      if (searchTerms.length === 1) {
+        // Single term search - common case
+        const term = searchTerms[0];
+
+        itemsToProcess = optionsData.map(data => {
+          // First check exact matches on id/name (most common use case)
+          let visible = data.id.includes(term) || data.name.includes(term);
+
+          // Only check the full text if we don't have a match yet
+          if (!visible) {
+            visible = data.searchText.includes(term);
+          }
+
+          if (visible) visibleCount++;
+          return { element: data.element, visible };
+        });
+      } else {
+        itemsToProcess = optionsData.map(data => {
+          const visible = searchTerms.every(term =>
+            data.searchText.includes(term)
+          );
+
+          if (visible) visibleCount++;
+          return { element: data.element, visible };
+        });
+      }
+
+      // Store count for later use
+      filterResults.visibleCount = visibleCount;
+
+      // Process in chunks
+      pendingRender = requestAnimationFrame(processNextChunk);
+    }
+
+    // Use different debounce times for desktop vs mobile
+    const debouncedFilter = debounce(filterOptions, isMobile ? 200 : 100);
+
+    // Set up event listeners
+    optionsFilter.addEventListener("input", debouncedFilter);
+    optionsFilter.addEventListener("change", filterOptions);
+
+    // Allow clearing with Escape key
+    optionsFilter.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        optionsFilter.value = "";
+        filterOptions();
+      }
+    });
+
+    // Handle visibility changes
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden && optionsFilter.value) {
+        filterOptions();
+      }
+    });
+
+    // Initially trigger filter if there's a value
+    if (optionsFilter.value) {
+      filterOptions();
+    }
+
+    // Pre-calculate heights for smoother scrolling
+    if (isMobile && totalCount > 50) {
+      requestIdleCallback(() => {
+        const sampleOption = options[0];
+        if (sampleOption) {
+          const height = sampleOption.offsetHeight;
+          if (height > 0) {
+            options.forEach(opt => {
+              opt.style.containIntrinsicSize = `0 ${height}px`;
+            });
+          }
+        }
+      });
+    }
+  }
 });
+
+// Create mobile elements if they don't exist
+function createMobileElements() {
+  // Create mobile sidebar FAB
+  const mobileFab = document.createElement("button");
+  mobileFab.className = "mobile-sidebar-fab";
+  mobileFab.setAttribute("aria-label", "Toggle sidebar menu");
+  mobileFab.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  `;
+
+  // Create mobile sidebar container
+  const mobileContainer = document.createElement("div");
+  mobileContainer.className = "mobile-sidebar-container";
+  mobileContainer.innerHTML = `
+    <div class="mobile-sidebar-handle">
+      <div class="mobile-sidebar-dragger"></div>
+    </div>
+    <div class="mobile-sidebar-content">
+      <!-- Sidebar content will be cloned here -->
+    </div>
+  `;
+
+  // Create mobile search popup
+  const mobileSearchPopup = document.createElement("div");
+  mobileSearchPopup.id = "mobile-search-popup";
+  mobileSearchPopup.className = "mobile-search-popup";
+  mobileSearchPopup.innerHTML = `
+    <div class="mobile-search-container">
+      <div class="mobile-search-header">
+        <input type="text" id="mobile-search-input" placeholder="Search..." />
+        <button id="close-mobile-search" class="close-mobile-search" aria-label="Close search">&times;</button>
+      </div>
+      <div id="mobile-search-results" class="mobile-search-results"></div>
+    </div>
+  `;
+
+  // Append to body
+  document.body.appendChild(mobileFab);
+  document.body.appendChild(mobileContainer);
+  document.body.appendChild(mobileSearchPopup);
+}
