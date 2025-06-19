@@ -61,6 +61,8 @@ designed to enhance documentation, particularly for Nix-related projects.
 Admonitions are colored callout boxes that highlight important information. They
 use a fenced block syntax with a class indicator.
 
+<!-- markdownlint-disable MD040 -->
+
 ```markdown
 ::: {.note} This is a note admonition. :::
 
@@ -79,9 +81,11 @@ use a fenced block syntax with a class indicator.
 
 You can also add an ID to an admonition for direct linking:
 
-```markdown
-::: {.note #custom-id} This note has a custom ID and can be linked to with
-[link](#custom-id). :::
+```
+::: {.note #custom-id}
+This note has a custom ID and can be linked to with
+[link](#custom-id).
+:::
 ```
 
 ### Text Roles
@@ -90,13 +94,15 @@ Text roles provide semantic markup for specific types of content. They use a
 special syntax with curly braces and backticks.
 
 ```
-{command}`ls -la`                    # Terminal command 
+{command}`ls -la`                    # Terminal command
 {file}`/etc/nixos/configuration.nix` # File path
-{option}`services.nginx.enable`      # NixOS option 
-{env}`HOME`                          # Environmentvariable 
-{var}`myVariable`                    # Nix variable 
+{option}`services.nginx.enable`      # NixOS option
+{env}`HOME`                          # Environmentvariable
+{var}`myVariable`                    # Nix variable
 {manpage}`man(1)`                    # Man page reference
 ```
+
+<!-- markdownlint-enable MD040 -->
 
 Each role applies specific styling in the HTML output, making it easier to
 distinguish different types of technical content.
@@ -295,4 +301,3 @@ ndg manpage --module-options ./options.json --output ./man/myproject.5 \
 ---
 
 Please refer to manpages and the README for direct command usage.
-
