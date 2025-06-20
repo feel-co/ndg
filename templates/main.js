@@ -1,3 +1,20 @@
+// Polyfill for requestIdleCallback for Safari and unsupported browsers
+if (typeof window.requestIdleCallback === "undefined") {
+  window.requestIdleCallback = function (cb) {
+    return setTimeout(function () {
+      cb({
+        didTimeout: false,
+        timeRemaining: function () {
+          return Math.max(0, 50 - (Date.now() % 50));
+        },
+      });
+    }, 1);
+  };
+  window.cancelIdleCallback = function (id) {
+    clearTimeout(id);
+  };
+}
+
 // Create mobile elements if they don't exist
 function createMobileElements() {
   // Create mobile sidebar FAB
