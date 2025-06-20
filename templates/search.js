@@ -1,3 +1,5 @@
+
+if (!window.searchNamespace) window.searchNamespace = {};
 document.addEventListener("DOMContentLoaded", function () {
   // Search page specific functionality
   const searchPageInput = document.getElementById("search-page-input");
@@ -7,7 +9,6 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((response) => response.json())
       .then((data) => {
         // Store search data in a unique namespace
-        if (!window.searchNamespace) window.searchNamespace = {};
         window.searchNamespace.data = data;
 
         // Set up event listener
@@ -47,7 +48,6 @@ document.addEventListener("DOMContentLoaded", function () {
       })
       .then((data) => {
         // Store search data in a unique namespace
-        if (!window.searchNamespace) window.searchNamespace = {};
         window.searchNamespace.data = data;
 
         searchInput.addEventListener("input", function () {
@@ -108,7 +108,6 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("Error loading search data:", error);
         // Create fallback empty search data so search doesn't break
         // 2025-04-05: raf was an idiot and this became necessary.
-        if (!window.searchNamespace) window.searchNamespace = {};
         window.searchNamespace.data = [];
         searchInput.addEventListener("input", function () {
           const searchTerm = this.value.toLowerCase().trim();
@@ -245,7 +244,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     // Only fetch once, then reuse
     // Something something carbon footprint something.
-    if (!window.searchNamespace) window.searchNamespace = {};
     if (window.searchNamespace.mobileData) {
       mobileSearchData = window.searchNamespace.mobileData;
       mobileSearchInput.addEventListener("input", handleMobileSearchInput);
