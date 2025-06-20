@@ -6,8 +6,9 @@ document.addEventListener("DOMContentLoaded", function () {
     fetch("assets/search-data.json")
       .then((response) => response.json())
       .then((data) => {
-        // Store search data globally
-        window.searchData = data;
+        // Store search data in a unique namespace
+        if (!window.searchNamespace) window.searchNamespace = {};
+        window.searchNamespace.data = data;
 
         // Set up event listener
         searchPageInput.addEventListener("input", performSearch);
@@ -43,6 +44,10 @@ document.addEventListener("DOMContentLoaded", function () {
         return response.json();
       })
       .then((data) => {
+        // Store search data in a unique namespace
+        if (!window.searchNamespace) window.searchNamespace = {};
+        window.searchNamespace.data = data;
+
         searchInput.addEventListener("input", function () {
           const searchTerm = this.value.toLowerCase().trim();
 
@@ -101,7 +106,8 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("Error loading search data:", error);
         // Create fallback empty search data so search doesn't break
         // 2025-04-05: raf was an idiot and this became necessary.
-        window.searchData = [];
+        if (!window.searchNamespace) window.searchNamespace = {};
+        window.searchNamespace.data = [];
         searchInput.addEventListener("input", function() {
           const searchTerm = this.value.toLowerCase().trim();
           if (searchTerm.length < 2) {
@@ -203,6 +209,10 @@ document.addEventListener("DOMContentLoaded", function () {
         return response.json();
       })
       .then((data) => {
+        // Store search data in a unique namespace
+        if (!window.searchNamespace) window.searchNamespace = {};
+        window.searchNamespace.data = data;
+
         mobileSearchInput.addEventListener("input", function () {
           const searchTerm = this.value.toLowerCase().trim();
 
@@ -274,7 +284,7 @@ function performSearch(e) {
   }
 
   // Search logic
-  const results = window.searchData.filter(
+  const results = window.searchNamespace.data.filter(
     (doc) =>
       doc.title.toLowerCase().includes(query) ||
       doc.content.toLowerCase().includes(query),
