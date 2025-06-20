@@ -11,14 +11,16 @@ document.addEventListener("DOMContentLoaded", function () {
         window.searchNamespace.data = data;
 
         // Set up event listener
-        searchPageInput.addEventListener("input", performSearch);
+        searchPageInput.addEventListener("input", function (e) {
+          performSearch(this.value);
+        });
 
         // Perform search if URL has query
         const params = new URLSearchParams(window.location.search);
         const query = params.get("q");
         if (query) {
           searchPageInput.value = query;
-          performSearch({ target: { value: query } });
+          performSearch(query);
         }
       })
       .catch((error) => {
@@ -108,13 +110,14 @@ document.addEventListener("DOMContentLoaded", function () {
         // 2025-04-05: raf was an idiot and this became necessary.
         if (!window.searchNamespace) window.searchNamespace = {};
         window.searchNamespace.data = [];
-        searchInput.addEventListener("input", function() {
+        searchInput.addEventListener("input", function () {
           const searchTerm = this.value.toLowerCase().trim();
           if (searchTerm.length < 2) {
             searchResults.innerHTML = "";
             searchResults.style.display = "none";
           } else {
-            searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+            searchResults.innerHTML =
+              '<div class="search-result-item">No results found</div>';
             searchResults.style.display = "block";
           }
         });
@@ -129,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (searchInput) {
     // Add mobile search behavior
-    searchInput.addEventListener("click", function(e) {
+    searchInput.addEventListener("click", function (e) {
       if (isMobile()) {
         e.preventDefault();
         e.stopPropagation();
@@ -139,7 +142,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Prevent typing on mobile (input should only open popup)
-    searchInput.addEventListener("keydown", function(e) {
+    searchInput.addEventListener("keydown", function (e) {
       if (isMobile()) {
         e.preventDefault();
         openMobileSearch();
@@ -183,17 +186,24 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Close mobile search when clicking outside
-  document.addEventListener("click", function(event) {
-    if (mobileSearchPopup && mobileSearchPopup.classList.contains("active") &&
-        !mobileSearchPopup.contains(event.target) &&
-        !searchInput.contains(event.target)) {
+  document.addEventListener("click", function (event) {
+    if (
+      mobileSearchPopup &&
+      mobileSearchPopup.classList.contains("active") &&
+      !mobileSearchPopup.contains(event.target) &&
+      !searchInput.contains(event.target)
+    ) {
       closeMobileSearch();
     }
   });
 
   // Close mobile search on escape key
-  document.addEventListener("keydown", function(event) {
-    if (event.key === "Escape" && mobileSearchPopup && mobileSearchPopup.classList.contains("active")) {
+  document.addEventListener("keydown", function (event) {
+    if (
+      event.key === "Escape" &&
+      mobileSearchPopup &&
+      mobileSearchPopup.classList.contains("active")
+    ) {
       closeMobileSearch();
     }
   });
@@ -213,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .filter(
           (doc) =>
             doc.title.toLowerCase().includes(searchTerm) ||
-            doc.content.toLowerCase().includes(searchTerm)
+            doc.content.toLowerCase().includes(searchTerm),
         )
         .slice(0, 10);
       if (results.length > 0) {
@@ -223,7 +233,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="search-result-item">
                   <a href="${doc.path}">${doc.title}</a>
               </div>
-          `
+          `,
           )
           .join("");
         mobileSearchResults.style.display = "block";
@@ -254,13 +264,14 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .catch((error) => {
           console.error("Error loading search data for mobile:", error);
-          mobileSearchInput.addEventListener("input", function() {
+          mobileSearchInput.addEventListener("input", function () {
             const searchTerm = this.value.toLowerCase().trim();
             if (searchTerm.length < 2) {
               mobileSearchResults.innerHTML = "";
               mobileSearchResults.style.display = "none";
             } else {
-              mobileSearchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+              mobileSearchResults.innerHTML =
+                '<div class="search-result-item">No results found</div>';
               mobileSearchResults.style.display = "block";
             }
           });
@@ -269,21 +280,25 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Handle window resize to update mobile behavior
-  window.addEventListener('resize', function() {
+  window.addEventListener("resize", function () {
     // Close mobile search if window is resized to desktop size
-    if (!isMobile() && mobileSearchPopup && mobileSearchPopup.classList.contains("active")) {
+    if (
+      !isMobile() &&
+      mobileSearchPopup &&
+      mobileSearchPopup.classList.contains("active")
+    ) {
       closeMobileSearch();
     }
   });
-
 });
 
-function performSearch(e) {
-  const query = e.target.value.toLowerCase().trim();
+function performSearch(query) {
+  query = query.toLowerCase().trim();
   const resultsContainer = document.getElementById("search-page-results");
 
   if (query.length < 2) {
-    resultsContainer.innerHTML = "<p>Please enter at least 2 characters to search</p>";
+    resultsContainer.innerHTML =
+      "<p>Please enter at least 2 characters to search</p>";
     return;
   }
 

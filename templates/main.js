@@ -58,7 +58,9 @@ function createMobileElements() {
 
   // Immediately populate mobile sidebar content if desktop sidebar exists
   const desktopSidebar = document.querySelector(".sidebar");
-  const mobileSidebarContent = mobileContainer.querySelector(".mobile-sidebar-content");
+  const mobileSidebarContent = mobileContainer.querySelector(
+    ".mobile-sidebar-content",
+  );
   if (desktopSidebar && mobileSidebarContent) {
     mobileSidebarContent.innerHTML = desktopSidebar.innerHTML;
   }
@@ -128,8 +130,7 @@ document.addEventListener("DOMContentLoaded", function () {
         history.pushState(null, null, "#" + id);
 
         // Scroll with offset
-        const offset =
-          this.getBoundingClientRect().top + window.scrollY - 80;
+        const offset = this.getBoundingClientRect().top + window.scrollY - 80;
         window.scrollTo({
           top: offset,
           behavior: "smooth",
@@ -213,8 +214,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Handle initial hash navigation
   function scrollToElement(element) {
     if (element) {
-      const offset =
-        element.getBoundingClientRect().top + window.scrollY - 80;
+      const offset = element.getBoundingClientRect().top + window.scrollY - 80;
       window.scrollTo({
         top: offset,
         behavior: "smooth",
@@ -234,9 +234,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Mobile Sidebar Functionality
-  const mobileSidebarContainer = document.querySelector(".mobile-sidebar-container");
+  const mobileSidebarContainer = document.querySelector(
+    ".mobile-sidebar-container",
+  );
   const mobileSidebarFab = document.querySelector(".mobile-sidebar-fab");
-  const mobileSidebarContent = document.querySelector(".mobile-sidebar-content");
+  const mobileSidebarContent = document.querySelector(
+    ".mobile-sidebar-content",
+  );
   const mobileSidebarHandle = document.querySelector(".mobile-sidebar-handle");
   const desktopSidebar = document.querySelector(".sidebar");
 
@@ -332,16 +336,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Close on outside click
     document.addEventListener("click", (event) => {
-      if (mobileSidebarContainer.classList.contains("active") &&
-          !mobileSidebarContainer.contains(event.target) &&
-          !mobileSidebarFab.contains(event.target)) {
+      if (
+        mobileSidebarContainer.classList.contains("active") &&
+        !mobileSidebarContainer.contains(event.target) &&
+        !mobileSidebarFab.contains(event.target)
+      ) {
         closeMobileSidebar();
       }
     });
 
     // Close on escape key
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && mobileSidebarContainer.classList.contains("active")) {
+      if (
+        event.key === "Escape" &&
+        mobileSidebarContainer.classList.contains("active")
+      ) {
         closeMobileSidebar();
       }
     });
@@ -360,15 +369,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Close on escape key
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && mobileSearchPopup.classList.contains("active")) {
+      if (
+        event.key === "Escape" &&
+        mobileSearchPopup.classList.contains("active")
+      ) {
         mobileSearchPopup.classList.remove("active");
       }
     });
 
     // Close on outside click
     document.addEventListener("click", (event) => {
-      if (mobileSearchPopup.classList.contains("active") &&
-          !mobileSearchPopup.querySelector(".mobile-search-container").contains(event.target)) {
+      if (
+        mobileSearchPopup.classList.contains("active") &&
+        !mobileSearchPopup
+          .querySelector(".mobile-search-container")
+          .contains(event.target)
+      ) {
         mobileSearchPopup.classList.remove("active");
       }
     });
@@ -381,10 +397,10 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!optionsContainer) return;
 
     // Only inject the style if it doesn't already exist
-    if (!document.head.querySelector('style[data-options-hidden]')) {
-      const styleEl = document.createElement('style');
-      styleEl.setAttribute('data-options-hidden', '');
-      styleEl.textContent = '.option-hidden{display:none!important}';
+    if (!document.head.querySelector("style[data-options-hidden]")) {
+      const styleEl = document.createElement("style");
+      styleEl.setAttribute("data-options-hidden", "");
+      styleEl.textContent = ".option-hidden{display:none!important}";
       document.head.appendChild(styleEl);
     }
 
@@ -397,25 +413,28 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     // Detect if we're on a mobile device
-    const isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+    const isMobile =
+      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
 
     // Cache all option elements and their searchable content
     const options = Array.from(document.querySelectorAll(".option"));
     const totalCount = options.length;
 
     // Pre-process and optimize searchable content
-    const optionsData = options.map(option => {
+    const optionsData = options.map((option) => {
       const nameElem = option.querySelector(".option-name");
       const descriptionElem = option.querySelector(".option-description");
       const id = option.id ? option.id.toLowerCase() : "";
       const name = nameElem ? nameElem.textContent.toLowerCase() : "";
-      const description = descriptionElem ? descriptionElem.textContent.toLowerCase() : "";
+      const description = descriptionElem
+        ? descriptionElem.textContent.toLowerCase()
+        : "";
 
       // Extract keywords for faster searching
       const keywords = (id + " " + name + " " + description)
         .toLowerCase()
         .split(/\s+/)
-        .filter(word => word.length > 1);
+        .filter((word) => word.length > 1);
 
       return {
         element: option,
@@ -423,7 +442,7 @@ document.addEventListener("DOMContentLoaded", function () {
         name,
         description,
         keywords,
-        searchText: (id + " " + name + " " + description).toLowerCase()
+        searchText: (id + " " + name + " " + description).toLowerCase(),
       };
     });
 
@@ -435,7 +454,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function debounce(func, wait) {
       let timeout;
-      return function() {
+      return function () {
         const context = this;
         const args = arguments;
         clearTimeout(timeout);
@@ -453,9 +472,9 @@ document.addEventListener("DOMContentLoaded", function () {
         for (let i = startIdx; i < endIdx; i++) {
           const item = itemsToProcess[i];
           if (item.visible) {
-            item.element.classList.remove('option-hidden');
+            item.element.classList.remove("option-hidden");
           } else {
-            item.element.classList.add('option-hidden');
+            item.element.classList.add("option-hidden");
           }
         }
 
@@ -496,19 +515,24 @@ document.addEventListener("DOMContentLoaded", function () {
       if (searchTerm === "") {
         // On very large datasets, still use chunks for showing all
         if (totalCount > 200) {
-          itemsToProcess = options.map(element => ({ element, visible: true }));
+          itemsToProcess = options.map((element) => ({
+            element,
+            visible: true,
+          }));
           filterResults.visibleCount = totalCount;
           pendingRender = requestAnimationFrame(processNextChunk);
         } else {
           // For smaller datasets, batch update without chunking
-          options.forEach(option => option.classList.remove('option-hidden'));
+          options.forEach((option) => option.classList.remove("option-hidden"));
           filterResults.style.display = "none";
         }
         return;
       }
 
       // Prepare search and split into terms for better matching
-      const searchTerms = searchTerm.split(/\s+/).filter(term => term.length > 0);
+      const searchTerms = searchTerm
+        .split(/\s+/)
+        .filter((term) => term.length > 0);
       let visibleCount = 0;
 
       // Optimize based on term count
@@ -516,7 +540,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Single term search - common case
         const term = searchTerms[0];
 
-        itemsToProcess = optionsData.map(data => {
+        itemsToProcess = optionsData.map((data) => {
           // First check exact matches on id/name (most common use case)
           let visible = data.id.includes(term) || data.name.includes(term);
 
@@ -529,9 +553,9 @@ document.addEventListener("DOMContentLoaded", function () {
           return { element: data.element, visible };
         });
       } else {
-        itemsToProcess = optionsData.map(data => {
-          const visible = searchTerms.every(term =>
-            data.searchText.includes(term)
+        itemsToProcess = optionsData.map((data) => {
+          const visible = searchTerms.every((term) =>
+            data.searchText.includes(term),
           );
 
           if (visible) visibleCount++;
@@ -562,7 +586,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Handle visibility changes
-    document.addEventListener('visibilitychange', function() {
+    document.addEventListener("visibilitychange", function () {
       if (!document.hidden && optionsFilter.value) {
         filterOptions();
       }
@@ -580,7 +604,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (sampleOption) {
           const height = sampleOption.offsetHeight;
           if (height > 0) {
-            options.forEach(opt => {
+            options.forEach((opt) => {
               opt.style.containIntrinsicSize = `0 ${height}px`;
             });
           }
