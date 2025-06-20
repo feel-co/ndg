@@ -102,18 +102,24 @@ document.addEventListener("DOMContentLoaded", function () {
     const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6");
 
     headings.forEach(function (heading) {
-      // Make sure all headings have IDs
+      // Generate a valid, unique ID for each heading
       if (!heading.id) {
-        heading.id = heading.textContent
+        let baseId = heading.textContent
           .toLowerCase()
-          .replace(/[^\w\s-]/g, "")
-          .replace(/[\s-]+/g, "-")
+          .replace(/[^a-z0-9\s-_]/g, "") // remove invalid chars
+          .replace(/^[^a-z]+/, "") // remove leading non-letters
+          .replace(/[\s-_]+/g, "-")
+          .replace(/^-+|-+$/g, "") // trim leading/trailing dashes
           .trim();
-
-        if (!heading.id) {
-          heading.id =
-            "section-" + Math.random().toString(36).substring(2, 9);
+        if (!baseId) {
+          baseId = "section";
         }
+        let id = baseId;
+        let counter = 1;
+        while (document.getElementById(id)) {
+          id = `${baseId}-${counter++}`;
+        }
+        heading.id = id;
       }
 
       // Make the entire heading clickable
