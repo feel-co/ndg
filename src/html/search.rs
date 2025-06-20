@@ -3,10 +3,11 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{Context, Result};
 use log::info;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::{config::Config, html};
+use crate::{config::Config, html, html::utils};
 
 /// Search document data structure
 #[derive(Debug, Serialize)]
@@ -50,7 +51,8 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
                     .to_string()
             });
 
-            let plain_text = strip_markdown(&content);
+            // Use the existing markdown processor to handle all NDG-specific markup
+            let plain_text = utils::process_content_to_plain_text(&content, config);
 
             let rel_path = file_path.strip_prefix(input_dir).context(format!(
                 "Failed to determine relative path for {}",
@@ -79,16 +81,17 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
                 if let Some(options_obj) = options_data.as_object() {
                     for (key, option_value) in options_obj {
                         // Extract description from the option
-                        let description = option_value["description"]
-                            .as_str()
-                            .unwrap_or("")
-                            .to_string();
+                        let raw_description = option_value["description"].as_str().unwrap_or("");
+
+                        // Use the same clean processing as for markdown files
+                        let plain_description =
+                            utils::process_content_to_plain_text(raw_description, config);
 
                         // Create search entry for this option
                         documents.push(SearchDocument {
                             id: doc_id.to_string(),
                             title: format!("Option: {key}"),
-                            content: description,
+                            content: plain_description,
                             path: format!("options.html#option-{}", key.replace('.', "-")),
                         });
                         doc_id += 1;
@@ -98,7 +101,8 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
         }
     }
 
-    // Write search index data - always create a valid JSON array even if empty
+    // Write search index data.
+    // Always create a valid JSON array, even if empty.
     let search_data_path = search_dir.join("search-data.json");
     fs::write(&search_data_path, serde_json::to_string(&documents)?).context(format!(
         "Failed to write search data to {}",
@@ -125,6 +129,8 @@ fn extract_title(content: &str) -> Option<String> {
 
     let mut title = None;
     let mut in_h1 = false;
+    // Regex to match {#id} and []{#id} anchors
+    let anchor_re = Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})").unwrap();
 
     for event in parser {
         match event {
@@ -135,7 +141,9 @@ fn extract_title(content: &str) -> Option<String> {
                 in_h1 = true;
             }
             Event::Text(text) if in_h1 => {
-                title = Some(text.to_string());
+                // Clean the title by removing inline anchors and other NDG markup
+                let clean_title = anchor_re.replace_all(&text, "").trim().to_string();
+                title = Some(clean_title);
                 break;
             }
             Event::End(TagEnd::Heading(_)) if in_h1 => {
@@ -146,46 +154,6 @@ fn extract_title(content: &str) -> Option<String> {
     }
 
     title
-}
-
-/// Strip markdown to get plain text
-fn strip_markdown(content: &str) -> String {
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
-
-    let parser = Parser::new_ext(content, options);
-
-    let mut plain_text = String::new();
-    let mut in_code_block = false;
-
-    for event in parser {
-        match event {
-            Event::Text(text) => {
-                if !in_code_block {
-                    plain_text.push_str(&text);
-                    plain_text.push(' ');
-                }
-            }
-            Event::Start(Tag::CodeBlock(_)) => {
-                in_code_block = true;
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                in_code_block = false;
-            }
-            Event::SoftBreak => {
-                plain_text.push(' ');
-            }
-            Event::HardBreak => {
-                plain_text.push('\n');
-            }
-            _ => {}
-        }
-    }
-
-    plain_text
 }
 
 /// Create search page

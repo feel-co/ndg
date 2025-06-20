@@ -47,3 +47,53 @@ pub fn escape_html(input: &str, output: &mut String) {
         }
     }
 }
+
+/// Strip markdown to get plain text
+pub fn strip_markdown(content: &str) -> String {
+    let mut options = pulldown_cmark::Options::empty();
+    options.insert(pulldown_cmark::Options::ENABLE_TABLES);
+    options.insert(pulldown_cmark::Options::ENABLE_FOOTNOTES);
+    options.insert(pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+    options.insert(pulldown_cmark::Options::ENABLE_TASKLISTS);
+
+    let parser = pulldown_cmark::Parser::new_ext(content, options);
+
+    let mut plain_text = String::new();
+    let mut in_code_block = false;
+
+    for event in parser {
+        match event {
+            pulldown_cmark::Event::Text(text) => {
+                if !in_code_block {
+                    plain_text.push_str(&text);
+                    plain_text.push(' ');
+                }
+            }
+            pulldown_cmark::Event::Start(pulldown_cmark::Tag::CodeBlock(_)) => {
+                in_code_block = true;
+            }
+            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::CodeBlock) => {
+                in_code_block = false;
+            }
+            pulldown_cmark::Event::SoftBreak => {
+                plain_text.push(' ');
+            }
+            pulldown_cmark::Event::HardBreak => {
+                plain_text.push('\n');
+            }
+            _ => {}
+        }
+    }
+
+    plain_text
+}
+
+/// Process content through the markdown pipeline and extract plain text
+pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
+    let html = crate::formatter::markdown::process_markdown_string(content, config);
+    strip_markdown(&html)
+        .replace('\n', " ")
+        .replace("  ", " ")
+        .trim()
+        .to_string()
+}
