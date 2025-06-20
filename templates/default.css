@@ -1737,50 +1737,6 @@ h6:hover .copy-link {
 }
 
 /* Mobile Sidebar */
-.mobile-sidebar-fab {
-  position: fixed !important;
-  bottom: 2rem !important;
-  right: 2rem !important;
-  width: 56px !important;
-  height: 56px !important;
-  background-color: #3b82f6 !important;
-  color: #fff !important;
-  border-radius: 50% !important;
-  box-shadow: var(--shadow-lg) !important;
-  border: none !important;
-  cursor: pointer !important;
-  z-index: 2147483647 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  isolation: isolate !important;
-}
-
-body .mobile-sidebar-fab {
-  position: fixed !important;
-  bottom: 2rem !important;
-  right: 2rem !important;
-  z-index: 9999 !important;
-}
-
-@media (max-width: 800px) {
-  .mobile-sidebar-fab {
-    display: flex !important;
-  }
-}
-
-.mobile-sidebar-fab:hover {
-  transform: scale(1.05);
-  background-color: #2563eb;
-  /* Darker Blue */
-}
-
-.mobile-sidebar-fab svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-}
-
 .mobile-sidebar-container {
   display: none;
   /* Hidden by default */
