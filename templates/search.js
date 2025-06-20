@@ -1,5 +1,16 @@
-
 if (!window.searchNamespace) window.searchNamespace = {};
+
+// Filter search results
+function filterSearchResults(data, searchTerm, limit = 10) {
+  return data
+    .filter(
+      (doc) =>
+        doc.title.toLowerCase().includes(searchTerm) ||
+        doc.content.toLowerCase().includes(searchTerm),
+    )
+    .slice(0, limit);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   // Search page specific functionality
   const searchPageInput = document.getElementById("search-page-input");
@@ -59,14 +70,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
           }
 
-          // "Simple" search implementation
-          const results = data
-            .filter(
-              (doc) =>
-                doc.title.toLowerCase().includes(searchTerm) ||
-                doc.content.toLowerCase().includes(searchTerm),
-            )
-            .slice(0, 10);
+          const results = filterSearchResults(data, searchTerm);
 
           if (results.length > 0) {
             searchResults.innerHTML = results
@@ -218,13 +222,8 @@ document.addEventListener("DOMContentLoaded", function () {
         mobileSearchResults.style.display = "none";
         return;
       }
-      const results = mobileSearchData
-        .filter(
-          (doc) =>
-            doc.title.toLowerCase().includes(searchTerm) ||
-            doc.content.toLowerCase().includes(searchTerm),
-        )
-        .slice(0, 10);
+
+      const results = filterSearchResults(mobileSearchData, searchTerm);
       if (results.length > 0) {
         mobileSearchResults.innerHTML = results
           .map(
