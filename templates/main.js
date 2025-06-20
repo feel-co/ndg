@@ -66,15 +66,15 @@ function createMobileElements() {
   }
 }
 
-if (!document.querySelector(".mobile-sidebar-fab")) {
-  createMobileElements();
-}
-
 document.addEventListener("DOMContentLoaded", function () {
   // Apply sidebar state immediately before DOM rendering
   if (localStorage.getItem("sidebar-collapsed") === "true") {
     document.documentElement.classList.add("sidebar-collapsed");
     document.body.classList.add("sidebar-collapsed");
+  }
+
+  if (!document.querySelector(".mobile-sidebar-fab")) {
+    createMobileElements();
   }
 
   // Desktop Sidebar Toggle
