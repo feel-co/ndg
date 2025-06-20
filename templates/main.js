@@ -420,6 +420,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const options = Array.from(document.querySelectorAll(".option"));
     const totalCount = options.length;
 
+    // Store the original order of option elements
+    const originalOptionOrder = options.slice();
+
     // Pre-process and optimize searchable content
     const optionsData = options.map((option) => {
       const nameElem = option.querySelector(".option-name");
@@ -501,72 +504,85 @@ document.addEventListener("DOMContentLoaded", function () {
     function filterOptions() {
       const searchTerm = optionsFilter.value.toLowerCase().trim();
 
-      // Cancel any pending renders
       if (pendingRender) {
         cancelAnimationFrame(pendingRender);
         pendingRender = null;
       }
-
-      // Reset
       currentChunk = 0;
       itemsToProcess = [];
 
-      // Fast path for empty search
       if (searchTerm === "") {
-        // On very large datasets, still use chunks for showing all
-        if (totalCount > 200) {
-          itemsToProcess = options.map((element) => ({
-            element,
-            visible: true,
-          }));
-          filterResults.visibleCount = totalCount;
-          pendingRender = requestAnimationFrame(processNextChunk);
-        } else {
-          // For smaller datasets, batch update without chunking
-          options.forEach((option) => option.classList.remove("option-hidden"));
-          filterResults.style.display = "none";
-        }
+        // Restore original DOM order when filter is cleared
+        const fragment = document.createDocumentFragment();
+        originalOptionOrder.forEach((option) => {
+          option.classList.remove("option-hidden");
+          fragment.appendChild(option);
+        });
+        optionsContainer.appendChild(fragment);
+        filterResults.style.display = "none";
         return;
       }
 
-      // Prepare search and split into terms for better matching
       const searchTerms = searchTerm
         .split(/\s+/)
         .filter((term) => term.length > 0);
       let visibleCount = 0;
 
-      // Optimize based on term count
+      const titleMatches = [];
+      const descMatches = [];
+      optionsData.forEach((data) => {
+        let isTitleMatch = false;
+        let isDescMatch = false;
+        if (searchTerms.length === 1) {
+          const term = searchTerms[0];
+          isTitleMatch = data.name.includes(term);
+          isDescMatch = !isTitleMatch && data.description.includes(term);
+        } else {
+          isTitleMatch = searchTerms.every((term) => data.name.includes(term));
+          isDescMatch =
+            !isTitleMatch &&
+            searchTerms.every((term) => data.description.includes(term));
+        }
+        if (isTitleMatch) {
+          titleMatches.push(data);
+        } else if (isDescMatch) {
+          descMatches.push(data);
+        }
+      });
+
       if (searchTerms.length === 1) {
-        // Single term search - common case
         const term = searchTerms[0];
-
-        itemsToProcess = optionsData.map((data) => {
-          // First check exact matches on id/name (most common use case)
-          let visible = data.id.includes(term) || data.name.includes(term);
-
-          // Only check the full text if we don't have a match yet
-          if (!visible) {
-            visible = data.searchText.includes(term);
-          }
-
-          if (visible) visibleCount++;
-          return { element: data.element, visible };
-        });
-      } else {
-        itemsToProcess = optionsData.map((data) => {
-          const visible = searchTerms.every((term) =>
-            data.searchText.includes(term),
-          );
-
-          if (visible) visibleCount++;
-          return { element: data.element, visible };
-        });
+        titleMatches.sort(
+          (a, b) => a.name.indexOf(term) - b.name.indexOf(term),
+        );
+        descMatches.sort(
+          (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
+        );
       }
 
-      // Store count for later use
-      filterResults.visibleCount = visibleCount;
+      itemsToProcess = [];
+      titleMatches.forEach((data) => {
+        visibleCount++;
+        itemsToProcess.push({ element: data.element, visible: true });
+      });
+      descMatches.forEach((data) => {
+        visibleCount++;
+        itemsToProcess.push({ element: data.element, visible: true });
+      });
+      optionsData.forEach((data) => {
+        if (!itemsToProcess.some((item) => item.element === data.element)) {
+          itemsToProcess.push({ element: data.element, visible: false });
+        }
+      });
 
-      // Process in chunks
+      // Reorder DOM so all title matches, then desc matches, then hidden
+      const fragment = document.createDocumentFragment();
+      itemsToProcess.forEach((item) => {
+        fragment.appendChild(item.element);
+      });
+      optionsContainer.appendChild(fragment);
+
+      filterResults.visibleCount = visibleCount;
       pendingRender = requestAnimationFrame(processNextChunk);
     }
 

@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function () {
         window.searchNamespace.data = data;
 
         // Set up event listener
-        searchPageInput.addEventListener("input", function (e) {
+        searchPageInput.addEventListener("input", function () {
           performSearch(this.value);
         });
 
@@ -303,11 +303,28 @@ function performSearch(query) {
   }
 
   // Search logic
-  const results = window.searchNamespace.data.filter(
-    (doc) =>
-      doc.title.toLowerCase().includes(query) ||
-      doc.content.toLowerCase().includes(query),
-  );
+  const results = window.searchNamespace.data
+    .map((doc) => {
+      const titleMatch = doc.title.toLowerCase().indexOf(query);
+      const descMatch = doc.content.toLowerCase().indexOf(query);
+      let priority = -1;
+      if (titleMatch !== -1) {
+        priority = 1; // title match
+      } else if (descMatch !== -1) {
+        priority = 2; // description match
+      }
+      return { doc, priority, titleMatch, descMatch };
+    })
+    .filter((item) => item.priority !== -1)
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (a.priority === 1 && b.priority === 1)
+        return a.titleMatch - b.titleMatch;
+      if (a.priority === 2 && b.priority === 2)
+        return a.descMatch - b.descMatch;
+      return 0;
+    })
+    .map((item) => item.doc);
 
   // Display results
   if (results.length > 0) {
