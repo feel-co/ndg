@@ -200,68 +200,72 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Mobile search input functionality (reuse search data if available)
   if (mobileSearchInput && mobileSearchResults) {
-    // Load search data for mobile search
-    fetch("assets/search-data.json")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to load search data");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        // Store search data in a unique namespace
-        if (!window.searchNamespace) window.searchNamespace = {};
-        window.searchNamespace.data = data;
-
-        mobileSearchInput.addEventListener("input", function () {
-          const searchTerm = this.value.toLowerCase().trim();
-
-          if (searchTerm.length < 2) {
-            mobileSearchResults.innerHTML = "";
-            mobileSearchResults.style.display = "none";
-            return;
+    let mobileSearchData = null;
+    function handleMobileSearchInput() {
+      const searchTerm = mobileSearchInput.value.toLowerCase().trim();
+      if (!mobileSearchData) return; // data not loaded yet
+      if (searchTerm.length < 2) {
+        mobileSearchResults.innerHTML = "";
+        mobileSearchResults.style.display = "none";
+        return;
+      }
+      const results = mobileSearchData
+        .filter(
+          (doc) =>
+            doc.title.toLowerCase().includes(searchTerm) ||
+            doc.content.toLowerCase().includes(searchTerm)
+        )
+        .slice(0, 10);
+      if (results.length > 0) {
+        mobileSearchResults.innerHTML = results
+          .map(
+            (doc) => `
+              <div class="search-result-item">
+                  <a href="${doc.path}">${doc.title}</a>
+              </div>
+          `
+          )
+          .join("");
+        mobileSearchResults.style.display = "block";
+      } else {
+        mobileSearchResults.innerHTML =
+          '<div class="search-result-item">No results found</div>';
+        mobileSearchResults.style.display = "block";
+      }
+    }
+    // Only fetch once, then reuse
+    // Something something carbon footprint something.
+    if (!window.searchNamespace) window.searchNamespace = {};
+    if (window.searchNamespace.mobileData) {
+      mobileSearchData = window.searchNamespace.mobileData;
+      mobileSearchInput.addEventListener("input", handleMobileSearchInput);
+    } else {
+      fetch("assets/search-data.json")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to load search data");
           }
-
-          // "Simple" search implementation
-          const results = data
-            .filter(
-              (doc) =>
-                doc.title.toLowerCase().includes(searchTerm) ||
-                doc.content.toLowerCase().includes(searchTerm),
-            )
-            .slice(0, 10);
-
-          if (results.length > 0) {
-            mobileSearchResults.innerHTML = results
-              .map(
-                (doc) => `
-                          <div class="search-result-item">
-                              <a href="${doc.path}">${doc.title}</a>
-                          </div>
-                      `,
-              )
-              .join("");
-            mobileSearchResults.style.display = "block";
-          } else {
-            mobileSearchResults.innerHTML =
-              '<div class="search-result-item">No results found</div>';
-            mobileSearchResults.style.display = "block";
-          }
+          return response.json();
+        })
+        .then((data) => {
+          window.searchNamespace.mobileData = data;
+          mobileSearchData = data;
+          mobileSearchInput.addEventListener("input", handleMobileSearchInput);
+        })
+        .catch((error) => {
+          console.error("Error loading search data for mobile:", error);
+          mobileSearchInput.addEventListener("input", function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            if (searchTerm.length < 2) {
+              mobileSearchResults.innerHTML = "";
+              mobileSearchResults.style.display = "none";
+            } else {
+              mobileSearchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+              mobileSearchResults.style.display = "block";
+            }
+          });
         });
-      })
-      .catch((error) => {
-        console.error("Error loading search data for mobile:", error);
-        mobileSearchInput.addEventListener("input", function() {
-          const searchTerm = this.value.toLowerCase().trim();
-          if (searchTerm.length < 2) {
-            mobileSearchResults.innerHTML = "";
-            mobileSearchResults.style.display = "none";
-          } else {
-            mobileSearchResults.innerHTML = '<div class="search-result-item">No results found</div>';
-            mobileSearchResults.style.display = "block";
-          }
-        });
-      });
+    }
   }
 
   // Handle window resize to update mobile behavior
