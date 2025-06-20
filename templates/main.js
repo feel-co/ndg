@@ -298,6 +298,15 @@ document.addEventListener("DOMContentLoaded", function () {
       let startY = 0;
       let startHeight = 0;
 
+      // Cleanup function for drag interruption
+      function cleanupDrag() {
+        if (isDragging) {
+          isDragging = false;
+          mobileSidebarHandle.style.cursor = "grab";
+          document.body.style.userSelect = "";
+        }
+      }
+
       mobileSidebarHandle.addEventListener("mousedown", (e) => {
         isDragging = true;
         startY = e.pageY;
@@ -338,16 +347,11 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       });
 
-      document.addEventListener("mouseup", () => {
-        if (isDragging) {
-          isDragging = false;
-          mobileSidebarHandle.style.cursor = "grab";
-          document.body.style.userSelect = "";
-        }
-      });
-
-      document.addEventListener("touchend", () => {
-        isDragging = false;
+      document.addEventListener("mouseup", cleanupDrag);
+      document.addEventListener("touchend", cleanupDrag);
+      window.addEventListener("blur", cleanupDrag);
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) cleanupDrag();
       });
     }
 
