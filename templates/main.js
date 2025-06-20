@@ -1,11 +1,13 @@
 // Polyfill for requestIdleCallback for Safari and unsupported browsers
 if (typeof window.requestIdleCallback === "undefined") {
   window.requestIdleCallback = function (cb) {
+    var start = Date.now();
+    var idlePeriod = 50;
     return setTimeout(function () {
       cb({
         didTimeout: false,
         timeRemaining: function () {
-          return Math.max(0, 50 - (Date.now() % 50));
+          return Math.max(0, idlePeriod - (Date.now() - start));
         },
       });
     }, 1);
