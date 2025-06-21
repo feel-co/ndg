@@ -4,8 +4,10 @@ resolver = "3"
 
 [workspace.package]
 authors      = [ "NotAShelf <raf@notashelf.dev>" ]
+categories   = [ "text-processing" ]
 description  = "Generate HTML documents and manpages for your Nix projects"
 edition      = "2024"
+keywords     = [ "markdown", "commonmark", "nix", "nixpkgs", "documentation", "html", "manpage", "nix-docs" ]
 license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/notashelf/ndg"

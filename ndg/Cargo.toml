@@ -5,6 +5,9 @@ version.workspace      = true
 edition.workspace      = true
 authors.workspace      = true
 rust-version.workspace = true
+readme                 = "../README.md"
+categories.workspace   = true
+keywords.workspace     = true
 
 [[bin]]
 name = "ndg"
