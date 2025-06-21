@@ -1,21 +1,29 @@
 /*
 !/
 
-# files/dirs to allow
-!/.gitattributes
-!/.gitignore
-!/flake.lock
+# Files/dirs to allow
+!/Cargo.lock
+!/Cargo.toml
 !/LICENSE
-!/*.md
+!/README.md
+
+# Workspace Directories
+!/ndg
+
+# Nix
 !/*.nix
 !/pkgs/
 !/nix/
 !/flake/
+!/flake.lock
+
+# Repo configs
 !/.github/workflows/*
-!/src/
-!/Cargo.lock
-!/Cargo.toml
-!/templates
+!/.gitattributes
+!/.gitignore
+
+# Tooling Configurations
 !/.rustfmt.toml
 !/.clippy.toml
+!/taplo.toml
 

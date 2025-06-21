@@ -1,0 +1,33 @@
+[package]
+name                   = "ndg"
+description.workspace  = true
+version.workspace      = true
+edition.workspace      = true
+authors.workspace      = true
+rust-version.workspace = true
+
+[[bin]]
+name = "ndg"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace         = true
+chrono.workspace         = true
+clap.workspace           = true
+clap_complete.workspace  = true
+clap_mangen.workspace    = true
+env_logger.workspace     = true
+fs_extra.workspace       = true
+grass.workspace          = true
+log.workspace            = true
+num_cpus.workspace       = true
+pulldown-cmark.workspace = true
+rayon.workspace          = true
+regex.workspace          = true
+serde.workspace          = true
+serde_json.workspace     = true
+syntect.workspace        = true
+tera.workspace           = true
+toml.workspace           = true
+two-face.workspace       = true
+walkdir.workspace        = true
