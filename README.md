@@ -256,8 +256,13 @@ Tera syntax. Below are the variables that ndg will attempt to replace.
 - `{{ footer_text }}` - Footer text specified via the --footer option
 - `{{ generate_search }}` - Boolean indicating whether search functionality is
   enabled
-- `{{ stylesheet_path }}` - Path to the stylesheet
-- `{{ script_paths }}` - List of paths to script files
+- `{{ stylesheet_path }}` - Path to the stylesheet (automatically adjusted for subdirectories)
+- `{{ main_js_path }}` - Path to the main JavaScript file (automatically adjusted for subdirectories)
+- `{{ search_js_path }}` - Path to the search JavaScript file (automatically adjusted for subdirectories)
+- `{{ index_path }}` - Path to the index page (automatically adjusted for subdirectories)
+- `{{ options_path }}` - Path to the options page (automatically adjusted for subdirectories)
+- `{{ search_path }}` - Path to the search page (automatically adjusted for subdirectories)
+- `{{ custom_scripts|safe }}` - Custom script tags (unescaped HTML, automatically adjusted for subdirectories)
 
 Each template can use these variables as needed. For example, in the
 `default.html` template:
@@ -270,13 +275,14 @@ Each template can use these variables as needed. For example, in the
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ stylesheet_path }}">
-    {% for script_path in script_paths %}
-    <script src="{{ script_path }}"></script>
-    {% endfor %}
+    <script defer src="{{ main_js_path }}"></script>
+    {% if generate_search %}
+    <script defer src="{{ search_js_path }}"></script>
+    {% endif %}
   </head>
   <body>
     <header>
-      <h1>{{ title }}</h1>
+      <h1><a href="{{ index_path }}">{{ title }}</a></h1>
       {% if generate_search %}
       <div class="search-container">
         <input
@@ -284,7 +290,7 @@ Each template can use these variables as needed. For example, in the
           id="search-input"
           placeholder="Search documentation..."
         >
-        <a href="search.html" class="search-button">Advanced Search</a>
+        <a href="{{ search_path }}" class="search-button">Advanced Search</a>
       </div>
       {% endif %}
     </header>
@@ -293,7 +299,7 @@ Each template can use these variables as needed. For example, in the
       <nav class="sidebar">
         {{ toc|safe }} {{ doc_nav|safe }} {% if has_options %}
         <div class="options-link">
-          <a href="options.html">Module Options</a>
+          <a href="{{ options_path }}">Module Options</a>
         </div>
         {% endif %}
       </nav>
@@ -306,6 +312,8 @@ Each template can use these variables as needed. For example, in the
     <footer>
       <p>{{ footer_text }}</p>
     </footer>
+
+    {{ custom_scripts|safe }}
   </body>
 </html>
 ```
@@ -419,7 +427,7 @@ included `ndg-builder` function, which properly handles all the complexities:
         rawModules = [
           # From a path
           ./modules/options.nix
-          
+
           # From options
           ({
             options.example.option = pkgs.lib.mkOption {
@@ -574,7 +582,7 @@ This approach correctly handles the generation of options documentation using
   This is a critical warning that users should pay attention to!
   :::
 
-  <!-- Make it inline--> 
+  <!-- Make it inline-->
   ::: {.tip} Here's a helpful tip to make your life easier. :::
   ```
 
