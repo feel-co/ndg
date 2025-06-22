@@ -1,3 +1,6 @@
+use std::{collections::HashMap, path::Path};
+
+/// Generate a unique ID from text
 pub fn generate_id(text: &str) -> String {
     if text.is_empty() {
         return "section".to_string();
@@ -32,6 +35,38 @@ pub fn generate_id(text: &str) -> String {
     }
 
     result
+}
+
+/// Calculate the relative path prefix needed to reach the root from a given file path
+/// For example: "docs/subdir/file.html" would return "../"
+///              "docs/subdir/nested/file.html" would return "../../"
+pub fn calculate_root_relative_path(file_rel_path: &Path) -> String {
+    let depth = file_rel_path.components().count();
+    if depth <= 1 {
+        String::new() // file is at root level
+    } else {
+        "../".repeat(depth - 1)
+    }
+}
+
+/// Generate proper asset paths for templates based on file location
+pub fn generate_asset_paths(file_rel_path: &Path) -> HashMap<&'static str, String> {
+    let root_prefix = calculate_root_relative_path(file_rel_path);
+
+    let mut paths = HashMap::new();
+    paths.insert(
+        "stylesheet_path",
+        format!("{}assets/style.css", root_prefix),
+    );
+    paths.insert("main_js_path", format!("{}assets/main.js", root_prefix));
+    paths.insert("search_js_path", format!("{}assets/search.js", root_prefix));
+
+    // Navigation paths
+    paths.insert("index_path", format!("{}index.html", root_prefix));
+    paths.insert("options_path", format!("{}options.html", root_prefix));
+    paths.insert("search_path", format!("{}search.html", root_prefix));
+
+    paths
 }
 
 /// Escape HTML special characters in a string

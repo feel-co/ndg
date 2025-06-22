@@ -6,6 +6,7 @@ use tera::Tera;
 use crate::{
     config::Config,
     formatter::{markdown::Header, options::NixOption},
+    html::utils,
 };
 
 // Template constants - these serve as fallbacks
@@ -20,7 +21,7 @@ pub fn render(
     content: &str,
     title: &str,
     headers: &[Header],
-    _rel_path: &Path,
+    rel_path: &Path,
 ) -> Result<String> {
     let mut tera = Tera::default();
     let template_content = get_template_content(config, "default.html", DEFAULT_TEMPLATE)?;
@@ -30,7 +31,7 @@ pub fn render(
     let toc = generate_toc(headers);
 
     // Generate document navigation
-    let doc_nav = generate_doc_nav(config);
+    let doc_nav = generate_doc_nav(config, rel_path);
 
     // Check if options are available
     let has_options = if config.module_options.is_some() {
@@ -40,7 +41,10 @@ pub fn render(
     };
 
     // Generate custom scripts HTML
-    let custom_scripts = generate_custom_scripts(config)?;
+    let custom_scripts = generate_custom_scripts(config, rel_path)?;
+
+    // Generate asset and navigation paths based on file location
+    let asset_paths = utils::generate_asset_paths(rel_path);
 
     // Create context
     let mut tera_context = tera::Context::new();
@@ -53,6 +57,17 @@ pub fn render(
     tera_context.insert("has_options", has_options);
     tera_context.insert("custom_scripts", &custom_scripts);
     tera_context.insert("generate_search", &config.generate_search);
+
+    // Add asset paths
+    tera_context.insert(
+        "stylesheet_path",
+        asset_paths.get("stylesheet_path").unwrap(),
+    );
+    tera_context.insert("main_js_path", asset_paths.get("main_js_path").unwrap());
+    tera_context.insert("search_js_path", asset_paths.get("search_js_path").unwrap());
+    tera_context.insert("index_path", asset_paths.get("index_path").unwrap());
+    tera_context.insert("options_path", asset_paths.get("options_path").unwrap());
+    tera_context.insert("search_path", asset_paths.get("search_path").unwrap());
 
     // Render the template
     let html = tera.render("default", &tera_context)?;
@@ -76,11 +91,15 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     // Generate options TOC using Tera templating
     let options_toc = generate_options_toc(options, config, &tera)?;
 
-    // Generate document navigation
-    let doc_nav = generate_doc_nav(config);
+    // Generate document navigation for root level (options.html is always at root)
+    let root_path = Path::new("options.html");
+    let doc_nav = generate_doc_nav(config, root_path);
 
-    // Generate custom scripts HTML
-    let custom_scripts = generate_custom_scripts(config)?;
+    // Generate custom scripts HTML for root level
+    let custom_scripts = generate_custom_scripts(config, root_path)?;
+
+    // Generate asset and navigation paths (options page is at root)
+    let asset_paths = utils::generate_asset_paths(root_path);
 
     // Create context
     let mut tera_context = tera::Context::new();
@@ -94,6 +113,17 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     tera_context.insert("has_options", "class=\"active\"");
     tera_context.insert("toc", &options_toc);
     tera_context.insert("generate_search", &config.generate_search);
+
+    // Add proper asset paths
+    tera_context.insert(
+        "stylesheet_path",
+        asset_paths.get("stylesheet_path").unwrap(),
+    );
+    tera_context.insert("main_js_path", asset_paths.get("main_js_path").unwrap());
+    tera_context.insert("search_js_path", asset_paths.get("search_js_path").unwrap());
+    tera_context.insert("index_path", asset_paths.get("index_path").unwrap());
+    tera_context.insert("options_path", asset_paths.get("options_path").unwrap());
+    tera_context.insert("search_path", asset_paths.get("search_path").unwrap());
 
     // Render the template
     let html = tera.render("options", &tera_context)?;
@@ -269,11 +299,12 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
         .cloned()
         .unwrap_or_else(|| format!("{} - Search", config.title));
 
-    // Generate document navigation
-    let doc_nav = generate_doc_nav(config);
+    // Generate document navigation for root level (search.html is always at root)
+    let root_path = Path::new("search.html");
+    let doc_nav = generate_doc_nav(config, root_path);
 
-    // Generate custom scripts HTML
-    let custom_scripts = generate_custom_scripts(config)?;
+    // Generate custom scripts HTML for root level
+    let custom_scripts = generate_custom_scripts(config, root_path)?;
 
     // Check if options are available
     let has_options = if config.module_options.is_some() {
@@ -281,6 +312,9 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     } else {
         "style=\"display:none;\""
     };
+
+    // Generate asset and navigation paths (search page is at root)
+    let asset_paths = utils::generate_asset_paths(root_path);
 
     // Create Tera context
     let mut tera_context = tera::Context::new();
@@ -291,8 +325,19 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     tera_context.insert("custom_scripts", &custom_scripts);
     tera_context.insert("doc_nav", &doc_nav);
     tera_context.insert("has_options", has_options);
-    tera_context.insert("toc", ""); // No TOC for search page
-    tera_context.insert("generate_search", &true); // Always true for search page
+    tera_context.insert("toc", ""); // no TOC for search page
+    tera_context.insert("generate_search", &true); // always true for search page
+
+    // Add asset paths
+    tera_context.insert(
+        "stylesheet_path",
+        asset_paths.get("stylesheet_path").unwrap(),
+    );
+    tera_context.insert("main_js_path", asset_paths.get("main_js_path").unwrap());
+    tera_context.insert("search_js_path", asset_paths.get("search_js_path").unwrap());
+    tera_context.insert("index_path", asset_paths.get("index_path").unwrap());
+    tera_context.insert("options_path", asset_paths.get("options_path").unwrap());
+    tera_context.insert("search_path", asset_paths.get("search_path").unwrap());
 
     // Render the template
     let html = tera.render("search", &tera_context)?;
@@ -333,9 +378,10 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
     Ok(fallback.to_string())
 }
 
-/// Generate the document navigation HTML
-fn generate_doc_nav(config: &Config) -> String {
+/// Generate the document navigation HTM
+fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     let mut doc_nav = String::new();
+    let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
 
     // Define anchor pattern regex
     let anchor_pattern = regex::Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$").unwrap();
@@ -355,6 +401,9 @@ fn generate_doc_nav(config: &Config) -> String {
                 if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
                     let mut html_path = rel_doc_path.to_path_buf();
                     html_path.set_extension("html");
+
+                    // Create relative path from current file to target file
+                    let target_path = format!("{}{}", root_prefix, html_path.to_string_lossy());
 
                     let page_title = fs::read_to_string(path).map_or_else(
                         |_| {
@@ -398,8 +447,7 @@ fn generate_doc_nav(config: &Config) -> String {
                     writeln!(
                         doc_nav,
                         "<li><a href=\"{}\">{}</a></li>",
-                        html_path.to_string_lossy(),
-                        page_title
+                        target_path, page_title
                     )
                     .unwrap();
                 }
@@ -409,28 +457,37 @@ fn generate_doc_nav(config: &Config) -> String {
 
     // Add link to options page if module_options is configured
     if doc_nav.is_empty() && config.module_options.is_some() {
-        doc_nav.push_str("<li><a href=\"options.html\">Module Options</a></li>\n");
+        doc_nav.push_str(&format!(
+            "<li><a href=\"{}options.html\">Module Options</a></li>\n",
+            root_prefix
+        ));
     }
 
     // Add search link only if search is enabled
     if config.generate_search {
-        doc_nav.push_str("<li><a href=\"search.html\">Search</a></li>\n");
+        doc_nav.push_str(&format!(
+            "<li><a href=\"{}search.html\">Search</a></li>\n",
+            root_prefix
+        ));
     }
 
     doc_nav
 }
 
 /// Generate custom scripts HTML
-fn generate_custom_scripts(config: &Config) -> Result<String> {
+fn generate_custom_scripts(config: &Config, current_file_rel_path: &Path) -> Result<String> {
     let mut custom_scripts = String::new();
+    let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
 
     // Add any user scripts from script_paths. This is additive, not replacing. To replace
     // default content, the user should specify `--template-dir` or `--template` instead.
     for script_path in &config.script_paths {
+        // Relative path to script
+        let script_relative_path = format!("{}{}", root_prefix, script_path.to_string_lossy());
         write!(
             custom_scripts,
             "<script defer src=\"{}\"></script>",
-            script_path.to_string_lossy()
+            script_relative_path
         )?;
     }
 
