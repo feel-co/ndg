@@ -483,7 +483,8 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
 
     // Define anchor pattern regex
-    let anchor_pattern = regex::Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$").unwrap();
+    let anchor_pattern = regex::Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$")
+        .expect("Invalid regex pattern for anchor matching");
 
     // Only process markdown files if input_dir is provided
     if let Some(input_dir) = &config.input_dir {
@@ -548,7 +549,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                         "<li><a href=\"{}\">{}</a></li>",
                         target_path, page_title
                     )
-                    .unwrap();
+                    .expect("Failed to write to doc_nav string");
                 }
             }
         }
@@ -618,7 +619,8 @@ fn generate_toc(headers: &[Header]) -> String {
                 toc.push_str("</li><li>");
             }
 
-            writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, header.text).unwrap();
+            writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, header.text)
+                .expect("Failed to write to toc string");
         }
     }
 
@@ -647,7 +649,8 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         let option_id = format!("option-{}", option.name.replace('.', "-"));
 
         // Open option container with ID for direct linking
-        writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">").unwrap();
+        writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">")
+            .expect("Failed to write to options_html string");
 
         // Option name with anchor link and copy button
         write!(
@@ -657,7 +660,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
              class=\"copy-feedback\">Link copied!</span>\n  </h3>\n",
             option_id, option.name
         )
-        .unwrap();
+        .expect("Failed to write to options_html string");
 
         // Option metadata (internal/readOnly)
         let mut metadata = Vec::new();
@@ -674,7 +677,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
                 "  <div class=\"option-metadata\">{}</div>",
                 metadata.join(", ")
             )
-            .unwrap();
+            .expect("Failed to write to options_html string");
         }
 
         // Option type
@@ -683,7 +686,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
             "  <div class=\"option-type\">Type: <code>{}</code></div>",
             option.type_name
         )
-        .unwrap();
+        .expect("Failed to write to options_html string");
 
         // Option description
         writeln!(
@@ -691,7 +694,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
             "  <div class=\"option-description\">{}</div>",
             option.description
         )
-        .unwrap();
+        .expect("Failed to write to options_html string");
 
         // Add default value if available
         add_default_value(&mut options_html, option);
@@ -707,13 +710,13 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
                     "  <div class=\"option-declared\">Declared in: <code><a href=\"{url}\" \
                      target=\"_blank\">{declared_in}</a></code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options_html string");
             } else {
                 writeln!(
                     options_html,
                     "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options_html string");
             }
         }
 
@@ -741,13 +744,13 @@ fn add_default_value(html: &mut String, option: &NixOption) {
             html,
             "  <div class=\"option-default\">Default: <code>{clean_default}</code></div>"
         )
-        .unwrap();
+        .expect("Failed to write to options HTML string");
     } else if let Some(default_val) = &option.default {
         writeln!(
             html,
             "  <div class=\"option-default\">Default: <code>{default_val}</code></div>"
         )
-        .unwrap();
+        .expect("Failed to write to options HTML string");
     }
 }
 
@@ -775,7 +778,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                 html,
                 "  <div class=\"option-example\">Example: <pre><code>{trimmed_example}</code></pre></div>"
             )
-            .unwrap();
+            .expect("Failed to write to options HTML string");
         } else {
             // Check if this is already a code block (surrounded by backticks)
             if example_text.starts_with('`')
@@ -789,7 +792,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                     html,
                     "  <div class=\"option-example\">Example: <code>{safe_content}</code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options HTML string");
             } else {
                 // Regular inline example - still needs escaping
                 let safe_example = example_text.replace('<', "&lt;").replace('>', "&gt;");
@@ -797,7 +800,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                     html,
                     "  <div class=\"option-example\">Example: <code>{safe_example}</code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options HTML string");
             }
         }
     } else if let Some(example_val) = &option.example {
@@ -809,14 +812,14 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                 html,
                 "  <div class=\"option-example\">Example: <pre><code>{safe_example}</code></pre></div>"
             )
-            .unwrap();
+            .expect("Failed to write to options HTML string");
         } else {
             // Single-line JSON examples
             writeln!(
                 html,
                 "  <div class=\"option-example\">Example: <code>{safe_example}</code></div>"
             )
-            .unwrap();
+            .expect("Failed to write to options HTML string");
         }
     }
 }
