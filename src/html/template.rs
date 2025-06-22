@@ -61,13 +61,46 @@ pub fn render(
     // Add asset paths
     tera_context.insert(
         "stylesheet_path",
-        asset_paths.get("stylesheet_path").unwrap(),
+        asset_paths
+            .get("stylesheet_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/style.css"),
     );
-    tera_context.insert("main_js_path", asset_paths.get("main_js_path").unwrap());
-    tera_context.insert("search_js_path", asset_paths.get("search_js_path").unwrap());
-    tera_context.insert("index_path", asset_paths.get("index_path").unwrap());
-    tera_context.insert("options_path", asset_paths.get("options_path").unwrap());
-    tera_context.insert("search_path", asset_paths.get("search_path").unwrap());
+    tera_context.insert(
+        "main_js_path",
+        asset_paths
+            .get("main_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/main.js"),
+    );
+    tera_context.insert(
+        "search_js_path",
+        asset_paths
+            .get("search_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/search.js"),
+    );
+    tera_context.insert(
+        "index_path",
+        asset_paths
+            .get("index_path")
+            .map(|s| s.as_str())
+            .unwrap_or("index.html"),
+    );
+    tera_context.insert(
+        "options_path",
+        asset_paths
+            .get("options_path")
+            .map(|s| s.as_str())
+            .unwrap_or("options.html"),
+    );
+    tera_context.insert(
+        "search_path",
+        asset_paths
+            .get("search_path")
+            .map(|s| s.as_str())
+            .unwrap_or("search.html"),
+    );
 
     // Render the template
     let html = tera.render("default", &tera_context)?;
@@ -114,16 +147,49 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     tera_context.insert("toc", &options_toc);
     tera_context.insert("generate_search", &config.generate_search);
 
-    // Add proper asset paths
+    // Add proper asset paths with fallback values in case keys are missing
     tera_context.insert(
         "stylesheet_path",
-        asset_paths.get("stylesheet_path").unwrap(),
+        asset_paths
+            .get("stylesheet_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/style.css"),
     );
-    tera_context.insert("main_js_path", asset_paths.get("main_js_path").unwrap());
-    tera_context.insert("search_js_path", asset_paths.get("search_js_path").unwrap());
-    tera_context.insert("index_path", asset_paths.get("index_path").unwrap());
-    tera_context.insert("options_path", asset_paths.get("options_path").unwrap());
-    tera_context.insert("search_path", asset_paths.get("search_path").unwrap());
+    tera_context.insert(
+        "main_js_path",
+        asset_paths
+            .get("main_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/main.js"),
+    );
+    tera_context.insert(
+        "search_js_path",
+        asset_paths
+            .get("search_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/search.js"),
+    );
+    tera_context.insert(
+        "index_path",
+        asset_paths
+            .get("index_path")
+            .map(|s| s.as_str())
+            .unwrap_or("index.html"),
+    );
+    tera_context.insert(
+        "options_path",
+        asset_paths
+            .get("options_path")
+            .map(|s| s.as_str())
+            .unwrap_or("options.html"),
+    );
+    tera_context.insert(
+        "search_path",
+        asset_paths
+            .get("search_path")
+            .map(|s| s.as_str())
+            .unwrap_or("search.html"),
+    );
 
     // Render the template
     let html = tera.render("options", &tera_context)?;
@@ -328,16 +394,49 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     tera_context.insert("toc", ""); // no TOC for search page
     tera_context.insert("generate_search", &true); // always true for search page
 
-    // Add asset paths
+    // Add asset paths with fallback values in case keys are missing
     tera_context.insert(
         "stylesheet_path",
-        asset_paths.get("stylesheet_path").unwrap(),
+        asset_paths
+            .get("stylesheet_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/style.css"),
     );
-    tera_context.insert("main_js_path", asset_paths.get("main_js_path").unwrap());
-    tera_context.insert("search_js_path", asset_paths.get("search_js_path").unwrap());
-    tera_context.insert("index_path", asset_paths.get("index_path").unwrap());
-    tera_context.insert("options_path", asset_paths.get("options_path").unwrap());
-    tera_context.insert("search_path", asset_paths.get("search_path").unwrap());
+    tera_context.insert(
+        "main_js_path",
+        asset_paths
+            .get("main_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/main.js"),
+    );
+    tera_context.insert(
+        "search_js_path",
+        asset_paths
+            .get("search_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/search.js"),
+    );
+    tera_context.insert(
+        "index_path",
+        asset_paths
+            .get("index_path")
+            .map(|s| s.as_str())
+            .unwrap_or("index.html"),
+    );
+    tera_context.insert(
+        "options_path",
+        asset_paths
+            .get("options_path")
+            .map(|s| s.as_str())
+            .unwrap_or("options.html"),
+    );
+    tera_context.insert(
+        "search_path",
+        asset_paths
+            .get("search_path")
+            .map(|s| s.as_str())
+            .unwrap_or("search.html"),
+    );
 
     // Render the template
     let html = tera.render("search", &tera_context)?;
