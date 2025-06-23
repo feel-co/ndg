@@ -721,7 +721,7 @@ fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) ->
     )
 }
 
-/// Convert markdown to HTML using `pulldown_cmark` with syntax highlighting
+/// Convert markdown to HTML using `colmark` with syntax highlighting
 fn convert_to_html(markdown: &str, config: &Config) -> String {
     markup::safely_process_markup(
         markdown,
