@@ -90,25 +90,6 @@ static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
     })
 });
 
-// Pre/post formatting escape
-static PLACEHOLDER_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"__PRESERVED_FORMAT_(\d+)__").unwrap_or_else(|e| {
-        error!("Failed to compile PLACEHOLDER_PATTERN regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-// Troff formatting codes
-static FORMATTING_CODE: LazyLock<Regex> = LazyLock::new(|| {
-    // More robust pattern that handles both \f and more complex escapes
-    Regex::new(r"\\f[PBIR]|\\f\[[a-zA-Z]+\]|\\[tf].|\\[uU][0-9A-F]{4}|\\[e&\-%\\ ]").unwrap_or_else(
-        |e| {
-            error!("Failed to compile FORMATTING_CODE regex: {e}");
-            markup::never_matching_regex()
-        },
-    )
-});
-
 /// Generate a manpage from options JSON
 pub fn generate_manpage(
     options_path: &Path,

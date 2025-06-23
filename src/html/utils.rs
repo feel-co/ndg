@@ -1,5 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
+use comrak::nodes::AstNode;
+
 /// Generate a unique ID from text
 pub fn generate_id(text: &str) -> String {
     if text.is_empty() {
@@ -69,57 +71,49 @@ pub fn generate_asset_paths(file_rel_path: &Path) -> HashMap<&'static str, Strin
     paths
 }
 
-/// Escape HTML special characters in a string
-pub fn escape_html(input: &str, output: &mut String) {
-    for c in input.chars() {
-        match c {
-            '&' => output.push_str("&amp;"),
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#39;"),
-            _ => output.push(c),
-        }
-    }
-}
-
 /// Strip markdown to get plain text
 pub fn strip_markdown(content: &str) -> String {
-    let mut options = pulldown_cmark::Options::empty();
-    options.insert(pulldown_cmark::Options::ENABLE_TABLES);
-    options.insert(pulldown_cmark::Options::ENABLE_FOOTNOTES);
-    options.insert(pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
-    options.insert(pulldown_cmark::Options::ENABLE_TASKLISTS);
+    use comrak::{Arena, ComrakOptions};
+    let arena = Arena::new();
+    let mut options = ComrakOptions::default();
+    options.extension.table = true;
+    options.extension.footnotes = true;
+    options.extension.strikethrough = true;
+    options.extension.tasklist = true;
+    options.render.unsafe_ = true;
 
-    let parser = pulldown_cmark::Parser::new_ext(content, options);
+    let root = comrak::parse_document(&arena, content, &options);
 
     let mut plain_text = String::new();
-    let mut in_code_block = false;
-
-    for event in parser {
-        match event {
-            pulldown_cmark::Event::Text(text) => {
-                if !in_code_block {
-                    plain_text.push_str(&text);
+    fn extract_text<'a>(node: &'a AstNode<'a>, plain_text: &mut String, in_code_block: &mut bool) {
+        use comrak::nodes::NodeValue;
+        match &node.data.borrow().value {
+            NodeValue::Text(t) => {
+                if !*in_code_block {
+                    plain_text.push_str(t);
                     plain_text.push(' ');
                 }
             }
-            pulldown_cmark::Event::Start(pulldown_cmark::Tag::CodeBlock(_)) => {
-                in_code_block = true;
+            NodeValue::CodeBlock(_) => {
+                *in_code_block = true;
             }
-            pulldown_cmark::Event::End(pulldown_cmark::TagEnd::CodeBlock) => {
-                in_code_block = false;
-            }
-            pulldown_cmark::Event::SoftBreak => {
+            NodeValue::SoftBreak => {
                 plain_text.push(' ');
             }
-            pulldown_cmark::Event::HardBreak => {
+            NodeValue::LineBreak => {
                 plain_text.push('\n');
             }
             _ => {}
         }
+        for child in node.children() {
+            extract_text(child, plain_text, in_code_block);
+        }
+        if let NodeValue::CodeBlock(_) = &node.data.borrow().value {
+            *in_code_block = false;
+        }
     }
-
+    let mut in_code_block = false;
+    extract_text(root, &mut plain_text, &mut in_code_block);
     plain_text
 }
 

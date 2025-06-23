@@ -9,18 +9,19 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use comrak::{
+    Arena, ComrakOptions,
+    nodes::{AstNode, NodeHeading, NodeValue},
+    parse_document,
+};
 use log::{debug, error, trace};
-use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use regex::Regex;
 use walkdir::WalkDir;
 
 use crate::{
     config::Config,
     formatter::markup,
-    html::{
-        highlight, template,
-        utils::{escape_html, generate_id},
-    },
+    html::{template, utils::generate_id},
 };
 
 /// Represents a header in the markdown document
@@ -682,23 +683,21 @@ fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<St
 
 /// Process markdown content for use in admonitions and other block elements
 fn process_markdown_content(content: &str) -> String {
-    // Set up parser options for processing block content
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
-    options.insert(Options::ENABLE_SMART_PUNCTUATION);
+    let arena = Arena::new();
+    let mut options = ComrakOptions::default();
+    options.extension.table = true;
+    options.extension.footnotes = true;
+    options.extension.strikethrough = true;
+    options.extension.tasklist = true;
+    options.render.unsafe_ = true;
+    options.parse.smart = true;
 
-    // Create parser for the content
-    let parser = Parser::new_ext(content, options);
+    let root = parse_document(&arena, content, &options);
 
-    // Convert to HTML
-    let mut html_output = String::new();
-    pulldown_cmark::html::push_html(&mut html_output, parser);
+    let mut html_output = vec![];
+    comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
 
-    // Return the HTML
-    html_output
+    String::from_utf8(html_output).unwrap_or_default()
 }
 
 /// Process an admonition and convert it to HTML
@@ -724,111 +723,63 @@ fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) ->
 
 /// Convert markdown to HTML using `pulldown_cmark` with syntax highlighting
 fn convert_to_html(markdown: &str, config: &Config) -> String {
-    // Implement safe conversion with recovery mechanisms
     markup::safely_process_markup(
         markdown,
         |text| {
-            // Set up parser options
-            let mut options = Options::empty();
-            options.insert(Options::ENABLE_TABLES);
-            options.insert(Options::ENABLE_FOOTNOTES);
-            options.insert(Options::ENABLE_STRIKETHROUGH);
-            options.insert(Options::ENABLE_TASKLISTS);
-            // GitHub Flavored Markdown specific options
-            options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+            let arena = Arena::new();
+            let mut options = ComrakOptions::default();
+            options.extension.table = true;
+            options.extension.footnotes = true;
+            options.extension.strikethrough = true;
+            options.extension.tasklist = true;
+            options.extension.header_ids = Some("".to_string());
+            options.render.unsafe_ = true;
 
-            // Create parser
-            let parser = Parser::new_ext(text, options);
+            let root = parse_document(&arena, text, &options);
 
-            // Estimate capacity for the output
-            let estimated_capacity = text.len() * 3;
-            let mut html_output = String::with_capacity(estimated_capacity);
+            // Custom code block handling for syntax highlighting
+            let mut html_output = Vec::with_capacity(text.len() * 3);
 
-            // Buffer for code blocks
-            let mut in_code_block = false;
-            let mut code_block_lang = String::with_capacity(16);
-            let mut code_block_content = String::with_capacity(512);
-
-            // Process each event
-            for event in parser {
-                match event {
-                    Event::Start(Tag::CodeBlock(kind)) => {
-                        in_code_block = true;
-                        code_block_content.clear();
-
-                        // Get language identifier for fenced code blocks
-                        code_block_lang.clear();
-                        if let CodeBlockKind::Fenced(lang) = kind {
-                            code_block_lang.push_str(lang.as_ref());
-                        }
-                    }
-                    Event::End(TagEnd::CodeBlock) => {
-                        in_code_block = false;
-
-                        // Handle code blocks based on highlighting setting
-                        if code_block_lang.is_empty() || !config.highlight_code {
-                            // Plain code block or highlighting disabled
-                            html_output.push_str("<pre><code");
-
-                            // Add language class if available, even when highlighting is disabled
-                            if !code_block_lang.is_empty() {
-                                html_output.push_str(" class=\"language-");
-                                html_output.push_str(&code_block_lang);
-                                html_output.push('"');
-                            }
-
-                            html_output.push('>');
-                            escape_html(&code_block_content, &mut html_output);
-                            html_output.push_str("</code></pre>");
-                        } else {
-                            // Try syntax highlighting with fallback if it fails
-                            match highlight::highlight_code(
-                                &code_block_content,
-                                &code_block_lang,
-                                config,
-                            ) {
-                                Ok(highlighted) => {
-                                    html_output.push_str(&highlighted);
-                                }
-                                Err(err) => {
-                                    // Log the error and fallback to non-highlighted code
-                                    debug!(
-                                        "Syntax highlighting failed (lang: {code_block_lang}): {err}"
-                                    );
-                                    html_output.push_str("<pre><code class=\"language-");
-                                    html_output.push_str(&code_block_lang);
-                                    html_output.push_str("\">");
-                                    escape_html(&code_block_content, &mut html_output);
-                                    html_output.push_str("</code></pre>");
-                                }
-                            }
-                        }
-                    }
-                    Event::Text(text) => {
-                        if in_code_block {
-                            code_block_content.push_str(text.as_ref());
-                        } else {
-                            pulldown_cmark::html::push_html(
-                                &mut html_output,
-                                std::iter::once(Event::Text(text)),
-                            );
-                        }
-                    }
-                    _ => {
-                        if !in_code_block {
-                            pulldown_cmark::html::push_html(
-                                &mut html_output,
-                                std::iter::once(event),
-                            );
-                        }
-                    }
-                }
+            // Traverse AST and highlight code blocks if needed
+            if config.highlight_code {
+                highlight_codeblocks(root, config);
             }
 
-            html_output
+            comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
+            String::from_utf8(html_output).unwrap_or_default()
         },
         "<div class=\"error\">Error processing markdown content</div>",
     )
+}
+
+/// Traverse the AST and highlight code blocks if needed
+fn highlight_codeblocks<'a>(node: &'a AstNode<'a>, config: &Config) {
+    // 1. Collect code block nodes
+    let mut code_blocks = Vec::new();
+    fn collect_code_blocks<'a>(node: &'a AstNode<'a>, out: &mut Vec<&'a AstNode<'a>>) {
+        for child in node.children() {
+            if let NodeValue::CodeBlock(_) = &child.data.borrow().value {
+                out.push(child);
+            }
+            collect_code_blocks(child, out);
+        }
+    }
+    collect_code_blocks(node, &mut code_blocks);
+
+    // 2. Mutate code block nodes
+    for cb_node in code_blocks {
+        let mut data = cb_node.data.borrow_mut();
+        if let NodeValue::CodeBlock(ref mut code_block) = data.value {
+            let lang = code_block.info.split_whitespace().next().unwrap_or("");
+            if !lang.is_empty() {
+                if let Ok(highlighted) =
+                    crate::html::highlight::highlight_code(&code_block.literal, lang, config)
+                {
+                    data.value = NodeValue::HtmlInline(highlighted.into());
+                }
+            }
+        }
+    }
 }
 
 /// Process HTML to handle any remaining elements
@@ -1063,66 +1014,40 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
         return (headers, title);
     }
 
-    // Otherwise use pulldown_cmark to extract headers
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
+    // Otherwise use comrak to extract headers
+    let arena = Arena::new();
+    let mut options = ComrakOptions::default();
+    options.extension.table = true;
+    options.extension.footnotes = true;
+    options.extension.strikethrough = true;
+    options.extension.tasklist = true;
 
-    let parser = Parser::new_ext(content, options);
+    let root = parse_document(&arena, content, &options);
 
-    let mut current_header_text = String::new();
-    let mut in_header = false;
-    let mut in_code_block = false; // Track if we're inside a code block
-    let mut current_level = 0;
-
-    for event in parser {
-        match event {
-            Event::Start(Tag::CodeBlock(_)) => {
-                in_code_block = true;
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                in_code_block = false;
-            }
-            Event::Start(Tag::Heading { level, .. }) if !in_code_block => {
-                // Only process headers outside of code blocks
-                in_header = true;
-                current_level = match level {
-                    pulldown_cmark::HeadingLevel::H1 => 1,
-                    pulldown_cmark::HeadingLevel::H2 => 2,
-                    pulldown_cmark::HeadingLevel::H3 => 3,
-                    pulldown_cmark::HeadingLevel::H4 => 4,
-                    pulldown_cmark::HeadingLevel::H5 => 5,
-                    pulldown_cmark::HeadingLevel::H6 => 6,
-                };
-                current_header_text.clear();
-            }
-            Event::Text(text) | Event::Code(text) if in_header && !in_code_block => {
-                current_header_text.push_str(text.as_ref());
-            }
-            Event::End(TagEnd::Heading(_)) if in_header && !in_code_block => {
-                in_header = false;
-
-                // Generate ID
-                let id = generate_id(&current_header_text);
-
-                // Set title from first h1
-                if current_level == 1 && title.is_none() {
-                    title = Some(current_header_text.clone());
+    let mut found_title = title;
+    for node in root.descendants() {
+        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
+            let mut text = String::new();
+            for child in node.children() {
+                if let NodeValue::Text(ref t) = child.data.borrow().value {
+                    text.push_str(t);
+                } else if let NodeValue::Code(ref t) = child.data.borrow().value {
+                    text.push_str(&t.literal);
                 }
-
-                headers.push(Header {
-                    text: current_header_text.clone(),
-                    level: current_level,
-                    id,
-                });
             }
-            _ => {}
+            let id = generate_id(&text);
+            if *level == 1 && found_title.is_none() {
+                found_title = Some(text.clone());
+            }
+            headers.push(Header {
+                text,
+                level: *level,
+                id,
+            });
         }
     }
 
-    (headers, title)
+    (headers, found_title)
 }
 
 /// Load manpage URL mappings from JSON file
