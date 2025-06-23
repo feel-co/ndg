@@ -97,16 +97,33 @@ fn render_page_with_headers_toc() {
     let content = "<h1>Title</h1><p>Body</p>";
     let title = "Test Page";
     let headers = vec![
-        Header { level: 1, text: "Section 1".to_string(), id: "sec1".to_string() },
-        Header { level: 2, text: "Subsection".to_string(), id: "subsec".to_string() },
+        Header {
+            level: 1,
+            text: "Section 1".to_string(),
+            id: "sec1".to_string(),
+        },
+        Header {
+            level: 2,
+            text: "Subsection".to_string(),
+            id: "subsec".to_string(),
+        },
     ];
     let rel_path = Path::new("index.html");
-    let html = template::render(&config, content, title, &headers, rel_path).expect("Should render HTML");
+    let html =
+        template::render(&config, content, title, &headers, rel_path).expect("Should render HTML");
     // Should include TOC anchors
     assert!(html.contains("sec1"));
     assert!(html.contains("subsec"));
-    // Should include the TOC structure
-    assert!(html.contains("toc") || html.contains("<ul>") || html.contains("<li>"));
+    // Should include a TOC container and list structure
+    let toc_container = html.contains("id=\"toc\"") || html.contains("class=\"toc\"");
+    assert!(
+        toc_container,
+        "TOC container (id or class) not found in HTML"
+    );
+    assert!(
+        html.contains("<ul>") && html.contains("<li>"),
+        "TOC list structure missing"
+    );
 }
 
 #[test]
