@@ -15,6 +15,31 @@ fn minimal_config() -> Config {
     }
 }
 
+fn create_basic_option(name: &str, description: &str) -> NixOption {
+    NixOption {
+        name: name.to_string(),
+        description: description.to_string(),
+        ..Default::default()
+    }
+}
+
+fn create_detailed_option(
+    name: &str,
+    description: &str,
+    type_name: &str,
+    default_text: Option<&str>,
+    example_text: Option<&str>,
+) -> NixOption {
+    NixOption {
+        name: name.to_string(),
+        description: description.to_string(),
+        type_name: type_name.to_string(),
+        default_text: default_text.map(|s| s.to_string()),
+        example_text: example_text.map(|s| s.to_string()),
+        ..Default::default()
+    }
+}
+
 #[test]
 fn render_basic_page_renders_html() {
     let config = minimal_config();
@@ -36,11 +61,7 @@ fn render_options_page_includes_options() {
     let mut options = HashMap::new();
     options.insert(
         "foo.bar".to_string(),
-        NixOption {
-            name: "foo.bar".to_string(),
-            description: "desc".to_string(),
-            ..Default::default()
-        },
+        create_basic_option("foo.bar", "desc"),
     );
     let html = template::render_options(&config, &options).expect("Should render options");
     assert!(html.contains("foo.bar"));
@@ -54,14 +75,13 @@ fn render_options_page_renders_description() {
     let mut options = HashMap::new();
     options.insert(
         "foo.bar".to_string(),
-        NixOption {
-            name: "foo.bar".to_string(),
-            description: "desc for foo.bar".to_string(),
-            type_name: "string".to_string(),
-            default_text: Some("defaultval".to_string()),
-            example_text: Some("exampleval".to_string()),
-            ..Default::default()
-        },
+        create_detailed_option(
+            "foo.bar",
+            "desc for foo.bar",
+            "string",
+            Some("defaultval"),
+            Some("exampleval"),
+        ),
     );
     let html = template::render_options(&config, &options).expect("Should render options");
     assert!(html.contains("foo.bar"));
@@ -96,19 +116,11 @@ fn render_options_page_with_multiple_options() {
     let mut options = HashMap::new();
     options.insert(
         "foo.bar".to_string(),
-        NixOption {
-            name: "foo.bar".to_string(),
-            description: "desc1".to_string(),
-            ..Default::default()
-        },
+        create_basic_option("foo.bar", "desc1"),
     );
     options.insert(
         "foo.baz".to_string(),
-        NixOption {
-            name: "foo.baz".to_string(),
-            description: "desc2".to_string(),
-            ..Default::default()
-        },
+        create_basic_option("foo.baz", "desc2"),
     );
     let html = template::render_options(&config, &options).expect("Should render options");
     assert!(html.contains("foo.bar"));
