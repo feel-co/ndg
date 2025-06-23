@@ -2,41 +2,23 @@ use ndg::{
     config::Config,
     formatter::{markdown, markup},
 };
-use pulldown_cmark::{Event, Options, Parser, Tag};
 
 #[test]
 fn parses_basic_markdown_ast() {
+    let config = Config::default();
     let md = "# Heading 1\n\nSome *italic* and **bold** text.";
-    let parser = Parser::new_ext(md, Options::all());
-    let mut found_heading = false;
-    let mut found_em = false;
-    let mut found_strong = false;
-    for event in parser {
-        match event {
-            Event::Start(Tag::Heading { .. }) => found_heading = true,
-            Event::Start(Tag::Emphasis) => found_em = true,
-            Event::Start(Tag::Strong) => found_strong = true,
-            _ => {}
-        }
-    }
-    assert!(found_heading);
-    assert!(found_em);
-    assert!(found_strong);
+    let html = markdown::process_markdown_string(md, &config);
+    assert!(html.contains("<h1") && html.contains("Heading 1"));
+    assert!(html.contains("<em>italic</em>"));
+    assert!(html.contains("<strong>bold</strong>"));
 }
 
 #[test]
 fn parses_list_with_inline_anchor() {
+    let config = Config::default();
     let md = "- []{#item1} Item 1";
-    let parser = Parser::new_ext(md, Options::all());
-    let mut found_item = false;
-    for event in parser {
-        if let Event::Text(text) = &event {
-            if text.contains("Item 1") {
-                found_item = true;
-            }
-        }
-    }
-    assert!(found_item);
+    let html = markdown::process_markdown_string(md, &config);
+    assert!(html.contains(r#"<span id="item1" class="nixos-anchor"></span> Item 1"#));
 }
 
 #[test]
