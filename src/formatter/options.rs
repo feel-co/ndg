@@ -7,7 +7,7 @@ use serde_json::{self, Value};
 use crate::{config::Config, formatter::markdown, html::template};
 
 /// Represents a `NixOS` configuration option
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NixOption {
     /// Option name (e.g., "services.nginx.enable")
     pub name: String,

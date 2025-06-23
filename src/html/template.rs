@@ -6,6 +6,7 @@ use tera::Tera;
 use crate::{
     config::Config,
     formatter::{markdown::Header, options::NixOption},
+    html::utils,
 };
 
 // Template constants - these serve as fallbacks
@@ -20,7 +21,7 @@ pub fn render(
     content: &str,
     title: &str,
     headers: &[Header],
-    _rel_path: &Path,
+    rel_path: &Path,
 ) -> Result<String> {
     let mut tera = Tera::default();
     let template_content = get_template_content(config, "default.html", DEFAULT_TEMPLATE)?;
@@ -30,7 +31,7 @@ pub fn render(
     let toc = generate_toc(headers);
 
     // Generate document navigation
-    let doc_nav = generate_doc_nav(config);
+    let doc_nav = generate_doc_nav(config, rel_path);
 
     // Check if options are available
     let has_options = if config.module_options.is_some() {
@@ -40,7 +41,10 @@ pub fn render(
     };
 
     // Generate custom scripts HTML
-    let custom_scripts = generate_custom_scripts(config)?;
+    let custom_scripts = generate_custom_scripts(config, rel_path)?;
+
+    // Generate asset and navigation paths based on file location
+    let asset_paths = utils::generate_asset_paths(rel_path);
 
     // Create context
     let mut tera_context = tera::Context::new();
@@ -53,6 +57,50 @@ pub fn render(
     tera_context.insert("has_options", has_options);
     tera_context.insert("custom_scripts", &custom_scripts);
     tera_context.insert("generate_search", &config.generate_search);
+
+    // Add asset paths
+    tera_context.insert(
+        "stylesheet_path",
+        asset_paths
+            .get("stylesheet_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/style.css"),
+    );
+    tera_context.insert(
+        "main_js_path",
+        asset_paths
+            .get("main_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/main.js"),
+    );
+    tera_context.insert(
+        "search_js_path",
+        asset_paths
+            .get("search_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/search.js"),
+    );
+    tera_context.insert(
+        "index_path",
+        asset_paths
+            .get("index_path")
+            .map(|s| s.as_str())
+            .unwrap_or("index.html"),
+    );
+    tera_context.insert(
+        "options_path",
+        asset_paths
+            .get("options_path")
+            .map(|s| s.as_str())
+            .unwrap_or("options.html"),
+    );
+    tera_context.insert(
+        "search_path",
+        asset_paths
+            .get("search_path")
+            .map(|s| s.as_str())
+            .unwrap_or("search.html"),
+    );
 
     // Render the template
     let html = tera.render("default", &tera_context)?;
@@ -76,11 +124,15 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     // Generate options TOC using Tera templating
     let options_toc = generate_options_toc(options, config, &tera)?;
 
-    // Generate document navigation
-    let doc_nav = generate_doc_nav(config);
+    // Generate document navigation for root level (options.html is always at root)
+    let root_path = Path::new("options.html");
+    let doc_nav = generate_doc_nav(config, root_path);
 
-    // Generate custom scripts HTML
-    let custom_scripts = generate_custom_scripts(config)?;
+    // Generate custom scripts HTML for root level
+    let custom_scripts = generate_custom_scripts(config, root_path)?;
+
+    // Generate asset and navigation paths (options page is at root)
+    let asset_paths = utils::generate_asset_paths(root_path);
 
     // Create context
     let mut tera_context = tera::Context::new();
@@ -94,6 +146,50 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     tera_context.insert("has_options", "class=\"active\"");
     tera_context.insert("toc", &options_toc);
     tera_context.insert("generate_search", &config.generate_search);
+
+    // Add proper asset paths with fallback values in case keys are missing
+    tera_context.insert(
+        "stylesheet_path",
+        asset_paths
+            .get("stylesheet_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/style.css"),
+    );
+    tera_context.insert(
+        "main_js_path",
+        asset_paths
+            .get("main_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/main.js"),
+    );
+    tera_context.insert(
+        "search_js_path",
+        asset_paths
+            .get("search_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/search.js"),
+    );
+    tera_context.insert(
+        "index_path",
+        asset_paths
+            .get("index_path")
+            .map(|s| s.as_str())
+            .unwrap_or("index.html"),
+    );
+    tera_context.insert(
+        "options_path",
+        asset_paths
+            .get("options_path")
+            .map(|s| s.as_str())
+            .unwrap_or("options.html"),
+    );
+    tera_context.insert(
+        "search_path",
+        asset_paths
+            .get("search_path")
+            .map(|s| s.as_str())
+            .unwrap_or("search.html"),
+    );
 
     // Render the template
     let html = tera.render("options", &tera_context)?;
@@ -269,11 +365,12 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
         .cloned()
         .unwrap_or_else(|| format!("{} - Search", config.title));
 
-    // Generate document navigation
-    let doc_nav = generate_doc_nav(config);
+    // Generate document navigation for root level (search.html is always at root)
+    let root_path = Path::new("search.html");
+    let doc_nav = generate_doc_nav(config, root_path);
 
-    // Generate custom scripts HTML
-    let custom_scripts = generate_custom_scripts(config)?;
+    // Generate custom scripts HTML for root level
+    let custom_scripts = generate_custom_scripts(config, root_path)?;
 
     // Check if options are available
     let has_options = if config.module_options.is_some() {
@@ -281,6 +378,9 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     } else {
         "style=\"display:none;\""
     };
+
+    // Generate asset and navigation paths (search page is at root)
+    let asset_paths = utils::generate_asset_paths(root_path);
 
     // Create Tera context
     let mut tera_context = tera::Context::new();
@@ -291,8 +391,52 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     tera_context.insert("custom_scripts", &custom_scripts);
     tera_context.insert("doc_nav", &doc_nav);
     tera_context.insert("has_options", has_options);
-    tera_context.insert("toc", ""); // No TOC for search page
-    tera_context.insert("generate_search", &true); // Always true for search page
+    tera_context.insert("toc", ""); // no TOC for search page
+    tera_context.insert("generate_search", &true); // always true for search page
+
+    // Add asset paths with fallback values in case keys are missing
+    tera_context.insert(
+        "stylesheet_path",
+        asset_paths
+            .get("stylesheet_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/style.css"),
+    );
+    tera_context.insert(
+        "main_js_path",
+        asset_paths
+            .get("main_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/main.js"),
+    );
+    tera_context.insert(
+        "search_js_path",
+        asset_paths
+            .get("search_js_path")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/search.js"),
+    );
+    tera_context.insert(
+        "index_path",
+        asset_paths
+            .get("index_path")
+            .map(|s| s.as_str())
+            .unwrap_or("index.html"),
+    );
+    tera_context.insert(
+        "options_path",
+        asset_paths
+            .get("options_path")
+            .map(|s| s.as_str())
+            .unwrap_or("options.html"),
+    );
+    tera_context.insert(
+        "search_path",
+        asset_paths
+            .get("search_path")
+            .map(|s| s.as_str())
+            .unwrap_or("search.html"),
+    );
 
     // Render the template
     let html = tera.render("search", &tera_context)?;
@@ -333,12 +477,14 @@ fn get_template_content(config: &Config, template_name: &str, fallback: &str) ->
     Ok(fallback.to_string())
 }
 
-/// Generate the document navigation HTML
-fn generate_doc_nav(config: &Config) -> String {
+/// Generate the document navigation HTM
+fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     let mut doc_nav = String::new();
+    let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
 
     // Define anchor pattern regex
-    let anchor_pattern = regex::Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$").unwrap();
+    let anchor_pattern = regex::Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$")
+        .expect("Invalid regex pattern for anchor matching");
 
     // Only process markdown files if input_dir is provided
     if let Some(input_dir) = &config.input_dir {
@@ -355,6 +501,9 @@ fn generate_doc_nav(config: &Config) -> String {
                 if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
                     let mut html_path = rel_doc_path.to_path_buf();
                     html_path.set_extension("html");
+
+                    // Create relative path from current file to target file
+                    let target_path = format!("{}{}", root_prefix, html_path.to_string_lossy());
 
                     let page_title = fs::read_to_string(path).map_or_else(
                         |_| {
@@ -398,10 +547,9 @@ fn generate_doc_nav(config: &Config) -> String {
                     writeln!(
                         doc_nav,
                         "<li><a href=\"{}\">{}</a></li>",
-                        html_path.to_string_lossy(),
-                        page_title
+                        target_path, page_title
                     )
-                    .unwrap();
+                    .expect("Failed to write to doc_nav string");
                 }
             }
         }
@@ -409,28 +557,37 @@ fn generate_doc_nav(config: &Config) -> String {
 
     // Add link to options page if module_options is configured
     if doc_nav.is_empty() && config.module_options.is_some() {
-        doc_nav.push_str("<li><a href=\"options.html\">Module Options</a></li>\n");
+        doc_nav.push_str(&format!(
+            "<li><a href=\"{}options.html\">Module Options</a></li>\n",
+            root_prefix
+        ));
     }
 
     // Add search link only if search is enabled
     if config.generate_search {
-        doc_nav.push_str("<li><a href=\"search.html\">Search</a></li>\n");
+        doc_nav.push_str(&format!(
+            "<li><a href=\"{}search.html\">Search</a></li>\n",
+            root_prefix
+        ));
     }
 
     doc_nav
 }
 
 /// Generate custom scripts HTML
-fn generate_custom_scripts(config: &Config) -> Result<String> {
+fn generate_custom_scripts(config: &Config, current_file_rel_path: &Path) -> Result<String> {
     let mut custom_scripts = String::new();
+    let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
 
     // Add any user scripts from script_paths. This is additive, not replacing. To replace
     // default content, the user should specify `--template-dir` or `--template` instead.
     for script_path in &config.script_paths {
+        // Relative path to script
+        let script_relative_path = format!("{}{}", root_prefix, script_path.to_string_lossy());
         write!(
             custom_scripts,
             "<script defer src=\"{}\"></script>",
-            script_path.to_string_lossy()
+            script_relative_path
         )?;
     }
 
@@ -462,7 +619,8 @@ fn generate_toc(headers: &[Header]) -> String {
                 toc.push_str("</li><li>");
             }
 
-            writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, header.text).unwrap();
+            writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, header.text)
+                .expect("Failed to write to toc string");
         }
     }
 
@@ -491,7 +649,8 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
         let option_id = format!("option-{}", option.name.replace('.', "-"));
 
         // Open option container with ID for direct linking
-        writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">").unwrap();
+        writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">")
+            .expect("Failed to write to options_html string");
 
         // Option name with anchor link and copy button
         write!(
@@ -501,7 +660,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
              class=\"copy-feedback\">Link copied!</span>\n  </h3>\n",
             option_id, option.name
         )
-        .unwrap();
+        .expect("Failed to write to options_html string");
 
         // Option metadata (internal/readOnly)
         let mut metadata = Vec::new();
@@ -518,7 +677,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
                 "  <div class=\"option-metadata\">{}</div>",
                 metadata.join(", ")
             )
-            .unwrap();
+            .expect("Failed to write to options_html string");
         }
 
         // Option type
@@ -527,7 +686,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
             "  <div class=\"option-type\">Type: <code>{}</code></div>",
             option.type_name
         )
-        .unwrap();
+        .expect("Failed to write to options_html string");
 
         // Option description
         writeln!(
@@ -535,7 +694,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
             "  <div class=\"option-description\">{}</div>",
             option.description
         )
-        .unwrap();
+        .expect("Failed to write to options_html string");
 
         // Add default value if available
         add_default_value(&mut options_html, option);
@@ -551,13 +710,13 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
                     "  <div class=\"option-declared\">Declared in: <code><a href=\"{url}\" \
                      target=\"_blank\">{declared_in}</a></code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options_html string");
             } else {
                 writeln!(
                     options_html,
                     "  <div class=\"option-declared\">Declared in: <code>{declared_in}</code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options_html string");
             }
         }
 
@@ -585,13 +744,13 @@ fn add_default_value(html: &mut String, option: &NixOption) {
             html,
             "  <div class=\"option-default\">Default: <code>{clean_default}</code></div>"
         )
-        .unwrap();
+        .expect("Failed to write to options HTML string");
     } else if let Some(default_val) = &option.default {
         writeln!(
             html,
             "  <div class=\"option-default\">Default: <code>{default_val}</code></div>"
         )
-        .unwrap();
+        .expect("Failed to write to options HTML string");
     }
 }
 
@@ -619,7 +778,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                 html,
                 "  <div class=\"option-example\">Example: <pre><code>{trimmed_example}</code></pre></div>"
             )
-            .unwrap();
+            .expect("Failed to write to options HTML string");
         } else {
             // Check if this is already a code block (surrounded by backticks)
             if example_text.starts_with('`')
@@ -633,7 +792,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                     html,
                     "  <div class=\"option-example\">Example: <code>{safe_content}</code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options HTML string");
             } else {
                 // Regular inline example - still needs escaping
                 let safe_example = example_text.replace('<', "&lt;").replace('>', "&gt;");
@@ -641,7 +800,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                     html,
                     "  <div class=\"option-example\">Example: <code>{safe_example}</code></div>"
                 )
-                .unwrap();
+                .expect("Failed to write to options HTML string");
             }
         }
     } else if let Some(example_val) = &option.example {
@@ -653,14 +812,14 @@ fn add_example_value(html: &mut String, option: &NixOption) {
                 html,
                 "  <div class=\"option-example\">Example: <pre><code>{safe_example}</code></pre></div>"
             )
-            .unwrap();
+            .expect("Failed to write to options HTML string");
         } else {
             // Single-line JSON examples
             writeln!(
                 html,
                 "  <div class=\"option-example\">Example: <code>{safe_example}</code></div>"
             )
-            .unwrap();
+            .expect("Failed to write to options HTML string");
         }
     }
 }
