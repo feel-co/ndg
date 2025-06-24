@@ -82,7 +82,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
                 if let Some(Value::String(desc)) = option_data.get("description") {
                     let processed_desc = escape_html_in_markdown(desc);
                     option.description =
-                        markdown::process_markdown(&processed_desc, None, config).0;
+                        ndg_commonmark::legacy_markdown::process_markdown(&processed_desc, None, Some(&config.title)).0;
                 }
 
                 // Handle default values
