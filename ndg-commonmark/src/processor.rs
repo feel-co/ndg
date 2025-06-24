@@ -77,9 +77,19 @@ impl MarkdownProcessor {
 
     /// Preprocess the markdown content (includes, block elements, headers, roles, etc).
     fn preprocess(&self, content: &str) -> String {
-        // For now, just return the input.
-        // TODO: apply all extensions.
-        content.to_owned()
+        // Apply the legacy markdown processing pipeline for all extensions and roles.
+        use crate::legacy_markdown::{
+            process_file_includes, preprocess_block_elements, preprocess_headers,
+            preprocess_inline_anchors, process_role_markup,
+        };
+
+        let with_includes = process_file_includes(content);
+        let preprocessed = preprocess_block_elements(&with_includes);
+        let with_headers = preprocess_headers(&preprocessed);
+        let with_inline_anchors = preprocess_inline_anchors(&with_headers);
+        let with_roles = process_role_markup(&with_inline_anchors, self.manpage_urls.as_ref());
+
+        with_roles
     }
 
     /// Extract headers and title from the markdown content.

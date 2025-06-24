@@ -233,14 +233,14 @@ pub fn process_markdown(
 }
 
 /// Process include directives in markdown files
-fn process_file_includes(content: &str) -> String {
+pub fn process_file_includes(content: &str) -> String {
     // FIXME: This version does not support file includes, as it is now generic.
     // To fix it, we'd like to pass in a callback or extend this function.
     content.to_string()
 }
 
 /// Process inline anchors by wrapping them in a span with appropriate id
-fn preprocess_inline_anchors(content: &str) -> String {
+pub fn preprocess_inline_anchors(content: &str) -> String {
     // First handle list items with anchors at the beginning
     let mut result = String::with_capacity(content.len() + 100);
     let lines = content.lines();
@@ -273,7 +273,7 @@ fn preprocess_inline_anchors(content: &str) -> String {
 }
 
 /// Process headers with explicit anchors
-fn preprocess_headers(content: &str) -> String {
+pub fn preprocess_headers(content: &str) -> String {
     let mut lines = vec![];
 
     for line in content.lines() {
@@ -302,7 +302,10 @@ fn preprocess_headers(content: &str) -> String {
 }
 
 /// Process roles directly in the markdown before conversion to HTML
-fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, String>>) -> String {
+pub fn process_role_markup(
+    content: &str,
+    manpage_urls: Option<&HashMap<String, String>>,
+) -> String {
     let result = ROLE_PATTERN
         .replace_all(content, |caps: &regex::Captures| {
             let role_type = &caps[1];
@@ -330,14 +333,14 @@ fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, Stri
 }
 
 /// Preprocess block elements like admonitions, figures, and definition lists
-fn preprocess_block_elements(content: &str) -> String {
+pub fn preprocess_block_elements(content: &str) -> String {
     let mut processed_lines = Vec::new();
     let mut lines = content.lines().peekable();
     process_admonitions(&mut lines, &mut processed_lines);
     processed_lines.join("\n")
 }
 
-fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<String>) {
+pub fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<String>) {
     let mut in_admonition = false;
     let mut admonition_content = String::new();
     let mut current_adm_type = String::new();
@@ -627,18 +630,24 @@ impl AstTransformer for PromptTransformer {
                 let mut data = child.data.borrow_mut();
                 if let NodeValue::Code(ref code) = data.value {
                     let literal = code.literal.trim();
-                    if let Some(rest) = literal.strip_prefix("$ ") {
-                        // Shell prompt
+
+                    // Only match a single unescaped $ at the start, and trim whitespace after prompt
+                    if literal.starts_with("$")
+                        && !literal.starts_with("\\$")
+                        && !literal.starts_with("$$")
+                    {
+                        let rest = literal.strip_prefix("$").unwrap().trim_start();
                         let html = format!(
                             "<code class=\"terminal\"><span class=\"prompt\">$</span> {}</code>",
                             rest
                         );
                         data.value = NodeValue::HtmlInline(html);
-                    } else if let Some(rest) = literal.strip_prefix("nix-repl>") {
-                        // REPL prompt
+                    } else if literal.starts_with("nix-repl>") && !literal.starts_with("nix-repl>>")
+                    {
+                        let rest = literal.strip_prefix("nix-repl>").unwrap().trim_start();
                         let html = format!(
                             "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {}</code>",
-                            rest.trim_start()
+                            rest
                         );
                         data.value = NodeValue::HtmlInline(html);
                     }
