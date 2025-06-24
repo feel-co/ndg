@@ -53,35 +53,6 @@ pub static MYST_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
     })
 });
 
-// Terminal and REPL patterns
-pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
-        error!("Failed to compile COMMAND_PROMPT regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
-        error!("Failed to compile REPL_PROMPT regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap_or_else(|e| {
-        error!("Failed to compile PROMPT_RE regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap_or_else(|e| {
-        error!("Failed to compile REPL_RE regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
 // Heading and anchor patterns
 pub static HEADING_ANCHOR: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap_or_else(|e| {
@@ -424,7 +395,7 @@ fn preprocess_headers(content: &str) -> String {
 
 /// Process roles directly in the markdown before conversion to HTML
 fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, String>>) -> String {
-    let mut result = ROLE_PATTERN
+    let result = ROLE_PATTERN
         .replace_all(content, |caps: &regex::Captures| {
             let role_type = &caps[1];
             let role_content = &caps[2];
@@ -444,24 +415,6 @@ fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, Stri
                 "var" => format!("<code class=\"nix-var\">{role_content}</code>"),
                 _ => format!("<span class=\"{role_type}-markup\">{role_content}</span>"),
             }
-        })
-        .into_owned();
-
-    // Process command prompts
-    result = COMMAND_PROMPT
-        .replace_all(&result, |caps: &regex::Captures| {
-            let command = &caps[1];
-            format!("<code class=\"terminal\"><span class=\"prompt\">$</span> {command}</code>")
-        })
-        .into_owned();
-
-    // Process REPL prompts
-    result = REPL_PROMPT
-        .replace_all(&result, |caps: &regex::Captures| {
-            let expr = &caps[1];
-            format!(
-                "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {expr}</code>"
-            )
         })
         .into_owned();
 
@@ -722,9 +675,9 @@ fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) ->
 }
 
 /// Convert markdown to HTML using `colmark` with syntax highlighting
-fn convert_to_html(markdown: &str, config: &Config) -> String {
+fn convert_to_html(text: &str, config: &Config) -> String {
     markup::safely_process_markup(
-        markdown,
+        text,
         |text| {
             let arena = Arena::new();
             let mut options = ComrakOptions::default();
@@ -737,6 +690,10 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
 
             let root = parse_document(&arena, text, &options);
 
+            // AST transformation for prompts
+            let prompt_transformer = PromptTransformer;
+            prompt_transformer.transform(root);
+
             // Custom code block handling for syntax highlighting
             let mut html_output = Vec::with_capacity(text.len() * 3);
 
@@ -748,8 +705,47 @@ fn convert_to_html(markdown: &str, config: &Config) -> String {
             comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
             String::from_utf8(html_output).unwrap_or_default()
         },
+        // Fallback value
         "<div class=\"error\">Error processing markdown content</div>",
     )
+}
+
+/// Walk the AST and replace inline code nodes that match shell or REPL prompts with HTML nodes.
+pub trait AstTransformer {
+    fn transform<'a>(&self, node: &'a AstNode<'a>);
+}
+
+/// Transformer for prompt code spans (shell and REPL).
+pub struct PromptTransformer;
+
+impl AstTransformer for PromptTransformer {
+    fn transform<'a>(&self, node: &'a AstNode<'a>) {
+        use comrak::nodes::NodeValue;
+        for child in node.children() {
+            {
+                let mut data = child.data.borrow_mut();
+                if let NodeValue::Code(ref code) = data.value {
+                    let literal = code.literal.trim();
+                    if let Some(rest) = literal.strip_prefix("$ ") {
+                        // Shell prompt
+                        let html = format!(
+                            "<code class=\"terminal\"><span class=\"prompt\">$</span> {}</code>",
+                            rest
+                        );
+                        data.value = NodeValue::HtmlInline(html);
+                    } else if let Some(rest) = literal.strip_prefix("nix-repl>") {
+                        // REPL prompt
+                        let html = format!(
+                            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {}</code>",
+                            rest.trim_start()
+                        );
+                        data.value = NodeValue::HtmlInline(html);
+                    }
+                }
+            }
+            self.transform(child);
+        }
+    }
 }
 
 /// Traverse the AST and highlight code blocks if needed
@@ -775,7 +771,7 @@ fn highlight_codeblocks<'a>(node: &'a AstNode<'a>, config: &Config) {
                 if let Ok(highlighted) =
                     crate::html::highlight::highlight_code(&code_block.literal, lang, config)
                 {
-                    data.value = NodeValue::HtmlInline(highlighted.into());
+                    data.value = NodeValue::HtmlInline(highlighted);
                 }
             }
         }
@@ -794,22 +790,6 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
 
     // Process manpage roles that were directly in HTML
     result = process_manpage_roles(result, manpage_urls);
-
-    // Process command prompts
-    result = process_html_elements(&result, &PROMPT_RE, |caps| {
-        format!(
-            "<code class=\"terminal\"><span class=\"prompt\">$</span> {} </code>",
-            &caps[1]
-        )
-    });
-
-    // Process REPL prompts
-    result = process_html_elements(&result, &REPL_RE, |caps| {
-        let content = &caps[1];
-        format!(
-            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {content}</code>"
-        )
-    });
 
     // Process option references
     result = process_html_elements(&result, &OPTION_RE, |caps| {
