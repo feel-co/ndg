@@ -13,9 +13,9 @@
 !/flake/
 !/.github/workflows/*
 !/src/
+!/tests/
 !/Cargo.lock
 !/Cargo.toml
 !/templates
 !/.rustfmt.toml
 !/.clippy.toml
-

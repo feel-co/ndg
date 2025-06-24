@@ -1007,14 +1007,31 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
     let mut found_title = title;
     for node in root.descendants() {
         if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
-            let mut text = String::new();
-            for child in node.children() {
-                if let NodeValue::Text(ref t) = child.data.borrow().value {
-                    text.push_str(t);
-                } else if let NodeValue::Code(ref t) = child.data.borrow().value {
-                    text.push_str(&t.literal);
+            // Recursively extract all text from heading's inline children
+            fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
+                let mut text = String::new();
+                for child in node.children() {
+                    match &child.data.borrow().value {
+                        NodeValue::Text(t) => text.push_str(t),
+                        NodeValue::Code(t) => text.push_str(&t.literal),
+                        // For links, emphasis, strong, etc., recurse into their children
+                        NodeValue::Emph
+                        | NodeValue::Strong
+                        | NodeValue::Link(..)
+                        | NodeValue::Strikethrough
+                        | NodeValue::Superscript
+                        | NodeValue::Subscript
+                        | NodeValue::FootnoteReference(..)
+                        | NodeValue::Image(..)
+                        | NodeValue::HtmlInline(_) => {
+                            text.push_str(&extract_inline_text(child));
+                        }
+                        _ => {}
+                    }
                 }
+                text
             }
+            let text = extract_inline_text(node);
             let id = generate_id(&text);
             if *level == 1 && found_title.is_none() {
                 found_title = Some(text.clone());
