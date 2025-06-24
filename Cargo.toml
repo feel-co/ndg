@@ -1,12 +1,20 @@
-[package]
-name        = "ndg"
-version     = "2.1.0"
-edition     = "2024"
-description = "ndg - not a docs generator"
-license     = "MPL"
-authors     = [ "NotAShelf <raf@notashelf.dev>" ]
+[workspace]
+members  = [ "ndg", "ndg-commonmark" ]
+resolver = "3"
 
-[dependencies]
+[workspace.package]
+authors      = [ "NotAShelf <raf@notashelf.dev>" ]
+categories   = [ "text-processing" ]
+description  = "Generate HTML documents and manpages for your Nix projects"
+edition      = "2024"
+keywords     = [ "markdown", "commonmark", "nix", "nixpkgs", "documentation", "html", "manpage", "nix-docs" ]
+license      = "MPL-2.0"
+readme       = true
+repository   = "https://github.com/notashelf/ndg"
+rust-version = "1.85"
+version      = "0.4.0"
+
+[workspace.dependencies]
 anyhow = "1.0"
 chrono = { version = "0.4.40", default-features = false, features = [ "std", "clock" ] }
 clap = { version = "4.5", default-features = false, features = [
@@ -18,11 +26,12 @@ clap = { version = "4.5", default-features = false, features = [
 ] }
 clap_complete = "4.5"
 clap_mangen = "0.2"
-comrak = "0.39.0"
+comrak = { version = "0.39.0", default-features = false, features = [ "syntect" ] }
 env_logger = "0.11"
 fs_extra = "1.3"
-grass = { version = "0.13", default-features = false, features = [  ] }
+grass = { version = "0.13", default-features = false }
 log = "0.4"
+ndg-commonmark = { path = "./ndg-commonmark", features = [ "gfm", "nixpkgs" ] }
 num_cpus = "1.16"
 rayon = "1.10"
 regex = "1.11.1"
