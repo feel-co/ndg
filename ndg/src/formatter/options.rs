@@ -295,7 +295,7 @@ fn escape_html_in_markdown(text: &str) -> String {
                 // Toggle fenced code block state
                 in_code_block = !in_code_block;
                 backquote_counter = 0; // Reset counter after handling triple
-            // backticks
+                                       // backticks
             } else if backquote_counter == 1 && !in_code_block {
                 // Toggle inline code state
                 in_inline_code = !in_inline_code;

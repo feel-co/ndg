@@ -1,7 +1,7 @@
 use std::fs;
 
 use anyhow::{Context, Result};
-use log::{LevelFilter, info};
+use log::{info, LevelFilter};
 
 mod cli;
 mod completion;

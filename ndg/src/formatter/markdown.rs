@@ -10,9 +10,8 @@ use std::{
 
 use anyhow::{Context, Result};
 use comrak::{
-    Arena, ComrakOptions,
     nodes::{AstNode, NodeHeading, NodeValue},
-    parse_document,
+    parse_document, Arena, ComrakOptions,
 };
 use log::{debug, error, trace};
 use regex::Regex;
@@ -951,56 +950,17 @@ fn process_remaining_inline_anchors(html: &str) -> String {
 /// Extract headers from markdown content
 pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
     let mut headers = Vec::new();
-    let mut title = None;
-    let mut found_headers_with_regex = false;
+    let title = None;
 
-    // Process line by line for headers with explicit anchors
-    let mut in_code_block = false;
-    for line in content.lines() {
-        // Check if we're entering or leaving a code block
-        if line.trim().starts_with("```") {
-            in_code_block = !in_code_block;
-            continue;
-        }
-
-        // Skip processing headers inside code blocks
-        if in_code_block {
-            continue;
-        }
-
-        if let Some(caps) = EXPLICIT_ANCHOR_RE.captures(line) {
-            found_headers_with_regex = true;
-            let level = u8::try_from(caps[1].len()).expect("Header level should fit in u8");
-            let text = caps[2].trim().to_string();
-
-            // Use explicit anchor if provided, otherwise generate one
-            let id = caps.get(3).map_or_else(
-                || generate_id(&text),
-                |explicit_id| explicit_id.as_str().to_string(),
-            );
-
-            // Set title from first h1
-            if level == 1 && title.is_none() {
-                title = Some(text.clone());
-            }
-
-            headers.push(Header { text, level, id });
-        }
-    }
-
-    // If headers were found with regex, don't do the more expensive parser-based
-    // extraction
-    if found_headers_with_regex {
-        return (headers, title);
-    }
-
-    // Otherwise use comrak to extract headers
+    // Always use comrak to extract headers to properly strip formatting
     let arena = Arena::new();
     let mut options = ComrakOptions::default();
     options.extension.table = true;
     options.extension.footnotes = true;
     options.extension.strikethrough = true;
     options.extension.tasklist = true;
+    options.extension.superscript = true;
+    options.render.unsafe_ = true;
 
     let root = parse_document(&arena, content, &options);
 
@@ -1009,29 +969,38 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
         if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
             // Recursively extract all text from heading's inline children
             fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
+                use comrak::nodes::NodeValue;
                 let mut text = String::new();
                 for child in node.children() {
                     match &child.data.borrow().value {
                         NodeValue::Text(t) => text.push_str(t),
                         NodeValue::Code(t) => text.push_str(&t.literal),
-                        // For links, emphasis, strong, etc., recurse into their children
-                        NodeValue::Emph
-                        | NodeValue::Strong
-                        | NodeValue::Link(..)
-                        | NodeValue::Strikethrough
-                        | NodeValue::Superscript
-                        | NodeValue::Subscript
-                        | NodeValue::FootnoteReference(..)
-                        | NodeValue::Image(..)
-                        | NodeValue::HtmlInline(_) => {
-                            text.push_str(&extract_inline_text(child));
+                        NodeValue::Link(..) => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Emph => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Strong => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Strikethrough => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
+                        NodeValue::FootnoteReference(..) => {
+                            text.push_str(&extract_inline_text(child))
                         }
+                        NodeValue::HtmlInline(_html) => {
+                            // Skip HTML inline completely
+                        }
+                        NodeValue::Image(..) => {} // skip images
                         _ => {}
                     }
                 }
                 text
             }
-            let text = extract_inline_text(node);
+            let mut text = extract_inline_text(node);
+
+            // Strip any remaining HTML tags from the final text
+            if text.contains('<') && text.contains('>') {
+                let html_tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
+                text = html_tag_re.replace_all(&text, "").to_string();
+            }
+
             let id = generate_id(&text);
             if *level == 1 && found_title.is_none() {
                 found_title = Some(text.clone());
