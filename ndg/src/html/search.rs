@@ -2,8 +2,8 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use comrak::{
-    nodes::{NodeHeading, NodeValue},
     Arena, ComrakOptions,
+    nodes::{NodeHeading, NodeValue},
 };
 use log::info;
 use regex::Regex;

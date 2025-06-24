@@ -1,6 +1,8 @@
+#![allow(dead_code)]
 use std::{collections::HashMap, path::Path};
 
 use comrak::nodes::AstNode;
+use ndg_commonmark::legacy_markdown::Header;
 
 /// Generate a unique ID from text
 pub fn generate_id(text: &str) -> String {
@@ -119,10 +121,23 @@ pub fn strip_markdown(content: &str) -> String {
 
 /// Process content through the markdown pipeline and extract plain text
 pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
-    let html = crate::formatter::markdown::process_markdown_string(content, config);
+    let (html, ..) = crate::formatter::markdown::process_markdown(content, None, config);
     strip_markdown(&html)
         .replace('\n', " ")
         .replace("  ", " ")
         .trim()
         .to_string()
+}
+
+/// Process manpage roles in the HTML
+pub fn process_manpage_roles(
+    html: String,
+    manpage_urls: Option<&HashMap<String, String>>,
+) -> String {
+    ndg_commonmark::legacy_markdown::process_manpage_roles(html, manpage_urls)
+}
+
+/// Extract headers from markdown content
+pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
+    ndg_commonmark::legacy_markdown::extract_headers(content)
 }

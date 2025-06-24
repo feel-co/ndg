@@ -1,7 +1,10 @@
 mod extensions;
 mod processor;
 mod types;
-mod utils;
+pub mod utils;
+
+pub mod legacy_markdown;
+pub mod legacy_markup;
 
 pub use crate::{
     processor::{AstTransformer, MarkdownOptions, MarkdownProcessor},

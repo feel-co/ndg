@@ -81,7 +81,8 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
                 if let Some(Value::String(desc)) = option_data.get("description") {
                     let processed_desc = escape_html_in_markdown(desc);
-                    option.description = markdown::process_markdown_string(&processed_desc, config);
+                    option.description =
+                        markdown::process_markdown(&processed_desc, None, config).0;
                 }
 
                 // Handle default values
@@ -295,7 +296,7 @@ fn escape_html_in_markdown(text: &str) -> String {
                 // Toggle fenced code block state
                 in_code_block = !in_code_block;
                 backquote_counter = 0; // Reset counter after handling triple
-                                       // backticks
+            // backticks
             } else if backquote_counter == 1 && !in_code_block {
                 // Toggle inline code state
                 in_inline_code = !in_inline_code;

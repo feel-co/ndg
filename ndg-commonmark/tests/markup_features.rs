@@ -1,4 +1,4 @@
-use ndg_commonmark::{MarkdownProcessor, MarkdownOptions, Header};
+use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
 
 /// Check if HTML output contains all expected substrings.
 fn assert_html_contains(html: &str, expected: &[&str]) {

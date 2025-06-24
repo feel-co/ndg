@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use comrak::{
+    Arena, ComrakOptions,
     nodes::{AstNode, NodeHeading, NodeValue},
-    parse_document, Arena, ComrakOptions,
+    parse_document,
 };
 
 use crate::{

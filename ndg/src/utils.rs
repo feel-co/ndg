@@ -201,9 +201,33 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
 
         if !files.is_empty() {
             // Process files in parallel
-            files
-                .par_iter()
-                .try_for_each(|file_path| markdown::process_markdown_file(config, file_path))?;
+            use rayon::prelude::*;
+
+            use crate::html::template;
+            files.par_iter().try_for_each(|file_path| {
+                let (html_content, headers, title) =
+                    crate::formatter::markdown::process_markdown_file(config, file_path)?;
+                let input_dir = config.input_dir.as_ref().expect("input_dir required");
+                let rel_path = file_path
+                    .strip_prefix(input_dir)
+                    .expect("strip_prefix failed");
+                let mut output_path = config.output_dir.join(rel_path);
+                output_path.set_extension("html");
+
+                let html = template::render(
+                    config,
+                    &html_content,
+                    title.as_deref().unwrap_or(&config.title),
+                    &headers,
+                    rel_path,
+                )?;
+
+                if let Some(parent) = output_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(&output_path, html)?;
+                Ok::<(), anyhow::Error>(())
+            })?;
         }
 
         Ok(files)

@@ -8,7 +8,7 @@ use serde_json::{self, Value};
 
 use crate::{
     formatter::{markup, options::NixOption},
-    manpage::{escape_leading_dot, get_roff_escapes, man_escape, TROFF_ESCAPE, TROFF_FORMATTING},
+    manpage::{TROFF_ESCAPE, TROFF_FORMATTING, escape_leading_dot, get_roff_escapes, man_escape},
 };
 
 // Define regex patterns for processing markdown in options
