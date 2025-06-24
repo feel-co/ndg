@@ -79,8 +79,8 @@ impl MarkdownProcessor {
     fn preprocess(&self, content: &str) -> String {
         // Apply the legacy markdown processing pipeline for all extensions and roles.
         use crate::legacy_markdown::{
-            process_file_includes, preprocess_block_elements, preprocess_headers,
-            preprocess_inline_anchors, process_role_markup,
+            preprocess_block_elements, preprocess_headers, preprocess_inline_anchors,
+            process_file_includes, process_role_markup,
         };
 
         let with_includes = process_file_includes(content);

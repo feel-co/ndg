@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use regex::Regex;
 use comrak::{Arena, ComrakOptions, nodes::NodeValue, parse_document};
+use regex::Regex;
 
 /// Slugify a string for use as an anchor ID.
 /// Converts to lowercase, replaces non-alphanumeric characters with dashes,

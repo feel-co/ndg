@@ -209,11 +209,12 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
                     ndg_commonmark::utils::load_manpage_urls(mappings_path.to_str().unwrap()).ok()
                 });
                 let content = std::fs::read_to_string(file_path)?;
-                let (html_content, headers, title) = ndg_commonmark::legacy_markdown::process_markdown(
-                    &content,
-                    manpage_urls.as_ref(),
-                    Some(&config.title),
-                );
+                let (html_content, headers, title) =
+                    ndg_commonmark::legacy_markdown::process_markdown(
+                        &content,
+                        manpage_urls.as_ref(),
+                        Some(&config.title),
+                    );
                 let input_dir = config.input_dir.as_ref().expect("input_dir required");
                 let rel_path = file_path
                     .strip_prefix(input_dir)
@@ -304,8 +305,7 @@ pub fn extract_page_title(file_path: &std::path::Path, html_path: &std::path::Pa
 
     match fs::read_to_string(file_path) {
         Ok(content) => {
-            ndg_commonmark::utils::extract_markdown_title(&content)
-                .unwrap_or(default_title)
+            ndg_commonmark::utils::extract_markdown_title(&content).unwrap_or(default_title)
         }
         Err(_) => default_title,
     }
