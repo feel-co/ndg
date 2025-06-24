@@ -11,6 +11,7 @@
 !/Cargo.toml
 
 # Configuration files
+!/.config/
 !/.rustfmt.toml
 !/.clippy.toml
 !/.taplo.toml
