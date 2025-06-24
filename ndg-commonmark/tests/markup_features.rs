@@ -1,5 +1,4 @@
-//! Regression tests for each individual markup feature supported by the crate.
-use ndg::{config::Config, formatter::markdown::process_markdown_string};
+use ndg_commonmark::{MarkdownProcessor, MarkdownOptions, Header};
 
 /// Check if HTML output contains all expected substrings.
 fn assert_html_contains(html: &str, expected: &[&str]) {
@@ -13,11 +12,14 @@ fn assert_html_contains(html: &str, expected: &[&str]) {
     }
 }
 
+fn processor() -> MarkdownProcessor {
+    MarkdownProcessor::new(MarkdownOptions::default())
+}
+
 #[test]
 fn test_admonition_note() {
-    let config = Config::default();
     let md = "::: {.note}\nThis is a note.\n:::";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[
@@ -30,17 +32,15 @@ fn test_admonition_note() {
 
 #[test]
 fn test_role_command() {
-    let config = Config::default();
     let md = "{command}`ls -l`";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(&html, &[r#"<code class="command">ls -l</code>"#]);
 }
 
 #[test]
 fn test_role_option() {
-    let config = Config::default();
     let md = "{option}`services.nginx.enable`";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[r#"<code class="nixos-option">services.nginx.enable</code>"#],
@@ -49,9 +49,8 @@ fn test_role_option() {
 
 #[test]
 fn test_command_prompt() {
-    let config = Config::default();
     let md = "`$ echo hi`";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[r#"<code class="terminal"><span class="prompt">$</span> echo hi</code>"#],
@@ -60,9 +59,8 @@ fn test_command_prompt() {
 
 #[test]
 fn test_repl_prompt() {
-    let config = Config::default();
     let md = "`nix-repl> 1 + 1`";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[r#"<code class="nix-repl"><span class="prompt">nix-repl&gt;</span> 1 + 1</code>"#],
@@ -71,9 +69,8 @@ fn test_repl_prompt() {
 
 #[test]
 fn test_inline_anchor() {
-    let config = Config::default();
     let md = "Go here []{#target}.";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[r#"<span id="target" class="nixos-anchor"></span>"#],
@@ -82,9 +79,8 @@ fn test_inline_anchor() {
 
 #[test]
 fn test_list_item_with_anchor() {
-    let config = Config::default();
     let md = "- []{#item1} Item 1";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[r#"<span id="item1" class="nixos-anchor"></span> Item 1"#],
@@ -93,9 +89,8 @@ fn test_list_item_with_anchor() {
 
 #[test]
 fn test_explicit_header_anchor() {
-    let config = Config::default();
     let md = "## Section {#sec}";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert!(
         html.contains(r#"<h2 id="sec">"#) && html.contains("Section</h2>"),
         "Expected HTML to contain <h2 id=\"sec\">...Section</h2>, got:\n{}",
@@ -105,9 +100,8 @@ fn test_explicit_header_anchor() {
 
 #[test]
 fn test_figure_block() {
-    let config = Config::default();
     let md = "::: {.figure #fig1}\n# Figure Title\nFigure content\n:::";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     // Accept admonition-style figure rendering
     assert!(
         html.contains(r#"<div class="admonition figure" id="fig1">"#)
@@ -121,9 +115,8 @@ fn test_figure_block() {
 
 #[test]
 fn test_definition_list() {
-    let config = Config::default();
     let md = "Term\n:   Definition";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &["<dl>", "<dt>Term</dt>", "<dd>Definition</dd>", "</dl>"],
@@ -132,9 +125,8 @@ fn test_definition_list() {
 
 #[test]
 fn test_option_reference() {
-    let config = Config::default();
     let md = "`foo.bar.baz`";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     // Option references may be rendered as <code> or as a link depending on context
     assert!(
         html.contains(r#"<code>foo.bar.baz</code>"#) || html.contains(r#"option-foo-bar-baz"#),
@@ -145,17 +137,15 @@ fn test_option_reference() {
 
 #[test]
 fn test_myst_role_markup() {
-    let config = Config::default();
     let md = r#"<span class="command-markup">foo</span>"#;
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(&html, &[r#"<code class="command">foo</code>"#]);
 }
 
 #[test]
 fn test_autolink() {
-    let config = Config::default();
     let md = "Visit https://example.com for info.";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[r#"<a href="https://example.com">https://example.com</a>"#],
@@ -164,9 +154,10 @@ fn test_autolink() {
 
 #[test]
 fn test_header_extraction() {
-    use ndg::formatter::markdown::extract_headers;
     let md = "# Title\n\n## Section {#sec}\n### Subsection";
-    let (headers, title) = extract_headers(md);
+    let result = processor().render(md);
+    let headers = result.headers;
+    let title = result.title;
     assert_eq!(title.as_deref(), Some("Title"));
     assert_eq!(headers[0].text, "Title");
     assert_eq!(headers[0].level, 1);
@@ -176,9 +167,8 @@ fn test_header_extraction() {
 
 #[test]
 fn test_raw_inline_anchor() {
-    let config = Config::default();
     let md = "[]{#anchor}";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &[r#"<span id="anchor" class="nixos-anchor"></span>"#],
@@ -187,9 +177,8 @@ fn test_raw_inline_anchor() {
 
 #[test]
 fn test_block_and_inline_code() {
-    let config = Config::default();
     let md = "Here is `inline code`.\n\n```\nblock code\n```";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert_html_contains(
         &html,
         &["<code>inline code</code>", "<pre><code>block code"],
@@ -198,15 +187,12 @@ fn test_block_and_inline_code() {
 
 #[test]
 fn test_tables_footnotes_strikethrough_tasklists() {
-    let config = Config::default();
-
-    // Holy fuck.
     let md = "\
 | A | B |\n|---|---|\n| 1 | 2 |\n\n\
 Here is a footnote.[^1]\n\n[^1]: Footnote text.\n\n\
 ~~strikethrough~~\n\n\
 - [x] Task done\n- [ ] Task not done";
-    let html = process_markdown_string(md, &config);
+    let html = processor().render(md).html;
     assert!(
         html.contains("<table>")
             && html.contains("<del>strikethrough</del>")
