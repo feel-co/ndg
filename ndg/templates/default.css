@@ -6,6 +6,41 @@ body {
   overflow-y: auto !important;
 }
 
+/* Footnotes */
+section.footnotes {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  font-size: 0.95em;
+  color: var(--text-muted, #64748b);
+}
+section.footnotes ol {
+  padding-left: 1.5em;
+  margin: 0;
+}
+section.footnotes li {
+  margin-bottom: 0.5em;
+  position: relative;
+}
+section.footnotes p {
+  display: inline;
+}
+.footnote-ref {
+  vertical-align: super;
+  font-size: 0.8em;
+  line-height: 1;
+  margin-left: 0.1em;
+}
+.footnote-backref {
+  text-decoration: none;
+  margin-left: 0.25em;
+  font-size: 0.8em;
+  color: var(--link-color, #3b82f6);
+}
+.footnote-backref:hover {
+  text-decoration: underline;
+}
+
 /* Core Layout */
 body.sidebar-collapsed .sidebar {
   transform: translateX(-100%);
