@@ -14,7 +14,7 @@ use comrak::{
     nodes::{AstNode, NodeHeading, NodeValue},
     parse_document,
 };
-use log::{debug, error, trace};
+use log::{error, trace};
 use regex::Regex;
 use walkdir::WalkDir;
 
@@ -170,7 +170,9 @@ pub fn process_markdown_file(
 ) -> Result<(String, Vec<Header>, Option<String>)> {
     let content = fs::read_to_string(file_path)
         .with_context(|| format!("Failed to read markdown file: {}", file_path.display()))?;
-    let (html_content, headers, found_title) = process_markdown(&content, manpage_urls, title);
+    let base_dir = file_path.parent().unwrap_or_else(|| Path::new("."));
+    let (html_content, headers, found_title) =
+        process_markdown(&content, manpage_urls, title, base_dir);
 
     // Optionally write output if output_dir is provided
     if let (Some(input_dir), Some(output_dir)) = (input_dir, output_dir) {
@@ -200,9 +202,10 @@ pub fn process_markdown(
     content: &str,
     manpage_urls: Option<&HashMap<String, String>>,
     title: Option<&str>,
+    base_dir: &std::path::Path,
 ) -> (String, Vec<Header>, Option<String>) {
     // 1. Process includes (no config needed)
-    let with_includes = process_file_includes(content);
+    let with_includes = process_file_includes(content, base_dir);
 
     // 2. Process admonitions, figures, and definition lists
     let preprocessed = preprocess_block_elements(&with_includes);
@@ -233,10 +236,15 @@ pub fn process_markdown(
 }
 
 /// Process include directives in markdown files
-pub fn process_file_includes(content: &str) -> String {
-    // FIXME: This version does not support file includes, as it is now generic.
-    // To fix it, we'd like to pass in a callback or extend this function.
-    content.to_string()
+pub fn process_file_includes(content: &str, base_dir: &std::path::Path) -> String {
+    #[cfg(feature = "nixpkgs")]
+    {
+        crate::extensions::apply_nixpkgs_extensions(content, base_dir)
+    }
+    #[cfg(not(feature = "nixpkgs"))]
+    {
+        content.to_string()
+    }
 }
 
 /// Process inline anchors by wrapping them in a span with appropriate id
@@ -837,6 +845,8 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
 
     let root = parse_document(&arena, content, &options);
 
+    let html_tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
+
     let mut found_title = title;
     for node in root.descendants() {
         if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
@@ -869,8 +879,8 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
             let mut text = extract_inline_text(node);
 
             // Strip any remaining HTML tags from the final text
+
             if text.contains('<') && text.contains('>') {
-                let html_tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
                 text = html_tag_re.replace_all(&text, "").to_string();
             }
 

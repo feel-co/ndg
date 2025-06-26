@@ -121,8 +121,12 @@ pub fn strip_markdown(content: &str) -> String {
 
 /// Process content through the markdown pipeline and extract plain text
 pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
-    let (html, ..) =
-        ndg_commonmark::legacy_markdown::process_markdown(content, None, Some(&config.title));
+    let (html, ..) = ndg_commonmark::legacy_markdown::process_markdown(
+        content,
+        None,
+        Some(&config.title),
+        std::path::Path::new("."),
+    );
     strip_markdown(&html)
         .replace('\n', " ")
         .replace("  ", " ")

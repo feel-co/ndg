@@ -83,7 +83,7 @@ impl MarkdownProcessor {
             process_file_includes, process_role_markup,
         };
 
-        let with_includes = process_file_includes(content);
+        let with_includes = process_file_includes(content, std::path::Path::new("."));
         let preprocessed = preprocess_block_elements(&with_includes);
         let with_headers = preprocess_headers(&preprocessed);
         let with_inline_anchors = preprocess_inline_anchors(&with_headers);

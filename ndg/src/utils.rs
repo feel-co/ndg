@@ -209,11 +209,15 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
                     ndg_commonmark::utils::load_manpage_urls(mappings_path.to_str().unwrap()).ok()
                 });
                 let content = std::fs::read_to_string(file_path)?;
+                let base_dir = file_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
                 let (html_content, headers, title) =
                     ndg_commonmark::legacy_markdown::process_markdown(
                         &content,
                         manpage_urls.as_ref(),
                         Some(&config.title),
+                        base_dir,
                     );
                 let input_dir = config.input_dir.as_ref().expect("input_dir required");
                 let rel_path = file_path
