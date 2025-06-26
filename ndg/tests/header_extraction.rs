@@ -1,4 +1,4 @@
-use ndg::formatter::markdown::{Header, extract_headers};
+use ndg_commonmark::legacy_markdown::{Header, extract_headers};
 
 /// Extract headers from markdown using the actual code.
 fn extract_headers_from_markdown(md: &str) -> Vec<Header> {
@@ -59,8 +59,8 @@ fn test_header_with_html_inline() {
     let md = "# Hello <span>world</span>";
     let headers = extract_headers_from_markdown(md);
     assert_eq!(headers.len(), 1);
-    // HTML inline is not text, so it should be omitted
-    assert_eq!(headers[0].text, "Hello ");
+    // HTML inline is now included as visible text
+    assert_eq!(headers[0].text, "Hello world");
 }
 
 #[test]
