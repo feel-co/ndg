@@ -63,9 +63,7 @@ pub static INLINE_ANCHOR: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap());
 static AUTO_EMPTY_LINK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[\]\((#[a-zA-Z0-9_-]+)\)").unwrap());
-#[allow(dead_code)]
-static AUTO_SECTION_LINK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\((#[a-zA-Z0-9_-]+)\)").unwrap());
+
 static HTML_EMPTY_LINK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<a href="(#[a-zA-Z0-9_-]+)"></a>"#).unwrap());
 pub static RAW_INLINE_ANCHOR_RE: LazyLock<Regex> =
@@ -81,9 +79,7 @@ static LIST_ITEM_ANCHOR_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<li>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</li>").unwrap());
 
 // Option reference patterns
-#[allow(dead_code)]
-static OPTION_REF: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`([a-zA-Z][\w\.]+(\.[\w]+)+)`").unwrap());
+
 static OPTION_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap());
 
@@ -99,21 +95,8 @@ pub static FIGURE_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 // Definition list patterns
-#[allow(dead_code)]
-static DEF_LIST_TERM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([^:].+)$").unwrap());
-#[allow(dead_code)]
-static DEF_LIST_DEF_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^:   (.+)$").unwrap());
 
 // Manpage patterns
-#[allow(dead_code)]
-static MANPAGE_ROLE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{manpage\}`([^`]+)`").unwrap());
-#[allow(dead_code)]
-static MANPAGE_MARKUP_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap());
-#[allow(dead_code)]
-static MANPAGE_REFERENCE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap());
 
 // Header patterns for post-processing
 static HEADER_ID_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -555,7 +538,7 @@ fn process_markdown_content(content: &str) -> String {
     let arena = Arena::new();
     let mut options = ComrakOptions::default();
     options.extension.table = true;
-    options.extension.footnotes = true;
+    options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
     options.extension.strikethrough = true;
     options.extension.tasklist = true;
     options.render.unsafe_ = true;
@@ -598,7 +581,7 @@ fn convert_to_html(text: &str) -> String {
             let arena = Arena::new();
             let mut options = ComrakOptions::default();
             options.extension.table = true;
-            options.extension.footnotes = true;
+            options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
             options.extension.strikethrough = true;
             options.extension.tasklist = true;
             options.extension.header_ids = Some("".to_string());
@@ -837,7 +820,7 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
     let arena = Arena::new();
     let mut options = ComrakOptions::default();
     options.extension.table = true;
-    options.extension.footnotes = true;
+    options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
     options.extension.strikethrough = true;
     options.extension.tasklist = true;
     options.extension.superscript = true;
@@ -847,7 +830,11 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
 
     let html_tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
 
+    // Collect all lines for anchor extraction
+    let lines: Vec<&str> = content.lines().collect();
+
     let mut found_title = title;
+    let mut line_idx = 0;
     for node in root.descendants() {
         if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
             // Recursively extract all text from heading's inline children
@@ -884,7 +871,57 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
                 text = html_tag_re.replace_all(&text, "").to_string();
             }
 
-            let id = crate::utils::slugify(&text);
+            // Strip trailing {#anchor} from extracted header text for anchor comparison
+            let text_stripped = text
+                .trim_end()
+                .strip_suffix(|c| c == '}')
+                .and_then(|s| {
+                    let idx = s.rfind("{#");
+                    idx.map(|i| s[..i].trim_end())
+                })
+                .unwrap_or_else(|| text.trim());
+
+            // Debug: print header text and candidate lines
+            eprintln!("DEBUG: Extracted header text: '{}', level: {}", text, level);
+            for i in line_idx..lines.len() {
+                let line = lines[i].trim();
+                if line.is_empty() {
+                    continue;
+                }
+                eprintln!("DEBUG: Candidate line for anchor: '{}'", line);
+            }
+
+            // Try to extract explicit anchor from the corresponding markdown line
+            // Find the next non-empty line that starts with the right number of #
+            let mut id = crate::utils::slugify(&text);
+            for i in line_idx..lines.len() {
+                let line = lines[i].trim();
+                if line.is_empty() {
+                    continue;
+                }
+                // Match header line with explicit anchor
+                if let Some(caps) = crate::legacy_markdown::EXPLICIT_ANCHOR_RE.captures(line) {
+                    let level_signs = caps.get(1).unwrap().as_str();
+                    let anchor_text = caps.get(2).unwrap().as_str();
+                    let explicit_id = caps.get(3).map(|m| m.as_str());
+                    eprintln!(
+                        "DEBUG: Matching header: text='{}', anchor_text='{}', explicit_id={:?}, level_signs.len={} level={}",
+                        text.trim(),
+                        anchor_text.trim(),
+                        explicit_id,
+                        level_signs.len(),
+                        level
+                    );
+                    if level_signs.len() as u8 == *level && anchor_text.trim() == text_stripped {
+                        if let Some(explicit_id) = explicit_id {
+                            id = explicit_id.to_string();
+                        }
+                        line_idx = i + 1;
+                        break;
+                    }
+                }
+            }
+
             headers.push(Header {
                 text: text.clone(),
                 level: *level,
