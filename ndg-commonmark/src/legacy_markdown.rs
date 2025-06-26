@@ -881,20 +881,11 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
                 })
                 .unwrap_or_else(|| text.trim());
 
-            // Debug: print header text and candidate lines
-            eprintln!("DEBUG: Extracted header text: '{}', level: {}", text, level);
-            for i in line_idx..lines.len() {
-                let line = lines[i].trim();
-                if line.is_empty() {
-                    continue;
-                }
-                eprintln!("DEBUG: Candidate line for anchor: '{}'", line);
-            }
-
             // Try to extract explicit anchor from the corresponding markdown line
             // Find the next non-empty line that starts with the right number of #
             let mut id = crate::utils::slugify(&text);
-            for i in line_idx..lines.len() {
+            let mut tmp = line_idx..lines.len();
+            while let Some(i) = tmp.next() {
                 let line = lines[i].trim();
                 if line.is_empty() {
                     continue;
@@ -904,14 +895,6 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
                     let level_signs = caps.get(1).unwrap().as_str();
                     let anchor_text = caps.get(2).unwrap().as_str();
                     let explicit_id = caps.get(3).map(|m| m.as_str());
-                    eprintln!(
-                        "DEBUG: Matching header: text='{}', anchor_text='{}', explicit_id={:?}, level_signs.len={} level={}",
-                        text.trim(),
-                        anchor_text.trim(),
-                        explicit_id,
-                        level_signs.len(),
-                        level
-                    );
                     if level_signs.len() as u8 == *level && anchor_text.trim() == text_stripped {
                         if let Some(explicit_id) = explicit_id {
                             id = explicit_id.to_string();
