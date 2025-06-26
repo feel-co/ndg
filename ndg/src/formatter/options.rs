@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use log::debug;
 use serde_json::{self, Value};
 
-use crate::{config::Config, formatter::markdown, html::template};
+use crate::{config::Config, html::template};
 
 /// Represents a `NixOS` configuration option
 #[derive(Debug, Clone, Default)]
@@ -81,7 +81,13 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
                 if let Some(Value::String(desc)) = option_data.get("description") {
                     let processed_desc = escape_html_in_markdown(desc);
-                    option.description = markdown::process_markdown_string(&processed_desc, config);
+                    option.description = ndg_commonmark::legacy_markdown::process_markdown(
+                        &processed_desc,
+                        None,
+                        Some(&config.title),
+                        std::path::Path::new("."),
+                    )
+                    .0;
                 }
 
                 // Handle default values
@@ -330,6 +336,9 @@ fn extract_value_from_json(value: &Value) -> Option<String> {
         // literalExpression and similar structured values
         if let Some(Value::String(type_name)) = obj.get("_type") {
             match type_name.as_str() {
+                // XXX: `literalDocBook` and `literalMD` have been deprecated as of
+                // 24.11 (I think) and they're supported here only for backwards compat.
+                // Those *will* be removed, at a later date.
                 "literalExpression" | "literalDocBook" | "literalMD" => {
                     if let Some(Value::String(text)) = obj.get("text") {
                         // For literalExpression, we should parse it as Nix code that may contain

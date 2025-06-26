@@ -1,41 +1,24 @@
-use pulldown_cmark::{Event, Options, Parser, Tag};
-
-use super::{markdown, markup};
-use crate::config::Config;
+use ndg::{config::Config, formatter::markup};
+use ndg_commonmark::legacy_markdown;
 
 #[test]
 fn parses_basic_markdown_ast() {
+    let config = Config::default();
     let md = "# Heading 1\n\nSome *italic* and **bold** text.";
-    let parser = Parser::new_ext(md, Options::all());
-    let mut found_heading = false;
-    let mut found_em = false;
-    let mut found_strong = false;
-    for event in parser {
-        match event {
-            Event::Start(Tag::Heading { .. }) => found_heading = true,
-            Event::Start(Tag::Emphasis) => found_em = true,
-            Event::Start(Tag::Strong) => found_strong = true,
-            _ => {}
-        }
-    }
-    assert!(found_heading);
-    assert!(found_em);
-    assert!(found_strong);
+    let (html, ..) =
+        legacy_markdown::process_markdown(md, None, Some(&config.title), std::path::Path::new("."));
+    assert!(html.contains("<h1") && html.contains("Heading 1"));
+    assert!(html.contains("<em>italic</em>"));
+    assert!(html.contains("<strong>bold</strong>"));
 }
 
 #[test]
 fn parses_list_with_inline_anchor() {
+    let config = Config::default();
     let md = "- []{#item1} Item 1";
-    let parser = Parser::new_ext(md, Options::all());
-    let mut found_item = false;
-    for event in parser {
-        if let Event::Text(text) = &event {
-            if text.contains("Item 1") {
-                found_item = true;
-            }
-        }
-    }
-    assert!(found_item);
+    let (html, ..) =
+        legacy_markdown::process_markdown(md, None, Some(&config.title), std::path::Path::new("."));
+    assert!(html.contains(r#"<span id="item1" class="nixos-anchor"></span> Item 1"#));
 }
 
 #[test]
@@ -75,7 +58,7 @@ fn safely_process_markup_handles_panic() {
 #[test]
 fn markdown_heading_anchor_regex() {
     let s = "## Section {#sec}";
-    let caps = markdown::HEADING_ANCHOR
+    let caps = legacy_markdown::HEADING_ANCHOR
         .captures(s)
         .expect("Should match heading anchor");
     assert_eq!(&caps[2], "Section");
@@ -85,7 +68,7 @@ fn markdown_heading_anchor_regex() {
 #[test]
 fn markdown_list_item_with_anchor_regex() {
     let s = "- []{#foo} Bar";
-    let caps = markdown::LIST_ITEM_WITH_ANCHOR_RE
+    let caps = legacy_markdown::LIST_ITEM_WITH_ANCHOR_RE
         .captures(s)
         .expect("Should match list item anchor");
     assert_eq!(&caps[2], "foo");
@@ -95,6 +78,11 @@ fn markdown_list_item_with_anchor_regex() {
 #[test]
 fn markdown_process_markdown_string_handles_links() {
     let config = Config::default();
-    let html = markdown::process_markdown_string("[link](https://example.com)", &config);
+    let (html, ..) = legacy_markdown::process_markdown(
+        "[link](https://example.com)",
+        None,
+        Some(&config.title),
+        std::path::Path::new("."),
+    );
     assert!(html.contains("<a href=\"https://example.com\""));
 }

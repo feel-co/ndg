@@ -1,0 +1,43 @@
+[package]
+name                   = "ndg"
+description.workspace  = true
+version.workspace      = true
+edition.workspace      = true
+authors.workspace      = true
+rust-version.workspace = true
+readme                 = "../README.md"
+categories.workspace   = true
+keywords.workspace     = true
+
+[dependencies]
+anyhow.workspace         = true
+chrono.workspace         = true
+clap.workspace           = true
+clap_complete.workspace  = true
+clap_mangen.workspace    = true
+comrak.workspace         = true
+env_logger.workspace     = true
+fs_extra.workspace       = true
+grass.workspace          = true
+log.workspace            = true
+ndg-commonmark.workspace = true
+num_cpus.workspace       = true
+rayon.workspace          = true
+regex.workspace          = true
+serde.workspace          = true
+serde_json.workspace     = true
+syntect.workspace        = true
+tera.workspace           = true
+toml.workspace           = true
+two-face.workspace       = true
+walkdir.workspace        = true
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+codegen-units = 1
+lto           = "thin"
+opt-level     = "s"
+panic         = "abort"
+strip         = true

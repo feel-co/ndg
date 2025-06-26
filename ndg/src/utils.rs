@@ -196,14 +196,50 @@ pub fn generate_options_manpage(
 pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>> {
     if let Some(ref input_dir) = config.input_dir {
         info!("Input directory: {}", input_dir.display());
-        let files = markdown::collect_markdown_files(input_dir);
+        let files = ndg_commonmark::legacy_markdown::collect_markdown_files(input_dir);
         info!("Found {} markdown files", files.len());
 
         if !files.is_empty() {
             // Process files in parallel
-            files
-                .par_iter()
-                .try_for_each(|file_path| markdown::process_markdown_file(config, file_path))?;
+            use rayon::prelude::*;
+
+            use crate::html::template;
+            files.par_iter().try_for_each(|file_path| {
+                let manpage_urls = config.manpage_urls_path.as_ref().and_then(|mappings_path| {
+                    ndg_commonmark::utils::load_manpage_urls(mappings_path.to_str().unwrap()).ok()
+                });
+                let content = std::fs::read_to_string(file_path)?;
+                let base_dir = file_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let (html_content, headers, title) =
+                    ndg_commonmark::legacy_markdown::process_markdown(
+                        &content,
+                        manpage_urls.as_ref(),
+                        Some(&config.title),
+                        base_dir,
+                    );
+                let input_dir = config.input_dir.as_ref().expect("input_dir required");
+                let rel_path = file_path
+                    .strip_prefix(input_dir)
+                    .expect("strip_prefix failed");
+                let mut output_path = config.output_dir.join(rel_path);
+                output_path.set_extension("html");
+
+                let html = template::render(
+                    config,
+                    &html_content,
+                    title.as_deref().unwrap_or(&config.title),
+                    &headers,
+                    rel_path,
+                )?;
+
+                if let Some(parent) = output_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(&output_path, html)?;
+                Ok::<(), anyhow::Error>(())
+            })?;
         }
 
         Ok(files)
@@ -271,16 +307,9 @@ pub fn extract_page_title(file_path: &std::path::Path, html_path: &std::path::Pa
         .to_string_lossy()
         .to_string();
 
-    // Try to read the file content
     match fs::read_to_string(file_path) {
         Ok(content) => {
-            if let Some(first_line) = content.lines().next() {
-                first_line
-                    .strip_prefix("# ")
-                    .map_or(default_title, |title| title.trim().to_string())
-            } else {
-                default_title
-            }
+            ndg_commonmark::utils::extract_markdown_title(&content).unwrap_or(default_title)
         }
         Err(_) => default_title,
     }
