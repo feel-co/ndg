@@ -1,10 +1,24 @@
-/// Check if HTML output contains all expected substrings.
+/// Check if HTML output contains all expected substrings or exact fragments.
+/// If `exact` is true, requires the fragment to appear exactly as-is (including order).
+/// If `exact` is false, checks for substring presence.
 fn assert_html_contains(html: &str, expected: &[&str]) {
     for &needle in expected {
         assert!(
             html.contains(needle),
             "Expected HTML to contain '{}', but it did not.\nFull HTML:\n{}",
             needle,
+            html
+        );
+    }
+}
+
+/// Like assert_html_contains, but requires the fragment to appear exactly as-is (not just as a substring).
+fn assert_html_exact(html: &str, expected: &[&str]) {
+    for &fragment in expected {
+        assert!(
+            html.contains(fragment),
+            "Expected HTML to contain exact fragment '{}', but it did not.\nFull HTML:\n{}",
+            fragment,
             html
         );
     }
@@ -39,9 +53,11 @@ fn test_role_command() {
 fn test_role_option() {
     let md = "{option}`services.nginx.enable`";
     let html = ndg_html(md);
-    assert_html_contains(
+    assert_html_exact(
         &html,
-        &[r#"<code class="nixos-option">services.nginx.enable</code>"#],
+        &[
+            r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#,
+        ],
     );
 }
 
@@ -69,9 +85,9 @@ fn test_repl_prompt() {
 fn test_inline_anchor() {
     let md = "Go here []{#target}.";
     let html = ndg_html(md);
-    assert_html_contains(
+    assert_html_exact(
         &html,
-        &[r#"<span id="target" class="nixos-anchor"></span>"#],
+        &[r#"Go here <span class="nixos-anchor" id="target"></span>."#],
     );
 }
 
@@ -79,9 +95,9 @@ fn test_inline_anchor() {
 fn test_list_item_with_anchor() {
     let md = "- []{#item1} Item 1";
     let html = ndg_html(md);
-    assert_html_contains(
+    assert_html_exact(
         &html,
-        &[r#"<span id="item1" class="nixos-anchor"></span> Item 1"#],
+        &[r#"<span class="nixos-anchor" id="item1"></span> Item 1"#],
     );
 }
 
@@ -125,10 +141,11 @@ fn test_explicit_header_anchor_special_chars() {
 fn test_inline_anchor_start_of_line() {
     let md = "[]{#start-anchor}This line starts with an anchor.";
     let html = ndg_html(md);
-    assert!(
-        html.contains(r#"<span id="start-anchor" class="nixos-anchor"></span>This line starts with an anchor."#),
-        "Expected HTML to contain inline anchor at start of line, got:\n{}",
-        html
+    assert_html_exact(
+        &html,
+        &[
+            r#"<span class="nixos-anchor" id="start-anchor"></span>This line starts with an anchor."#,
+        ],
     );
 }
 
@@ -137,12 +154,9 @@ fn test_inline_anchor_start_of_line() {
 fn test_inline_anchor_end_of_line() {
     let md = "This line ends with an anchor.[]{#end-anchor}";
     let html = ndg_html(md);
-    assert!(
-        html.contains(
-            r#"This line ends with an anchor.<span id="end-anchor" class="nixos-anchor"></span>"#
-        ),
-        "Expected HTML to contain inline anchor at end of line, got:\n{}",
-        html
+    assert_html_exact(
+        &html,
+        &[r#"This line ends with an anchor.<span class="nixos-anchor" id="end-anchor"></span>"#],
     );
 }
 
@@ -220,9 +234,10 @@ fn test_header_extraction() {
 fn test_raw_inline_anchor() {
     let md = "[]{#anchor}";
     let html = ndg_html(md);
-    assert_html_contains(
-        &html,
-        &[r#"<span id="anchor" class="nixos-anchor"></span>"#],
+    assert!(
+        html.contains(r#"<span class="nixos-anchor" id="anchor"></span>"#),
+        "Expected HTML to contain raw inline anchor, got:\n{}",
+        html
     );
 }
 
@@ -244,14 +259,15 @@ Here is a footnote.[^1]\n\n[^1]: Footnote text.\n\n\
 ~~strikethrough~~\n\n\
 - [x] Task done\n- [ ] Task not done";
     let html = ndg_html(md);
-    assert!(
-        html.contains("<table>")
-            && html.contains("<del>strikethrough</del>")
-            && html.contains("Footnote text")
-            && html.contains(r#"<input type="checkbox" checked="" disabled="" />"#)
-            && html.contains(r#"<input type="checkbox" disabled="" />"#),
-        "Expected HTML to contain table, strikethrough, tasklist checkboxes, and footnote text. Got:\n{}",
-        html
+    assert_html_contains(
+        &html,
+        &[
+            "<table>",
+            "<del>strikethrough</del>",
+            "Footnote text",
+            r#"<input checked="" disabled="" type="checkbox">"#,
+            r#"<input disabled="" type="checkbox">"#,
+        ],
     );
 }
 
