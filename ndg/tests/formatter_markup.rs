@@ -18,7 +18,8 @@ fn parses_list_with_inline_anchor() {
     let md = "- []{#item1} Item 1";
     let (html, ..) =
         legacy_markdown::process_markdown(md, None, Some(&config.title), std::path::Path::new("."));
-    assert!(html.contains(r#"<span id="item1" class="nixos-anchor"></span> Item 1"#));
+
+    assert!(html.contains(r#"<span class="nixos-anchor" id="item1"></span> Item 1"#));
 }
 
 #[test]
