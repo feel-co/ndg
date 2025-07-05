@@ -21,8 +21,12 @@ nixpkgs = [  ]
 [dependencies]
 anyhow.workspace     = true
 comrak.workspace     = true
+html5ever            = "0.25"
+kuchiki              = "0.8"
 log.workspace        = true
+markup5ever          = "0.10"
 regex.workspace      = true
 serde.workspace      = true
 serde_json.workspace = true
+tendril              = "0.4"
 walkdir.workspace    = true

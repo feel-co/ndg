@@ -175,3 +175,71 @@ fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
     }
     text
 }
+
+/// Process option references
+/// Rewrites NixOS/Nix option references in HTML output.
+///
+/// This scans the HTML for `<code>option.path</code>` elements that look like NixOS/Nix option references
+/// (i.e., at least two dots, no whitespace), and replaces them with:
+/// `<a href="options.html#option-option-path" class="option-reference"><code>option.path</code></a>`
+///
+/// This is a structural HTML transformation, not a regex replacement.
+///
+/// # Arguments
+///
+/// * `html` - The HTML string to process.
+///
+/// # Returns
+///
+/// The HTML string with option references rewritten as links.
+pub fn process_option_references(html: &str) -> String {
+    use kuchiki::{Attribute, ExpandedName, NodeRef};
+    use markup5ever::{QualName, local_name, namespace_url, ns};
+    use tendril::TendrilSink;
+
+    let document = kuchiki::parse_html().one(html);
+
+    let mut to_replace = vec![];
+
+    for code_node in document.select("code").unwrap() {
+        let code_el = code_node.as_node();
+        let code_text = code_el.text_contents();
+        let dot_count = code_text.chars().filter(|&c| c == '.').count();
+        if dot_count >= 2 && !code_text.chars().any(|c| c.is_whitespace()) {
+            let option_id = format!("option-{}", code_text.replace('.', "-"));
+            let attrs = vec![
+                (
+                    ExpandedName::new("", "href"),
+                    Attribute {
+                        prefix: None,
+                        value: format!("options.html#{option_id}").into(),
+                    },
+                ),
+                (
+                    ExpandedName::new("", "class"),
+                    Attribute {
+                        prefix: None,
+                        value: "option-reference".into(),
+                    },
+                ),
+            ];
+            let a = NodeRef::new_element(QualName::new(None, ns!(html), local_name!("a")), attrs);
+            let code =
+                NodeRef::new_element(QualName::new(None, ns!(html), local_name!("code")), vec![]);
+            code.append(NodeRef::new_text(code_text));
+            a.append(code);
+            to_replace.push((code_el.clone(), a));
+        }
+    }
+
+    for (old, new) in to_replace {
+        if let Some(parent) = old.parent() {
+            parent.insert_before(new);
+            old.detach();
+        }
+    }
+
+    let mut out = Vec::new();
+    document.serialize(&mut out).ok();
+    String::from_utf8(out).unwrap_or_default()
+}

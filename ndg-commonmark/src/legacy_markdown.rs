@@ -80,9 +80,6 @@ static LIST_ITEM_ANCHOR_RE: LazyLock<Regex> =
 
 // Option reference patterns
 
-static OPTION_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap());
-
 // Block element patterns
 pub static ADMONITION_START_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^:::\s*\{\.([a-zA-Z]+)(?:\s+#([a-zA-Z0-9_-]+))?\}(.*)$").unwrap()
@@ -662,14 +659,8 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     // Process manpage roles that were directly in HTML
     result = process_manpage_roles(result, manpage_urls);
 
-    // Process option references
-    result = process_html_elements(&result, &OPTION_RE, |caps| {
-        let option_path = &caps[1];
-        let option_id = format!("option-{}", option_path.replace('.', "-"));
-        format!(
-            "<a href=\"options.html#{option_id}\" class=\"option-reference\"><code>{option_path}</code></a>"
-        )
-    });
+    // Process option references (manual HTML parsing, no regex)
+    result = crate::processor::process_option_references(&result);
 
     // Process header anchors (both explicit and added by comments)
     result = process_html_elements(&result, &HEADER_ID_RE, |caps| {
@@ -736,7 +727,7 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     result
 }
 
-/// Process headers that have {#id} within the header text
+// Process headers that have {#id} within the header text
 fn process_headers_with_inline_anchors(html: String) -> String {
     let header_types = [
         (&*HEADER_H1_WITH_ID_RE, 1),
