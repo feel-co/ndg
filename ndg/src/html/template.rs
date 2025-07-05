@@ -619,7 +619,13 @@ fn generate_toc(headers: &[Header]) -> String {
                 toc.push_str("</li><li>");
             }
 
-            writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, header.text)
+            let mut visible_text = header.text.as_str();
+            if let Some(idx) = visible_text.rfind("{#") {
+                if visible_text.ends_with('}') {
+                    visible_text = visible_text[..idx].trim_end();
+                }
+            }
+            writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, visible_text)
                 .expect("Failed to write to toc string");
         }
     }

@@ -1,8 +1,11 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{Context, Result};
+use comrak::{
+    Arena, ComrakOptions,
+    nodes::{NodeHeading, NodeValue},
+};
 use log::info;
-use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
@@ -119,41 +122,35 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
 
 /// Extract title from markdown content
 fn extract_title(content: &str) -> Option<String> {
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
+    let arena = Arena::new();
+    let mut options = ComrakOptions::default();
+    options.extension.table = true;
+    options.extension.footnotes = true;
+    options.extension.strikethrough = true;
+    options.extension.tasklist = true;
+    options.render.unsafe_ = true;
 
-    let parser = Parser::new_ext(content, options);
+    let root = comrak::parse_document(&arena, content, &options);
 
-    let mut title = None;
-    let mut in_h1 = false;
     // Regex to match {#id} and []{#id} anchors
     let anchor_re = Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})").unwrap();
 
-    for event in parser {
-        match event {
-            Event::Start(Tag::Heading {
-                level: pulldown_cmark::HeadingLevel::H1,
-                ..
-            }) => {
-                in_h1 = true;
-            }
-            Event::Text(text) if in_h1 => {
+    for node in root.descendants() {
+        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
+            if *level == 1 {
+                let mut text = String::new();
+                for child in node.children() {
+                    if let NodeValue::Text(ref t) = child.data.borrow().value {
+                        text.push_str(t);
+                    }
+                }
                 // Clean the title by removing inline anchors and other NDG markup
                 let clean_title = anchor_re.replace_all(&text, "").trim().to_string();
-                title = Some(clean_title);
-                break;
+                return Some(clean_title);
             }
-            Event::End(TagEnd::Heading(_)) if in_h1 => {
-                in_h1 = false;
-            }
-            _ => {}
         }
     }
-
-    title
+    None
 }
 
 /// Create search page

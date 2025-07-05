@@ -22,11 +22,15 @@
     <div class="container">
       <header>
         <div class="header-left">
-          <h1 class="site-title"><a href="{{ index_path }}">{{ site_title }}</a></h1>
+          <h1 class="site-title">
+            <a href="{{ index_path }}">{{ site_title }}</a>
+          </h1>
         </div>
         <nav class="header-nav">
           <ul>
-            <li {{ has_options|safe }}><a href="{{ options_path }}">Options</a></li>
+            <li {{ has_options|safe }}>
+              <a href="{{ options_path }}">Options</a>
+            </li>
             {% if generate_search %}
             <li><a href="{{ search_path }}">Search</a></li>
             {% endif %}
@@ -67,12 +71,7 @@
           </div>
         </nav>
 
-        <main class="content">
-          {{ content|safe }}
-          <div class="footnotes-container">
-            <!-- Footnotes will be appended here -->
-          </div>
-        </main>
+        <main class="content">{{ content|safe }}</main>
       </div>
 
       <footer>

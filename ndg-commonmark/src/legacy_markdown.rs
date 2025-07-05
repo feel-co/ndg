@@ -9,18 +9,18 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use log::{debug, error, trace};
-use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
+use comrak::{
+    Arena, ComrakOptions,
+    nodes::{AstNode, NodeHeading, NodeValue},
+    parse_document,
+};
+use log::{error, trace};
 use regex::Regex;
 use walkdir::WalkDir;
 
 use crate::{
-    config::Config,
-    formatter::markup,
-    html::{
-        highlight, template,
-        utils::{escape_html, generate_id},
-    },
+    legacy_markup::{capitalize_first, never_matching_regex, safely_process_markup},
+    utils::process_html_elements,
 };
 
 /// Represents a header in the markdown document
@@ -41,43 +41,14 @@ pub struct Header {
 pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile ROLE_PATTERN regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
 pub static MYST_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap_or_else(|e| {
         error!("Failed to compile MYST_ROLE_RE regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-// Terminal and REPL patterns
-pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
-        error!("Failed to compile COMMAND_PROMPT regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
-        error!("Failed to compile REPL_PROMPT regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap_or_else(|e| {
-        error!("Failed to compile PROMPT_RE regex: {e}");
-        markup::never_matching_regex()
-    })
-});
-
-static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap_or_else(|e| {
-        error!("Failed to compile REPL_RE regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
@@ -85,35 +56,29 @@ static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
 pub static HEADING_ANCHOR: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap_or_else(|e| {
         error!("Failed to compile HEADING_ANCHOR regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 pub static INLINE_ANCHOR: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap());
 static AUTO_EMPTY_LINK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[\]\((#[a-zA-Z0-9_-]+)\)").unwrap());
-#[allow(dead_code)]
-static AUTO_SECTION_LINK_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\((#[a-zA-Z0-9_-]+)\)").unwrap());
+
 static HTML_EMPTY_LINK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<a href="(#[a-zA-Z0-9_-]+)"></a>"#).unwrap());
 pub static RAW_INLINE_ANCHOR_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[\]\{#([a-zA-Z0-9_-]+)\}").unwrap());
 
 // List item patterns
-pub static LIST_ITEM_WITH_ANCHOR_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*[-*+]|\s*\d+\.)\s+\[\]\{#([a-zA-Z0-9_-]+)\}(.*)$").unwrap());
+pub static LIST_ITEM_WITH_ANCHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(\s*[-*+]|\\s*\d+\.)\s+\[\]\{#([a-zA-Z0-9_-]+)\}(.*)$").unwrap()
+});
 static LIST_ITEM_ID_MARKER_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<li><!-- nixos-anchor-id:([a-zA-Z0-9_-]+) -->").unwrap());
 static LIST_ITEM_ANCHOR_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"<li>\[\]\{#([a-zA-Z0-9_-]+)\}(.*?)</li>").unwrap());
 
 // Option reference patterns
-#[allow(dead_code)]
-static OPTION_REF: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"`([a-zA-Z][\w\.]+(\.[\w]+)+)`").unwrap());
-static OPTION_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"<code>([a-zA-Z][\w\.]+(\.[\w]+)+)</code>").unwrap());
 
 // Block element patterns
 pub static ADMONITION_START_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -127,21 +92,8 @@ pub static FIGURE_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 // Definition list patterns
-#[allow(dead_code)]
-static DEF_LIST_TERM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([^:].+)$").unwrap());
-#[allow(dead_code)]
-static DEF_LIST_DEF_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^:   (.+)$").unwrap());
 
 // Manpage patterns
-#[allow(dead_code)]
-static MANPAGE_ROLE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{manpage\}`([^`]+)`").unwrap());
-#[allow(dead_code)]
-static MANPAGE_MARKUP_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<span class="manpage-markup">([^<]+)</span>"#).unwrap());
-#[allow(dead_code)]
-static MANPAGE_REFERENCE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"<span class="manpage-reference">([^<]+)</span>"#).unwrap());
 
 // Header patterns for post-processing
 static HEADER_ID_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -188,82 +140,52 @@ pub fn collect_markdown_files(input_dir: &Path) -> Vec<PathBuf> {
 }
 
 /// Process a single markdown file
-pub fn process_markdown_file(config: &Config, file_path: &Path) -> Result<()> {
-    debug!("Processing file: {}", file_path.display());
-
-    // Read markdown
+/// Returns (html_content, headers, title) for the given file.
+pub fn process_markdown_file(
+    file_path: &Path,
+    manpage_urls: Option<&HashMap<String, String>>,
+    input_dir: Option<&Path>,
+    output_dir: Option<&Path>,
+    title: Option<&str>,
+) -> Result<(String, Vec<Header>, Option<String>)> {
     let content = fs::read_to_string(file_path)
         .with_context(|| format!("Failed to read markdown file: {}", file_path.display()))?;
+    let base_dir = file_path.parent().unwrap_or_else(|| Path::new("."));
+    let (html_content, headers, found_title) =
+        process_markdown(&content, manpage_urls, title, base_dir);
 
-    // Load manpage URL mappings if needed
-    let manpage_urls = if content.contains("{manpage}")
-        || content.contains("manpage-markup")
-        || content.contains("manpage-reference")
-    {
-        config.manpage_urls_path.as_ref().and_then(|mappings_path| {
-            match load_manpage_urls(mappings_path) {
-                Ok(mappings) => Some(mappings),
-                Err(err) => {
-                    debug!("Error loading manpage mappings: {err}");
-                    None
-                }
+    // Optionally write output if output_dir is provided
+    if let (Some(input_dir), Some(output_dir)) = (input_dir, output_dir) {
+        let rel_path = file_path.strip_prefix(input_dir).with_context(|| {
+            format!(
+                "Failed to determine relative path for {}",
+                file_path.display()
+            )
+        })?;
+        let mut output_path = output_dir.join(rel_path);
+        output_path.set_extension("html");
+        if let Some(parent) = output_path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
             }
-        })
-    } else {
-        None
-    };
-
-    // Process markdown with new unified processor
-    let (html_content, headers, title) = process_markdown(&content, manpage_urls.as_ref(), config);
-
-    // Get the input directory from config or return an error
-    let input_dir = config.input_dir.as_ref().ok_or_else(|| {
-        anyhow::anyhow!("Cannot process markdown file: input directory is not configured")
-    })?;
-
-    // Determine output path
-    let rel_path = file_path.strip_prefix(input_dir).with_context(|| {
-        format!(
-            "Failed to determine relative path for {}",
-            file_path.display()
-        )
-    })?;
-
-    let mut output_path = config.output_dir.join(rel_path);
-    output_path.set_extension("html");
-
-    // Create parent directories if needed
-    if let Some(parent) = output_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
         }
+        fs::write(&output_path, &html_content)
+            .with_context(|| format!("Failed to write HTML file: {}", output_path.display()))?;
     }
 
-    // Render with template
-    let html = template::render(
-        config,
-        &html_content,
-        title.as_deref().unwrap_or(&config.title),
-        &headers,
-        rel_path,
-    )?;
-
-    // Write to output file
-    fs::write(&output_path, html)
-        .with_context(|| format!("Failed to write HTML file: {}", output_path.display()))?;
-
-    Ok(())
+    Ok((html_content, headers, found_title))
 }
 
 /// Process Markdown content with NixOS/nixpkgs extensions
 pub fn process_markdown(
     content: &str,
     manpage_urls: Option<&HashMap<String, String>>,
-    config: &Config,
+    title: Option<&str>,
+    base_dir: &std::path::Path,
 ) -> (String, Vec<Header>, Option<String>) {
-    // 1. Process includes
-    let with_includes = process_file_includes(content, config);
+    // 1. Process includes (no config needed)
+    let with_includes = process_file_includes(content, base_dir);
 
     // 2. Process admonitions, figures, and definition lists
     let preprocessed = preprocess_block_elements(&with_includes);
@@ -278,89 +200,35 @@ pub fn process_markdown(
     let with_roles = process_role_markup(&with_inline_anchors, manpage_urls);
 
     // 6. Extract headers
-    let (headers, title) = extract_headers(&with_roles);
+    let (headers, found_title) = extract_headers(&with_roles);
 
     // 7. Convert standard markdown to HTML
-    let html_output = convert_to_html(&with_roles, config);
+    let html_output = convert_to_html(&with_roles);
 
     // 8. Process remaining special elements in the HTML
     let processed_html = post_process_html(html_output, manpage_urls);
 
-    (processed_html, headers, title)
+    (
+        processed_html,
+        headers,
+        found_title.or_else(|| title.map(|s| s.to_string())),
+    )
 }
 
 /// Process include directives in markdown files
-fn process_file_includes(content: &str, config: &Config) -> String {
-    let input_dir = match &config.input_dir {
-        Some(dir) => dir,
-        None => return content.to_string(), // no input directory, return original content
-    };
-
-    // Split content into lines for processing
-    let lines: Vec<&str> = content.lines().collect();
-    let mut processed_content = String::with_capacity(content.len() * 2);
-
-    let mut i = 0;
-    let mut in_code_block = false;
-
-    while i < lines.len() {
-        let line = lines[i].trim();
-
-        // Check for code block start/end
-        if line.starts_with("```") {
-            // If this is a start of a code block that might be an include block
-            if !in_code_block && line == "```{=include=}" {
-                i += 1; // skip the opening line
-
-                // Process file includes until we hit the closing backticks
-                while i < lines.len() && lines[i].trim() != "```" {
-                    let file_path = lines[i].trim();
-                    if !file_path.is_empty() {
-                        let full_path = input_dir.join(file_path);
-
-                        match fs::read_to_string(&full_path) {
-                            Ok(file_content) => {
-                                debug!("Including file: {}", full_path.display());
-                                processed_content
-                                    .push_str(&format!("<!-- Begin include: {file_path} -->\n"));
-                                processed_content.push_str(&file_content);
-                                processed_content
-                                    .push_str(&format!("\n<!-- End include: {file_path} -->\n\n"));
-                            }
-                            Err(err) => {
-                                error!("Failed to include file {}: {}", full_path.display(), err);
-                                processed_content.push_str(&format!(
-                                    "**Error: Could not include file `{file_path}`: {err}**\n\n"
-                                ));
-                            }
-                        }
-                    }
-                    i += 1;
-                }
-
-                // Skip the closing backticks
-                if i < lines.len() && lines[i].trim() == "```" {
-                    i += 1;
-                }
-
-                continue;
-            }
-            // Regular code block toggle
-            in_code_block = !in_code_block;
-        }
-
-        // Add the line normally
-        processed_content.push_str(lines[i]);
-        processed_content.push('\n');
-
-        i += 1;
+pub fn process_file_includes(content: &str, base_dir: &std::path::Path) -> String {
+    #[cfg(feature = "nixpkgs")]
+    {
+        crate::extensions::apply_nixpkgs_extensions(content, base_dir)
     }
-
-    processed_content
+    #[cfg(not(feature = "nixpkgs"))]
+    {
+        content.to_string()
+    }
 }
 
 /// Process inline anchors by wrapping them in a span with appropriate id
-fn preprocess_inline_anchors(content: &str) -> String {
+pub fn preprocess_inline_anchors(content: &str) -> String {
     // First handle list items with anchors at the beginning
     let mut result = String::with_capacity(content.len() + 100);
     let lines = content.lines();
@@ -393,7 +261,7 @@ fn preprocess_inline_anchors(content: &str) -> String {
 }
 
 /// Process headers with explicit anchors
-fn preprocess_headers(content: &str) -> String {
+pub fn preprocess_headers(content: &str) -> String {
     let mut lines = vec![];
 
     for line in content.lines() {
@@ -402,7 +270,7 @@ fn preprocess_headers(content: &str) -> String {
             let level_signs = caps.get(1).map_or("", |m| m.as_str());
             let text = caps.get(2).unwrap().as_str();
             let id = caps.get(3).map_or_else(
-                || generate_id(text),
+                || crate::utils::slugify(text),
                 |explicit_id| explicit_id.as_str().to_string(),
             );
 
@@ -422,8 +290,11 @@ fn preprocess_headers(content: &str) -> String {
 }
 
 /// Process roles directly in the markdown before conversion to HTML
-fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, String>>) -> String {
-    let mut result = ROLE_PATTERN
+pub fn process_role_markup(
+    content: &str,
+    manpage_urls: Option<&HashMap<String, String>>,
+) -> String {
+    let result = ROLE_PATTERN
         .replace_all(content, |caps: &regex::Captures| {
             let role_type = &caps[1];
             let role_content = &caps[2];
@@ -446,44 +317,24 @@ fn process_role_markup(content: &str, manpage_urls: Option<&HashMap<String, Stri
         })
         .into_owned();
 
-    // Process command prompts
-    result = COMMAND_PROMPT
-        .replace_all(&result, |caps: &regex::Captures| {
-            let command = &caps[1];
-            format!("<code class=\"terminal\"><span class=\"prompt\">$</span> {command}</code>")
-        })
-        .into_owned();
-
-    // Process REPL prompts
-    result = REPL_PROMPT
-        .replace_all(&result, |caps: &regex::Captures| {
-            let expr = &caps[1];
-            format!(
-                "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {expr}</code>"
-            )
-        })
-        .into_owned();
-
     result
 }
 
 /// Preprocess block elements like admonitions, figures, and definition lists
-fn preprocess_block_elements(content: &str) -> String {
+pub fn preprocess_block_elements(content: &str) -> String {
     let mut processed_lines = Vec::new();
     let mut lines = content.lines().peekable();
     process_admonitions(&mut lines, &mut processed_lines);
     processed_lines.join("\n")
 }
 
-fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<String>) {
-    // Extracted logic for processing admonitions
+pub fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<String>) {
     let mut in_admonition = false;
     let mut admonition_content = String::new();
     let mut current_adm_type = String::new();
     let mut current_adm_id = None;
 
     // For GitHub-style callouts
-    // XXX: This was, by far, the cheapest implementation for this. Surprisingly.
     let mut in_github_callout = false;
     let mut github_callout_type = String::new();
     let mut github_callout_content = String::new();
@@ -492,7 +343,6 @@ fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<St
             .unwrap();
 
     while let Some(line) = lines.next() {
-        // Process GitHub-style callouts (> [!NOTE] format)
         if let Some(caps) = github_callout_pattern.captures(line) {
             if in_github_callout {
                 // Close previous callout
@@ -561,10 +411,10 @@ fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<St
             let mut lines = content.lines().peekable();
             while let Some(next_line) = lines.peek() {
                 if next_line.trim() == ":::" {
-                    lines.next(); // Consume the closing marker
+                    lines.next(); // consume the closing marker
                     break;
                 }
-                lines.next(); // Skip the content lines
+                lines.next(); // skip the content lines
             }
             continue;
         }
@@ -601,7 +451,7 @@ fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<St
             in_admonition = true;
             current_adm_type = caps.get(1).unwrap().as_str().to_string();
             current_adm_id = caps.get(2).map(|m| m.as_str().to_string());
-            admonition_content.clear(); // Initialize as empty string
+            admonition_content.clear(); // initialize as empty string
 
             // Check if it's a single-line admonition
             let content_part = caps.get(3).map_or("", |m| m.as_str());
@@ -682,32 +532,30 @@ fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<St
 
 /// Process markdown content for use in admonitions and other block elements
 fn process_markdown_content(content: &str) -> String {
-    // Set up parser options for processing block content
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
-    options.insert(Options::ENABLE_SMART_PUNCTUATION);
+    let arena = Arena::new();
+    let mut options = ComrakOptions::default();
+    options.extension.table = true;
+    options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
+    options.extension.strikethrough = true;
+    options.extension.tasklist = true;
+    options.render.unsafe_ = true;
+    options.parse.smart = true;
 
-    // Create parser for the content
-    let parser = Parser::new_ext(content, options);
+    let root = parse_document(&arena, content, &options);
 
-    // Convert to HTML
-    let mut html_output = String::new();
-    pulldown_cmark::html::push_html(&mut html_output, parser);
+    let mut html_output = vec![];
+    comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
 
-    // Return the HTML
-    html_output
+    String::from_utf8(html_output).unwrap_or_default()
 }
 
 /// Process an admonition and convert it to HTML
 fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) -> String {
     let id_attr = id.map_or(String::new(), |id| format!(" id=\"{id}\""));
-    let title = markup::capitalize_first(admonition_type);
+    let title = capitalize_first(admonition_type);
 
     // Process the content as Markdown to HTML
-    // We need to make sure the content has proper line breaks for list items
+    // XXX: We need to make sure the content has proper line breaks for list items
     let formatted_content = content
         .trim()
         .replace("\n- ", "\n\n- ")
@@ -722,113 +570,80 @@ fn process_admonition(admonition_type: &str, id: Option<&str>, content: &str) ->
     )
 }
 
-/// Convert markdown to HTML using `pulldown_cmark` with syntax highlighting
-fn convert_to_html(markdown: &str, config: &Config) -> String {
-    // Implement safe conversion with recovery mechanisms
-    markup::safely_process_markup(
-        markdown,
+/// Convert markdown to HTML using `comrak` with syntax highlighting
+fn convert_to_html(text: &str) -> String {
+    safely_process_markup(
+        text,
         |text| {
-            // Set up parser options
-            let mut options = Options::empty();
-            options.insert(Options::ENABLE_TABLES);
-            options.insert(Options::ENABLE_FOOTNOTES);
-            options.insert(Options::ENABLE_STRIKETHROUGH);
-            options.insert(Options::ENABLE_TASKLISTS);
-            // GitHub Flavored Markdown specific options
-            options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+            let arena = Arena::new();
+            let mut options = ComrakOptions::default();
+            options.extension.table = true;
+            options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
+            options.extension.strikethrough = true;
+            options.extension.tasklist = true;
+            options.extension.header_ids = Some("".to_string());
+            options.render.unsafe_ = true;
 
-            // Create parser
-            let parser = Parser::new_ext(text, options);
+            let root = parse_document(&arena, text, &options);
 
-            // Estimate capacity for the output
-            let estimated_capacity = text.len() * 3;
-            let mut html_output = String::with_capacity(estimated_capacity);
+            // AST transformation for prompts
+            let prompt_transformer = PromptTransformer;
+            prompt_transformer.transform(root);
 
-            // Buffer for code blocks
-            let mut in_code_block = false;
-            let mut code_block_lang = String::with_capacity(16);
-            let mut code_block_content = String::with_capacity(512);
+            // Custom code block handling for syntax highlighting
+            let mut html_output = Vec::with_capacity(text.len() * 3);
 
-            // Process each event
-            for event in parser {
-                match event {
-                    Event::Start(Tag::CodeBlock(kind)) => {
-                        in_code_block = true;
-                        code_block_content.clear();
+            comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
+            String::from_utf8(html_output).unwrap_or_default()
+        },
+        // Fallback value
+        "<div class=\"error\">Error processing markdown content</div>",
+    )
+}
 
-                        // Get language identifier for fenced code blocks
-                        code_block_lang.clear();
-                        if let CodeBlockKind::Fenced(lang) = kind {
-                            code_block_lang.push_str(lang.as_ref());
-                        }
-                    }
-                    Event::End(TagEnd::CodeBlock) => {
-                        in_code_block = false;
+/// Walk the AST and replace inline code nodes that match shell
+/// or REPL prompts with HTML nodes.
+pub trait AstTransformer {
+    fn transform<'a>(&self, node: &'a AstNode<'a>);
+}
 
-                        // Handle code blocks based on highlighting setting
-                        if code_block_lang.is_empty() || !config.highlight_code {
-                            // Plain code block or highlighting disabled
-                            html_output.push_str("<pre><code");
+/// Transformer for prompt code spans (shell and REPL).
+pub struct PromptTransformer;
 
-                            // Add language class if available, even when highlighting is disabled
-                            if !code_block_lang.is_empty() {
-                                html_output.push_str(" class=\"language-");
-                                html_output.push_str(&code_block_lang);
-                                html_output.push('"');
-                            }
+impl AstTransformer for PromptTransformer {
+    fn transform<'a>(&self, node: &'a AstNode<'a>) {
+        use comrak::nodes::NodeValue;
+        for child in node.children() {
+            {
+                let mut data = child.data.borrow_mut();
+                if let NodeValue::Code(ref code) = data.value {
+                    let literal = code.literal.trim();
 
-                            html_output.push('>');
-                            escape_html(&code_block_content, &mut html_output);
-                            html_output.push_str("</code></pre>");
-                        } else {
-                            // Try syntax highlighting with fallback if it fails
-                            match highlight::highlight_code(
-                                &code_block_content,
-                                &code_block_lang,
-                                config,
-                            ) {
-                                Ok(highlighted) => {
-                                    html_output.push_str(&highlighted);
-                                }
-                                Err(err) => {
-                                    // Log the error and fallback to non-highlighted code
-                                    debug!(
-                                        "Syntax highlighting failed (lang: {code_block_lang}): {err}"
-                                    );
-                                    html_output.push_str("<pre><code class=\"language-");
-                                    html_output.push_str(&code_block_lang);
-                                    html_output.push_str("\">");
-                                    escape_html(&code_block_content, &mut html_output);
-                                    html_output.push_str("</code></pre>");
-                                }
-                            }
-                        }
-                    }
-                    Event::Text(text) => {
-                        if in_code_block {
-                            code_block_content.push_str(text.as_ref());
-                        } else {
-                            pulldown_cmark::html::push_html(
-                                &mut html_output,
-                                std::iter::once(Event::Text(text)),
-                            );
-                        }
-                    }
-                    _ => {
-                        if !in_code_block {
-                            pulldown_cmark::html::push_html(
-                                &mut html_output,
-                                std::iter::once(event),
-                            );
-                        }
+                    // Only match a single unescaped $ at the start, and trim whitespace after prompt
+                    if literal.starts_with("$")
+                        && !literal.starts_with("\\$")
+                        && !literal.starts_with("$$")
+                    {
+                        let rest = literal.strip_prefix("$").unwrap().trim_start();
+                        let html = format!(
+                            "<code class=\"terminal\"><span class=\"prompt\">$</span> {}</code>",
+                            rest
+                        );
+                        data.value = NodeValue::HtmlInline(html);
+                    } else if literal.starts_with("nix-repl>") && !literal.starts_with("nix-repl>>")
+                    {
+                        let rest = literal.strip_prefix("nix-repl>").unwrap().trim_start();
+                        let html = format!(
+                            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {}</code>",
+                            rest
+                        );
+                        data.value = NodeValue::HtmlInline(html);
                     }
                 }
             }
-
-            html_output
-        },
-        "<div class=\"error\">Error processing markdown content</div>",
-    )
+            self.transform(child);
+        }
+    }
 }
 
 /// Process HTML to handle any remaining elements
@@ -844,30 +659,8 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     // Process manpage roles that were directly in HTML
     result = process_manpage_roles(result, manpage_urls);
 
-    // Process command prompts
-    result = process_html_elements(&result, &PROMPT_RE, |caps| {
-        format!(
-            "<code class=\"terminal\"><span class=\"prompt\">$</span> {} </code>",
-            &caps[1]
-        )
-    });
-
-    // Process REPL prompts
-    result = process_html_elements(&result, &REPL_RE, |caps| {
-        let content = &caps[1];
-        format!(
-            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {content}</code>"
-        )
-    });
-
-    // Process option references
-    result = process_html_elements(&result, &OPTION_RE, |caps| {
-        let option_path = &caps[1];
-        let option_id = format!("option-{}", option_path.replace('.', "-"));
-        format!(
-            "<a href=\"options.html#{option_id}\" class=\"option-reference\"><code>{option_path}</code></a>"
-        )
-    });
+    // Process option references (manual HTML parsing, no regex)
+    result = crate::processor::process_option_references(&result);
 
     // Process header anchors (both explicit and added by comments)
     result = process_html_elements(&result, &HEADER_ID_RE, |caps| {
@@ -934,15 +727,7 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
     result
 }
 
-/// Apply a regex transformation to HTML content
-fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
-where
-    F: Fn(&regex::Captures) -> String,
-{
-    markup::process_html_elements(html, regex, transform)
-}
-
-/// Process headers that have {#id} within the header text
+// Process headers that have {#id} within the header text
 fn process_headers_with_inline_anchors(html: String) -> String {
     let header_types = [
         (&*HEADER_H1_WITH_ID_RE, 1),
@@ -985,7 +770,7 @@ fn humanize_anchor_id(anchor: &str) -> String {
     // Capitalize each word
     spaced
         .split_whitespace()
-        .map(markup::capitalize_first)
+        .map(capitalize_first)
         .collect::<Vec<String>>()
         .join(" ")
 }
@@ -995,7 +780,7 @@ pub fn process_manpage_roles(
     html: String,
     manpage_urls: Option<&HashMap<String, String>>,
 ) -> String {
-    markup::process_manpage_references(html, manpage_urls, true)
+    crate::legacy_markup::process_manpage_references(html, manpage_urls, true)
 }
 
 /// Process any remaining inline anchor syntax that wasn't caught earlier
@@ -1020,210 +805,120 @@ fn process_remaining_inline_anchors(html: &str) -> String {
 /// Extract headers from markdown content
 pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
     let mut headers = Vec::new();
-    let mut title = None;
-    let mut found_headers_with_regex = false;
+    let title = None;
 
-    // Process line by line for headers with explicit anchors
-    let mut in_code_block = false;
-    for line in content.lines() {
-        // Check if we're entering or leaving a code block
-        if line.trim().starts_with("```") {
-            in_code_block = !in_code_block;
-            continue;
-        }
+    // Always use comrak to extract headers to properly strip formatting
+    let arena = Arena::new();
+    let mut options = ComrakOptions::default();
+    options.extension.table = true;
+    options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
+    options.extension.strikethrough = true;
+    options.extension.tasklist = true;
+    options.extension.superscript = true;
+    options.render.unsafe_ = true;
 
-        // Skip processing headers inside code blocks
-        if in_code_block {
-            continue;
-        }
+    let root = parse_document(&arena, content, &options);
 
-        if let Some(caps) = EXPLICIT_ANCHOR_RE.captures(line) {
-            found_headers_with_regex = true;
-            let level = u8::try_from(caps[1].len()).expect("Header level should fit in u8");
-            let text = caps[2].trim().to_string();
+    let html_tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
 
-            // Use explicit anchor if provided, otherwise generate one
-            let id = caps.get(3).map_or_else(
-                || generate_id(&text),
-                |explicit_id| explicit_id.as_str().to_string(),
-            );
+    // Collect all lines for anchor extraction
+    let lines: Vec<&str> = content.lines().collect();
 
-            // Set title from first h1
-            if level == 1 && title.is_none() {
-                title = Some(text.clone());
-            }
-
-            headers.push(Header { text, level, id });
-        }
-    }
-
-    // If headers were found with regex, don't do the more expensive parser-based
-    // extraction
-    if found_headers_with_regex {
-        return (headers, title);
-    }
-
-    // Otherwise use pulldown_cmark to extract headers
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
-
-    let parser = Parser::new_ext(content, options);
-
-    let mut current_header_text = String::new();
-    let mut in_header = false;
-    let mut in_code_block = false; // Track if we're inside a code block
-    let mut current_level = 0;
-
-    for event in parser {
-        match event {
-            Event::Start(Tag::CodeBlock(_)) => {
-                in_code_block = true;
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                in_code_block = false;
-            }
-            Event::Start(Tag::Heading { level, .. }) if !in_code_block => {
-                // Only process headers outside of code blocks
-                in_header = true;
-                current_level = match level {
-                    pulldown_cmark::HeadingLevel::H1 => 1,
-                    pulldown_cmark::HeadingLevel::H2 => 2,
-                    pulldown_cmark::HeadingLevel::H3 => 3,
-                    pulldown_cmark::HeadingLevel::H4 => 4,
-                    pulldown_cmark::HeadingLevel::H5 => 5,
-                    pulldown_cmark::HeadingLevel::H6 => 6,
-                };
-                current_header_text.clear();
-            }
-            Event::Text(text) | Event::Code(text) if in_header && !in_code_block => {
-                current_header_text.push_str(text.as_ref());
-            }
-            Event::End(TagEnd::Heading(_)) if in_header && !in_code_block => {
-                in_header = false;
-
-                // Generate ID
-                let id = generate_id(&current_header_text);
-
-                // Set title from first h1
-                if current_level == 1 && title.is_none() {
-                    title = Some(current_header_text.clone());
+    let mut found_title = title;
+    let mut line_idx = 0;
+    for node in root.descendants() {
+        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
+            // Recursively extract all text from heading's inline children
+            fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
+                use comrak::nodes::NodeValue;
+                let mut text = String::new();
+                for child in node.children() {
+                    match &child.data.borrow().value {
+                        NodeValue::Text(t) => text.push_str(t),
+                        NodeValue::Code(t) => text.push_str(&t.literal),
+                        NodeValue::Link(..) => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Emph => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Strong => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Strikethrough => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
+                        NodeValue::FootnoteReference(..) => {
+                            text.push_str(&extract_inline_text(child))
+                        }
+                        NodeValue::HtmlInline(_html) => {
+                            // Skip HTML inline completely
+                        }
+                        NodeValue::Image(..) => {} // skip images
+                        _ => {}
+                    }
                 }
-
-                headers.push(Header {
-                    text: current_header_text.clone(),
-                    level: current_level,
-                    id,
-                });
+                text
             }
-            _ => {}
-        }
-    }
+            let mut text = extract_inline_text(node);
 
-    (headers, title)
-}
+            // Strip any remaining HTML tags from the final text
 
-/// Load manpage URL mappings from JSON file
-fn load_manpage_urls(path: &Path) -> Result<HashMap<String, String>> {
-    debug!("Loading manpage URL mappings from {}", path.display());
+            if text.contains('<') && text.contains('>') {
+                text = html_tag_re.replace_all(&text, "").to_string();
+            }
 
-    // Read file content
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read manpage mappings file: {}", path.display()))?;
+            // Strip trailing {#anchor} from extracted header text for anchor comparison
+            let text_stripped = text
+                .trim_end()
+                .strip_suffix(|c| c == '}')
+                .and_then(|s| {
+                    let idx = s.rfind("{#");
+                    idx.map(|i| s[..i].trim_end())
+                })
+                .unwrap_or_else(|| text.trim());
 
-    // Parse JSON
-    let mappings: HashMap<String, String> =
-        serde_json::from_str(&content).context("Failed to parse manpage mappings JSON")?;
-
-    debug!("Loaded {} manpage URL mappings", mappings.len());
-    Ok(mappings)
-}
-
-/// Process markdown string into HTML, useful for option descriptions
-pub fn process_markdown_string(markdown: &str, config: &Config) -> String {
-    // Load manpage URL mappings if needed
-    let manpage_urls = if markdown.contains("{manpage}") {
-        config.manpage_urls_path.as_ref().and_then(|mappings_path| {
-            match load_manpage_urls(mappings_path) {
-                Ok(mappings) => Some(mappings),
-                Err(err) => {
-                    debug!("Error loading manpage mappings: {err}");
-                    None
+            // Try to extract explicit anchor from the corresponding markdown line
+            // Find the next non-empty line that starts with the right number of #
+            let mut id = crate::utils::slugify(&text);
+            let mut tmp = line_idx..lines.len();
+            while let Some(i) = tmp.next() {
+                let line = lines[i].trim();
+                if line.is_empty() {
+                    continue;
+                }
+                // Match header line with explicit anchor
+                if let Some(caps) = crate::legacy_markdown::EXPLICIT_ANCHOR_RE.captures(line) {
+                    let level_signs = caps.get(1).unwrap().as_str();
+                    let anchor_text = caps.get(2).unwrap().as_str();
+                    let explicit_id = caps.get(3).map(|m| m.as_str());
+                    if level_signs.len() as u8 == *level && anchor_text.trim() == text_stripped {
+                        if let Some(explicit_id) = explicit_id {
+                            id = explicit_id.to_string();
+                        }
+                        line_idx = i + 1;
+                        break;
+                    }
                 }
             }
-        })
-    } else {
-        None
-    };
 
-    let (html, ..) = process_markdown(markdown, manpage_urls.as_ref(), config);
-    html
+            headers.push(Header {
+                text: text.clone(),
+                level: *level,
+                id,
+            });
+
+            // Set the first h1 as the title if not already set
+            if found_title.is_none() && *level == 1 {
+                found_title = Some(text);
+            }
+        }
+    }
+
+    (headers, found_title)
 }
 
 /// Process GitHub Flavored Markdown autolinks
 fn process_autolinks(html: &str) -> String {
-    // Process any text outside of HTML tags and code blocks
-    let mut result = String::with_capacity(html.len());
-    let mut in_tag = false;
-    let mut in_code = false;
-    let mut current_text = String::new();
-
-    // Uses char iterator instead of indexing to for proper UTF-8 handling
-    // FIXME: this is probably not how we want to handle this.
-    let chars = html.chars();
-
-    for c in chars {
-        match c {
-            '<' => {
-                // Process any accumulated text before starting a tag
-                if !in_tag && !in_code && !current_text.is_empty() {
-                    let processed = markup::AUTOLINK_PATTERN.replace_all(
-                        &current_text,
-                        |caps: &regex::Captures| {
-                            let url = &caps[1];
-                            format!("<a href=\"{url}\">{url}</a>")
-                        },
-                    );
-                    result.push_str(&processed);
-                    current_text.clear();
-                }
-                in_tag = true;
-                result.push(c);
-            }
-            '>' => {
-                in_tag = false;
-                result.push(c);
-
-                // Check if we're entering or leaving a code block
-                if result.ends_with("<code") {
-                    in_code = true;
-                } else if result.ends_with("</code>") {
-                    in_code = false;
-                }
-            }
-            _ => {
-                if in_tag || in_code {
-                    // Inside tags or code, don't process
-                    result.push(c);
-                } else {
-                    // Collect text for processing
-                    current_text.push(c);
-                }
-            }
-        }
-    }
-
-    // Process any remaining text
-    if !current_text.is_empty() {
-        let processed =
-            markup::AUTOLINK_PATTERN.replace_all(&current_text, |caps: &regex::Captures| {
-                let url = &caps[1];
-                format!("<a href=\"{url}\">{url}</a>")
-            });
-        result.push_str(&processed);
-    }
-
-    result
+    // This should match the pattern used in the legacy markup module
+    crate::legacy_markup::AUTOLINK_PATTERN
+        .replace_all(html, |caps: &regex::Captures| {
+            let url = &caps[1];
+            format!("<a href=\"{url}\">{url}</a>")
+        })
+        .to_string()
 }
