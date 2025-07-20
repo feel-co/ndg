@@ -6,14 +6,6 @@ use regex::Regex;
 use crate::utils::process_html_elements;
 
 /// Common regex patterns used across markdown and manpage generation
-/// Role patterns for syntax like {command}`ls -l`
-pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
-        error!("Failed to compile ROLE_PATTERN regex: {e}");
-        // Provide a fallback pattern that matches nothing
-        never_matching_regex()
-    })
-});
 
 /// Terminal command prompt patterns
 pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
@@ -156,60 +148,6 @@ pub fn process_manpage_references(
             },
         )
     })
-}
-
-/// Process role-based formatting in text (like {command}`ls -l`)
-///
-/// Works with both HTML and troff outputs
-pub fn process_roles(
-    text: &str,
-    manpage_urls: Option<&HashMap<String, String>>,
-    is_html: bool,
-) -> String {
-    ROLE_PATTERN
-        .replace_all(text, |caps: &regex::Captures| {
-            let role_type = &caps[1];
-            let content = &caps[2];
-
-            if is_html {
-                // HTML formatting
-                match role_type {
-                    "manpage" => manpage_urls.map_or_else(
-                        || format!("<span class=\"manpage-reference\">{content}</span>"),
-                        |urls| {
-                            urls.get(content).map_or_else(
-                                || format!("<span class=\"manpage-reference\">{content}</span>"),
-                                |url| {
-                                    format!("<a href=\"{url}\" class=\"manpage-reference\">{content}</a>")
-                                },
-                            )
-                        },
-                    ),
-                    "command" => format!("<code class=\"command\">{content}</code>"),
-                    "env" => format!("<code class=\"env-var\">{content}</code>"),
-                    "file" => format!("<code class=\"file-path\">{content}</code>"),
-                    "option" => format!("<code class=\"nixos-option\">{content}</code>"),
-                    "var" => format!("<code class=\"nix-var\">{content}</code>"),
-                    _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
-                }
-            } else {
-                // Troff formatting for man pages
-                match role_type {
-                    "command" | "option" => format!("\\fB{content}\\fP"),
-                    "manpage" => {
-                        if let Some((page, section)) = content.rsplit_once('(') {
-                            let page = page.trim();
-                            let section = section.trim_end_matches(')');
-                            format!("\\fB{page}\\fP({section})")
-                        } else {
-                            format!("\\fB{content}\\fP")
-                        }
-                    }
-                    _ => format!("\\fI{content}\\fP"),
-                }
-            }
-        })
-        .to_string()
 }
 
 /// Format terminal command prompts ($ command)

@@ -1,45 +1,6 @@
-#![allow(dead_code)]
 use std::{collections::HashMap, path::Path};
 
 use comrak::nodes::AstNode;
-use ndg_commonmark::legacy_markdown::Header;
-
-/// Generate a unique ID from text
-pub fn generate_id(text: &str) -> String {
-    if text.is_empty() {
-        return "section".to_string();
-    }
-
-    // Preallocate with approximate capacity to reduce reallocations
-    let mut result = String::with_capacity(text.len());
-    let mut last_was_hyphen = true; // To trim leading hyphens
-
-    for c in text.chars() {
-        if c.is_alphanumeric() {
-            // Directly convert to lowercase at point of use
-            if let Some(lowercase) = c.to_lowercase().next() {
-                result.push(lowercase);
-                last_was_hyphen = false;
-            }
-        } else if !last_was_hyphen {
-            // Only add hyphen if previous char wasn't a hyphen
-            result.push('-');
-            last_was_hyphen = true;
-        }
-    }
-
-    // Trim trailing hyphen if present
-    if result.ends_with('-') {
-        result.pop();
-    }
-
-    // Return fallback if needed
-    if result.is_empty() {
-        return "section".to_string();
-    }
-
-    result
-}
 
 /// Calculate the relative path prefix needed to reach the root from a given file path
 /// For example: "docs/subdir/file.html" would return "../"
@@ -132,18 +93,4 @@ pub fn process_content_to_plain_text(content: &str, config: &crate::config::Conf
         .replace("  ", " ")
         .trim()
         .to_string()
-}
-
-/// Process manpage roles in the HTML
-pub fn process_manpage_roles(
-    html: String,
-    manpage_urls: Option<&HashMap<String, String>>,
-) -> String {
-    ndg_commonmark::legacy_markdown::process_manpage_roles(html, manpage_urls)
-}
-
-/// Extract headers from markdown content
-pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
-    ndg_commonmark::MarkdownProcessor::new(ndg_commonmark::MarkdownOptions::default())
-        .extract_headers(content)
 }

@@ -25,13 +25,6 @@ use crate::{
 // Define regex pattern groups to organize them by functionality
 // Role and markup patterns
 
-pub static MYST_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap_or_else(|e| {
-        error!("Failed to compile MYST_ROLE_RE regex: {e}");
-        never_matching_regex()
-    })
-});
-
 // Heading and anchor patterns
 pub static HEADING_ANCHOR: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(#+)?\s*(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})\s*$").unwrap_or_else(|e| {
@@ -164,8 +157,11 @@ pub fn process_markdown(
     title: Option<&str>,
     base_dir: &std::path::Path,
 ) -> (String, Vec<Header>, Option<String>) {
-    let default_opts = MarkdownOptions::default();
-    let processor = MarkdownProcessor::new(default_opts);
+    let mut opts = MarkdownOptions::default();
+    if manpage_urls.is_some() {
+        opts.manpage_urls_path = Some("manpage-urls.json".to_string());
+    }
+    let processor = MarkdownProcessor::new(opts);
 
     // 1. Process includes (no config needed)
     let with_includes = process_file_includes(content, base_dir);
@@ -190,7 +186,7 @@ pub fn process_markdown(
     let html_output = convert_to_html(&with_roles);
 
     // 8. Process remaining special elements in the HTML
-    let processed_html = post_process_html(html_output, manpage_urls);
+    let processed_html = post_process_html(html_output);
 
     (
         processed_html,
@@ -600,7 +596,7 @@ impl AstTransformer for PromptTransformer {
 }
 
 /// Process HTML to handle any remaining elements
-fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>>) -> String {
+fn post_process_html(html: String) -> String {
     let mut result = html;
 
     // Process list item ID markers
@@ -608,9 +604,6 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
         let id = &caps[1];
         format!("<li><span id=\"{id}\" class=\"nixos-anchor\"></span>")
     });
-
-    // Process manpage roles that were directly in HTML
-    result = process_manpage_roles(result, manpage_urls);
 
     // Process option references (manual HTML parsing, no regex)
     result = crate::processor::process_option_references(&result);
@@ -627,21 +620,6 @@ fn post_process_html(html: String, manpage_urls: Option<&HashMap<String, String>
 
     // Process any remaining header anchors (with {#id} notation in the header text)
     result = process_headers_with_inline_anchors(result);
-
-    // Process MyST roles
-    result = process_html_elements(&result, &MYST_ROLE_RE, |caps| {
-        let role_type = &caps[1];
-        let content = &caps[2];
-
-        match role_type {
-            "command" => format!("<code class=\"command\">{content}</code>"),
-            "env" => format!("<code class=\"env-var\">{content}</code>"),
-            "file" => format!("<code class=\"file-path\">{content}</code>"),
-            "option" => format!("<code class=\"nixos-option\">{content}</code>"),
-            "var" => format!("<code class=\"nix-var\">{content}</code>"),
-            _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
-        }
-    });
 
     // Process any remaining inline anchors in list items
     result = process_html_elements(&result, &LIST_ITEM_ANCHOR_RE, |caps| {
@@ -726,14 +704,6 @@ fn humanize_anchor_id(anchor: &str) -> String {
         .map(capitalize_first)
         .collect::<Vec<String>>()
         .join(" ")
-}
-
-/// Process manpage roles in the HTML
-pub fn process_manpage_roles(
-    html: String,
-    manpage_urls: Option<&HashMap<String, String>>,
-) -> String {
-    crate::legacy_markup::process_manpage_references(html, manpage_urls, true)
 }
 
 /// Process any remaining inline anchor syntax that wasn't caught earlier

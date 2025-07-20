@@ -1,5 +1,5 @@
 mod extensions;
-mod processor;
+pub mod processor;
 mod types;
 pub mod utils;
 

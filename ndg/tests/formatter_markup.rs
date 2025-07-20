@@ -25,9 +25,8 @@ fn parses_list_with_inline_anchor() {
 #[test]
 fn markup_role_pattern_matches() {
     let s = "{command}`ls -l`";
-    let caps = markup::ROLE_PATTERN
-        .captures(s)
-        .expect("Should match role pattern");
+    let role_re = regex::Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap();
+    let caps = role_re.captures(s).expect("Should match role pattern");
     assert_eq!(&caps[1], "command");
     assert_eq!(&caps[2], "ls -l");
 }

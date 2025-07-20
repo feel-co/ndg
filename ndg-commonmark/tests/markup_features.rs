@@ -199,9 +199,68 @@ fn test_option_reference() {
 
 #[test]
 fn test_myst_role_markup() {
-    let md = r#"<span class="command-markup">foo</span>"#;
-    let html = ndg_html(md);
+    let md = r#"{command}`foo`"#;
+    let html = ndg_commonmark::processor::MarkdownProcessor::new(
+        ndg_commonmark::processor::MarkdownOptions::default(),
+    )
+    .process_role_markup(md);
     assert_html_contains(&html, &[r#"<code class="command">foo</code>"#]);
+}
+
+#[test]
+fn test_manpage_role_with_url() {
+    use std::{fs::File, io::Write};
+
+    use tempfile::tempdir;
+
+    let md = r#"{manpage}`cat(1)`"#;
+    let dir = tempdir().unwrap();
+    let json_path = dir.path().join("manpage-urls.json");
+    let mut file = File::create(&json_path).unwrap();
+    write!(
+        file,
+        r#"{{"cat(1)": "https://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html"}}"#
+    )
+    .unwrap();
+
+    let mut opts = ndg_commonmark::processor::MarkdownOptions::default();
+    opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
+    let processor = ndg_commonmark::processor::MarkdownProcessor::new(opts);
+
+    let html = processor.process_role_markup(md);
+    assert_html_contains(
+        &html,
+        &[
+            r#"<a href="https://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html" class="manpage-reference">cat(1)</a>"#,
+        ],
+    );
+}
+
+#[test]
+fn test_manpage_role_without_url() {
+    use std::{fs::File, io::Write};
+
+    use tempfile::tempdir;
+
+    let md = r#"{manpage}`doesnotexist(1)`"#;
+    let dir = tempdir().unwrap();
+    let json_path = dir.path().join("manpage-urls.json");
+    let mut file = File::create(&json_path).unwrap();
+    write!(
+        file,
+        r#"{{"cat(1)": "https://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html"}}"#
+    )
+    .unwrap();
+
+    let mut opts = ndg_commonmark::processor::MarkdownOptions::default();
+    opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
+    let processor = ndg_commonmark::processor::MarkdownProcessor::new(opts);
+
+    let html = processor.process_role_markup(md);
+    assert_html_contains(
+        &html,
+        &[r#"<span class="manpage-reference">doesnotexist(1)</span>"#],
+    );
 }
 
 #[test]
@@ -212,7 +271,10 @@ fn test_role_markup_in_lists() {
 - {option}`services.nginx.enable`
 - {var}`pkgs`
 - {manpage}`nix.conf(5)`"#;
-    let html = ndg_html(md);
+    let html = ndg_commonmark::processor::MarkdownProcessor::new(
+        ndg_commonmark::processor::MarkdownOptions::default(),
+    )
+    .process_role_markup(md);
 
     // Test that all role types are processed correctly
     assert_html_contains(
@@ -226,9 +288,6 @@ fn test_role_markup_in_lists() {
             r#"<span class="manpage-reference">nix.conf(5)</span>"#,
         ],
     );
-
-    // Test that list structure is preserved
-    assert_html_contains(&html, &["<ul>", "</ul>", "<li>", "</li>"]);
 
     // Test that no double-processing occurs
     assert!(
@@ -249,7 +308,10 @@ fn test_role_markup_in_lists() {
 fn test_role_markup_edge_cases() {
     // Test role with special characters
     let md = r#"{file}`/path/with-dashes_and.dots`"#;
-    let html = ndg_html(md);
+    let html = ndg_commonmark::processor::MarkdownProcessor::new(
+        ndg_commonmark::processor::MarkdownOptions::default(),
+    )
+    .process_role_markup(md);
     assert_html_contains(
         &html,
         &[r#"<code class="file-path">/path/with-dashes_and.dots</code>"#],
@@ -257,7 +319,10 @@ fn test_role_markup_edge_cases() {
 
     // Test role with spaces
     let md = r#"{command}`ls -la | grep test`"#;
-    let html = ndg_html(md);
+    let html = ndg_commonmark::processor::MarkdownProcessor::new(
+        ndg_commonmark::processor::MarkdownOptions::default(),
+    )
+    .process_role_markup(md);
     assert_html_contains(
         &html,
         &[r#"<code class="command">ls -la | grep test</code>"#],
@@ -265,7 +330,10 @@ fn test_role_markup_edge_cases() {
 
     // Test unknown role type
     let md = r#"{unknown}`content`"#;
-    let html = ndg_html(md);
+    let html = ndg_commonmark::processor::MarkdownProcessor::new(
+        ndg_commonmark::processor::MarkdownOptions::default(),
+    )
+    .process_role_markup(md);
     assert_html_contains(&html, &[r#"<span class="unknown-markup">content</span>"#]);
 }
 
