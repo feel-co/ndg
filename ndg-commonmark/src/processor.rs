@@ -83,14 +83,12 @@ impl MarkdownProcessor {
     fn preprocess(&self, content: &str) -> String {
         // Apply the legacy markdown processing pipeline for all extensions and roles.
         use crate::legacy_markdown::{
-            preprocess_block_elements, preprocess_headers, preprocess_inline_anchors,
-            process_file_includes,
+            preprocess_block_elements, preprocess_inline_anchors, process_file_includes,
         };
 
         let with_includes = process_file_includes(content, std::path::Path::new("."));
         let preprocessed = preprocess_block_elements(&with_includes);
-        let with_headers = preprocess_headers(&preprocessed);
-        let with_inline_anchors = preprocess_inline_anchors(&with_headers);
+        let with_inline_anchors = preprocess_inline_anchors(&preprocessed);
 
         self.process_role_markup(&with_inline_anchors)
     }
@@ -99,7 +97,26 @@ impl MarkdownProcessor {
     pub fn extract_headers(&self, content: &str) -> (Vec<Header>, Option<String>) {
         let arena = Arena::new();
         let options = self.comrak_options();
-        let root = parse_document(&arena, content, &options);
+
+        // Normalize custom anchors with no heading level to h2
+        let mut normalized = String::with_capacity(content.len());
+        for line in content.lines() {
+            let trimmed = line.trim_end();
+            if !trimmed.starts_with('#') {
+                if let Some(anchor_start) = trimmed.rfind("{#") {
+                    if let Some(anchor_end) = trimmed[anchor_start..].find('}') {
+                        let text = trimmed[..anchor_start].trim_end();
+                        let id = &trimmed[anchor_start + 2..anchor_start + anchor_end];
+                        normalized.push_str(&format!("## {text} {{#{id}}}\n"));
+                        continue;
+                    }
+                }
+            }
+            normalized.push_str(line);
+            normalized.push('\n');
+        }
+
+        let root = parse_document(&arena, &normalized, &options);
 
         let mut headers = Vec::new();
         let mut found_title = None;

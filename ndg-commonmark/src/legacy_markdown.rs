@@ -18,6 +18,7 @@ use walkdir::WalkDir;
 pub use crate::types::Header;
 use crate::{
     legacy_markup::{capitalize_first, never_matching_regex, safely_process_markup},
+    processor::{MarkdownOptions, MarkdownProcessor},
     utils::process_html_elements,
 };
 
@@ -163,6 +164,9 @@ pub fn process_markdown(
     title: Option<&str>,
     base_dir: &std::path::Path,
 ) -> (String, Vec<Header>, Option<String>) {
+    let default_opts = MarkdownOptions::default();
+    let processor = MarkdownProcessor::new(default_opts);
+
     // 1. Process includes (no config needed)
     let with_includes = process_file_includes(content, base_dir);
 
@@ -176,14 +180,11 @@ pub fn process_markdown(
     let with_inline_anchors = preprocess_inline_anchors(&with_headers);
 
     // 5. Process special roles
-    let processor =
-        crate::processor::MarkdownProcessor::new(crate::processor::MarkdownOptions::default());
+    crate::processor::MarkdownProcessor::new(crate::processor::MarkdownOptions::default());
     let with_roles = processor.process_role_markup(&with_inline_anchors);
 
     // 6. Extract headers
-    let (headers, found_title) =
-        crate::processor::MarkdownProcessor::new(crate::processor::MarkdownOptions::default())
-            .extract_headers(&with_roles);
+    let (headers, found_title) = processor.extract_headers(&with_roles);
 
     // 7. Convert standard markdown to HTML
     let html_output = convert_to_html(&with_roles);

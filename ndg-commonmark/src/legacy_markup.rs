@@ -30,22 +30,6 @@ pub static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     })
 });
 
-#[allow(dead_code)]
-static PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"<code>\s*\$\s+(.+?)</code>").unwrap_or_else(|e| {
-        error!("Failed to compile PROMPT_RE regex: {e}");
-        never_matching_regex()
-    })
-});
-
-#[allow(dead_code)]
-static REPL_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"<code>nix-repl&gt;\s*(.*?)</code>").unwrap_or_else(|e| {
-        error!("Failed to compile REPL_RE regex: {e}");
-        never_matching_regex()
-    })
-});
-
 /// GitHub Flavored Markdown autolink patterns
 pub static AUTOLINK_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(https?://[^\s<>"')\}]+)"#).unwrap_or_else(|e| {
@@ -58,15 +42,6 @@ pub static AUTOLINK_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 pub static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
         error!("Failed to compile INLINE_CODE regex: {e}");
-        never_matching_regex()
-    })
-});
-
-/// Manpage reference patterns
-#[allow(dead_code)]
-static MANPAGE_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\{manpage\}`([^`]+)`").unwrap_or_else(|e| {
-        error!("Failed to compile MANPAGE_ROLE_RE regex: {e}");
         never_matching_regex()
     })
 });
