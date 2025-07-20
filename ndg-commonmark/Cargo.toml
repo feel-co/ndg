@@ -14,9 +14,10 @@ name = "ndg_commonmark"
 path = "src/lib.rs"
 
 [features]
-default = [ "gfm", "nixpkgs" ]
-gfm     = [  ]
-nixpkgs = [  ]
+default      = [ "ndg-flavored" ]
+gfm          = [  ]
+ndg-flavored = [ "gfm", "nixpkgs" ]
+nixpkgs      = [  ]
 
 [dependencies]
 anyhow.workspace     = true
