@@ -200,7 +200,7 @@ impl MarkdownProcessor {
 
     /// Process role markup
     /// Handles patterns like {command}`ls -l` and {option}`services.nginx.enable`.
-    fn process_role_markup(&self, content: &str) -> String {
+    pub fn process_role_markup(&self, content: &str) -> String {
         let mut result = String::with_capacity(content.len());
         let mut chars = content.chars().peekable();
 
@@ -272,7 +272,7 @@ impl MarkdownProcessor {
     }
 
     /// Format the role markup as HTML based on the role type and content.
-    fn format_role_markup(&self, role_type: &str, content: &str) -> String {
+    pub fn format_role_markup(&self, role_type: &str, content: &str) -> String {
         match role_type {
             "manpage" => {
                 if let Some(ref urls) = self.manpage_urls {
@@ -289,7 +289,16 @@ impl MarkdownProcessor {
             "command" => format!("<code class=\"command\">{content}</code>"),
             "env" => format!("<code class=\"env-var\">{content}</code>"),
             "file" => format!("<code class=\"file-path\">{content}</code>"),
-            "option" => format!("<code>{content}</code>"),
+            "option" => {
+                if cfg!(feature = "ndg-flavored") {
+                    let option_id = format!("option-{}", content.replace('.', "-"));
+                    format!(
+                        "<a class=\"option-reference\" href=\"options.html#{option_id}\"><code>{content}</code></a>"
+                    )
+                } else {
+                    format!("<code>{content}</code>")
+                }
+            }
             "var" => format!("<code class=\"nix-var\">{content}</code>"),
             _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
         }
