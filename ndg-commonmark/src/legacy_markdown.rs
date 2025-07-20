@@ -38,12 +38,6 @@ pub struct Header {
 
 // Define regex pattern groups to organize them by functionality
 // Role and markup patterns
-pub static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
-        error!("Failed to compile ROLE_PATTERN regex: {e}");
-        never_matching_regex()
-    })
-});
 
 pub static MYST_ROLE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"<span class="([a-zA-Z]+)-markup">(.*?)</span>"#).unwrap_or_else(|e| {
@@ -289,35 +283,120 @@ pub fn preprocess_headers(content: &str) -> String {
     lines.join("\n")
 }
 
-/// Process roles directly in the markdown before conversion to HTML
+/// Process role markup
+/// Handles patterns like {command}`ls -l` and {option}`services.nginx.enable`.
+/// TODO: this should be moved to a more generic processor that handles all roles
+/// and references, not just the legacy markup.
 pub fn process_role_markup(
     content: &str,
     manpage_urls: Option<&HashMap<String, String>>,
 ) -> String {
-    let result = ROLE_PATTERN
-        .replace_all(content, |caps: &regex::Captures| {
-            let role_type = &caps[1];
-            let role_content = &caps[2];
+    let mut result = String::with_capacity(content.len());
+    let mut chars = content.chars().peekable();
 
-            match role_type {
-                "manpage" => {
-                    manpage_urls.map_or_else(|| format!("<span class=\"manpage-reference\">{role_content}</span>"), |urls| {
-                        urls.get(role_content).map_or_else(|| format!("<span class=\"manpage-reference\">{role_content}</span>"), |url| {
-                            format!("<a href=\"{url}\" class=\"manpage-reference\">{role_content}</a>")
-                        })
-                    })
-                }
-                "command" => format!("<code class=\"command\">{role_content}</code>"),
-                "env" => format!("<code class=\"env-var\">{role_content}</code>"),
-                "file" => format!("<code class=\"file-path\">{role_content}</code>"),
-                "option" => format!("<code class=\"nixos-option\">{role_content}</code>"),
-                "var" => format!("<code class=\"nix-var\">{role_content}</code>"),
-                _ => format!("<span class=\"{role_type}-markup\">{role_content}</span>"),
+    while let Some(ch) = chars.next() {
+        if ch == '{' {
+            // Try to parse a role markup
+            if let Some(role_markup) = parse_role_markup(&mut chars, manpage_urls) {
+                result.push_str(&role_markup);
+            } else {
+                // Not a valid role markup, keep the original character
+                result.push(ch);
             }
-        })
-        .into_owned();
+        } else {
+            result.push(ch);
+        }
+    }
 
     result
+}
+
+/// Parse a role markup from the character iterator.
+/// Returns Some(html) if a valid role markup is found, None otherwise.
+fn parse_role_markup(
+    chars: &mut std::iter::Peekable<std::str::Chars>,
+    manpage_urls: Option<&HashMap<String, String>>,
+) -> Option<String> {
+    let mut role_name = String::new();
+
+    // Parse role name (lowercase letters only)
+    while let Some(&ch) = chars.peek() {
+        if ch.is_ascii_lowercase() {
+            role_name.push(ch);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+
+    // Must have a non-empty role name
+    if role_name.is_empty() {
+        return None;
+    }
+
+    // Expect closing brace
+    if chars.peek() != Some(&'}') {
+        return None;
+    }
+    chars.next(); // consume '}'
+
+    // Expect opening backtick
+    if chars.peek() != Some(&'`') {
+        return None;
+    }
+    chars.next(); // consume '`'
+
+    // Parse content until closing backtick
+    let mut content = String::new();
+    for ch in chars.by_ref() {
+        if ch == '`' {
+            // Found closing backtick, process the role
+            return Some(format_role_markup(&role_name, &content, manpage_urls));
+        } else {
+            content.push(ch);
+        }
+    }
+
+    // No closing backtick found
+    None
+}
+
+/// Format the role markup as HTML based on the role type and content.
+fn format_role_markup(
+    role_type: &str,
+    content: &str,
+    manpage_urls: Option<&HashMap<String, String>>,
+) -> String {
+    match role_type {
+        "manpage" => {
+            if let Some(urls) = manpage_urls {
+                if let Some(url) = urls.get(content) {
+                    // Escape HTML entities in URL to prevent double-processing
+                    let escaped_url = url
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;");
+                    format!("<a href=\"{escaped_url}\" class=\"manpage-reference\">{content}</a>")
+                } else {
+                    format!("<span class=\"manpage-reference\">{content}</span>")
+                }
+            } else {
+                format!("<span class=\"manpage-reference\">{content}</span>")
+            }
+        }
+        "command" => format!("<code class=\"command\">{content}</code>"),
+        "env" => format!("<code class=\"env-var\">{content}</code>"),
+        "file" => format!("<code class=\"file-path\">{content}</code>"),
+        "option" => {
+            // Generate option reference link directly to prevent double-processing
+            let option_id = format!("option-{}", content.replace('.', "-"));
+            format!(
+                "<a class=\"option-reference\" href=\"options.html#{option_id}\"><code>{content}</code></a>"
+            )
+        }
+        "var" => format!("<code class=\"nix-var\">{content}</code>"),
+        _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
+    }
 }
 
 /// Preprocess block elements like admonitions, figures, and definition lists
@@ -875,8 +954,8 @@ pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
             // Try to extract explicit anchor from the corresponding markdown line
             // Find the next non-empty line that starts with the right number of #
             let mut id = crate::utils::slugify(&text);
-            let mut tmp = line_idx..lines.len();
-            while let Some(i) = tmp.next() {
+            let tmp = line_idx..lines.len();
+            for i in tmp {
                 let line = lines[i].trim();
                 if line.is_empty() {
                     continue;

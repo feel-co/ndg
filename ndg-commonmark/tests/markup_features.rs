@@ -205,6 +205,110 @@ fn test_myst_role_markup() {
 }
 
 #[test]
+fn test_role_markup_in_lists() {
+    let md = r#"- {command}`nixos-rebuild switch`
+- {env}`HOME`
+- {file}`/etc/nixos/configuration.nix`
+- {option}`services.nginx.enable`
+- {var}`pkgs`
+- {manpage}`nix.conf(5)`"#;
+    let html = ndg_html(md);
+
+    // Test that all role types are processed correctly
+    assert_html_contains(
+        &html,
+        &[
+            r#"<code class="command">nixos-rebuild switch</code>"#,
+            r#"<code class="env-var">HOME</code>"#,
+            r#"<code class="file-path">/etc/nixos/configuration.nix</code>"#,
+            r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#,
+            r#"<code class="nix-var">pkgs</code>"#,
+            r#"<span class="manpage-reference">nix.conf(5)</span>"#,
+        ],
+    );
+
+    // Test that list structure is preserved
+    assert_html_contains(&html, &["<ul>", "</ul>", "<li>", "</li>"]);
+
+    // Test that no double-processing occurs
+    assert!(
+        !html.contains(r#"<code class="nixos-option">"#),
+        "Option should not be processed as nixos-option class"
+    );
+    assert!(
+        !html.contains("&lt;a href"),
+        "No nested anchor tags should be present"
+    );
+    assert!(
+        !html.contains("href=\"<a href"),
+        "No nested href attributes should be present"
+    );
+}
+
+#[test]
+fn test_role_markup_edge_cases() {
+    // Test role with special characters
+    let md = r#"{file}`/path/with-dashes_and.dots`"#;
+    let html = ndg_html(md);
+    assert_html_contains(
+        &html,
+        &[r#"<code class="file-path">/path/with-dashes_and.dots</code>"#],
+    );
+
+    // Test role with spaces
+    let md = r#"{command}`ls -la | grep test`"#;
+    let html = ndg_html(md);
+    assert_html_contains(
+        &html,
+        &[r#"<code class="command">ls -la | grep test</code>"#],
+    );
+
+    // Test unknown role type
+    let md = r#"{unknown}`content`"#;
+    let html = ndg_html(md);
+    assert_html_contains(&html, &[r#"<span class="unknown-markup">content</span>"#]);
+}
+
+#[test]
+fn test_reported_issue_regression() {
+    // This test verifies the exact issue reported by the user
+    let md = r#"- {command}`nixos-rebuild switch`
+- {env}`HOME`
+- {file}`/etc/nixos/configuration.nix`
+- {option}`services.nginx.enable`
+- {var}`pkgs`
+- {manpage}`nix.conf(5)`"#;
+    let html = ndg_html(md);
+
+    // Verify correct HTML structure with proper list items
+    assert_html_contains(
+        &html,
+        &[
+            r#"<li><code class="command">nixos-rebuild switch</code></li>"#,
+            r#"<li><code class="env-var">HOME</code></li>"#,
+            r#"<li><code class="file-path">/etc/nixos/configuration.nix</code></li>"#,
+            r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a></li>"#,
+            r#"<li><code class="nix-var">pkgs</code></li>"#,
+            r#"<li><span class="manpage-reference">nix.conf(5)</span></li>"#,
+        ],
+    );
+
+    // Verify no malformed HTML patterns
+    assert!(
+        !html.contains(r#"<a class="option-reference""><li></li>"#),
+        "Option reference should not break list structure"
+    );
+    assert!(
+        !html.contains(r#"href="<a href"#),
+        "No nested anchor tags in href attributes"
+    );
+    assert!(
+        !html.contains(r#"</a>"><li></li>"#),
+        "No empty list items after option references"
+    );
+}
+
+#[test]
 fn test_autolink() {
     let md = "Visit https://example.com for info.";
     let html = ndg_html(md);

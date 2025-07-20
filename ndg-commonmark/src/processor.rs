@@ -5,6 +5,7 @@ use comrak::{
     nodes::{AstNode, NodeHeading, NodeValue},
     parse_document,
 };
+use markup5ever::{local_name, namespace_url, ns};
 
 use crate::{
     types::{Header, MarkdownResult},
@@ -68,6 +69,9 @@ impl MarkdownProcessor {
         // 3. Convert to HTML
         let html = self.convert_to_html(&preprocessed);
 
+        // 4. Process option references
+        let html = process_option_references(&html);
+
         MarkdownResult {
             html,
             headers,
@@ -80,16 +84,15 @@ impl MarkdownProcessor {
         // Apply the legacy markdown processing pipeline for all extensions and roles.
         use crate::legacy_markdown::{
             preprocess_block_elements, preprocess_headers, preprocess_inline_anchors,
-            process_file_includes, process_role_markup,
+            process_file_includes,
         };
 
         let with_includes = process_file_includes(content, std::path::Path::new("."));
         let preprocessed = preprocess_block_elements(&with_includes);
         let with_headers = preprocess_headers(&preprocessed);
         let with_inline_anchors = preprocess_inline_anchors(&with_headers);
-        let with_roles = process_role_markup(&with_inline_anchors, self.manpage_urls.as_ref());
 
-        with_roles
+        self.process_role_markup(&with_inline_anchors)
     }
 
     /// Extract headers and title from the markdown content.
@@ -147,6 +150,103 @@ impl MarkdownProcessor {
         options.render.unsafe_ = true;
         options
     }
+
+    /// Process role markup
+    /// Handles patterns like {command}`ls -l` and {option}`services.nginx.enable`.
+    fn process_role_markup(&self, content: &str) -> String {
+        let mut result = String::with_capacity(content.len());
+        let mut chars = content.chars().peekable();
+
+        while let Some(ch) = chars.next() {
+            if ch == '{' {
+                // Try to parse a role markup
+                if let Some(role_markup) = self.parse_role_markup(&mut chars) {
+                    result.push_str(&role_markup);
+                } else {
+                    // Not a valid role markup, keep the original character
+                    result.push(ch);
+                }
+            } else {
+                result.push(ch);
+            }
+        }
+
+        result
+    }
+
+    /// Parse a role markup from the character iterator.
+    /// Returns Some(html) if a valid role markup is found, None otherwise.
+    fn parse_role_markup(
+        &self,
+        chars: &mut std::iter::Peekable<std::str::Chars>,
+    ) -> Option<String> {
+        let mut role_name = String::new();
+
+        // Parse role name (lowercase letters only)
+        while let Some(&ch) = chars.peek() {
+            if ch.is_ascii_lowercase() {
+                role_name.push(ch);
+                chars.next();
+            } else {
+                break;
+            }
+        }
+
+        // Must have a non-empty role name
+        if role_name.is_empty() {
+            return None;
+        }
+
+        // Expect closing brace
+        if chars.peek() != Some(&'}') {
+            return None;
+        }
+        chars.next(); // consume '}'
+
+        // Expect opening backtick
+        if chars.peek() != Some(&'`') {
+            return None;
+        }
+        chars.next(); // consume '`'
+
+        // Parse content until closing backtick
+        let mut content = String::new();
+        for ch in chars.by_ref() {
+            if ch == '`' {
+                // Found closing backtick, process the role
+                return Some(self.format_role_markup(&role_name, &content));
+            } else {
+                content.push(ch);
+            }
+        }
+
+        // No closing backtick found
+        None
+    }
+
+    /// Format the role markup as HTML based on the role type and content.
+    fn format_role_markup(&self, role_type: &str, content: &str) -> String {
+        match role_type {
+            "manpage" => {
+                if let Some(ref urls) = self.manpage_urls {
+                    if let Some(url) = urls.get(content) {
+                        let clean_url = extract_url_from_html(url);
+                        format!("<a href=\"{clean_url}\" class=\"manpage-reference\">{content}</a>")
+                    } else {
+                        format!("<span class=\"manpage-reference\">{content}</span>")
+                    }
+                } else {
+                    format!("<span class=\"manpage-reference\">{content}</span>")
+                }
+            }
+            "command" => format!("<code class=\"command\">{content}</code>"),
+            "env" => format!("<code class=\"env-var\">{content}</code>"),
+            "file" => format!("<code class=\"file-path\">{content}</code>"),
+            "option" => format!("<code>{content}</code>"),
+            "var" => format!("<code class=\"nix-var\">{content}</code>"),
+            _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
+        }
+    }
 }
 
 /// Trait for AST transformations (e.g., prompt highlighting).
@@ -180,10 +280,8 @@ fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
 /// Rewrites NixOS/Nix option references in HTML output.
 ///
 /// This scans the HTML for `<code>option.path</code>` elements that look like NixOS/Nix option references
-/// (i.e., at least two dots, no whitespace), and replaces them with:
-/// `<a href="options.html#option-option-path" class="option-reference"><code>option.path</code></a>`
-///
-/// This is a structural HTML transformation, not a regex replacement.
+/// and replaces them with option reference links. Only processes plain `<code>` elements that don't
+/// already have specific role classes.
 ///
 /// # Arguments
 ///
@@ -204,15 +302,47 @@ pub fn process_option_references(html: &str) -> String {
     for code_node in document.select("code").unwrap() {
         let code_el = code_node.as_node();
         let code_text = code_el.text_contents();
-        let dot_count = code_text.chars().filter(|&c| c == '.').count();
-        if dot_count >= 2 && !code_text.chars().any(|c| c.is_whitespace()) {
+
+        // Skip if this code element already has a role-specific class
+        if let Some(element) = code_el.as_element() {
+            if let Some(class_attr) = element.attributes.borrow().get(local_name!("class")) {
+                if class_attr.contains("command")
+                    || class_attr.contains("env-var")
+                    || class_attr.contains("file-path")
+                    || class_attr.contains("nixos-option")
+                    || class_attr.contains("nix-var")
+                {
+                    continue;
+                }
+            }
+        }
+
+        // Skip if this code element is already inside an option-reference link
+        let mut is_already_option_ref = false;
+        let mut current = code_el.parent();
+        while let Some(parent) = current {
+            if let Some(element) = parent.as_element() {
+                if element.name.local == local_name!("a") {
+                    if let Some(class_attr) = element.attributes.borrow().get(local_name!("class"))
+                    {
+                        if class_attr.contains("option-reference") {
+                            is_already_option_ref = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            current = parent.parent();
+        }
+
+        if !is_already_option_ref && is_nixos_option_reference(&code_text) {
             let option_id = format!("option-{}", code_text.replace('.', "-"));
             let attrs = vec![
                 (
                     ExpandedName::new("", "href"),
                     Attribute {
                         prefix: None,
-                        value: format!("options.html#{option_id}").into(),
+                        value: format!("options.html#{option_id}"),
                     },
                 ),
                 (
@@ -226,20 +356,58 @@ pub fn process_option_references(html: &str) -> String {
             let a = NodeRef::new_element(QualName::new(None, ns!(html), local_name!("a")), attrs);
             let code =
                 NodeRef::new_element(QualName::new(None, ns!(html), local_name!("code")), vec![]);
-            code.append(NodeRef::new_text(code_text));
+            code.append(NodeRef::new_text(code_text.clone()));
             a.append(code);
             to_replace.push((code_el.clone(), a));
         }
     }
 
     for (old, new) in to_replace {
-        if let Some(parent) = old.parent() {
-            parent.insert_before(new);
-            old.detach();
-        }
+        old.insert_before(new);
+        old.detach();
     }
 
     let mut out = Vec::new();
     document.serialize(&mut out).ok();
     String::from_utf8(out).unwrap_or_default()
+}
+
+/// Check if a string looks like a NixOS option reference
+fn is_nixos_option_reference(text: &str) -> bool {
+    // Must have at least 2 dots and no whitespace
+    let dot_count = text.chars().filter(|&c| c == '.').count();
+    if dot_count < 2 || text.chars().any(|c| c.is_whitespace()) {
+        return false;
+    }
+
+    // Must not contain special characters that indicate it's not an option
+    if text.contains('<') || text.contains('>') || text.contains('$') || text.contains('/') {
+        return false;
+    }
+
+    // Must start with a letter (options don't start with numbers or special chars)
+    if !text.chars().next().is_some_and(|c| c.is_alphabetic()) {
+        return false;
+    }
+
+    // Must look like a structured option path (letters, numbers, dots, dashes, underscores)
+    text.chars()
+        .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_')
+}
+
+/// Extract URL from HTML anchor tag or return the string as-is if it's a plain URL
+fn extract_url_from_html(url_or_html: &str) -> &str {
+    // Check if it looks like HTML (starts with <a href=")
+    if url_or_html.starts_with("<a href=\"") {
+        // Extract the URL from href attribute
+        if let Some(start) = url_or_html.find("href=\"") {
+            let start = start + 6; // Skip 'href="'
+            if let Some(end) = url_or_html[start..].find('"') {
+                return &url_or_html[start..start + end];
+            }
+        }
+    }
+
+    // Return as-is if not HTML or if extraction fails
+    url_or_html
 }
