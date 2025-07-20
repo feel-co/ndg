@@ -144,5 +144,6 @@ pub fn process_manpage_roles(
 
 /// Extract headers from markdown content
 pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
-    ndg_commonmark::legacy_markdown::extract_headers(content)
+    ndg_commonmark::MarkdownProcessor::new(ndg_commonmark::MarkdownOptions::default())
+        .extract_headers(content)
 }

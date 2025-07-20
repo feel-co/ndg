@@ -9,32 +9,17 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use comrak::{
-    Arena, ComrakOptions,
-    nodes::{AstNode, NodeHeading, NodeValue},
-    parse_document,
-};
+use comrak::{Arena, ComrakOptions, nodes::AstNode, parse_document};
 use log::{error, trace};
 use regex::Regex;
 use walkdir::WalkDir;
 
+/// Represents a header in the markdown document
+pub use crate::types::Header;
 use crate::{
     legacy_markup::{capitalize_first, never_matching_regex, safely_process_markup},
     utils::process_html_elements,
 };
-
-/// Represents a header in the markdown document
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct Header {
-    /// Header text
-    pub text: String,
-
-    /// Header level (1-6)
-    pub level: u8,
-
-    /// Generated ID/anchor for the header
-    pub id: String,
-}
 
 // Define regex pattern groups to organize them by functionality
 // Role and markup patterns
@@ -194,7 +179,9 @@ pub fn process_markdown(
     let with_roles = process_role_markup(&with_inline_anchors, manpage_urls);
 
     // 6. Extract headers
-    let (headers, found_title) = extract_headers(&with_roles);
+    let (headers, found_title) =
+        crate::processor::MarkdownProcessor::new(crate::processor::MarkdownOptions::default())
+            .extract_headers(&with_roles);
 
     // 7. Convert standard markdown to HTML
     let html_output = convert_to_html(&with_roles);
@@ -879,116 +866,6 @@ fn process_remaining_inline_anchors(html: &str) -> String {
             format!("<span id=\"{id}\" class=\"nixos-anchor\"></span>")
         })
         .to_string()
-}
-
-/// Extract headers from markdown content
-pub fn extract_headers(content: &str) -> (Vec<Header>, Option<String>) {
-    let mut headers = Vec::new();
-    let title = None;
-
-    // Always use comrak to extract headers to properly strip formatting
-    let arena = Arena::new();
-    let mut options = ComrakOptions::default();
-    options.extension.table = true;
-    options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
-    options.extension.strikethrough = true;
-    options.extension.tasklist = true;
-    options.extension.superscript = true;
-    options.render.unsafe_ = true;
-
-    let root = parse_document(&arena, content, &options);
-
-    let html_tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
-
-    // Collect all lines for anchor extraction
-    let lines: Vec<&str> = content.lines().collect();
-
-    let mut found_title = title;
-    let mut line_idx = 0;
-    for node in root.descendants() {
-        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
-            // Recursively extract all text from heading's inline children
-            fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
-                use comrak::nodes::NodeValue;
-                let mut text = String::new();
-                for child in node.children() {
-                    match &child.data.borrow().value {
-                        NodeValue::Text(t) => text.push_str(t),
-                        NodeValue::Code(t) => text.push_str(&t.literal),
-                        NodeValue::Link(..) => text.push_str(&extract_inline_text(child)),
-                        NodeValue::Emph => text.push_str(&extract_inline_text(child)),
-                        NodeValue::Strong => text.push_str(&extract_inline_text(child)),
-                        NodeValue::Strikethrough => text.push_str(&extract_inline_text(child)),
-                        NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
-                        NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
-                        NodeValue::FootnoteReference(..) => {
-                            text.push_str(&extract_inline_text(child))
-                        }
-                        NodeValue::HtmlInline(_html) => {
-                            // Skip HTML inline completely
-                        }
-                        NodeValue::Image(..) => {} // skip images
-                        _ => {}
-                    }
-                }
-                text
-            }
-            let mut text = extract_inline_text(node);
-
-            // Strip any remaining HTML tags from the final text
-
-            if text.contains('<') && text.contains('>') {
-                text = html_tag_re.replace_all(&text, "").to_string();
-            }
-
-            // Strip trailing {#anchor} from extracted header text for anchor comparison
-            let text_stripped = text
-                .trim_end()
-                .strip_suffix(|c| c == '}')
-                .and_then(|s| {
-                    let idx = s.rfind("{#");
-                    idx.map(|i| s[..i].trim_end())
-                })
-                .unwrap_or_else(|| text.trim());
-
-            // Try to extract explicit anchor from the corresponding markdown line
-            // Find the next non-empty line that starts with the right number of #
-            let mut id = crate::utils::slugify(&text);
-            let tmp = line_idx..lines.len();
-            for i in tmp {
-                let line = lines[i].trim();
-                if line.is_empty() {
-                    continue;
-                }
-                // Match header line with explicit anchor
-                if let Some(caps) = crate::legacy_markdown::EXPLICIT_ANCHOR_RE.captures(line) {
-                    let level_signs = caps.get(1).unwrap().as_str();
-                    let anchor_text = caps.get(2).unwrap().as_str();
-                    let explicit_id = caps.get(3).map(|m| m.as_str());
-                    if level_signs.len() as u8 == *level && anchor_text.trim() == text_stripped {
-                        if let Some(explicit_id) = explicit_id {
-                            id = explicit_id.to_string();
-                        }
-                        line_idx = i + 1;
-                        break;
-                    }
-                }
-            }
-
-            headers.push(Header {
-                text: text.clone(),
-                level: *level,
-                id,
-            });
-
-            // Set the first h1 as the title if not already set
-            if found_title.is_none() && *level == 1 {
-                found_title = Some(text);
-            }
-        }
-    }
-
-    (headers, found_title)
 }
 
 /// Process GitHub Flavored Markdown autolinks

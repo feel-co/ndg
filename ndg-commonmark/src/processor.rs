@@ -96,7 +96,7 @@ impl MarkdownProcessor {
     }
 
     /// Extract headers and title from the markdown content.
-    fn extract_headers(&self, content: &str) -> (Vec<Header>, Option<String>) {
+    pub fn extract_headers(&self, content: &str) -> (Vec<Header>, Option<String>) {
         let arena = Arena::new();
         let options = self.comrak_options();
         let root = parse_document(&arena, content, &options);
@@ -106,13 +106,60 @@ impl MarkdownProcessor {
 
         for node in root.descendants() {
             if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
-                let text = extract_inline_text(node);
-                let id = utils::slugify(&text);
+                let mut text = String::new();
+                let mut explicit_id = None;
+
+                for child in node.children() {
+                    match &child.data.borrow().value {
+                        NodeValue::Text(t) => text.push_str(t),
+                        NodeValue::Code(t) => text.push_str(&t.literal),
+                        NodeValue::Link(..) => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Emph => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Strong => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Strikethrough => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
+                        NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
+                        NodeValue::FootnoteReference(..) => {
+                            text.push_str(&extract_inline_text(child))
+                        }
+                        NodeValue::HtmlInline(html) => {
+                            // Look for explicit anchor in HTML inline node: {#id}
+                            let html_str = html.as_str();
+                            if let Some(start) = html_str.find("{#") {
+                                if let Some(end) = html_str[start..].find('}') {
+                                    let anchor = &html_str[start + 2..start + end];
+                                    explicit_id = Some(anchor.to_string());
+                                }
+                            }
+                        }
+                        NodeValue::Image(..) => {}
+                        _ => {}
+                    }
+                }
+
+                // Check for trailing {#id} in heading text
+                let trimmed = text.trim_end();
+                let (final_text, id) = if let Some(start) = trimmed.rfind("{#") {
+                    if let Some(end) = trimmed[start..].find('}') {
+                        let anchor = &trimmed[start + 2..start + end];
+                        (trimmed[..start].trim_end().to_string(), anchor.to_string())
+                    } else {
+                        (
+                            text.clone(),
+                            explicit_id.unwrap_or_else(|| utils::slugify(&text)),
+                        )
+                    }
+                } else {
+                    (
+                        text.clone(),
+                        explicit_id.unwrap_or_else(|| utils::slugify(&text)),
+                    )
+                };
                 if *level == 1 && found_title.is_none() {
-                    found_title = Some(text.clone());
+                    found_title = Some(final_text.clone());
                 }
                 headers.push(Header {
-                    text,
+                    text: final_text,
                     level: *level,
                     id,
                 });
