@@ -897,7 +897,7 @@ dependencies = [
 
 [[package]]
 name = "ndg"
-version = "0.4.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-commonmark"
-version = "0.4.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "comrak",
