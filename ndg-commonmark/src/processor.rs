@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 
 use crate::{
     types::{Header, MarkdownResult},
-    utils,
+    utils::{self, safely_process_markup},
 };
 
 /// Options for configuring the Markdown processor.
@@ -79,6 +79,9 @@ impl MarkdownProcessor {
 
         // 5. Process autolinks
         let html = self.process_autolinks(&html);
+
+        // 6. Post-process manpage references
+        let html = self.process_manpage_references_html(&html);
 
         MarkdownResult {
             html,
@@ -577,20 +580,26 @@ impl MarkdownProcessor {
 
     /// Convert markdown to HTML using comrak and configured options.
     fn convert_to_html(&self, content: &str) -> String {
-        let arena = Arena::new();
-        let options = self.comrak_options();
-        let root = parse_document(&arena, content, &options);
+        safely_process_markup(
+            content,
+            |content| {
+                let arena = Arena::new();
+                let options = self.comrak_options();
+                let root = parse_document(&arena, content, &options);
 
-        // Apply AST transformations
-        let prompt_transformer = PromptTransformer;
-        prompt_transformer.transform(root);
+                // Apply AST transformations
+                let prompt_transformer = PromptTransformer;
+                prompt_transformer.transform(root);
 
-        let mut html_output = Vec::new();
-        comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
-        let html = String::from_utf8(html_output).unwrap_or_default();
+                let mut html_output = Vec::new();
+                comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
+                let html = String::from_utf8(html_output).unwrap_or_default();
 
-        // Post-process HTML to handle header anchors
-        self.process_header_anchors_html(&html)
+                // Post-process HTML to handle header anchors
+                self.process_header_anchors_html(&html)
+            },
+            "<div class=\"error\">Error processing markdown content</div>",
+        )
     }
 
     /// Process header anchors in HTML by finding {#id} syntax and converting to proper id attributes
@@ -600,7 +609,12 @@ impl MarkdownProcessor {
         use regex::Regex;
 
         static HEADER_ANCHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h[1-6]>").unwrap()
+            Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h[1-6]>").unwrap_or_else(
+                |e| {
+                    log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
+                    utils::never_matching_regex()
+                },
+            )
         });
 
         HEADER_ANCHOR_RE
@@ -715,7 +729,6 @@ impl MarkdownProcessor {
                         format!("<span class=\"manpage-reference\">{content}</span>")
                     }
                 } else {
-                    // Fallback: mapping file missing or malformed
                     format!("<span class=\"manpage-reference\">{content}</span>")
                 }
             }
@@ -740,112 +753,184 @@ impl MarkdownProcessor {
     /// Process autolinks by converting plain URLs to HTML anchor tags.
     /// This searches for URLs in text nodes and converts them to clickable links.
     fn process_autolinks(&self, html: &str) -> String {
-        use std::sync::LazyLock;
+        safely_process_markup(
+            html,
+            |html| {
+                use std::sync::LazyLock;
 
-        use kuchiki::NodeRef;
-        use regex::Regex;
-        use tendril::TendrilSink;
+                use kuchiki::NodeRef;
+                use regex::Regex;
+                use tendril::TendrilSink;
 
-        static AUTOLINK_RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r#"(https?://[^\s<>"')\}]+)"#).unwrap());
+                static AUTOLINK_RE: LazyLock<Regex> = LazyLock::new(|| {
+                    Regex::new(r#"(https?://[^\s<>"')\}]+)"#).unwrap_or_else(|e| {
+                        log::error!("Failed to compile AUTOLINK_RE regex: {e}");
+                        utils::never_matching_regex()
+                    })
+                });
 
-        let document = kuchiki::parse_html().one(html);
+                let document = kuchiki::parse_html().one(html);
 
-        // Find all text nodes that aren't already inside links
-        let mut text_nodes_to_process = Vec::new();
+                // Find all text nodes that aren't already inside links
+                let mut text_nodes_to_process = Vec::new();
 
-        for node in document.inclusive_descendants() {
-            if let Some(text_node) = node.as_text() {
-                let text_content = text_node.borrow().clone();
+                for node in document.inclusive_descendants() {
+                    if let Some(text_node) = node.as_text() {
+                        let text_content = text_node.borrow().clone();
 
-                // Skip if this text node is inside a link already
-                let mut is_inside_link = false;
-                let mut current = Some(node.clone());
-                while let Some(parent) = current.and_then(|n| n.parent()) {
-                    if let Some(element) = parent.as_element() {
-                        if element.name.local.as_ref() == "a" {
-                            is_inside_link = true;
-                            break;
+                        // Skip if this text node is inside a link already
+                        let mut is_inside_link = false;
+                        let mut current = Some(node.clone());
+                        while let Some(parent) = current.and_then(|n| n.parent()) {
+                            if let Some(element) = parent.as_element() {
+                                if element.name.local.as_ref() == "a" {
+                                    is_inside_link = true;
+                                    break;
+                                }
+                            }
+                            current = parent.parent();
+                        }
+
+                        if !is_inside_link && AUTOLINK_RE.is_match(&text_content) {
+                            text_nodes_to_process.push((node.clone(), text_content));
                         }
                     }
-                    current = parent.parent();
                 }
 
-                if !is_inside_link && AUTOLINK_RE.is_match(&text_content) {
-                    text_nodes_to_process.push((node.clone(), text_content));
-                }
-            }
-        }
+                // Process each text node that contains URLs
+                for (text_node, text_content) in text_nodes_to_process {
+                    let mut last_end = 0;
+                    let mut new_children = Vec::new();
 
-        // Process each text node that contains URLs
-        for (text_node, text_content) in text_nodes_to_process {
-            let mut last_end = 0;
-            let mut new_children = Vec::new();
+                    for url_match in AUTOLINK_RE.find_iter(&text_content) {
+                        // Add text before the URL
+                        if url_match.start() > last_end {
+                            let before_text = &text_content[last_end..url_match.start()];
+                            if !before_text.is_empty() {
+                                new_children.push(NodeRef::new_text(before_text));
+                            }
+                        }
 
-            for url_match in AUTOLINK_RE.find_iter(&text_content) {
-                // Add text before the URL
-                if url_match.start() > last_end {
-                    let before_text = &text_content[last_end..url_match.start()];
-                    if !before_text.is_empty() {
-                        new_children.push(NodeRef::new_text(before_text));
+                        // Create link for the URL, trimming trailing punctuation
+                        let mut url = url_match.as_str();
+
+                        // Trim common trailing punctuation
+                        while let Some(last_char) = url.chars().last() {
+                            if matches!(last_char, '.' | '!' | '?' | ';' | ',' | ')' | ']' | '}') {
+                                url = &url[..url.len() - last_char.len_utf8()];
+                            } else {
+                                break;
+                            }
+                        }
+
+                        let link = NodeRef::new_element(
+                            markup5ever::QualName::new(None, ns!(html), local_name!("a")),
+                            vec![(
+                                kuchiki::ExpandedName::new("", "href"),
+                                kuchiki::Attribute {
+                                    prefix: None,
+                                    value: url.into(),
+                                },
+                            )],
+                        );
+                        link.append(NodeRef::new_text(url));
+                        new_children.push(link);
+
+                        // Add any trimmed punctuation as separate text
+                        let original_url = url_match.as_str();
+                        if url.len() < original_url.len() {
+                            let punctuation = &original_url[url.len()..];
+                            new_children.push(NodeRef::new_text(punctuation));
+                        }
+
+                        last_end = url_match.end();
+                    }
+
+                    // Add remaining text after the last URL
+                    if last_end < text_content.len() {
+                        let after_text = &text_content[last_end..];
+                        if !after_text.is_empty() {
+                            new_children.push(NodeRef::new_text(after_text));
+                        }
+                    }
+
+                    // Replace the text node with new children
+                    if !new_children.is_empty() {
+                        for child in new_children {
+                            text_node.insert_before(child);
+                        }
+                        text_node.detach();
                     }
                 }
 
-                // Create link for the URL, trimming trailing punctuation
-                let mut url = url_match.as_str();
+                let mut out = Vec::new();
+                document.serialize(&mut out).ok();
+                String::from_utf8(out).unwrap_or_default()
+            },
+            // Return original HTML on error
+            "",
+        )
+    }
 
-                // Trim common trailing punctuation
-                while let Some(last_char) = url.chars().last() {
-                    if matches!(last_char, '.' | '!' | '?' | ';' | ',' | ')' | ']' | '}') {
-                        url = &url[..url.len() - last_char.len_utf8()];
-                    } else {
-                        break;
+    /// Post-process HTML to enhance manpage references with URL links.
+    /// This finds <span class="manpage-reference"> elements and converts them to links when URLs are available.
+    fn process_manpage_references_html(&self, html: &str) -> String {
+        safely_process_markup(
+            html,
+            |html| {
+                use kuchiki::NodeRef;
+                use tendril::TendrilSink;
+
+                let document = kuchiki::parse_html().one(html);
+                let mut to_replace = Vec::new();
+
+                // Find all spans with class "manpage-reference"
+                for span_node in document.select("span.manpage-reference").unwrap() {
+                    let span_el = span_node.as_node();
+                    let span_text = span_el.text_contents();
+
+                    if let Some(ref urls) = self.manpage_urls {
+                        // Check for direct URL match
+                        if let Some(url) = urls.get(&span_text) {
+                            let clean_url = extract_url_from_html(url);
+                            let link = NodeRef::new_element(
+                                markup5ever::QualName::new(None, ns!(html), local_name!("a")),
+                                vec![
+                                    (
+                                        kuchiki::ExpandedName::new("", "href"),
+                                        kuchiki::Attribute {
+                                            prefix: None,
+                                            value: clean_url.into(),
+                                        },
+                                    ),
+                                    (
+                                        kuchiki::ExpandedName::new("", "class"),
+                                        kuchiki::Attribute {
+                                            prefix: None,
+                                            value: "manpage-reference".into(),
+                                        },
+                                    ),
+                                ],
+                            );
+                            link.append(NodeRef::new_text(span_text.clone()));
+                            to_replace.push((span_el.clone(), link));
+                        }
                     }
                 }
 
-                let link = NodeRef::new_element(
-                    markup5ever::QualName::new(None, ns!(html), local_name!("a")),
-                    vec![(
-                        kuchiki::ExpandedName::new("", "href"),
-                        kuchiki::Attribute {
-                            prefix: None,
-                            value: url.into(),
-                        },
-                    )],
-                );
-                link.append(NodeRef::new_text(url));
-                new_children.push(link);
-
-                // Add any trimmed punctuation as separate text
-                let original_url = url_match.as_str();
-                if url.len() < original_url.len() {
-                    let punctuation = &original_url[url.len()..];
-                    new_children.push(NodeRef::new_text(punctuation));
+                // Apply replacements
+                for (old, new) in to_replace {
+                    old.insert_before(new);
+                    old.detach();
                 }
 
-                last_end = url_match.end();
-            }
-
-            // Add remaining text after the last URL
-            if last_end < text_content.len() {
-                let after_text = &text_content[last_end..];
-                if !after_text.is_empty() {
-                    new_children.push(NodeRef::new_text(after_text));
-                }
-            }
-
-            // Replace the text node with new children
-            if !new_children.is_empty() {
-                for child in new_children {
-                    text_node.insert_before(child);
-                }
-                text_node.detach();
-            }
-        }
-
-        let mut out = Vec::new();
-        document.serialize(&mut out).ok();
-        String::from_utf8(out).unwrap_or_default()
+                let mut out = Vec::new();
+                document.serialize(&mut out).ok();
+                String::from_utf8(out).unwrap_or_default()
+            },
+            // Return original HTML on error
+            "",
+        )
     }
 }
 
@@ -933,81 +1018,95 @@ pub fn process_option_references(html: &str) -> String {
     use markup5ever::{QualName, local_name, namespace_url, ns};
     use tendril::TendrilSink;
 
-    let document = kuchiki::parse_html().one(html);
+    safely_process_markup(
+        html,
+        |html| {
+            let document = kuchiki::parse_html().one(html);
 
-    let mut to_replace = vec![];
+            let mut to_replace = vec![];
 
-    for code_node in document.select("code").unwrap() {
-        let code_el = code_node.as_node();
-        let code_text = code_el.text_contents();
+            for code_node in document.select("code").unwrap() {
+                let code_el = code_node.as_node();
+                let code_text = code_el.text_contents();
 
-        // Skip if this code element already has a role-specific class
-        if let Some(element) = code_el.as_element() {
-            if let Some(class_attr) = element.attributes.borrow().get(local_name!("class")) {
-                if class_attr.contains("command")
-                    || class_attr.contains("env-var")
-                    || class_attr.contains("file-path")
-                    || class_attr.contains("nixos-option")
-                    || class_attr.contains("nix-var")
-                {
-                    continue;
-                }
-            }
-        }
-
-        // Skip if this code element is already inside an option-reference link
-        let mut is_already_option_ref = false;
-        let mut current = code_el.parent();
-        while let Some(parent) = current {
-            if let Some(element) = parent.as_element() {
-                if element.name.local == local_name!("a") {
+                // Skip if this code element already has a role-specific class
+                if let Some(element) = code_el.as_element() {
                     if let Some(class_attr) = element.attributes.borrow().get(local_name!("class"))
                     {
-                        if class_attr.contains("option-reference") {
-                            is_already_option_ref = true;
-                            break;
+                        if class_attr.contains("command")
+                            || class_attr.contains("env-var")
+                            || class_attr.contains("file-path")
+                            || class_attr.contains("nixos-option")
+                            || class_attr.contains("nix-var")
+                        {
+                            continue;
                         }
                     }
                 }
+
+                // Skip if this code element is already inside an option-reference link
+                let mut is_already_option_ref = false;
+                let mut current = code_el.parent();
+                while let Some(parent) = current {
+                    if let Some(element) = parent.as_element() {
+                        if element.name.local == local_name!("a") {
+                            if let Some(class_attr) =
+                                element.attributes.borrow().get(local_name!("class"))
+                            {
+                                if class_attr.contains("option-reference") {
+                                    is_already_option_ref = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    current = parent.parent();
+                }
+
+                if !is_already_option_ref && is_nixos_option_reference(&code_text) {
+                    let option_id = format!("option-{}", code_text.replace('.', "-"));
+                    let attrs = vec![
+                        (
+                            ExpandedName::new("", "href"),
+                            Attribute {
+                                prefix: None,
+                                value: format!("options.html#{option_id}"),
+                            },
+                        ),
+                        (
+                            ExpandedName::new("", "class"),
+                            Attribute {
+                                prefix: None,
+                                value: "option-reference".into(),
+                            },
+                        ),
+                    ];
+                    let a = NodeRef::new_element(
+                        QualName::new(None, ns!(html), local_name!("a")),
+                        attrs,
+                    );
+                    let code = NodeRef::new_element(
+                        QualName::new(None, ns!(html), local_name!("code")),
+                        vec![],
+                    );
+                    code.append(NodeRef::new_text(code_text.clone()));
+                    a.append(code);
+                    to_replace.push((code_el.clone(), a));
+                }
             }
-            current = parent.parent();
-        }
 
-        if !is_already_option_ref && is_nixos_option_reference(&code_text) {
-            let option_id = format!("option-{}", code_text.replace('.', "-"));
-            let attrs = vec![
-                (
-                    ExpandedName::new("", "href"),
-                    Attribute {
-                        prefix: None,
-                        value: format!("options.html#{option_id}"),
-                    },
-                ),
-                (
-                    ExpandedName::new("", "class"),
-                    Attribute {
-                        prefix: None,
-                        value: "option-reference".into(),
-                    },
-                ),
-            ];
-            let a = NodeRef::new_element(QualName::new(None, ns!(html), local_name!("a")), attrs);
-            let code =
-                NodeRef::new_element(QualName::new(None, ns!(html), local_name!("code")), vec![]);
-            code.append(NodeRef::new_text(code_text.clone()));
-            a.append(code);
-            to_replace.push((code_el.clone(), a));
-        }
-    }
+            for (old, new) in to_replace {
+                old.insert_before(new);
+                old.detach();
+            }
 
-    for (old, new) in to_replace {
-        old.insert_before(new);
-        old.detach();
-    }
-
-    let mut out = Vec::new();
-    document.serialize(&mut out).ok();
-    String::from_utf8(out).unwrap_or_default()
+            let mut out = Vec::new();
+            document.serialize(&mut out).ok();
+            String::from_utf8(out).unwrap_or_default()
+        },
+        // Return original HTML on error
+        "",
+    )
 }
 
 /// Check if a string looks like a `NixOS` option reference
