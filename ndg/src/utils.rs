@@ -2,7 +2,6 @@ use std::{fmt::Write, fs, path::Path};
 
 use anyhow::{Context, Result};
 use log::{debug, info};
-use rayon::{iter::IntoParallelRefIterator, prelude::*};
 
 use crate::{
     completion,
@@ -196,7 +195,7 @@ pub fn generate_options_manpage(
 pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>> {
     if let Some(ref input_dir) = config.input_dir {
         info!("Input directory: {}", input_dir.display());
-        let files = ndg_commonmark::legacy_markdown::collect_markdown_files(input_dir);
+        let files = ndg_commonmark::utils::collect_markdown_files(input_dir);
         info!("Found {} markdown files", files.len());
 
         if !files.is_empty() {
@@ -205,20 +204,16 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
 
             use crate::html::template;
             files.par_iter().try_for_each(|file_path| {
-                let manpage_urls = config.manpage_urls_path.as_ref().and_then(|mappings_path| {
-                    ndg_commonmark::utils::load_manpage_urls(mappings_path.to_str().unwrap()).ok()
-                });
                 let content = std::fs::read_to_string(file_path)?;
-                let base_dir = file_path
-                    .parent()
-                    .unwrap_or_else(|| std::path::Path::new("."));
-                let (html_content, headers, title) =
-                    ndg_commonmark::legacy_markdown::process_markdown(
-                        &content,
-                        manpage_urls.as_ref(),
-                        Some(&config.title),
-                        base_dir,
-                    );
+                let mut options = ndg_commonmark::processor::MarkdownOptions::default();
+                if let Some(mappings_path) = &config.manpage_urls_path {
+                    options.manpage_urls_path = Some(mappings_path.to_string_lossy().to_string());
+                }
+                let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+                let result = processor.render(&content);
+                let html_content = result.html;
+                let headers = result.headers;
+                let title = result.title;
                 let input_dir = config.input_dir.as_ref().expect("input_dir required");
                 let rel_path = file_path
                     .strip_prefix(input_dir)

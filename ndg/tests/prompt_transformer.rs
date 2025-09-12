@@ -1,5 +1,5 @@
 use comrak::{Arena, ComrakOptions, parse_document};
-use ndg_commonmark::legacy_markdown::{AstTransformer, PromptTransformer};
+use ndg_commonmark::processor::{AstTransformer, PromptTransformer};
 
 /// Render AST to HTML after transformation.
 fn render_html_after_transform(markdown: &str, transformer: &dyn AstTransformer) -> String {

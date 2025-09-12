@@ -565,12 +565,36 @@ fn process_roles(text: &str) -> String {
 
 /// Process command prompts ($ command)
 fn process_command_prompts(text: &str) -> String {
-    markup::process_command_prompts(text, false)
+    // Use ndg-commonmark to process markdown, then convert HTML to troff
+    let options = ndg_commonmark::processor::MarkdownOptions::default();
+    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    let result = processor.render(text);
+
+    // Convert HTML command prompts to troff format
+    result
+        .html
+        .replace(
+            "<code class=\"terminal\"><span class=\"prompt\">$</span> ",
+            "\\fR\\fB$\\fP ",
+        )
+        .replace("</code>", "")
 }
 
 /// Process REPL prompts (nix-repl> command)
 fn process_repl_prompts(text: &str) -> String {
-    markup::process_repl_prompts(text, false)
+    // Use ndg-commonmark to process markdown, then convert HTML to troff
+    let options = ndg_commonmark::processor::MarkdownOptions::default();
+    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    let result = processor.render(text);
+
+    // Convert HTML REPL prompts to troff format
+    result
+        .html
+        .replace(
+            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> ",
+            "\\fR\\fBnix-repl>\\fP ",
+        )
+        .replace("</code>", "")
 }
 
 /// Process admonition blocks (:::)
@@ -639,7 +663,16 @@ fn process_admonitions(text: &str) -> String {
 
 /// Process inline code blocks
 fn process_inline_code(text: &str) -> String {
-    markup::process_inline_code(text, false)
+    // Use ndg-commonmark to process markdown, then convert HTML to troff
+    let options = ndg_commonmark::processor::MarkdownOptions::default();
+    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    let result = processor.render(text);
+
+    // Convert HTML code tags to troff format
+    result
+        .html
+        .replace("<code>", "\\fR\\(oq")
+        .replace("</code>", "\\(cq\\fP")
 }
 
 /// Process option values (for defaults and examples)

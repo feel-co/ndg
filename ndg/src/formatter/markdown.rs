@@ -1,1 +1,1 @@
-pub use ndg_commonmark::legacy_markdown::Header;
+pub use ndg_commonmark::Header;

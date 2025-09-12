@@ -81,13 +81,10 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
                 if let Some(Value::String(desc)) = option_data.get("description") {
                     let processed_desc = escape_html_in_markdown(desc);
-                    option.description = ndg_commonmark::legacy_markdown::process_markdown(
-                        &processed_desc,
-                        None,
-                        Some(&config.title),
-                        std::path::Path::new("."),
-                    )
-                    .0;
+                    let options = ndg_commonmark::processor::MarkdownOptions::default();
+                    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+                    let result = processor.render(&processed_desc);
+                    option.description = result.html;
                 }
 
                 // Handle default values

@@ -82,14 +82,11 @@ pub fn strip_markdown(content: &str) -> String {
 
 /// Process content through the markdown pipeline and extract plain text
 #[must_use]
-pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
-    let (html, ..) = ndg_commonmark::legacy_markdown::process_markdown(
-        content,
-        None,
-        Some(&config.title),
-        std::path::Path::new("."),
-    );
-    strip_markdown(&html)
+pub fn process_content_to_plain_text(content: &str, _config: &crate::config::Config) -> String {
+    let options = ndg_commonmark::processor::MarkdownOptions::default();
+    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    let result = processor.render(content);
+    strip_markdown(&result.html)
         .replace('\n', " ")
         .replace("  ", " ")
         .trim()

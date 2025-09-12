@@ -1,1 +1,1 @@
-pub use ndg_commonmark::legacy_markup::*;
+pub use ndg_commonmark::utils::{never_matching_regex, safely_process_markup};
