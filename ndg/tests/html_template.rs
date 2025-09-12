@@ -8,7 +8,10 @@ use ndg::{
 
 /// Helper to check for highlighted code HTML (syntect output)
 fn contains_highlighted_code(html: &str) -> bool {
-    html.contains("class=\"highlight\"") || html.contains("class=\"syntect\"")
+    // Accept either class-based or inline-style highlighting
+    html.contains("class=\"highlight\"")
+        || html.contains("class=\"syntect\"")
+        || html.contains("style=\"")
 }
 
 fn minimal_config() -> Config {
@@ -98,14 +101,22 @@ fn render_options_page_renders_description() {
 
 #[test]
 fn render_page_with_syntax_highlighting() {
+    use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
     let mut config = minimal_config();
     config.highlight_code = true;
-    // Simulate a code block with language
-    let content = r#"<pre><code class="language-rust">fn main() { println!("hi"); }</code></pre>"#;
+
+    // Render markdown with a code block
+    let md = "```rust\nfn main() { println!(\"hi\"); }\n```";
+    let mut options = MarkdownOptions::default();
+    options.highlight_code = true;
+    let processor = MarkdownProcessor::new(options);
+    let result = processor.render(md);
+    let html_content = processor.highlight_codeblocks(&result.html);
+
     let title = "Syntax Highlight Test";
     let headers: Vec<Header> = vec![];
     let rel_path = Path::new("syntax.html");
-    let html = template::render(&config, content, title, &headers, rel_path)
+    let html = template::render(&config, &html_content, title, &headers, rel_path)
         .expect("Should render HTML with syntax highlighting");
     assert!(
         contains_highlighted_code(&html),

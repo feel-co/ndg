@@ -19,7 +19,11 @@ fn parses_list_with_inline_anchor() {
     let result = processor.render(md);
     let html = result.html;
 
-    assert!(html.contains(r#"<span class="nixos-anchor" id="item1"></span> Item 1"#));
+    let expected = r#"<span id="item1" class="nixos-anchor"></span> Item 1"#;
+    assert!(
+        html.contains(expected),
+        "HTML did not contain expected span with anchor: {html}"
+    );
 }
 
 #[test]
