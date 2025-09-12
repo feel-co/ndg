@@ -43,7 +43,7 @@ serde_json = { version = "1.0", default-features = false, features = [ "preserve
 syntect = "5.2"
 tendril = "0.4.3"
 tera = { version = "1.20", default-features = false }
-toml = { version = "0.8", default-features = false, features = [ "parse" ] }
+toml = { version = "0.9", default-features = false, features = [ "parse" ] }
 two-face = "0.4"
 walkdir = "2.5"
 
