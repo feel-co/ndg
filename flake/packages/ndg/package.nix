@@ -26,7 +26,6 @@ in
     };
 
     cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
-    useFetchCargoVendor = true;
     enableParallelBuilding = true;
 
     postInstall =
@@ -41,6 +40,7 @@ in
       description = "not a docs generator";
       homepage = "https://github.com/feel-co/ndg";
       license = lib.licenses.mpl20;
+      maintainers = with lib.maintainers; [NotAShelf];
       mainProgram = "ndg";
     };
   })
