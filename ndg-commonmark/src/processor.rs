@@ -818,7 +818,7 @@ impl MarkdownProcessor {
     }
 
     /// Build comrak options from `MarkdownOptions` and feature flags.
-    fn comrak_options(&self) -> ComrakOptions {
+    fn comrak_options(&self) -> ComrakOptions<'_> {
         let mut options = ComrakOptions::default();
         if self.options.gfm {
             options.extension.table = true;
