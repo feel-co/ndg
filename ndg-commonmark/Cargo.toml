@@ -22,14 +22,14 @@ nixpkgs      = [  ]
 [dependencies]
 anyhow.workspace     = true
 comrak.workspace     = true
-html5ever            = "0.25"
-kuchiki              = "0.8"
+html5ever.workspace  = true
+kuchikikiki.workspace          = true
 log.workspace        = true
-markup5ever          = "0.10"
+markup5ever.workspace = true
 regex.workspace      = true
 serde.workspace      = true
 serde_json.workspace = true
-tendril              = "0.4"
+tendril.workspace              = true
 walkdir.workspace    = true
 
 [dev-dependencies]

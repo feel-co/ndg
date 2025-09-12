@@ -7,7 +7,7 @@ use comrak::{
     parse_document,
 };
 use log::trace;
-use markup5ever::{local_name, namespace_url, ns};
+use markup5ever::{local_name, ns};
 use walkdir::WalkDir;
 
 use crate::{
@@ -783,7 +783,7 @@ impl MarkdownProcessor {
             |html| {
                 use tendril::TendrilSink;
 
-                let document = kuchiki::parse_html().one(html);
+                let document = kuchikikiki::parse_html().one(html);
 
                 // Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
                 self.process_list_item_id_markers(&document);
@@ -816,7 +816,7 @@ impl MarkdownProcessor {
     }
 
     /// Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
-    fn process_list_item_id_markers(&self, document: &kuchiki::NodeRef) {
+    fn process_list_item_id_markers(&self, document: &kuchikikiki::NodeRef) {
         let mut to_modify = Vec::new();
 
         for comment in document.inclusive_descendants() {
@@ -843,19 +843,19 @@ impl MarkdownProcessor {
         }
 
         for (comment_node, id) in to_modify {
-            let span = kuchiki::NodeRef::new_element(
+            let span = kuchikikiki::NodeRef::new_element(
                 markup5ever::QualName::new(None, ns!(html), local_name!("span")),
                 vec![
                     (
-                        kuchiki::ExpandedName::new("", "id"),
-                        kuchiki::Attribute {
+                        kuchikikiki::ExpandedName::new("", "id"),
+                        kuchikikiki::Attribute {
                             prefix: None,
                             value: id,
                         },
                     ),
                     (
-                        kuchiki::ExpandedName::new("", "class"),
-                        kuchiki::Attribute {
+                        kuchikikiki::ExpandedName::new("", "class"),
+                        kuchikikiki::Attribute {
                             prefix: None,
                             value: "nixos-anchor".into(),
                         },
@@ -868,7 +868,7 @@ impl MarkdownProcessor {
     }
 
     /// Process header anchors with comments: <h1>text<!-- anchor: id --></h1>
-    fn process_header_anchor_comments(&self, document: &kuchiki::NodeRef) {
+    fn process_header_anchor_comments(&self, document: &kuchikikiki::NodeRef) {
         let mut to_modify = Vec::new();
 
         for comment in document.inclusive_descendants() {
@@ -911,7 +911,7 @@ impl MarkdownProcessor {
     }
 
     /// Process remaining inline anchors in list items: <li>[]{#id}content</li>
-    fn process_list_item_inline_anchors(&self, document: &kuchiki::NodeRef) {
+    fn process_list_item_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
         for li_node in document.select("li").unwrap() {
             let li_element = li_node.as_node();
 
@@ -939,19 +939,19 @@ impl MarkdownProcessor {
                             child.detach();
                         }
 
-                        let span = kuchiki::NodeRef::new_element(
+                        let span = kuchikikiki::NodeRef::new_element(
                             markup5ever::QualName::new(None, ns!(html), local_name!("span")),
                             vec![
                                 (
-                                    kuchiki::ExpandedName::new("", "id"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "id"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: id.into(),
                                     },
                                 ),
                                 (
-                                    kuchiki::ExpandedName::new("", "class"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "class"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: "nixos-anchor".into(),
                                     },
@@ -960,7 +960,7 @@ impl MarkdownProcessor {
                         );
                         li_element.append(span);
                         if !remaining_content.is_empty() {
-                            li_element.append(kuchiki::NodeRef::new_text(remaining_content));
+                            li_element.append(kuchikikiki::NodeRef::new_text(remaining_content));
                         }
                     }
                 }
@@ -969,7 +969,7 @@ impl MarkdownProcessor {
     }
 
     /// Process inline anchors in paragraphs: <p>[]{#id}content</p>
-    fn process_paragraph_inline_anchors(&self, document: &kuchiki::NodeRef) {
+    fn process_paragraph_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
         for p_node in document.select("p").unwrap() {
             let p_element = p_node.as_node();
 
@@ -997,19 +997,19 @@ impl MarkdownProcessor {
                             child.detach();
                         }
 
-                        let span = kuchiki::NodeRef::new_element(
+                        let span = kuchikikiki::NodeRef::new_element(
                             markup5ever::QualName::new(None, ns!(html), local_name!("span")),
                             vec![
                                 (
-                                    kuchiki::ExpandedName::new("", "id"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "id"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: id.into(),
                                     },
                                 ),
                                 (
-                                    kuchiki::ExpandedName::new("", "class"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "class"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: "nixos-anchor".into(),
                                     },
@@ -1018,7 +1018,7 @@ impl MarkdownProcessor {
                         );
                         p_element.append(span);
                         if !remaining_content.is_empty() {
-                            p_element.append(kuchiki::NodeRef::new_text(remaining_content));
+                            p_element.append(kuchikikiki::NodeRef::new_text(remaining_content));
                         }
                     }
                 }
@@ -1027,7 +1027,7 @@ impl MarkdownProcessor {
     }
 
     /// Process remaining standalone inline anchors throughout the document
-    fn process_remaining_inline_anchors(&self, document: &kuchiki::NodeRef) {
+    fn process_remaining_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
         let mut text_nodes_to_process = Vec::new();
 
         for node in document.inclusive_descendants() {
@@ -1094,24 +1094,24 @@ impl MarkdownProcessor {
                             let before_text: String =
                                 chars[last_end..anchor_start].iter().collect();
                             if !before_text.is_empty() {
-                                new_children.push(kuchiki::NodeRef::new_text(before_text));
+                                new_children.push(kuchikikiki::NodeRef::new_text(before_text));
                             }
                         }
 
                         // Add span element
-                        let span = kuchiki::NodeRef::new_element(
+                        let span = kuchikikiki::NodeRef::new_element(
                             markup5ever::QualName::new(None, ns!(html), local_name!("span")),
                             vec![
                                 (
-                                    kuchiki::ExpandedName::new("", "id"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "id"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: id,
                                     },
                                 ),
                                 (
-                                    kuchiki::ExpandedName::new("", "class"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "class"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: "nixos-anchor".into(),
                                     },
@@ -1134,7 +1134,7 @@ impl MarkdownProcessor {
             if last_end < chars.len() {
                 let after_text: String = chars[last_end..].iter().collect();
                 if !after_text.is_empty() {
-                    new_children.push(kuchiki::NodeRef::new_text(after_text));
+                    new_children.push(kuchikikiki::NodeRef::new_text(after_text));
                 }
             }
 
@@ -1149,7 +1149,7 @@ impl MarkdownProcessor {
     }
 
     /// Process empty auto-links: [](#anchor) -> <a href="#anchor">Anchor</a>
-    fn process_empty_auto_links(&self, document: &kuchiki::NodeRef) {
+    fn process_empty_auto_links(&self, document: &kuchikikiki::NodeRef) {
         for link_node in document.select("a").unwrap() {
             let link_element = link_node.as_node();
             if let Some(element) = link_element.as_element() {
@@ -1164,7 +1164,7 @@ impl MarkdownProcessor {
                     if href_value.starts_with('#') && text_content.trim().is_empty() {
                         // Empty link with anchor - add humanized text
                         let display_text = self.humanize_anchor_id(&href_value);
-                        link_element.append(kuchiki::NodeRef::new_text(display_text));
+                        link_element.append(kuchikikiki::NodeRef::new_text(display_text));
                     }
                 }
             }
@@ -1172,7 +1172,7 @@ impl MarkdownProcessor {
     }
 
     /// Process empty HTML links that have no content
-    fn process_empty_html_links(&self, document: &kuchiki::NodeRef) {
+    fn process_empty_html_links(&self, document: &kuchikikiki::NodeRef) {
         for link_node in document.select("a[href^='#']").unwrap() {
             let link_element = link_node.as_node();
             let text_content = link_element.text_contents();
@@ -1181,7 +1181,7 @@ impl MarkdownProcessor {
                 if let Some(element) = link_element.as_element() {
                     if let Some(href) = element.attributes.borrow().get(local_name!("href")) {
                         let display_text = self.humanize_anchor_id(href);
-                        link_element.append(kuchiki::NodeRef::new_text(display_text));
+                        link_element.append(kuchikikiki::NodeRef::new_text(display_text));
                     }
                 }
             }
@@ -2081,7 +2081,7 @@ pub fn process_autolinks(html: &str) -> String {
         |html| {
             use std::sync::LazyLock;
 
-            use kuchiki::NodeRef;
+            use kuchikikiki::NodeRef;
             use regex::Regex;
             use tendril::TendrilSink;
 
@@ -2092,7 +2092,7 @@ pub fn process_autolinks(html: &str) -> String {
                 })
             });
 
-            let document = kuchiki::parse_html().one(html);
+            let document = kuchikikiki::parse_html().one(html);
 
             // Find all text nodes that aren't already inside links
             let mut text_nodes_to_process = Vec::new();
@@ -2156,8 +2156,8 @@ pub fn process_autolinks(html: &str) -> String {
                     let link = NodeRef::new_element(
                         markup5ever::QualName::new(None, ns!(html), local_name!("a")),
                         vec![(
-                            kuchiki::ExpandedName::new("", "href"),
-                            kuchiki::Attribute {
+                            kuchikikiki::ExpandedName::new("", "href"),
+                            kuchikikiki::Attribute {
                                 prefix: None,
                                 value: url.into(),
                             },
@@ -2221,10 +2221,10 @@ pub fn process_manpage_references(
     safely_process_markup(
         html,
         |html| {
-            use kuchiki::NodeRef;
+            use kuchikikiki::NodeRef;
             use tendril::TendrilSink;
 
-            let document = kuchiki::parse_html().one(html);
+            let document = kuchikikiki::parse_html().one(html);
             let mut to_replace = Vec::new();
 
             // Find all spans with class "manpage-reference"
@@ -2240,15 +2240,15 @@ pub fn process_manpage_references(
                             markup5ever::QualName::new(None, ns!(html), local_name!("a")),
                             vec![
                                 (
-                                    kuchiki::ExpandedName::new("", "href"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "href"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: clean_url.into(),
                                     },
                                 ),
                                 (
-                                    kuchiki::ExpandedName::new("", "class"),
-                                    kuchiki::Attribute {
+                                    kuchikikiki::ExpandedName::new("", "class"),
+                                    kuchikikiki::Attribute {
                                         prefix: None,
                                         value: "manpage-reference".into(),
                                     },
@@ -2293,14 +2293,14 @@ pub fn process_manpage_references(
 #[cfg(feature = "ndg-flavored")]
 #[must_use]
 pub fn process_option_references(html: &str) -> String {
-    use kuchiki::{Attribute, ExpandedName, NodeRef};
-    use markup5ever::{QualName, local_name, namespace_url, ns};
+    use kuchikikiki::{Attribute, ExpandedName, NodeRef};
+    use markup5ever::{QualName, local_name, ns};
     use tendril::TendrilSink;
 
     safely_process_markup(
         html,
         |html| {
-            let document = kuchiki::parse_html().one(html);
+            let document = kuchikikiki::parse_html().one(html);
 
             let mut to_replace = vec![];
 
