@@ -38,7 +38,7 @@ pub struct MarkdownOptions {
     /// Optional: Path to manpage URL mappings (for {manpage} roles).
     pub manpage_urls_path: Option<String>,
 
-    /// Optional: Custom syntax highlighting theme name (must be present in syntect's ThemeSet)
+    /// Optional: Custom syntax highlighting theme name (must be present in syntect's `ThemeSet`)
     pub highlight_theme: Option<String>,
 }
 
@@ -75,7 +75,7 @@ impl MarkdownProcessor {
     }
 
     /// Highlight all code blocks in HTML using syntect
-    pub fn highlight_codeblocks(&self, html: &str) -> String {
+    #[must_use] pub fn highlight_codeblocks(&self, html: &str) -> String {
         use kuchikikiki::parse_html;
         use tendril::TendrilSink;
 
@@ -87,7 +87,7 @@ impl MarkdownProcessor {
                     .attributes
                     .borrow()
                     .get("class")
-                    .map(|s| s.to_string());
+                    .map(std::string::ToString::to_string);
                 let language = class_attr
                     .as_deref()
                     .and_then(|s| s.strip_prefix("language-"))
@@ -98,7 +98,7 @@ impl MarkdownProcessor {
                     // Replace <code>...</code> with highlighted HTML
                     // We wrap in <pre> for CSS compatibility
                     let parent = code_node.parent().unwrap();
-                    let new_html = format!("<pre>{}</pre>", highlighted);
+                    let new_html = format!("<pre>{highlighted}</pre>");
                     let fragment = parse_html().one(new_html.as_str());
                     parent.insert_after(fragment);
                     parent.detach();
@@ -110,7 +110,7 @@ impl MarkdownProcessor {
         String::from_utf8(buf).unwrap_or_default()
     }
 
-    /// Get the syntect SyntaxSet (cached, thread-safe)
+    /// Get the syntect `SyntaxSet` (cached, thread-safe)
     fn syntax_set() -> &'static SyntaxSet {
         static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
         SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
@@ -273,7 +273,11 @@ impl MarkdownProcessor {
             }
 
             // Only process inline anchors if we're not in a code block
-            if !in_code_block {
+            if in_code_block {
+                // In code block, keep line as-is
+                result.push_str(line);
+                result.push('\n');
+            } else {
                 // Check for list items with anchors:
                 // "- []{#id} content" or "1. []{#id} content"
                 if let Some(anchor_start) = Self::find_list_item_anchor(trimmed) {
@@ -287,10 +291,6 @@ impl MarkdownProcessor {
 
                 // Process regular inline anchors in the line
                 result.push_str(&Self::process_line_anchors(line));
-                result.push('\n');
-            } else {
-                // In code block, keep line as-is
-                result.push_str(line);
                 result.push('\n');
             }
         }
@@ -1003,7 +1003,7 @@ impl MarkdownProcessor {
 
             // Check if this list item contains code elements
             let has_code = li_element.select("code, pre").is_ok()
-                && !li_element.select("code, pre").unwrap().next().is_none();
+                && li_element.select("code, pre").unwrap().next().is_some();
             if has_code {
                 continue; // Skip list items with code blocks
             }
@@ -1061,7 +1061,7 @@ impl MarkdownProcessor {
 
             // Check if this paragraph contains code elements
             let has_code = p_element.select("code, pre").is_ok()
-                && !p_element.select("code, pre").unwrap().next().is_none();
+                && p_element.select("code, pre").unwrap().next().is_some();
             if has_code {
                 continue; // Skip paragraphs with code blocks
             }
@@ -1385,7 +1385,7 @@ fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
 /// # Returns
 /// The processed markdown text with GFM extensions applied
 #[cfg(feature = "gfm")]
-pub fn apply_gfm_extensions(markdown: &str) -> String {
+#[must_use] pub fn apply_gfm_extensions(markdown: &str) -> String {
     // XXX: Comrak already supports GFM, but if there is any feature in the spec
     // that is not implemented as we'd like for it to be, we can add it here.
     markdown.to_owned()
@@ -1412,7 +1412,7 @@ pub fn apply_gfm_extensions(markdown: &str) -> String {
 /// # Safety
 /// Only relative paths without ".." are allowed for security.
 #[cfg(feature = "nixpkgs")]
-pub fn process_file_includes(markdown: &str, base_dir: &std::path::Path) -> String {
+#[must_use] pub fn process_file_includes(markdown: &str, base_dir: &std::path::Path) -> String {
     use std::{fs, path::Path};
 
     // Check if a path is safe (no absolute, no ..)
@@ -1516,7 +1516,7 @@ pub fn process_file_includes(markdown: &str, base_dir: &std::path::Path) -> Stri
 /// # Returns
 /// The processed markdown with role markup converted to HTML
 #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
-pub fn process_role_markup(
+#[must_use] pub fn process_role_markup(
     content: &str,
     manpage_urls: Option<&std::collections::HashMap<String, String>>,
 ) -> String {
@@ -1718,7 +1718,7 @@ fn format_role_markup(
 /// # Returns
 /// The processed markdown with inline anchors converted to HTML spans
 #[cfg(feature = "nixpkgs")]
-pub fn process_inline_anchors(content: &str) -> String {
+#[must_use] pub fn process_inline_anchors(content: &str) -> String {
     let mut result = String::with_capacity(content.len() + 100);
     let mut in_code_block = false;
     let mut code_fence_char = None;
@@ -1748,7 +1748,11 @@ pub fn process_inline_anchors(content: &str) -> String {
         }
 
         // Only process inline anchors if we're not in a code block
-        if !in_code_block {
+        if in_code_block {
+            // In code block, keep line as-is
+            result.push_str(line);
+            result.push('\n');
+        } else {
             // Check for list items with anchors:
             // "- []{#id} content" or "1. []{#id} content"
             if let Some(anchor_start) = find_list_item_anchor(trimmed) {
@@ -1761,10 +1765,6 @@ pub fn process_inline_anchors(content: &str) -> String {
 
             // Process regular inline anchors in the line
             result.push_str(&process_line_anchors(line));
-            result.push('\n');
-        } else {
-            // In code block, keep line as-is
-            result.push_str(line);
             result.push('\n');
         }
     }
@@ -1902,7 +1902,7 @@ fn process_line_anchors(line: &str) -> String {
 /// # Returns
 /// The processed markdown with block elements converted to HTML
 #[cfg(feature = "nixpkgs")]
-pub fn process_block_elements(content: &str) -> String {
+#[must_use] pub fn process_block_elements(content: &str) -> String {
     let mut result = Vec::new();
     let mut lines = content.lines().peekable();
     let mut in_code_block = false;
@@ -2161,7 +2161,7 @@ fn render_figure(id: Option<&str>, title: &str, content: &str) -> String {
 /// # Returns
 /// The processed HTML with autolinks converted to anchor tags
 #[cfg(feature = "gfm")]
-pub fn process_autolinks(html: &str) -> String {
+#[must_use] pub fn process_autolinks(html: &str) -> String {
     safely_process_markup(
         html,
         |html| {
@@ -2300,7 +2300,7 @@ pub fn process_autolinks(html: &str) -> String {
 /// # Returns
 /// The processed HTML with manpage references converted to links
 #[cfg(feature = "nixpkgs")]
-pub fn process_manpage_references(
+#[must_use] pub fn process_manpage_references(
     html: &str,
     manpage_urls: Option<&std::collections::HashMap<String, String>>,
 ) -> String {
