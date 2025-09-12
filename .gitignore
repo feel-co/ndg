@@ -1,21 +1,33 @@
+# Ignore everything by default
 /*
 !/
 
-# files/dirs to allow
-!/.gitattributes
-!/.gitignore
-!/flake.lock
-!/LICENSE
-!/*.md
-!/*.nix
-!/pkgs/
-!/nix/
-!/flake/
-!/.github/workflows/*
-!/src/
+# Packages
+!/ndg/
+!/ndg-commonmark/
+
+# Rust/Cargo
 !/Cargo.lock
 !/Cargo.toml
-!/templates
+
+# Configuration files
+!/.config/
 !/.rustfmt.toml
 !/.clippy.toml
+!/.taplo.toml
+!/.gitattributes
+!/.gitignore
+!/.github
+!/.editorconfig
 
+# Nix
+!/flake/**/*.nix
+!/flake.nix
+!/flake.lock
+!/shell.nix
+!/default.nix
+!/.envrc
+
+# Misc
+!/README.md
+!/LICENSE.md

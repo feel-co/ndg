@@ -24,8 +24,8 @@ jobs:
             files:
               - 'Cargo.toml'
               - 'Cargo.lock'
-              - 'src/*'
-              - 'templates/*'
+              - 'ndg/*'
+              - 'ndg-commonmark/*'
   test:
     name: Test
     runs-on: ubuntu-latest

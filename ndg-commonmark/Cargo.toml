@@ -1,0 +1,37 @@
+[package]
+name                   = "ndg-commonmark"
+description            = "Flavored CommonMark processor for Nix-related projects, with support for CommonMark, GFM, and Nixpkgs extensions."
+authors.workspace      = true
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+readme                 = "../README.md"
+categories.workspace   = true
+keywords.workspace     = true
+
+[lib]
+name = "ndg_commonmark"
+path = "src/lib.rs"
+
+[features]
+default      = [ "ndg-flavored" ]
+gfm          = [  ]
+ndg-flavored = [ "gfm", "nixpkgs" ]
+nixpkgs      = [  ]
+
+[dependencies]
+anyhow.workspace      = true
+comrak.workspace      = true
+html5ever.workspace   = true
+kuchikikiki.workspace = true
+log.workspace         = true
+markup5ever.workspace = true
+regex.workspace       = true
+serde.workspace       = true
+serde_json.workspace  = true
+syntect.workspace     = true
+tendril.workspace     = true
+walkdir.workspace     = true
+
+[dev-dependencies]
+tempfile = "3"

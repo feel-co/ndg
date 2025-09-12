@@ -24,11 +24,13 @@ jobs:
             files:
               - 'Cargo.toml'
               - 'Cargo.lock'
-              - 'src/*'
-              - 'templates/*'
+              - 'ndg/*'
+              - 'ndg-commonmark/*'
               - 'flake/*'
               - 'flake.nix'
               - 'flake.lock'
+              - 'default.nix'
+              - 'shell.nix'
   nix:
     name: "Build with Nix"
     runs-on: ubuntu-latest
