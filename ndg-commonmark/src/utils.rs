@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use comrak::{Arena, ComrakOptions, nodes::NodeValue, parse_document};
 use regex::Regex;
 
+// Re-export from processor module
+pub use crate::processor::collect_markdown_files;
+
 /// Slugify a string for use as an anchor ID.
 /// Converts to lowercase, replaces non-alphanumeric characters with dashes,
 /// and trims leading/trailing dashes.
@@ -50,7 +53,7 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 }
 
 /// Apply a regex transformation to HTML elements using the provided function.
-/// Used by both `legacy_markup` and `legacy_markdown` modules.
+/// Used by the markdown processor for HTML element transformations.
 pub fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
 where
     F: Fn(&regex::Captures) -> String,

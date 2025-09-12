@@ -642,7 +642,8 @@ impl MarkdownProcessor {
             options.extension.superscript = true;
         }
         options.render.unsafe_ = true;
-        options.extension.header_ids = Some(String::new());
+        // Disable automatic header ID generation - we handle anchors manually
+        options.extension.header_ids = None;
         options
     }
 
@@ -1354,29 +1355,36 @@ pub struct PromptTransformer;
 impl AstTransformer for PromptTransformer {
     fn transform<'a>(&self, node: &'a AstNode<'a>) {
         use comrak::nodes::NodeValue;
+        use regex::Regex;
+
+        let command_prompt_re = Regex::new(r"^\s*\$\s+(.+)$").unwrap();
+        let repl_prompt_re = Regex::new(r"^nix-repl>\s*(.*)$").unwrap();
+
         for child in node.children() {
             {
                 let mut data = child.data.borrow_mut();
                 if let NodeValue::Code(ref code) = data.value {
                     let literal = code.literal.trim();
 
-                    // Only match command prompts: "$ command" (with space after $)
-                    if literal.starts_with("$ ")
-                        && !literal.starts_with("\\$")
-                        && !literal.starts_with("$$")
-                    {
-                        let rest = literal.strip_prefix("$ ").unwrap();
-                        let html = format!(
-                            "<code class=\"terminal\"><span class=\"prompt\">$</span> {rest}</code>"
-                        );
-                        data.value = NodeValue::HtmlInline(html);
-                    } else if literal.starts_with("nix-repl>") && !literal.starts_with("nix-repl>>")
-                    {
-                        let rest = literal.strip_prefix("nix-repl>").unwrap().trim_start();
-                        let html = format!(
-                            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {rest}</code>"
-                        );
-                        data.value = NodeValue::HtmlInline(html);
+                    // Match command prompts with flexible whitespace
+                    if let Some(caps) = command_prompt_re.captures(literal) {
+                        // Skip escaped prompts
+                        if !literal.starts_with("\\$") && !literal.starts_with("$$") {
+                            let command = caps[1].trim();
+                            let html = format!(
+                                "<code class=\"terminal\"><span class=\"prompt\">$</span> {command}</code>"
+                            );
+                            data.value = NodeValue::HtmlInline(html);
+                        }
+                    } else if let Some(caps) = repl_prompt_re.captures(literal) {
+                        // Skip double prompts
+                        if !literal.starts_with("nix-repl>>") {
+                            let expression = caps[1].trim();
+                            let html = format!(
+                                "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {expression}</code>"
+                            );
+                            data.value = NodeValue::HtmlInline(html);
+                        }
                     }
                 }
             }
