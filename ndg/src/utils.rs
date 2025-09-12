@@ -211,7 +211,10 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
                 }
                 let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
                 let result = processor.render(&content);
-                let html_content = result.html;
+
+                // Apply syntax highlighting to code blocks in HTML using ndg-commonmark logic
+                let highlighted_html = processor.highlight_codeblocks(&result.html);
+
                 let headers = result.headers;
                 let title = result.title;
                 let input_dir = config.input_dir.as_ref().expect("input_dir required");
@@ -223,7 +226,7 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
 
                 let html = template::render(
                     config,
-                    &html_content,
+                    &highlighted_html,
                     title.as_deref().unwrap_or(&config.title),
                     &headers,
                     rel_path,

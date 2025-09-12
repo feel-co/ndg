@@ -1,5 +1,8 @@
-pub use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
 
 use comrak::{
     Arena, ComrakOptions,
@@ -8,6 +11,11 @@ use comrak::{
 };
 use log::trace;
 use markup5ever::{local_name, ns};
+use syntect::{
+    highlighting::{Theme, ThemeSet},
+    html::highlighted_html_for_string,
+    parsing::SyntaxSet,
+};
 use walkdir::WalkDir;
 
 use crate::{
@@ -29,6 +37,9 @@ pub struct MarkdownOptions {
 
     /// Optional: Path to manpage URL mappings (for {manpage} roles).
     pub manpage_urls_path: Option<String>,
+
+    /// Optional: Custom syntax highlighting theme name (must be present in syntect's ThemeSet)
+    pub highlight_theme: Option<String>,
 }
 
 impl Default for MarkdownOptions {
@@ -38,6 +49,7 @@ impl Default for MarkdownOptions {
             nixpkgs: cfg!(feature = "nixpkgs"),
             highlight_code: true,
             manpage_urls_path: None,
+            highlight_theme: None,
         }
     }
 }
@@ -60,6 +72,80 @@ impl MarkdownProcessor {
             options,
             manpage_urls,
         }
+    }
+
+    /// Highlight all code blocks in HTML using syntect
+    pub fn highlight_codeblocks(&self, html: &str) -> String {
+        use kuchikikiki::parse_html;
+        use tendril::TendrilSink;
+
+        let document = parse_html().one(html);
+        for pre_node in document.select("pre > code").unwrap() {
+            let code_node = pre_node.as_node();
+            if let Some(element) = code_node.as_element() {
+                let class_attr = element
+                    .attributes
+                    .borrow()
+                    .get("class")
+                    .map(|s| s.to_string());
+                let language = class_attr
+                    .as_deref()
+                    .and_then(|s| s.strip_prefix("language-"))
+                    .unwrap_or("txt");
+                let code_text = code_node.text_contents();
+
+                if let Some(highlighted) = self.highlight_code_html(&code_text, language) {
+                    // Replace <code>...</code> with highlighted HTML
+                    // We wrap in <pre> for CSS compatibility
+                    let parent = code_node.parent().unwrap();
+                    let new_html = format!("<pre>{}</pre>", highlighted);
+                    let fragment = parse_html().one(new_html.as_str());
+                    parent.insert_after(fragment);
+                    parent.detach();
+                }
+            }
+        }
+        let mut buf = Vec::new();
+        document.serialize(&mut buf).unwrap();
+        String::from_utf8(buf).unwrap_or_default()
+    }
+
+    /// Get the syntect SyntaxSet (cached, thread-safe)
+    fn syntax_set() -> &'static SyntaxSet {
+        static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
+        SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
+    }
+
+    /// Get the syntect Theme (cached, thread-safe, supports user override)
+    fn theme(&self) -> &'static Theme {
+        static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
+        let theme_set = THEME_SET.get_or_init(ThemeSet::load_defaults);
+
+        // Use user-specified theme if present, else InspiredGitHub
+        let theme_name = self
+            .options
+            .highlight_theme
+            .as_deref()
+            .unwrap_or("InspiredGitHub");
+        theme_set.themes.get(theme_name).unwrap_or_else(|| {
+            theme_set
+                .themes
+                .get("InspiredGitHub")
+                .expect("Default theme missing")
+        })
+    }
+
+    /// Highlight code using syntect, returns HTML string
+    fn highlight_code_html(&self, code: &str, language: &str) -> Option<String> {
+        if !self.options.highlight_code {
+            return None;
+        }
+        let syntax_set = Self::syntax_set();
+        let syntax = syntax_set
+            .find_syntax_by_token(language)
+            .unwrap_or_else(|| syntax_set.find_syntax_plain_text());
+        let theme = self.theme();
+        highlighted_html_for_string(code, syntax_set, syntax, theme).ok()
     }
 
     /// Render Markdown to HTML, extracting headers and title.

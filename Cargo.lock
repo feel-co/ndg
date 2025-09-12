@@ -935,6 +935,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "syntect",
  "tempfile",
  "tendril",
  "walkdir",
