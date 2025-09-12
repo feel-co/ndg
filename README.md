@@ -18,6 +18,31 @@ on top of Github Flavored Markdown (GFM). While ndg-commonmark is not exactly
 designed for public usage, it was designed with possible users in mind and the
 API is generously documented.
 
+### ndg
+
+ndg; or, "Not a Docs Generator" is a in-house documentation utility for Nix and
+Nix adjacent projects. It aims to be more batteries included compared to nixpkgs
+tooling, and offers a higher degree of customization as well as better error
+handling, more graceful error recovery and room for extension.
+
+While the main focus of this tool is to generate documentation for NixOS
+modules, you can _easily_ use it as a MdBook replacement in your projects. ndg
+offers a flexible parser and configuration options to allow designing documents
+for your projects.
+
+### ndg-commonmark
+
+While designing ndg, a lot of Markdown processing functionality had to be baked
+in because there is no library that helps you parse nixpkgs-flavored Markdown in
+your tools. The official documentation generator, `nixos-render-docs`, uses an
+in-house tokenizer that is not formally available elsewhere. This lack in the
+ecosystem lead to the eventual filtering out of ndg's Markdown parser while
+increasing its robustness and compatibility with 3rd party tooling.
+
+You may integrate ndg-commonmark in your utilities to implement your own,
+opinionated and unique documentation generators if ndg is not up your alley. We
+don't judge.
+
 ## Contributing
 
 Please understand that our projects are designed with our use-cases in mind.
