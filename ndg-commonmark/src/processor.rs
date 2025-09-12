@@ -715,6 +715,7 @@ impl MarkdownProcessor {
                         format!("<span class=\"manpage-reference\">{content}</span>")
                     }
                 } else {
+                    // Fallback: mapping file missing or malformed
                     format!("<span class=\"manpage-reference\">{content}</span>")
                 }
             }
