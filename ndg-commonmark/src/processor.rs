@@ -1010,7 +1010,7 @@ impl MarkdownProcessor {
                         kuchiki::ExpandedName::new("", "id"),
                         kuchiki::Attribute {
                             prefix: None,
-                            value: id.into(),
+                            value: id,
                         },
                     ),
                     (
@@ -1232,7 +1232,7 @@ impl MarkdownProcessor {
                                     kuchiki::ExpandedName::new("", "id"),
                                     kuchiki::Attribute {
                                         prefix: None,
-                                        value: id.into(),
+                                        value: id,
                                     },
                                 ),
                                 (
@@ -1283,7 +1283,7 @@ impl MarkdownProcessor {
                     .attributes
                     .borrow()
                     .get(local_name!("href"))
-                    .map(|s| s.to_string());
+                    .map(std::string::ToString::to_string);
                 let text_content = link_element.text_contents();
 
                 if let Some(href_value) = href {

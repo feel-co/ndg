@@ -5,8 +5,6 @@ use regex::Regex;
 
 use crate::utils::process_html_elements;
 
-/// Common regex patterns used across markdown and manpage generation
-
 /// Terminal command prompt patterns
 pub static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
@@ -58,12 +56,20 @@ pub static MANPAGE_REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// It will never match any input, which is safer than using a trivial regex
 /// like `^$` which would match empty strings.
 #[must_use]
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `utils::never_matching_regex()` from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn never_matching_regex() -> Regex {
     // Use a pattern that will never match anything because it asserts something impossible
     Regex::new(r"[^\s\S]").expect("Failed to compile never-matching regex")
 }
 
-/// Capitalize the first letter of a string
+/// Capitalize the first character of a string
+#[deprecated(
+    since = "0.4.0",
+    note = "Use standard string manipulation or `MarkdownProcessor` from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn capitalize_first(s: &str) -> String {
     let mut chars = s.chars();
     chars.next().map_or_else(String::new, |c| {
@@ -71,10 +77,14 @@ pub fn capitalize_first(s: &str) -> String {
     })
 }
 
-/// Process manpage references, optionally with URL links
+/// Process manpage references in text, adding links if URLs are available
 ///
 /// Handles formatting differently for HTML vs troff output
 #[must_use]
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` with manpage URL configuration from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn process_manpage_references(
     text: String,
     manpage_urls: Option<&HashMap<String, String>>,
@@ -153,6 +163,10 @@ pub fn process_manpage_references(
 }
 
 /// Format terminal command prompts ($ command)
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module which handles command prompts automatically. This legacy function will be removed in a future version."
+)]
 pub fn process_command_prompts(text: &str, is_html: bool) -> String {
     if is_html {
         COMMAND_PROMPT
@@ -172,6 +186,10 @@ pub fn process_command_prompts(text: &str, is_html: bool) -> String {
 }
 
 /// Format nix REPL prompts (nix-repl> expr)
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module which handles REPL prompts automatically. This legacy function will be removed in a future version."
+)]
 pub fn process_repl_prompts(text: &str, is_html: bool) -> String {
     if is_html {
         REPL_PROMPT
@@ -193,6 +211,10 @@ pub fn process_repl_prompts(text: &str, is_html: bool) -> String {
 }
 
 /// Format inline code blocks with backticks
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module which handles inline code automatically. This legacy function will be removed in a future version."
+)]
 pub fn process_inline_code(text: &str, is_html: bool) -> String {
     if is_html {
         // For HTML, the markdown processor typically handles this
@@ -210,6 +232,10 @@ pub fn process_inline_code(text: &str, is_html: bool) -> String {
 /// Apply markup processing to text with safe handling of potential errors
 ///
 /// This is proof that I can learn from my mistakes sometimes.
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `utils::safely_process_markup()` from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn safely_process_markup<F>(text: &str, process_fn: F, default_on_error: &str) -> String
 where
     F: FnOnce(&str) -> String,

@@ -94,6 +94,10 @@ pub static EXPLICIT_ANCHOR_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(#+)\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?\s*$").unwrap());
 
 /// Collect all markdown files from the input directory
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn collect_markdown_files(input_dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::with_capacity(100);
 
@@ -114,6 +118,10 @@ pub fn collect_markdown_files(input_dir: &Path) -> Vec<PathBuf> {
 
 /// Process a single markdown file
 /// Returns (`html_content`, headers, title) for the given file.
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor::new().render()` from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn process_markdown_file(
     file_path: &Path,
     manpage_urls: Option<&HashMap<String, String>>,
@@ -152,6 +160,10 @@ pub fn process_markdown_file(
 
 /// Process Markdown content with NixOS/nixpkgs extensions
 #[must_use]
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor::new().render()` from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn process_markdown(
     content: &str,
     manpage_urls: Option<&HashMap<String, String>>,
@@ -198,6 +210,10 @@ pub fn process_markdown(
 
 /// Process include directives in markdown files
 #[must_use]
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` with file includes enabled from the new processor module instead. This legacy function will be removed in a future version."
+)]
 pub fn process_file_includes(content: &str, base_dir: &std::path::Path) -> String {
     #[cfg(feature = "nixpkgs")]
     {
@@ -210,6 +226,10 @@ pub fn process_file_includes(content: &str, base_dir: &std::path::Path) -> Strin
 }
 
 /// Process inline anchors by wrapping them in a span with appropriate id
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module which handles inline anchors automatically. This legacy function will be removed in a future version."
+)]
 pub fn preprocess_inline_anchors(content: &str) -> String {
     // First handle list items with anchors at the beginning
     let mut result = String::with_capacity(content.len() + 100);
@@ -243,6 +263,10 @@ pub fn preprocess_inline_anchors(content: &str) -> String {
 }
 
 /// Process headers with explicit anchors
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module which handles headers automatically. This legacy function will be removed in a future version."
+)]
 pub fn preprocess_headers(content: &str) -> String {
     let mut lines = vec![];
 
@@ -273,6 +297,10 @@ pub fn preprocess_headers(content: &str) -> String {
 
 /// Preprocess block elements like admonitions, figures, and definition lists
 #[must_use]
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module which handles block elements automatically. This legacy function will be removed in a future version."
+)]
 pub fn preprocess_block_elements(content: &str) -> String {
     let mut processed_lines = Vec::new();
     let mut lines = content.lines().peekable();
@@ -280,6 +308,10 @@ pub fn preprocess_block_elements(content: &str) -> String {
     processed_lines.join("\n")
 }
 
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `MarkdownProcessor` from the new processor module which handles admonitions automatically. This legacy function will be removed in a future version."
+)]
 pub fn process_admonitions(lines: &mut Peekable<Lines>, processed_lines: &mut Vec<String>) {
     let mut in_admonition = false;
     let mut admonition_content = String::new();
