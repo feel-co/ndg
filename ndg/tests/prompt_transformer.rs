@@ -9,7 +9,7 @@ fn render_html_after_transform(markdown: &str, transformer: &dyn AstTransformer)
     options.extension.footnotes = true;
     options.extension.strikethrough = true;
     options.extension.tasklist = true;
-    options.extension.header_ids = Some("".to_string());
+    options.extension.header_ids = Some(String::new());
     options.render.unsafe_ = true;
 
     let root = parse_document(&arena, markdown, &options);

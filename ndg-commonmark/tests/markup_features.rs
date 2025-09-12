@@ -5,21 +5,17 @@ fn assert_html_contains(html: &str, expected: &[&str]) {
     for &needle in expected {
         assert!(
             html.contains(needle),
-            "Expected HTML to contain '{}', but it did not.\nFull HTML:\n{}",
-            needle,
-            html
+            "Expected HTML to contain '{needle}', but it did not.\nFull HTML:\n{html}"
         );
     }
 }
 
-/// Like assert_html_contains, but requires the fragment to appear exactly as-is (not just as a substring).
+/// Like `assert_html_contains`, but requires the fragment to appear exactly as-is (not just as a substring).
 fn assert_html_exact(html: &str, expected: &[&str]) {
     for &fragment in expected {
         assert!(
             html.contains(fragment),
-            "Expected HTML to contain exact fragment '{}', but it did not.\nFull HTML:\n{}",
-            fragment,
-            html
+            "Expected HTML to contain exact fragment '{fragment}', but it did not.\nFull HTML:\n{html}"
         );
     }
 }
@@ -107,8 +103,7 @@ fn test_explicit_header_anchor() {
     let html = ndg_html(md);
     assert!(
         html.contains(r#"<h2 id="sec">"#) && html.contains("Section</h2>"),
-        "Expected HTML to contain <h2 id=\"sec\">...Section</h2>, got:\n{}",
-        html
+        "Expected HTML to contain <h2 id=\"sec\">...Section</h2>, got:\n{html}"
     );
 }
 
@@ -119,8 +114,7 @@ fn test_explicit_header_anchor_trailing_whitespace() {
     let html = ndg_html(md);
     assert!(
         html.contains(r#"<h3 id="weird-anchor">"#) && html.contains("Weird Header"),
-        "Expected HTML to contain <h3 id=\"weird-anchor\">...Weird Header..., got:\n{}",
-        html
+        "Expected HTML to contain <h3 id=\"weird-anchor\">...Weird Header..., got:\n{html}"
     );
 }
 
@@ -131,8 +125,7 @@ fn test_explicit_header_anchor_special_chars() {
     let html = ndg_html(md);
     assert!(
         html.contains(r#"<h2 id="special_123">"#) && html.contains("Header! With @Special #Chars"),
-        "Expected HTML to contain <h2 id=\"special_123\">...Header! With @Special #Chars..., got:\n{}",
-        html
+        "Expected HTML to contain <h2 id=\"special_123\">...Header! With @Special #Chars..., got:\n{html}"
     );
 }
 
@@ -170,8 +163,7 @@ fn test_figure_block() {
             && html.contains(r#"<p class="admonition-title">Figure</p>"#)
             && html.contains("Figure Title")
             && html.contains("Figure content"),
-        "Expected HTML to contain admonition-style figure, got:\n{}",
-        html
+        "Expected HTML to contain admonition-style figure, got:\n{html}"
     );
 }
 
@@ -191,15 +183,14 @@ fn test_option_reference() {
     let html = ndg_html(md);
     // Option references may be rendered as <code> or as a link depending on context
     assert!(
-        html.contains(r#"<code>foo.bar.baz</code>"#) || html.contains(r#"option-foo-bar-baz"#),
-        "Expected option reference in HTML, got:\n{}",
-        html
+        html.contains(r"<code>foo.bar.baz</code>") || html.contains(r"option-foo-bar-baz"),
+        "Expected option reference in HTML, got:\n{html}"
     );
 }
 
 #[test]
 fn test_myst_role_markup() {
-    let md = r#"{command}`foo`"#;
+    let md = r"{command}`foo`";
     let html = ndg_commonmark::processor::MarkdownProcessor::new(
         ndg_commonmark::processor::MarkdownOptions::default(),
     )
@@ -213,7 +204,7 @@ fn test_manpage_role_with_url() {
 
     use tempfile::tempdir;
 
-    let md = r#"{manpage}`cat(1)`"#;
+    let md = r"{manpage}`cat(1)`";
     let dir = tempdir().unwrap();
     let json_path = dir.path().join("manpage-urls.json");
     let mut file = File::create(&json_path).unwrap();
@@ -242,7 +233,7 @@ fn test_manpage_role_without_url() {
 
     use tempfile::tempdir;
 
-    let md = r#"{manpage}`doesnotexist(1)`"#;
+    let md = r"{manpage}`doesnotexist(1)`";
     let dir = tempdir().unwrap();
     let json_path = dir.path().join("manpage-urls.json");
     let mut file = File::create(&json_path).unwrap();
@@ -265,12 +256,12 @@ fn test_manpage_role_without_url() {
 
 #[test]
 fn test_role_markup_in_lists() {
-    let md = r#"- {command}`nixos-rebuild switch`
+    let md = r"- {command}`nixos-rebuild switch`
 - {env}`HOME`
 - {file}`/etc/nixos/configuration.nix`
 - {option}`services.nginx.enable`
 - {var}`pkgs`
-- {manpage}`nix.conf(5)`"#;
+- {manpage}`nix.conf(5)`";
     let html = ndg_commonmark::processor::MarkdownProcessor::new(
         ndg_commonmark::processor::MarkdownOptions::default(),
     )
@@ -307,7 +298,7 @@ fn test_role_markup_in_lists() {
 #[test]
 fn test_role_markup_edge_cases() {
     // Test role with special characters
-    let md = r#"{file}`/path/with-dashes_and.dots`"#;
+    let md = r"{file}`/path/with-dashes_and.dots`";
     let html = ndg_commonmark::processor::MarkdownProcessor::new(
         ndg_commonmark::processor::MarkdownOptions::default(),
     )
@@ -318,7 +309,7 @@ fn test_role_markup_edge_cases() {
     );
 
     // Test role with spaces
-    let md = r#"{command}`ls -la | grep test`"#;
+    let md = r"{command}`ls -la | grep test`";
     let html = ndg_commonmark::processor::MarkdownProcessor::new(
         ndg_commonmark::processor::MarkdownOptions::default(),
     )
@@ -329,7 +320,7 @@ fn test_role_markup_edge_cases() {
     );
 
     // Test unknown role type
-    let md = r#"{unknown}`content`"#;
+    let md = r"{unknown}`content`";
     let html = ndg_commonmark::processor::MarkdownProcessor::new(
         ndg_commonmark::processor::MarkdownOptions::default(),
     )
@@ -340,12 +331,12 @@ fn test_role_markup_edge_cases() {
 #[test]
 fn test_reported_issue_regression() {
     // This test verifies the exact issue reported by the user
-    let md = r#"- {command}`nixos-rebuild switch`
+    let md = r"- {command}`nixos-rebuild switch`
 - {env}`HOME`
 - {file}`/etc/nixos/configuration.nix`
 - {option}`services.nginx.enable`
 - {var}`pkgs`
-- {manpage}`nix.conf(5)`"#;
+- {manpage}`nix.conf(5)`";
     let html = ndg_html(md);
 
     // Verify correct HTML structure with proper list items
@@ -408,8 +399,7 @@ fn test_raw_inline_anchor() {
     let html = ndg_html(md);
     assert!(
         html.contains(r#"<span class="nixos-anchor" id="anchor"></span>"#),
-        "Expected HTML to contain raw inline anchor, got:\n{}",
-        html
+        "Expected HTML to contain raw inline anchor, got:\n{html}"
     );
 }
 
@@ -463,8 +453,7 @@ Here is an inline footnote.^[This is inline.]
             && html.contains("footnote")
             && html.contains("fnref")
             && html.contains("data-footnote-backref"),
-        "Expected HTML to contain all footnote texts and footnote references. Got:\n{}",
-        html
+        "Expected HTML to contain all footnote texts and footnote references. Got:\n{html}"
     );
 
     // Test missing footnote definition (should render a link or marker)
@@ -472,7 +461,6 @@ Here is an inline footnote.^[This is inline.]
     let html_missing = ndg_html(md_missing);
     assert!(
         html_missing.contains("missing"),
-        "Expected HTML to mention missing footnote reference. Got:\n{}",
-        html_missing
+        "Expected HTML to mention missing footnote reference. Got:\n{html_missing}"
     );
 }

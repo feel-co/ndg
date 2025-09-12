@@ -6,7 +6,7 @@ use regex::Regex;
 /// Slugify a string for use as an anchor ID.
 /// Converts to lowercase, replaces non-alphanumeric characters with dashes,
 /// and trims leading/trailing dashes.
-pub fn slugify(text: &str) -> String {
+#[must_use] pub fn slugify(text: &str) -> String {
     text.to_lowercase()
         .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-")
         .trim_matches('-')
@@ -15,7 +15,7 @@ pub fn slugify(text: &str) -> String {
 
 /// Extract the first heading from markdown content as the page title.
 /// Returns None if no heading is found.
-pub fn extract_markdown_title(content: &str) -> Option<String> {
+#[must_use] pub fn extract_markdown_title(content: &str) -> Option<String> {
     let arena = Arena::new();
     let mut options = ComrakOptions::default();
     options.extension.table = true;
@@ -48,7 +48,7 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 }
 
 /// Apply a regex transformation to HTML elements using the provided function.
-/// Used by both legacy_markup and legacy_markdown modules.
+/// Used by both `legacy_markup` and `legacy_markdown` modules.
 pub fn process_html_elements<F>(html: &str, regex: &Regex, transform: F) -> String
 where
     F: Fn(&regex::Captures) -> String,
@@ -68,7 +68,7 @@ pub fn capitalize_first(s: &str) -> String {
 }
 
 /// Return true if the string looks like a markdown header (starts with #).
-pub fn is_markdown_header(line: &str) -> bool {
+#[must_use] pub fn is_markdown_header(line: &str) -> bool {
     line.trim_start().starts_with('#')
 }
 

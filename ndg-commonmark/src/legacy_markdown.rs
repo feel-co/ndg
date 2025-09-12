@@ -113,7 +113,7 @@ pub fn collect_markdown_files(input_dir: &Path) -> Vec<PathBuf> {
 }
 
 /// Process a single markdown file
-/// Returns (html_content, headers, title) for the given file.
+/// Returns (`html_content`, headers, title) for the given file.
 pub fn process_markdown_file(
     file_path: &Path,
     manpage_urls: Option<&HashMap<String, String>>,
@@ -151,7 +151,7 @@ pub fn process_markdown_file(
 }
 
 /// Process Markdown content with NixOS/nixpkgs extensions
-pub fn process_markdown(
+#[must_use] pub fn process_markdown(
     content: &str,
     manpage_urls: Option<&HashMap<String, String>>,
     title: Option<&str>,
@@ -191,12 +191,12 @@ pub fn process_markdown(
     (
         processed_html,
         headers,
-        found_title.or_else(|| title.map(|s| s.to_string())),
+        found_title.or_else(|| title.map(std::string::ToString::to_string)),
     )
 }
 
 /// Process include directives in markdown files
-pub fn process_file_includes(content: &str, base_dir: &std::path::Path) -> String {
+#[must_use] pub fn process_file_includes(content: &str, base_dir: &std::path::Path) -> String {
     #[cfg(feature = "nixpkgs")]
     {
         crate::extensions::apply_nixpkgs_extensions(content, base_dir)
@@ -270,7 +270,7 @@ pub fn preprocess_headers(content: &str) -> String {
 }
 
 /// Preprocess block elements like admonitions, figures, and definition lists
-pub fn preprocess_block_elements(content: &str) -> String {
+#[must_use] pub fn preprocess_block_elements(content: &str) -> String {
     let mut processed_lines = Vec::new();
     let mut lines = content.lines().peekable();
     process_admonitions(&mut lines, &mut processed_lines);
@@ -530,7 +530,7 @@ fn convert_to_html(text: &str) -> String {
             options.extension.footnotes = cfg!(feature = "gfm") || cfg!(feature = "nixpkgs");
             options.extension.strikethrough = true;
             options.extension.tasklist = true;
-            options.extension.header_ids = Some("".to_string());
+            options.extension.header_ids = Some(String::new());
             options.render.unsafe_ = true;
 
             let root = parse_document(&arena, text, &options);
@@ -569,22 +569,20 @@ impl AstTransformer for PromptTransformer {
                     let literal = code.literal.trim();
 
                     // Only match a single unescaped $ at the start, and trim whitespace after prompt
-                    if literal.starts_with("$")
+                    if literal.starts_with('$')
                         && !literal.starts_with("\\$")
                         && !literal.starts_with("$$")
                     {
                         let rest = literal.strip_prefix("$").unwrap().trim_start();
                         let html = format!(
-                            "<code class=\"terminal\"><span class=\"prompt\">$</span> {}</code>",
-                            rest
+                            "<code class=\"terminal\"><span class=\"prompt\">$</span> {rest}</code>"
                         );
                         data.value = NodeValue::HtmlInline(html);
                     } else if literal.starts_with("nix-repl>") && !literal.starts_with("nix-repl>>")
                     {
                         let rest = literal.strip_prefix("nix-repl>").unwrap().trim_start();
                         let html = format!(
-                            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {}</code>",
-                            rest
+                            "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> {rest}</code>"
                         );
                         data.value = NodeValue::HtmlInline(html);
                     }

@@ -5,7 +5,7 @@ use comrak::nodes::AstNode;
 /// Calculate the relative path prefix needed to reach the root from a given file path
 /// For example: "docs/subdir/file.html" would return "../"
 ///              "docs/subdir/nested/file.html" would return "../../"
-pub fn calculate_root_relative_path(file_rel_path: &Path) -> String {
+#[must_use] pub fn calculate_root_relative_path(file_rel_path: &Path) -> String {
     let depth = file_rel_path.components().count();
     if depth <= 1 {
         String::new() // file is at root level
@@ -15,27 +15,27 @@ pub fn calculate_root_relative_path(file_rel_path: &Path) -> String {
 }
 
 /// Generate proper asset paths for templates based on file location
-pub fn generate_asset_paths(file_rel_path: &Path) -> HashMap<&'static str, String> {
+#[must_use] pub fn generate_asset_paths(file_rel_path: &Path) -> HashMap<&'static str, String> {
     let root_prefix = calculate_root_relative_path(file_rel_path);
 
     let mut paths = HashMap::new();
     paths.insert(
         "stylesheet_path",
-        format!("{}assets/style.css", root_prefix),
+        format!("{root_prefix}assets/style.css"),
     );
-    paths.insert("main_js_path", format!("{}assets/main.js", root_prefix));
-    paths.insert("search_js_path", format!("{}assets/search.js", root_prefix));
+    paths.insert("main_js_path", format!("{root_prefix}assets/main.js"));
+    paths.insert("search_js_path", format!("{root_prefix}assets/search.js"));
 
     // Navigation paths
-    paths.insert("index_path", format!("{}index.html", root_prefix));
-    paths.insert("options_path", format!("{}options.html", root_prefix));
-    paths.insert("search_path", format!("{}search.html", root_prefix));
+    paths.insert("index_path", format!("{root_prefix}index.html"));
+    paths.insert("options_path", format!("{root_prefix}options.html"));
+    paths.insert("search_path", format!("{root_prefix}search.html"));
 
     paths
 }
 
 /// Strip markdown to get plain text
-pub fn strip_markdown(content: &str) -> String {
+#[must_use] pub fn strip_markdown(content: &str) -> String {
     use comrak::{Arena, ComrakOptions};
     let arena = Arena::new();
     let mut options = ComrakOptions::default();
@@ -81,7 +81,7 @@ pub fn strip_markdown(content: &str) -> String {
 }
 
 /// Process content through the markdown pipeline and extract plain text
-pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
+#[must_use] pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
     let (html, ..) = ndg_commonmark::legacy_markdown::process_markdown(
         content,
         None,

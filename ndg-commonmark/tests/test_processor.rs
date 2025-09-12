@@ -4,12 +4,12 @@ use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 fn test_new_processor_role_markup_in_lists() {
     let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
-    let md = r#"- {command}`nixos-rebuild switch`
+    let md = r"- {command}`nixos-rebuild switch`
 - {env}`HOME`
 - {file}`/etc/nixos/configuration.nix`
 - {option}`services.nginx.enable`
 - {var}`pkgs`
-- {manpage}`nix.conf(5)`"#;
+- {manpage}`nix.conf(5)`";
 
     let result = processor.render(md);
     let html = result.html;
@@ -34,7 +34,7 @@ fn test_new_processor_role_markup_in_lists() {
 fn test_new_processor_option_reference_edge_case() {
     let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
-    let md = r#"- `hjem.<user>.home` is where user home resides!"#;
+    let md = r"- `hjem.<user>.home` is where user home resides!";
 
     let result = processor.render(md);
     let html = result.html;
@@ -43,7 +43,7 @@ fn test_new_processor_option_reference_edge_case() {
     assert!(!html.contains(r#"<a class="option-reference""#));
     assert!(
         html.contains(
-            r#"<li><code>hjem.&lt;user&gt;.home</code> is where user home resides!</li>"#
+            r"<li><code>hjem.&lt;user&gt;.home</code> is where user home resides!</li>"
         )
     );
 }
@@ -52,11 +52,11 @@ fn test_new_processor_option_reference_edge_case() {
 fn test_new_processor_valid_vs_invalid_options() {
     let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
-    let md = r#"Valid: `services.nginx.enable`
+    let md = r"Valid: `services.nginx.enable`
 Invalid: `some/path.conf`
 Invalid: `$HOME.config`
 Invalid: `file.name.ext`
-Valid: `boot.loader.systemd-boot.enable`"#;
+Valid: `boot.loader.systemd-boot.enable`";
 
     let result = processor.render(md);
     let html = result.html;
@@ -66,22 +66,22 @@ Valid: `boot.loader.systemd-boot.enable`"#;
     assert!(html.contains(r#"<a class="option-reference" href="options.html#option-boot-loader-systemd-boot-enable"><code>boot.loader.systemd-boot.enable</code></a>"#));
 
     // These should remain as plain code
-    assert!(html.contains(r#"<code>some/path.conf</code>"#));
-    assert!(html.contains(r#"<code>$HOME.config</code>"#));
-    assert!(html.contains(r#"<code>file.name.ext</code>"#));
+    assert!(html.contains(r"<code>some/path.conf</code>"));
+    assert!(html.contains(r"<code>$HOME.config</code>"));
+    assert!(html.contains(r"<code>file.name.ext</code>"));
 }
 
 #[test]
 fn test_new_processor_headers_and_title() {
     let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
-    let md = r#"# Main Title
+    let md = r"# Main Title
 
 ## Section One
 
 ### Subsection
 
-## Section Two"#;
+## Section Two";
 
     let result = processor.render(md);
 

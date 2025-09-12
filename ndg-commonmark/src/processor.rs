@@ -46,8 +46,8 @@ pub struct MarkdownProcessor {
 }
 
 impl MarkdownProcessor {
-    /// Create a new MarkdownProcessor with the given options.
-    pub fn new(options: MarkdownOptions) -> Self {
+    /// Create a new `MarkdownProcessor` with the given options.
+    #[must_use] pub fn new(options: MarkdownOptions) -> Self {
         let manpage_urls = options
             .manpage_urls_path
             .as_ref()
@@ -59,7 +59,7 @@ impl MarkdownProcessor {
     }
 
     /// Render Markdown to HTML, extracting headers and title.
-    pub fn render(&self, markdown: &str) -> MarkdownResult {
+    #[must_use] pub fn render(&self, markdown: &str) -> MarkdownResult {
         // 1. Preprocess (includes, block elements, headers, inline anchors, roles)
         let preprocessed = self.preprocess(markdown);
 
@@ -94,7 +94,7 @@ impl MarkdownProcessor {
     }
 
     /// Extract headers and title from the markdown content.
-    pub fn extract_headers(&self, content: &str) -> (Vec<Header>, Option<String>) {
+    #[must_use] pub fn extract_headers(&self, content: &str) -> (Vec<Header>, Option<String>) {
         let arena = Arena::new();
         let options = self.comrak_options();
 
@@ -137,7 +137,7 @@ impl MarkdownProcessor {
                         NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
                         NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
                         NodeValue::FootnoteReference(..) => {
-                            text.push_str(&extract_inline_text(child))
+                            text.push_str(&extract_inline_text(child));
                         }
                         NodeValue::HtmlInline(html) => {
                             // Look for explicit anchor in HTML inline node: {#id}
@@ -201,7 +201,7 @@ impl MarkdownProcessor {
         String::from_utf8(html_output).unwrap_or_default()
     }
 
-    /// Build comrak options from MarkdownOptions and feature flags.
+    /// Build comrak options from `MarkdownOptions` and feature flags.
     fn comrak_options(&self) -> ComrakOptions {
         let mut options = ComrakOptions::default();
         if self.options.gfm {
@@ -217,7 +217,7 @@ impl MarkdownProcessor {
 
     /// Process role markup
     /// Handles patterns like {command}`ls -l` and {option}`services.nginx.enable`.
-    pub fn process_role_markup(&self, content: &str) -> String {
+    #[must_use] pub fn process_role_markup(&self, content: &str) -> String {
         let mut result = String::with_capacity(content.len());
         let mut chars = content.chars().peekable();
 
@@ -279,9 +279,8 @@ impl MarkdownProcessor {
             if ch == '`' {
                 // Found closing backtick, process the role
                 return Some(self.format_role_markup(&role_name, &content));
-            } else {
-                content.push(ch);
             }
+            content.push(ch);
         }
 
         // No closing backtick found
@@ -289,7 +288,7 @@ impl MarkdownProcessor {
     }
 
     /// Format the role markup as HTML based on the role type and content.
-    pub fn format_role_markup(&self, role_type: &str, content: &str) -> String {
+    #[must_use] pub fn format_role_markup(&self, role_type: &str, content: &str) -> String {
         match role_type {
             "manpage" => {
                 if let Some(ref urls) = self.manpage_urls {
@@ -363,7 +362,7 @@ fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
 /// # Returns
 ///
 /// The HTML string with option references rewritten as links.
-pub fn process_option_references(html: &str) -> String {
+#[must_use] pub fn process_option_references(html: &str) -> String {
     use kuchiki::{Attribute, ExpandedName, NodeRef};
     use markup5ever::{QualName, local_name, namespace_url, ns};
     use tendril::TendrilSink;
@@ -445,11 +444,11 @@ pub fn process_option_references(html: &str) -> String {
     String::from_utf8(out).unwrap_or_default()
 }
 
-/// Check if a string looks like a NixOS option reference
+/// Check if a string looks like a `NixOS` option reference
 fn is_nixos_option_reference(text: &str) -> bool {
     // Must have at least 2 dots and no whitespace
     let dot_count = text.chars().filter(|&c| c == '.').count();
-    if dot_count < 2 || text.chars().any(|c| c.is_whitespace()) {
+    if dot_count < 2 || text.chars().any(char::is_whitespace) {
         return false;
     }
 
@@ -459,7 +458,7 @@ fn is_nixos_option_reference(text: &str) -> bool {
     }
 
     // Must start with a letter (options don't start with numbers or special chars)
-    if !text.chars().next().is_some_and(|c| c.is_alphabetic()) {
+    if !text.chars().next().is_some_and(char::is_alphabetic) {
         return false;
     }
 

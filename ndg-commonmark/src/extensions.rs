@@ -2,7 +2,7 @@
 //! Extension logic for ndg-commonmark: GFM and Nixpkgs/NixOS flavored markdown.
 //!
 //! This module is intended to house all logic for feature-flagged extensions
-//! to the base CommonMark processor, including GitHub Flavored Markdown (GFM)
+//! to the base `CommonMark` processor, including GitHub Flavored Markdown (GFM)
 //! and Nixpkgs/NixOS documentation-specific syntax.
 
 /// Apply GitHub Flavored Markdown (GFM) extensions to the input markdown.

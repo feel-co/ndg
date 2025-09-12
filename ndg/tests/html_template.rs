@@ -34,8 +34,8 @@ fn create_detailed_option(
         name: name.to_string(),
         description: description.to_string(),
         type_name: type_name.to_string(),
-        default_text: default_text.map(|s| s.to_string()),
-        example_text: example_text.map(|s| s.to_string()),
+        default_text: default_text.map(std::string::ToString::to_string),
+        example_text: example_text.map(std::string::ToString::to_string),
         ..Default::default()
     }
 }

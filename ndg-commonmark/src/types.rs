@@ -18,7 +18,7 @@ pub struct MarkdownResult {
     /// Rendered HTML output.
     pub html: String,
 
-    /// Extracted headers (for ToC, navigation, etc).
+    /// Extracted headers (for `ToC`, navigation, etc).
     pub headers: Vec<Header>,
 
     /// Title of the document, if found (usually first H1).

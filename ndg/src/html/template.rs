@@ -63,43 +63,37 @@ pub fn render(
         "stylesheet_path",
         asset_paths
             .get("stylesheet_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/style.css"),
+            .map_or("assets/style.css", std::string::String::as_str),
     );
     tera_context.insert(
         "main_js_path",
         asset_paths
             .get("main_js_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/main.js"),
+            .map_or("assets/main.js", std::string::String::as_str),
     );
     tera_context.insert(
         "search_js_path",
         asset_paths
             .get("search_js_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/search.js"),
+            .map_or("assets/search.js", std::string::String::as_str),
     );
     tera_context.insert(
         "index_path",
         asset_paths
             .get("index_path")
-            .map(|s| s.as_str())
-            .unwrap_or("index.html"),
+            .map_or("index.html", std::string::String::as_str),
     );
     tera_context.insert(
         "options_path",
         asset_paths
             .get("options_path")
-            .map(|s| s.as_str())
-            .unwrap_or("options.html"),
+            .map_or("options.html", std::string::String::as_str),
     );
     tera_context.insert(
         "search_path",
         asset_paths
             .get("search_path")
-            .map(|s| s.as_str())
-            .unwrap_or("search.html"),
+            .map_or("search.html", std::string::String::as_str),
     );
 
     // Render the template
@@ -152,43 +146,37 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
         "stylesheet_path",
         asset_paths
             .get("stylesheet_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/style.css"),
+            .map_or("assets/style.css", std::string::String::as_str),
     );
     tera_context.insert(
         "main_js_path",
         asset_paths
             .get("main_js_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/main.js"),
+            .map_or("assets/main.js", std::string::String::as_str),
     );
     tera_context.insert(
         "search_js_path",
         asset_paths
             .get("search_js_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/search.js"),
+            .map_or("assets/search.js", std::string::String::as_str),
     );
     tera_context.insert(
         "index_path",
         asset_paths
             .get("index_path")
-            .map(|s| s.as_str())
-            .unwrap_or("index.html"),
+            .map_or("index.html", std::string::String::as_str),
     );
     tera_context.insert(
         "options_path",
         asset_paths
             .get("options_path")
-            .map(|s| s.as_str())
-            .unwrap_or("options.html"),
+            .map_or("options.html", std::string::String::as_str),
     );
     tera_context.insert(
         "search_path",
         asset_paths
             .get("search_path")
-            .map(|s| s.as_str())
-            .unwrap_or("search.html"),
+            .map_or("search.html", std::string::String::as_str),
     );
 
     // Render the template
@@ -399,43 +387,37 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
         "stylesheet_path",
         asset_paths
             .get("stylesheet_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/style.css"),
+            .map_or("assets/style.css", std::string::String::as_str),
     );
     tera_context.insert(
         "main_js_path",
         asset_paths
             .get("main_js_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/main.js"),
+            .map_or("assets/main.js", std::string::String::as_str),
     );
     tera_context.insert(
         "search_js_path",
         asset_paths
             .get("search_js_path")
-            .map(|s| s.as_str())
-            .unwrap_or("assets/search.js"),
+            .map_or("assets/search.js", std::string::String::as_str),
     );
     tera_context.insert(
         "index_path",
         asset_paths
             .get("index_path")
-            .map(|s| s.as_str())
-            .unwrap_or("index.html"),
+            .map_or("index.html", std::string::String::as_str),
     );
     tera_context.insert(
         "options_path",
         asset_paths
             .get("options_path")
-            .map(|s| s.as_str())
-            .unwrap_or("options.html"),
+            .map_or("options.html", std::string::String::as_str),
     );
     tera_context.insert(
         "search_path",
         asset_paths
             .get("search_path")
-            .map(|s| s.as_str())
-            .unwrap_or("search.html"),
+            .map_or("search.html", std::string::String::as_str),
     );
 
     // Render the template
@@ -533,10 +515,10 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                                         },
                                         |title| {
                                             // Clean the title of any inline anchors
-                                            let clean_title = anchor_pattern
+                                            
+                                            anchor_pattern
                                                 .replace_all(title.trim(), "")
-                                                .to_string();
-                                            clean_title
+                                                .to_string()
                                         },
                                     )
                                 },
@@ -546,8 +528,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
 
                     writeln!(
                         doc_nav,
-                        "<li><a href=\"{}\">{}</a></li>",
-                        target_path, page_title
+                        "<li><a href=\"{target_path}\">{page_title}</a></li>"
                     )
                     .expect("Failed to write to doc_nav string");
                 }
@@ -558,16 +539,14 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     // Add link to options page if module_options is configured
     if doc_nav.is_empty() && config.module_options.is_some() {
         doc_nav.push_str(&format!(
-            "<li><a href=\"{}options.html\">Module Options</a></li>\n",
-            root_prefix
+            "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>\n"
         ));
     }
 
     // Add search link only if search is enabled
     if config.generate_search {
         doc_nav.push_str(&format!(
-            "<li><a href=\"{}search.html\">Search</a></li>\n",
-            root_prefix
+            "<li><a href=\"{root_prefix}search.html\">Search</a></li>\n"
         ));
     }
 
@@ -586,8 +565,7 @@ fn generate_custom_scripts(config: &Config, current_file_rel_path: &Path) -> Res
         let script_relative_path = format!("{}{}", root_prefix, script_path.to_string_lossy());
         write!(
             custom_scripts,
-            "<script defer src=\"{}\"></script>",
-            script_relative_path
+            "<script defer src=\"{script_relative_path}\"></script>"
         )?;
     }
 

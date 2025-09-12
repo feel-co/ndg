@@ -66,11 +66,11 @@ fn test_header_with_html_inline() {
 
 #[test]
 fn test_multiple_headers_various_types() {
-    let md = r#"
+    let md = r"
 # First *header*
 ## Second with [link](#)
 ### Third with `code`
-"#;
+";
     let headers = extract_headers_from_markdown(md);
     assert_eq!(headers.len(), 3);
     assert_eq!(headers[0].text, "First header");

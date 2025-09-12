@@ -57,7 +57,7 @@ pub static MANPAGE_REFERENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// This is used as a fallback pattern when a regex fails to compile.
 /// It will never match any input, which is safer than using a trivial regex
 /// like `^$` which would match empty strings.
-pub fn never_matching_regex() -> Regex {
+#[must_use] pub fn never_matching_regex() -> Regex {
     // Use a pattern that will never match anything because it asserts something impossible
     Regex::new(r"[^\s\S]").expect("Failed to compile never-matching regex")
 }
@@ -73,7 +73,7 @@ pub fn capitalize_first(s: &str) -> String {
 /// Process manpage references, optionally with URL links
 ///
 /// Handles formatting differently for HTML vs troff output
-pub fn process_manpage_references(
+#[must_use] pub fn process_manpage_references(
     text: String,
     manpage_urls: Option<&HashMap<String, String>>,
     is_html: bool,
