@@ -29,11 +29,19 @@
 //! let processor = MarkdownProcessor::new(options);
 //! ```
 
-mod extensions;
 pub mod processor;
 mod types;
 pub mod utils;
 
+// Re-export extension functions for third-party use
+#[cfg(feature = "gfm")]
+pub use crate::processor::apply_gfm_extensions;
+#[cfg(feature = "ndg-flavored")]
+pub use crate::processor::process_option_references;
+#[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
+pub use crate::processor::process_role_markup;
+#[cfg(feature = "nixpkgs")]
+pub use crate::processor::{process_block_elements, process_file_includes, process_inline_anchors};
 pub use crate::{
     processor::{AstTransformer, MarkdownOptions, MarkdownProcessor},
     types::{Header, MarkdownResult},

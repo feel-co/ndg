@@ -559,7 +559,7 @@ fn process_roles(text: &str) -> String {
     // output format
     let options = ndg_commonmark::processor::MarkdownOptions::default();
     let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
-    ndg_commonmark::process_role_markup_standalone(text, processor.manpage_urls())
+    ndg_commonmark::process_role_markup(text, processor.manpage_urls())
 }
 
 /// Process command prompts ($ command)
