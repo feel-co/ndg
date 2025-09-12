@@ -42,9 +42,7 @@ fn test_new_processor_option_reference_edge_case() {
     // This should NOT be processed as an option reference because it contains <user>
     assert!(!html.contains(r#"<a class="option-reference""#));
     assert!(
-        html.contains(
-            r"<li><code>hjem.&lt;user&gt;.home</code> is where user home resides!</li>"
-        )
+        html.contains(r"<li><code>hjem.&lt;user&gt;.home</code> is where user home resides!</li>")
     );
 }
 
@@ -95,4 +93,206 @@ fn test_new_processor_headers_and_title() {
     assert_eq!(result.headers[2].level, 3);
     assert_eq!(result.headers[3].text, "Section Two");
     assert_eq!(result.headers[3].level, 2);
+}
+
+#[test]
+fn test_new_processor_autolink() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    let md = "Visit https://example.com for info.";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should convert plain URLs to clickable links
+    assert!(html.contains(r#"<a href="https://example.com">https://example.com</a>"#));
+}
+
+#[test]
+fn test_new_processor_autolink_multiple_urls() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    let md = "Check out https://github.com and also https://rust-lang.org for more info.";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should convert both URLs to clickable links
+    assert!(html.contains(r#"<a href="https://github.com">https://github.com</a>"#));
+    assert!(html.contains(r#"<a href="https://rust-lang.org">https://rust-lang.org</a>"#));
+}
+
+#[test]
+fn test_new_processor_autolink_in_existing_link() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    let md = r"Already a link: [Visit https://example.com](https://example.com)";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should not double-process URLs that are already inside links
+    // The URL in the link text should remain as text, not become a nested link
+    assert!(!html.contains(
+        r#"<a href="https://example.com"><a href="https://example.com">https://example.com</a></a>"#
+    ));
+    assert!(html.contains(r#"<a href="https://example.com">"#));
+}
+
+#[test]
+fn test_new_processor_autolink_with_punctuation() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    let md = "Visit https://example.com. Also try https://github.com/user/repo!";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should not include trailing punctuation in the links
+    assert!(html.contains(r#"<a href="https://example.com">https://example.com</a>."#));
+    assert!(
+        html.contains(
+            r#"<a href="https://github.com/user/repo">https://github.com/user/repo</a>!"#
+        )
+    );
+}
+
+#[test]
+fn test_new_processor_autolink_http_and_https() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    let md = "HTTP: http://example.com and HTTPS: https://example.com";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should handle both HTTP and HTTPS
+    assert!(html.contains(r#"<a href="http://example.com">http://example.com</a>"#));
+    assert!(html.contains(r#"<a href="https://example.com">https://example.com</a>"#));
+}
+
+#[test]
+fn test_new_processor_error_handling() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    // Test with extremely malformed content that could cause issues
+    let md = r"# Header with \x00 null bytes and \x{FFFF} invalid unicode
+
+[]{#invalid-anchor-with-special-chars-\x00\x01\x02}
+
+{malformed-role}`unclosed backtick and \x00 chars
+
+> [!INVALID_TYPE_THAT_DOESNT_EXIST]
+> This should still work even with invalid callout type
+
+::: {.invalid-admonition-type-\x00}
+Content with null bytes \x00
+:::";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should not crash and should produce some HTML output
+    assert!(!html.is_empty());
+    assert!(html.contains("<html>"));
+
+    // Should handle headers gracefully
+    assert!(html.contains("Header"));
+
+    // Should not crash the entire processor
+    assert!(!html.contains("Error processing markdown content"));
+}
+
+#[test]
+fn test_error_handling_utilities() {
+    use ndg_commonmark::utils::{never_matching_regex, safely_process_markup};
+
+    // Test safely_process_markup with a function that panics
+    let result = safely_process_markup(
+        "test input",
+        |_| panic!("This function panics!"),
+        "fallback output",
+    );
+    assert_eq!(result, "fallback output");
+
+    // Test safely_process_markup with a normal function
+    let result = safely_process_markup(
+        "test input",
+        |input| format!("processed: {input}"),
+        "fallback",
+    );
+    assert_eq!(result, "processed: test input");
+
+    // Test never_matching_regex
+    let regex = never_matching_regex();
+    assert!(!regex.is_match("anything"));
+    assert!(!regex.is_match(""));
+    assert!(!regex.is_match("lots of text with various characters 123 !@#"));
+}
+
+#[test]
+fn test_new_processor_html_post_processing() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    // Test comprehensive HTML post-processing with various patterns
+    let md = "# Header with anchor {#my-header}
+
+[]{#standalone-anchor}Some text with standalone anchor.
+
+- []{#list-anchor} List item with anchor
+- Regular list item
+
+This paragraph has []{#para-anchor} an inline anchor.
+
+[Empty link](#empty-link-target)
+
+Text with <a href=\"#another-empty\"></a> empty HTML link.";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should process header with anchor ID
+    assert!(html.contains("id=\"my-header\""));
+    assert!(html.contains("Header with anchor"));
+
+    // Should process standalone inline anchors
+    assert!(html.contains("<span class=\"nixos-anchor\" id=\"standalone-anchor\"></span>"));
+
+    // Should process paragraph inline anchors
+    assert!(html.contains("<span class=\"nixos-anchor\" id=\"para-anchor\"></span>"));
+
+    // Should humanize empty link text
+    assert!(html.contains("<a href=\"#empty-link-target\">"));
+    assert!(html.contains("<a href=\"#another-empty\">Another Empty</a>"));
+
+    // Should not contain raw anchor syntax
+    assert!(!html.contains("[]{#"));
+}
+
+#[test]
+fn test_html_post_processing_edge_cases() {
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+    // Test edge cases in HTML post-processing
+    let md = "Text with multiple []{#anchor1} and []{#anchor2} anchors.
+
+[]{#sec-complex-name} []{#opt-some-option} []{#ssec-subsection}
+
+Empty links: <a href=\"#sec-introduction\"></a> and <a href=\"#opt-services-nginx-enable\"></a>";
+
+    let result = processor.render(md);
+    let html = result.html;
+
+    // Should process multiple anchors in same paragraph
+    assert!(html.contains("<span class=\"nixos-anchor\" id=\"anchor1\"></span>"));
+    assert!(html.contains("<span class=\"nixos-anchor\" id=\"anchor2\"></span>"));
+
+    // Should process anchors with common prefixes and humanize them
+    assert!(html.contains("<span class=\"nixos-anchor\" id=\"sec-complex-name\"></span>"));
+    assert!(html.contains("<span class=\"nixos-anchor\" id=\"opt-some-option\"></span>"));
+    assert!(html.contains("<span class=\"nixos-anchor\" id=\"ssec-subsection\"></span>"));
+
+    // Should humanize anchor text by removing prefixes and formatting
+    assert!(html.contains("<a href=\"#sec-introduction\">Introduction</a>"));
+    assert!(html.contains("<a href=\"#opt-services-nginx-enable\">Services Nginx Enable</a>"));
 }

@@ -6,6 +6,11 @@ use ndg::{
     html::template,
 };
 
+/// Helper to check for highlighted code HTML (syntect output)
+fn contains_highlighted_code(html: &str) -> bool {
+    html.contains("class=\"highlight\"") || html.contains("class=\"syntect\"")
+}
+
 fn minimal_config() -> Config {
     Config {
         title: "Test Site".to_string(),
@@ -89,6 +94,23 @@ fn render_options_page_renders_description() {
     assert!(html.contains("defaultval"));
     assert!(html.contains("exampleval"));
     assert!(html.contains("string"));
+}
+
+#[test]
+fn render_page_with_syntax_highlighting() {
+    let mut config = minimal_config();
+    config.highlight_code = true;
+    // Simulate a code block with language
+    let content = r#"<pre><code class="language-rust">fn main() { println!("hi"); }</code></pre>"#;
+    let title = "Syntax Highlight Test";
+    let headers: Vec<Header> = vec![];
+    let rel_path = Path::new("syntax.html");
+    let html = template::render(&config, content, title, &headers, rel_path)
+        .expect("Should render HTML with syntax highlighting");
+    assert!(
+        contains_highlighted_code(&html),
+        "HTML output should contain syntax-highlighted code"
+    );
 }
 
 #[test]
