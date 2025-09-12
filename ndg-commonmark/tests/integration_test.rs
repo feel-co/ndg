@@ -138,17 +138,17 @@ Visit the [](#getting-started) guide.
     assert!(
         result
             .html
-            .contains(r#"<span class="nixos-anchor" id="config-section"></span>"#)
+            .contains(r#"<span id="config-section" class="nixos-anchor"></span>"#)
     );
     assert!(
         result
             .html
-            .contains(r#"<span class="nixos-anchor" id="first-item"></span>"#)
+            .contains(r#"<span id="first-item" class="nixos-anchor"></span>"#)
     );
     assert!(
         result
             .html
-            .contains(r#"<span class="nixos-anchor" id="third-item"></span>"#)
+            .contains(r#"<span id="third-item" class="nixos-anchor"></span>"#)
     );
 
     // Verify admonitions
@@ -162,12 +162,12 @@ Visit the [](#getting-started) guide.
     assert!(
         result
             .html
-            .contains(r#"<input checked="" disabled="" type="checkbox">"#)
+            .contains(r#"<input type="checkbox" checked="" disabled="">"#)
     );
     assert!(
         result
             .html
-            .contains(r#"<input disabled="" type="checkbox">"#)
+            .contains(r#"<input type="checkbox" disabled="">"#)
     );
     assert!(result.html.contains("footnote"));
 
@@ -253,11 +253,17 @@ Valid option: `boot.loader.grub.enable`
     );
 
     // Should process valid options but not invalid ones
-    assert!(result.html.contains(r#"<a class="option-reference""#));
+    assert!(result.html.contains(
+        r#"<a href="options.html#option-boot-loader-grub-enable" class="option-reference""#
+    ));
     assert!(result.html.contains("boot-loader-grub-enable"));
     assert!(result.html.contains(r"<code>$HOME/config</code>"));
     // Note: Option processing is currently too aggressive - this is a known issue
-    assert!(result.html.contains("option-some-file-ext"));
+    assert!(
+        result
+            .html
+            .contains(r#"<a href="options.html#option-some-file-ext" class="option-reference""#)
+    );
 
     // Should handle prompt transformation
     assert!(result.html.contains(r#"<span class="prompt">$</span>"#));
@@ -298,12 +304,16 @@ Table with options:
 
     // Should process code-based options
     assert!(result.html.contains(
-        r#"<a class="option-reference" href="options.html#option-boot-initrd-luks-devices">"#
+        r#"<a href="options.html#option-boot-initrd-luks-devices" class="option-reference">"#
     ));
 
     // Should not process non-options
     // Note: Option processing is currently too aggressive - this is a known issue
-    assert!(result.html.contains("option-file-name-txt"));
+    assert!(
+        result
+            .html
+            .contains(r#"<a href="options.html#option-file-name-txt" class="option-reference""#)
+    );
 
     // Should process options in tables
     assert!(result.html.contains("option-services-openssh-enable"));

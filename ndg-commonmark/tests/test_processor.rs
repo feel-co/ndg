@@ -60,8 +60,8 @@ Valid: `boot.loader.systemd-boot.enable`";
     let html = result.html;
 
     // Only the valid option paths should be converted to links
-    assert!(html.contains(r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#));
-    assert!(html.contains(r#"<a class="option-reference" href="options.html#option-boot-loader-systemd-boot-enable"><code>boot.loader.systemd-boot.enable</code></a>"#));
+    assert!(html.contains(r#"<a href="options.html#option-services-nginx-enable" class="option-reference"><code>services.nginx.enable</code></a>"#));
+    assert!(html.contains(r#"<a href="options.html#option-boot-loader-systemd-boot-enable" class="option-reference"><code>boot.loader.systemd-boot.enable</code></a>"#));
 
     // These should remain as plain code
     assert!(html.contains(r"<code>some/path.conf</code>"));
@@ -256,10 +256,10 @@ Text with <a href=\"#another-empty\"></a> empty HTML link.";
     assert!(html.contains("Header with anchor"));
 
     // Should process standalone inline anchors
-    assert!(html.contains("<span class=\"nixos-anchor\" id=\"standalone-anchor\"></span>"));
+    assert!(html.contains("<span id=\"standalone-anchor\" class=\"nixos-anchor\"></span>"));
 
     // Should process paragraph inline anchors
-    assert!(html.contains("<span class=\"nixos-anchor\" id=\"para-anchor\"></span>"));
+    assert!(html.contains("<span id=\"para-anchor\" class=\"nixos-anchor\"></span>"));
 
     // Should humanize empty link text
     assert!(html.contains("<a href=\"#empty-link-target\">"));
@@ -284,13 +284,13 @@ Empty links: <a href=\"#sec-introduction\"></a> and <a href=\"#opt-services-ngin
     let html = result.html;
 
     // Should process multiple anchors in same paragraph
-    assert!(html.contains("<span class=\"nixos-anchor\" id=\"anchor1\"></span>"));
-    assert!(html.contains("<span class=\"nixos-anchor\" id=\"anchor2\"></span>"));
+    assert!(html.contains("<span id=\"anchor1\" class=\"nixos-anchor\"></span>"));
+    assert!(html.contains("<span id=\"anchor2\" class=\"nixos-anchor\"></span>"));
 
     // Should process anchors with common prefixes and humanize them
-    assert!(html.contains("<span class=\"nixos-anchor\" id=\"sec-complex-name\"></span>"));
-    assert!(html.contains("<span class=\"nixos-anchor\" id=\"opt-some-option\"></span>"));
-    assert!(html.contains("<span class=\"nixos-anchor\" id=\"ssec-subsection\"></span>"));
+    assert!(html.contains("<span id=\"sec-complex-name\" class=\"nixos-anchor\"></span>"));
+    assert!(html.contains("<span id=\"opt-some-option\" class=\"nixos-anchor\"></span>"));
+    assert!(html.contains("<span id=\"ssec-subsection\" class=\"nixos-anchor\"></span>"));
 
     // Should humanize anchor text by removing prefixes and formatting
     assert!(html.contains("<a href=\"#sec-introduction\">Introduction</a>"));

@@ -92,7 +92,7 @@ fn test_inline_anchor() {
     let html = ndg_html(md);
     assert_html_exact(
         &html,
-        &[r#"Go here <span class="nixos-anchor" id="target"></span>."#],
+        &[r#"Go here <span id="target" class="nixos-anchor"></span>."#],
     );
 }
 
@@ -102,7 +102,7 @@ fn test_list_item_with_anchor() {
     let html = ndg_html(md);
     assert_html_exact(
         &html,
-        &[r#"<span class="nixos-anchor" id="item1"></span> Item 1"#],
+        &[r#"<span id="item1" class="nixos-anchor"></span> Item 1"#],
     );
 }
 
@@ -146,7 +146,7 @@ fn test_inline_anchor_start_of_line() {
     assert_html_exact(
         &html,
         &[
-            r#"<span class="nixos-anchor" id="start-anchor"></span>This line starts with an anchor."#,
+            r#"<span id="start-anchor" class="nixos-anchor"></span>This line starts with an anchor."#,
         ],
     );
 }
@@ -158,7 +158,7 @@ fn test_inline_anchor_end_of_line() {
     let html = ndg_html(md);
     assert_html_exact(
         &html,
-        &[r#"This line ends with an anchor.<span class="nixos-anchor" id="end-anchor"></span>"#],
+        &[r#"This line ends with an anchor.<span id="end-anchor" class="nixos-anchor"></span>"#],
     );
 }
 
@@ -387,7 +387,7 @@ fn test_raw_inline_anchor() {
     let md = "[]{#anchor}";
     let html = ndg_html(md);
     assert!(
-        html.contains(r#"<span class="nixos-anchor" id="anchor"></span>"#),
+        html.contains(r#"<span id="anchor" class="nixos-anchor"></span>"#),
         "Expected HTML to contain raw inline anchor, got:\n{html}"
     );
 }
@@ -416,8 +416,8 @@ Here is a footnote.[^1]\n\n[^1]: Footnote text.\n\n\
             "<table>",
             "<del>strikethrough</del>",
             "Footnote text",
-            r#"<input checked="" disabled="" type="checkbox">"#,
-            r#"<input disabled="" type="checkbox">"#,
+            r#"<input type="checkbox" checked="" disabled="">"#,
+            r#"<input type="checkbox" disabled="">"#,
         ],
     );
 }
@@ -462,7 +462,7 @@ Here is an inline footnote.^[This is inline.]
 #[test]
 fn test_role_markup_not_processed_in_code_blocks() {
     // Test that role markup is NOT processed inside fenced code blocks
-    let md = r#"Here is a code block with role markup:
+    let md = r"Here is a code block with role markup:
 
 ```
 {command}`ls -la`                    # Terminal command
@@ -470,7 +470,7 @@ fn test_role_markup_not_processed_in_code_blocks() {
 {option}`services.nginx.enable`      # NixOS option
 ```
 
-Normal text after."#;
+Normal text after.";
 
     let html = ndg_html(md);
 
@@ -498,7 +498,7 @@ Normal text after."#;
 #[test]
 fn test_role_markup_not_processed_in_inline_code() {
     // Test that role markup is NOT processed inside inline code
-    let md = r#"Here is `{command}`inline`` code with role markup."#;
+    let md = r"Here is `{command}`inline`` code with role markup.";
 
     let html = ndg_html(md);
 
@@ -518,11 +518,11 @@ fn test_role_markup_not_processed_in_inline_code() {
 #[test]
 fn test_admonitions_not_processed_in_code_blocks() {
     // Test that admonitions are NOT processed inside code blocks
-    let md = r#"```
+    let md = r"```
 ::: {.note}
 This should not be processed as an admonition
 :::
-```"#;
+```";
 
     let html = ndg_html(md);
 
@@ -542,10 +542,10 @@ This should not be processed as an admonition
 #[test]
 fn test_github_callouts_not_processed_in_code_blocks() {
     // Test that GitHub callouts are NOT processed inside code blocks
-    let md = r#"```
+    let md = r"```
 > [!NOTE]
 > This should not be processed as a callout
-```"#;
+```";
 
     let html = ndg_html(md);
 
@@ -565,10 +565,10 @@ fn test_github_callouts_not_processed_in_code_blocks() {
 #[test]
 fn test_inline_anchors_not_processed_in_code_blocks() {
     // Test that inline anchors are NOT processed inside code blocks
-    let md = r#"```
+    let md = r"```
     []{#anchor1} Some content
     More []{#anchor2} content
-```"#;
+```";
 
     let html = ndg_html(md);
 
@@ -723,7 +723,7 @@ fn test_command_prompts_not_processed_in_code_blocks() {
 #[test]
 fn test_incomplete_role_markup_bug() {
     // Test incomplete role markup like {var} without content
-    let md = r#"Here is incomplete role markup: {var} and complete: {var}`content`"#;
+    let md = r"Here is incomplete role markup: {var} and complete: {var}`content`";
     let html = ndg_html(md);
 
     // Both should be processed correctly - incomplete should be left as-is
@@ -736,7 +736,7 @@ fn test_incomplete_role_markup_bug() {
 #[test]
 fn test_incomplete_role_markup_with_empty_content() {
     // Test that incomplete role markup with empty content is preserved as literal text
-    let md = r#"Empty option: {option}``"#;
+    let md = r"Empty option: {option}``";
     let html = ndg_html(md);
 
     // Should preserve the entire incomplete markup as literal text
@@ -757,7 +757,7 @@ fn test_incomplete_role_markup_with_empty_content() {
     for case in test_cases {
         let html = ndg_html(case);
         assert!(
-            !html.contains("<code>") && !html.contains("`"),
+            !html.contains("<code>") && !html.contains('`'),
             "Incomplete role markup {case} should not generate code tags or backticks. Got:\n{html}"
         );
         assert!(
@@ -770,7 +770,7 @@ fn test_incomplete_role_markup_with_empty_content() {
 #[test]
 fn test_markdown_parsing_inside_admonitions() {
     // Test that Markdown features are correctly parsed inside admonitions
-    let md = r#"::: {.note}
+    let md = r"::: {.note}
 This is **bold** text and *italic* text.
 
 Here is `inline code` and {var}`myVariable`.
@@ -781,7 +781,7 @@ Here is `inline code` and {var}`myVariable`.
 ## Header inside admonition
 
 [Link text](https://example.com)
-:::"#;
+:::";
 
     let html = ndg_html(md);
 
@@ -796,7 +796,7 @@ Here is `inline code` and {var}`myVariable`.
     );
 
     assert!(
-        html.contains(r#"<code>inline code</code>"#),
+        html.contains(r"<code>inline code</code>"),
         "Inline code should be parsed inside admonitions. Got:\n{html}"
     );
 
@@ -824,13 +824,13 @@ Here is `inline code` and {var}`myVariable`.
 #[test]
 fn test_markdown_parsing_inside_github_callouts() {
     // Test that Markdown features are correctly parsed inside GitHub callouts
-    let md = r#"> [!NOTE]
+    let md = r"> [!NOTE]
 > This is **bold** text and *italic* text.
 >
 > Here is `inline code` and {var}`myVariable`.
 >
 > - List item 1
-> - List item 2"#;
+> - List item 2";
 
     let html = ndg_html(md);
 
@@ -841,7 +841,7 @@ fn test_markdown_parsing_inside_github_callouts() {
     );
 
     assert!(
-        html.contains(r#"<code>inline code</code>"#),
+        html.contains(r"<code>inline code</code>"),
         "Inline code should be parsed inside GitHub callouts. Got:\n{html}"
     );
 
@@ -859,7 +859,7 @@ fn test_markdown_parsing_inside_github_callouts() {
 #[test]
 fn test_markdown_parsing_inside_figures() {
     // Test that Markdown features are correctly parsed inside figures
-    let md = r#"::: {.figure #sample-figure}
+    let md = r"::: {.figure #sample-figure}
 
 # Figure Caption with **bold** text
 
@@ -868,7 +868,7 @@ This is *italic* text and `inline code`.
 Here is {var}`myVariable` role markup.
 
 ![Alt text](image.png)
-:::"#;
+:::";
 
     let html = ndg_html(md);
 
@@ -879,7 +879,7 @@ Here is {var}`myVariable` role markup.
     );
 
     assert!(
-        html.contains(r#"<code>inline code</code>"#),
+        html.contains(r"<code>inline code</code>"),
         "Inline code should be parsed inside figures. Got:\n{html}"
     );
 
@@ -889,7 +889,7 @@ Here is {var}`myVariable` role markup.
     );
 
     assert!(
-        html.contains(r#"<img alt="Alt text" src="image.png""#),
+        html.contains(r#"<img src="image.png" alt="Alt text""#),
         "Images should be parsed inside figures. Got:\n{html}"
     );
 }
@@ -924,14 +924,14 @@ fn test_public_extension_api() {
 
         // Test file inclusion
         let md = format!(
-            r#"# Main Document
+            r"# Main Document
 
 ```{{=include=}}
 {}
 {}
 ```
 
-End of document."#,
+End of document.",
             file1_path.file_name().unwrap().to_str().unwrap(),
             file2_path.file_name().unwrap().to_str().unwrap()
         );
@@ -950,11 +950,11 @@ End of document."#,
     // Test that file includes respect code block boundaries
     #[cfg(feature = "nixpkgs")]
     {
-        let md = r#"````
+        let md = r"````
 ```{=include=}
 some/file.md
 ```
-````"#;
+````";
 
         let result = ndg_commonmark::process_file_includes(md, std::path::Path::new("."));
 
@@ -971,9 +971,9 @@ some/file.md
         options.nixpkgs = true;
         let processor = ndg_commonmark::MarkdownProcessor::new(options);
 
-        let simple_md = r#"```{=include=}
+        let simple_md = r"```{=include=}
 test1.md
-```"#;
+```";
         let result = processor.render(simple_md);
 
         // Should show include processing (file not found)
@@ -984,12 +984,12 @@ test1.md
 #[test]
 fn test_file_includes_not_processed_in_code_blocks() {
     // Test that file includes are NOT processed inside code blocks
-    let md = r#"````markdown
+    let md = r"````markdown
 ```{=include=}
 path/to/file1.md
 path/to/file2.md
 ```
-````"#;
+````";
 
     let html = ndg_html(md);
 
@@ -1003,11 +1003,11 @@ path/to/file2.md
 #[test]
 fn test_simple_nested_file_includes() {
     // Test simple case with file includes inside code blocks
-    let md = r#"````
+    let md = r"````
 ```{=include=}
 path/to/file1.md
 ```
-````"#;
+````";
 
     let html = ndg_html(md);
 
@@ -1023,10 +1023,10 @@ path/to/file1.md
 #[test]
 fn test_autolinks_not_processed_in_code_blocks() {
     // Test that autolinks are NOT processed inside code blocks
-    let md = r#"```markdown
+    let md = r"```markdown
 Visit https://nixos.org for more information.
 Also check https://example.com/test
-```"#;
+```";
 
     let html = ndg_html(md);
 
