@@ -75,7 +75,8 @@ impl MarkdownProcessor {
     }
 
     /// Highlight all code blocks in HTML using syntect
-    #[must_use] pub fn highlight_codeblocks(&self, html: &str) -> String {
+    #[must_use]
+    pub fn highlight_codeblocks(&self, html: &str) -> String {
         use kuchikikiki::parse_html;
         use tendril::TendrilSink;
 
@@ -1385,7 +1386,8 @@ fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
 /// # Returns
 /// The processed markdown text with GFM extensions applied
 #[cfg(feature = "gfm")]
-#[must_use] pub fn apply_gfm_extensions(markdown: &str) -> String {
+#[must_use]
+pub fn apply_gfm_extensions(markdown: &str) -> String {
     // XXX: Comrak already supports GFM, but if there is any feature in the spec
     // that is not implemented as we'd like for it to be, we can add it here.
     markdown.to_owned()
@@ -1412,7 +1414,8 @@ fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
 /// # Safety
 /// Only relative paths without ".." are allowed for security.
 #[cfg(feature = "nixpkgs")]
-#[must_use] pub fn process_file_includes(markdown: &str, base_dir: &std::path::Path) -> String {
+#[must_use]
+pub fn process_file_includes(markdown: &str, base_dir: &std::path::Path) -> String {
     use std::{fs, path::Path};
 
     // Check if a path is safe (no absolute, no ..)
@@ -1516,7 +1519,8 @@ fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
 /// # Returns
 /// The processed markdown with role markup converted to HTML
 #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
-#[must_use] pub fn process_role_markup(
+#[must_use]
+pub fn process_role_markup(
     content: &str,
     manpage_urls: Option<&std::collections::HashMap<String, String>>,
 ) -> String {
@@ -1718,7 +1722,8 @@ fn format_role_markup(
 /// # Returns
 /// The processed markdown with inline anchors converted to HTML spans
 #[cfg(feature = "nixpkgs")]
-#[must_use] pub fn process_inline_anchors(content: &str) -> String {
+#[must_use]
+pub fn process_inline_anchors(content: &str) -> String {
     let mut result = String::with_capacity(content.len() + 100);
     let mut in_code_block = false;
     let mut code_fence_char = None;
@@ -1902,7 +1907,8 @@ fn process_line_anchors(line: &str) -> String {
 /// # Returns
 /// The processed markdown with block elements converted to HTML
 #[cfg(feature = "nixpkgs")]
-#[must_use] pub fn process_block_elements(content: &str) -> String {
+#[must_use]
+pub fn process_block_elements(content: &str) -> String {
     let mut result = Vec::new();
     let mut lines = content.lines().peekable();
     let mut in_code_block = false;
@@ -2161,7 +2167,8 @@ fn render_figure(id: Option<&str>, title: &str, content: &str) -> String {
 /// # Returns
 /// The processed HTML with autolinks converted to anchor tags
 #[cfg(feature = "gfm")]
-#[must_use] pub fn process_autolinks(html: &str) -> String {
+#[must_use]
+pub fn process_autolinks(html: &str) -> String {
     safely_process_markup(
         html,
         |html| {
@@ -2300,7 +2307,8 @@ fn render_figure(id: Option<&str>, title: &str, content: &str) -> String {
 /// # Returns
 /// The processed HTML with manpage references converted to links
 #[cfg(feature = "nixpkgs")]
-#[must_use] pub fn process_manpage_references(
+#[must_use]
+pub fn process_manpage_references(
     html: &str,
     manpage_urls: Option<&std::collections::HashMap<String, String>>,
 ) -> String {
