@@ -21,8 +21,7 @@
 !/.editorconfig
 
 # Nix
-!/flake/*.nix
-!/nix/*.nix
+!/flake/**/*.nix
 !/flake.nix
 !/flake.lock
 !/shell.nix
@@ -32,7 +31,3 @@
 # Misc
 !/README.md
 !/LICENSE.md
-
-
-
-
