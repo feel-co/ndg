@@ -271,7 +271,9 @@ automatically rendered with:
 To include options documentation:
 
 ```bash
-ndg html --module-options ./options.json ...
+$ ndg html --module-options ./options.json ...
+# => This will generate the document with an options.html page, also linked in
+# the navbar by default
 ```
 
 Options are presented in a hierarchical structure for easier navigation, with
@@ -294,7 +296,7 @@ treatment:
 To generate manpages from options:
 
 ```bash
-ndg manpage --module-options ./options.json --output ./man/myproject.5 \
+$ ndg manpage --module-options ./options.json --output ./man/myproject.5 \
   --title "My Project" --section 5
 ```
 
