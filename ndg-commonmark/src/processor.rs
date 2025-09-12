@@ -83,6 +83,9 @@ impl MarkdownProcessor {
         // 6. Post-process manpage references
         let html = self.process_manpage_references_html(&html);
 
+        // 7. Complete HTML post-processing
+        let html = self.kuchiki_postprocess(&html);
+
         MarkdownResult {
             html,
             headers,
@@ -931,6 +934,411 @@ impl MarkdownProcessor {
             // Return original HTML on error
             "",
         )
+    }
+
+    /// HTML post-processing using kuchiki DOM manipulation.
+    fn kuchiki_postprocess(&self, html: &str) -> String {
+        safely_process_markup(
+            html,
+            |html| {
+                use tendril::TendrilSink;
+
+                let document = kuchiki::parse_html().one(html);
+
+                // Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
+                self.process_list_item_id_markers(&document);
+
+                // Process header anchors with comments: <h1>text<!-- anchor: id --></h1>
+                self.process_header_anchor_comments(&document);
+
+                // Process remaining inline anchors in list items: <li>[]{#id}content</li>
+                self.process_list_item_inline_anchors(&document);
+
+                // Process inline anchors in paragraphs: <p>[]{#id}content</p>
+                self.process_paragraph_inline_anchors(&document);
+
+                // Process remaining standalone inline anchors
+                self.process_remaining_inline_anchors(&document);
+
+                // Process empty auto-links: [](#anchor)
+                self.process_empty_auto_links(&document);
+
+                // Process empty HTML links: <a href="#anchor"></a>
+                self.process_empty_html_links(&document);
+
+                let mut out = Vec::new();
+                document.serialize(&mut out).ok();
+                String::from_utf8(out).unwrap_or_default()
+            },
+            // Return original HTML on error
+            "",
+        )
+    }
+
+    /// Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
+    fn process_list_item_id_markers(&self, document: &kuchiki::NodeRef) {
+        let mut to_modify = Vec::new();
+
+        for comment in document.inclusive_descendants() {
+            if let Some(comment_node) = comment.as_comment() {
+                let comment_text = comment_node.borrow();
+                if let Some(id_start) = comment_text.find("nixos-anchor-id:") {
+                    let id = comment_text[id_start + 16..].trim();
+                    if !id.is_empty()
+                        && id
+                            .chars()
+                            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+                    {
+                        // Check if this comment is inside an <li> element
+                        if let Some(parent) = comment.parent() {
+                            if let Some(element) = parent.as_element() {
+                                if element.name.local.as_ref() == "li" {
+                                    to_modify.push((comment.clone(), id.to_string()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (comment_node, id) in to_modify {
+            let span = kuchiki::NodeRef::new_element(
+                markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                vec![
+                    (
+                        kuchiki::ExpandedName::new("", "id"),
+                        kuchiki::Attribute {
+                            prefix: None,
+                            value: id.into(),
+                        },
+                    ),
+                    (
+                        kuchiki::ExpandedName::new("", "class"),
+                        kuchiki::Attribute {
+                            prefix: None,
+                            value: "nixos-anchor".into(),
+                        },
+                    ),
+                ],
+            );
+            comment_node.insert_after(span);
+            comment_node.detach();
+        }
+    }
+
+    /// Process header anchors with comments: <h1>text<!-- anchor: id --></h1>
+    fn process_header_anchor_comments(&self, document: &kuchiki::NodeRef) {
+        let mut to_modify = Vec::new();
+
+        for comment in document.inclusive_descendants() {
+            if let Some(comment_node) = comment.as_comment() {
+                let comment_text = comment_node.borrow();
+                if let Some(anchor_start) = comment_text.find("anchor:") {
+                    let id = comment_text[anchor_start + 7..].trim();
+                    if !id.is_empty()
+                        && id
+                            .chars()
+                            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+                    {
+                        // Check if this comment is inside a header element
+                        if let Some(parent) = comment.parent() {
+                            if let Some(element) = parent.as_element() {
+                                let tag_name = element.name.local.as_ref();
+                                if matches!(tag_name, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+                                    to_modify.push((
+                                        parent.clone(),
+                                        comment.clone(),
+                                        id.to_string(),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (header_element, comment_node, id) in to_modify {
+            if let Some(element) = header_element.as_element() {
+                element
+                    .attributes
+                    .borrow_mut()
+                    .insert(local_name!("id"), id);
+                comment_node.detach();
+            }
+        }
+    }
+
+    /// Process remaining inline anchors in list items: <li>[]{#id}content</li>
+    fn process_list_item_inline_anchors(&self, document: &kuchiki::NodeRef) {
+        for li_node in document.select("li").unwrap() {
+            let li_element = li_node.as_node();
+            let text_content = li_element.text_contents();
+
+            if let Some(anchor_start) = text_content.find("[]{#") {
+                if let Some(anchor_end) = text_content[anchor_start..].find('}') {
+                    let id = &text_content[anchor_start + 4..anchor_start + anchor_end];
+                    if !id.is_empty()
+                        && id
+                            .chars()
+                            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+                    {
+                        let remaining_content = &text_content[anchor_start + anchor_end + 1..];
+
+                        // Clear current content and rebuild
+                        for child in li_element.children() {
+                            child.detach();
+                        }
+
+                        let span = kuchiki::NodeRef::new_element(
+                            markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                            vec![
+                                (
+                                    kuchiki::ExpandedName::new("", "id"),
+                                    kuchiki::Attribute {
+                                        prefix: None,
+                                        value: id.into(),
+                                    },
+                                ),
+                                (
+                                    kuchiki::ExpandedName::new("", "class"),
+                                    kuchiki::Attribute {
+                                        prefix: None,
+                                        value: "nixos-anchor".into(),
+                                    },
+                                ),
+                            ],
+                        );
+                        li_element.append(span);
+                        if !remaining_content.is_empty() {
+                            li_element.append(kuchiki::NodeRef::new_text(remaining_content));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process inline anchors in paragraphs: <p>[]{#id}content</p>
+    fn process_paragraph_inline_anchors(&self, document: &kuchiki::NodeRef) {
+        for p_node in document.select("p").unwrap() {
+            let p_element = p_node.as_node();
+            let text_content = p_element.text_contents();
+
+            if let Some(anchor_start) = text_content.find("[]{#") {
+                if let Some(anchor_end) = text_content[anchor_start..].find('}') {
+                    let id = &text_content[anchor_start + 4..anchor_start + anchor_end];
+                    if !id.is_empty()
+                        && id
+                            .chars()
+                            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+                    {
+                        let remaining_content = &text_content[anchor_start + anchor_end + 1..];
+
+                        // Clear current content and rebuild
+                        for child in p_element.children() {
+                            child.detach();
+                        }
+
+                        let span = kuchiki::NodeRef::new_element(
+                            markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                            vec![
+                                (
+                                    kuchiki::ExpandedName::new("", "id"),
+                                    kuchiki::Attribute {
+                                        prefix: None,
+                                        value: id.into(),
+                                    },
+                                ),
+                                (
+                                    kuchiki::ExpandedName::new("", "class"),
+                                    kuchiki::Attribute {
+                                        prefix: None,
+                                        value: "nixos-anchor".into(),
+                                    },
+                                ),
+                            ],
+                        );
+                        p_element.append(span);
+                        if !remaining_content.is_empty() {
+                            p_element.append(kuchiki::NodeRef::new_text(remaining_content));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process remaining standalone inline anchors throughout the document
+    fn process_remaining_inline_anchors(&self, document: &kuchiki::NodeRef) {
+        let mut text_nodes_to_process = Vec::new();
+
+        for node in document.inclusive_descendants() {
+            if let Some(text_node) = node.as_text() {
+                let text_content = text_node.borrow().clone();
+                if text_content.contains("[]{#") {
+                    text_nodes_to_process.push((node.clone(), text_content));
+                }
+            }
+        }
+
+        for (text_node, text_content) in text_nodes_to_process {
+            let mut last_end = 0;
+            let mut new_children = Vec::new();
+
+            // Simple pattern matching for []{#id}
+            let chars = text_content.chars().collect::<Vec<_>>();
+            let mut i = 0;
+            while i < chars.len() {
+                if i + 4 < chars.len()
+                    && chars[i] == '['
+                    && chars[i + 1] == ']'
+                    && chars[i + 2] == '{'
+                    && chars[i + 3] == '#'
+                {
+                    // Found start of anchor pattern
+                    let anchor_start = i;
+                    i += 4; // skip "[]{#"
+
+                    let mut id = String::new();
+                    while i < chars.len() && chars[i] != '}' {
+                        if chars[i].is_alphanumeric() || chars[i] == '-' || chars[i] == '_' {
+                            id.push(chars[i]);
+                            i += 1;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if i < chars.len() && chars[i] == '}' && !id.is_empty() {
+                        // Valid anchor found
+                        let anchor_end = i + 1;
+
+                        // Add text before anchor
+                        if anchor_start > last_end {
+                            let before_text: String =
+                                chars[last_end..anchor_start].iter().collect();
+                            if !before_text.is_empty() {
+                                new_children.push(kuchiki::NodeRef::new_text(before_text));
+                            }
+                        }
+
+                        // Add span element
+                        let span = kuchiki::NodeRef::new_element(
+                            markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                            vec![
+                                (
+                                    kuchiki::ExpandedName::new("", "id"),
+                                    kuchiki::Attribute {
+                                        prefix: None,
+                                        value: id.into(),
+                                    },
+                                ),
+                                (
+                                    kuchiki::ExpandedName::new("", "class"),
+                                    kuchiki::Attribute {
+                                        prefix: None,
+                                        value: "nixos-anchor".into(),
+                                    },
+                                ),
+                            ],
+                        );
+                        new_children.push(span);
+
+                        last_end = anchor_end;
+                        i = anchor_end;
+                    } else {
+                        i += 1;
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+
+            // Add remaining text
+            if last_end < chars.len() {
+                let after_text: String = chars[last_end..].iter().collect();
+                if !after_text.is_empty() {
+                    new_children.push(kuchiki::NodeRef::new_text(after_text));
+                }
+            }
+
+            // Replace text node if we found anchors
+            if !new_children.is_empty() {
+                for child in new_children {
+                    text_node.insert_before(child);
+                }
+                text_node.detach();
+            }
+        }
+    }
+
+    /// Process empty auto-links: [](#anchor) -> <a href="#anchor">Anchor</a>
+    fn process_empty_auto_links(&self, document: &kuchiki::NodeRef) {
+        for link_node in document.select("a").unwrap() {
+            let link_element = link_node.as_node();
+            if let Some(element) = link_element.as_element() {
+                let href = element
+                    .attributes
+                    .borrow()
+                    .get(local_name!("href"))
+                    .map(|s| s.to_string());
+                let text_content = link_element.text_contents();
+
+                if let Some(href_value) = href {
+                    if href_value.starts_with('#') && text_content.trim().is_empty() {
+                        // Empty link with anchor - add humanized text
+                        let display_text = self.humanize_anchor_id(&href_value);
+                        link_element.append(kuchiki::NodeRef::new_text(display_text));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process empty HTML links that have no content
+    fn process_empty_html_links(&self, document: &kuchiki::NodeRef) {
+        for link_node in document.select("a[href^='#']").unwrap() {
+            let link_element = link_node.as_node();
+            let text_content = link_element.text_contents();
+
+            if text_content.trim().is_empty() {
+                if let Some(element) = link_element.as_element() {
+                    if let Some(href) = element.attributes.borrow().get(local_name!("href")) {
+                        let display_text = self.humanize_anchor_id(href);
+                        link_element.append(kuchiki::NodeRef::new_text(display_text));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Convert an anchor ID to human-readable text
+    fn humanize_anchor_id(&self, anchor: &str) -> String {
+        // Strip the leading #
+        let cleaned = anchor.trim_start_matches('#');
+
+        // Remove common prefixes
+        let without_prefix = cleaned
+            .trim_start_matches("sec-")
+            .trim_start_matches("ssec-")
+            .trim_start_matches("opt-");
+
+        // Replace separators with spaces
+        let spaced = without_prefix.replace(['-', '_'], " ");
+
+        // Capitalize each word
+        spaced
+            .split_whitespace()
+            .map(|word| {
+                let mut chars = word.chars();
+                chars.next().map_or_else(String::new, |c| {
+                    c.to_uppercase().collect::<String>() + chars.as_str()
+                })
+            })
+            .collect::<Vec<String>>()
+            .join(" ")
     }
 }
 
