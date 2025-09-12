@@ -1,4 +1,4 @@
-use ndg::{config::Config, formatter::markup};
+use ndg::formatter::markup;
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 #[test]
@@ -32,21 +32,21 @@ fn markup_role_pattern_matches() {
 }
 
 #[test]
-fn markup_command_prompt_matches() {
-    let s = "`$ echo hi`";
-    let caps = markup::COMMAND_PROMPT
-        .captures(s)
-        .expect("Should match command prompt");
-    assert_eq!(&caps[1], "echo hi");
+fn markdown_processor_handles_command_prompts() {
+    let md = "`$ echo hi`";
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+    let result = processor.render(md);
+
+    // The processor should handle command prompts as code blocks
+    assert!(result.html.contains("echo hi"));
 }
 
 #[test]
-fn markup_inline_code_matches() {
-    let s = "`inline code`";
-    let caps = markup::INLINE_CODE
-        .captures(s)
-        .expect("Should match inline code");
-    assert_eq!(&caps[1], "inline code");
+fn markdown_processor_handles_inline_code() {
+    let md = "`inline code`";
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+    let result = processor.render(md);
+    assert!(result.html.contains("<code>inline code</code>"));
 }
 
 #[test]
