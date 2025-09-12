@@ -557,10 +557,9 @@ fn selective_man_escape(text: &str) -> String {
 fn process_roles(text: &str) -> String {
     // Using shared implementation for text role processing, specifically for troff
     // output format
-    ndg_commonmark::processor::MarkdownProcessor::new(
-        ndg_commonmark::processor::MarkdownOptions::default(),
-    )
-    .process_role_markup(text)
+    let options = ndg_commonmark::processor::MarkdownOptions::default();
+    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    ndg_commonmark::process_role_markup_standalone(text, processor.manpage_urls())
 }
 
 /// Process command prompts ($ command)
