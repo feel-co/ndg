@@ -515,10 +515,8 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                                         },
                                         |title| {
                                             // Clean the title of any inline anchors
-                                            
-                                            anchor_pattern
-                                                .replace_all(title.trim(), "")
-                                                .to_string()
+
+                                            anchor_pattern.replace_all(title.trim(), "").to_string()
                                         },
                                     )
                                 },

@@ -296,7 +296,8 @@ impl Config {
     }
 
     /// Get template directory path or file parent
-    #[must_use] pub fn get_template_path(&self) -> Option<PathBuf> {
+    #[must_use]
+    pub fn get_template_path(&self) -> Option<PathBuf> {
         // First check explicit template directory
         self.template_dir
             .clone()
@@ -313,7 +314,8 @@ impl Config {
     }
 
     /// Get template file path for a specific template name
-    #[must_use] pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
+    #[must_use]
+    pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
         // First check if there's a direct template path and it matches the name
         if let Some(path) = &self.template_path {
             // Only use template_path if it's a file and its filename matches the requested
@@ -328,7 +330,8 @@ impl Config {
     }
 
     /// Search for config files in common locations
-    #[must_use] pub fn find_config_file() -> Option<PathBuf> {
+    #[must_use]
+    pub fn find_config_file() -> Option<PathBuf> {
         // Common config file names to look for
         let config_filenames = [
             "ndg.toml",

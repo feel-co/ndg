@@ -159,11 +159,13 @@ pub enum Commands {
 }
 
 impl Cli {
-    #[must_use] pub fn parse_args() -> Self {
+    #[must_use]
+    pub fn parse_args() -> Self {
         Self::parse()
     }
 
-    #[must_use] pub fn command() -> Command {
+    #[must_use]
+    pub fn command() -> Command {
         <Self as CommandFactory>::command()
     }
 }

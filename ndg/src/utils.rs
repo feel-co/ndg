@@ -261,7 +261,8 @@ pub fn process_options_file(config: &Config) -> Result<bool> {
 }
 
 /// Create a fallback index page
-#[must_use] pub fn create_fallback_index(config: &Config, markdown_files: &[std::path::PathBuf]) -> String {
+#[must_use]
+pub fn create_fallback_index(config: &Config, markdown_files: &[std::path::PathBuf]) -> String {
     let mut content = format!(
         "<h1>{}</h1>\n<p>This is a fallback page created by ndg.</p>",
         &config.title
@@ -300,7 +301,8 @@ pub fn process_options_file(config: &Config) -> Result<bool> {
 }
 
 /// Extract the page title from a markdown file
-#[must_use] pub fn extract_page_title(file_path: &std::path::Path, html_path: &std::path::Path) -> String {
+#[must_use]
+pub fn extract_page_title(file_path: &std::path::Path, html_path: &std::path::Path) -> String {
     let default_title = html_path
         .file_stem()
         .unwrap_or_default()

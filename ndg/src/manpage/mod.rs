@@ -23,7 +23,8 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Map of characters that need to be escaped in manpages
-#[must_use] pub fn get_roff_escapes() -> HashMap<char, &'static str> {
+#[must_use]
+pub fn get_roff_escapes() -> HashMap<char, &'static str> {
     let mut map = HashMap::new();
     map.insert('"', "\\(dq");
     map.insert('\'', "\\(aq");
@@ -37,7 +38,8 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
 }
 
 /// Escapes a string for use in manpages
-#[must_use] pub fn man_escape(s: &str) -> String {
+#[must_use]
+pub fn man_escape(s: &str) -> String {
     formatter::markup::safely_process_markup(
         s,
         |text| {
@@ -59,7 +61,8 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
 }
 
 /// Escape a leading dot to prevent it from being interpreted as a troff command
-#[must_use] pub fn escape_leading_dot(text: &str) -> String {
+#[must_use]
+pub fn escape_leading_dot(text: &str) -> String {
     formatter::markup::safely_process_markup(
         text,
         |text| {

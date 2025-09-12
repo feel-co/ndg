@@ -5,7 +5,8 @@ use comrak::nodes::AstNode;
 /// Calculate the relative path prefix needed to reach the root from a given file path
 /// For example: "docs/subdir/file.html" would return "../"
 ///              "docs/subdir/nested/file.html" would return "../../"
-#[must_use] pub fn calculate_root_relative_path(file_rel_path: &Path) -> String {
+#[must_use]
+pub fn calculate_root_relative_path(file_rel_path: &Path) -> String {
     let depth = file_rel_path.components().count();
     if depth <= 1 {
         String::new() // file is at root level
@@ -15,14 +16,12 @@ use comrak::nodes::AstNode;
 }
 
 /// Generate proper asset paths for templates based on file location
-#[must_use] pub fn generate_asset_paths(file_rel_path: &Path) -> HashMap<&'static str, String> {
+#[must_use]
+pub fn generate_asset_paths(file_rel_path: &Path) -> HashMap<&'static str, String> {
     let root_prefix = calculate_root_relative_path(file_rel_path);
 
     let mut paths = HashMap::new();
-    paths.insert(
-        "stylesheet_path",
-        format!("{root_prefix}assets/style.css"),
-    );
+    paths.insert("stylesheet_path", format!("{root_prefix}assets/style.css"));
     paths.insert("main_js_path", format!("{root_prefix}assets/main.js"));
     paths.insert("search_js_path", format!("{root_prefix}assets/search.js"));
 
@@ -35,7 +34,8 @@ use comrak::nodes::AstNode;
 }
 
 /// Strip markdown to get plain text
-#[must_use] pub fn strip_markdown(content: &str) -> String {
+#[must_use]
+pub fn strip_markdown(content: &str) -> String {
     use comrak::{Arena, ComrakOptions};
     let arena = Arena::new();
     let mut options = ComrakOptions::default();
@@ -81,7 +81,8 @@ use comrak::nodes::AstNode;
 }
 
 /// Process content through the markdown pipeline and extract plain text
-#[must_use] pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
+#[must_use]
+pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
     let (html, ..) = ndg_commonmark::legacy_markdown::process_markdown(
         content,
         None,
