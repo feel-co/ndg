@@ -1,7 +1,5 @@
 use std::{collections::HashMap, path::Path};
 
-use comrak::nodes::AstNode;
-
 /// Calculate the relative path prefix needed to reach the root from a given file path
 /// For example: "docs/subdir/file.html" would return "../"
 ///              "docs/subdir/nested/file.html" would return "../../"
@@ -36,48 +34,7 @@ pub fn generate_asset_paths(file_rel_path: &Path) -> HashMap<&'static str, Strin
 /// Strip markdown to get plain text
 #[must_use]
 pub fn strip_markdown(content: &str) -> String {
-    use comrak::{Arena, ComrakOptions};
-    let arena = Arena::new();
-    let mut options = ComrakOptions::default();
-    options.extension.table = true;
-    options.extension.footnotes = true;
-    options.extension.strikethrough = true;
-    options.extension.tasklist = true;
-    options.render.unsafe_ = true;
-
-    let root = comrak::parse_document(&arena, content, &options);
-
-    let mut plain_text = String::new();
-    fn extract_text<'a>(node: &'a AstNode<'a>, plain_text: &mut String, in_code_block: &mut bool) {
-        use comrak::nodes::NodeValue;
-        match &node.data.borrow().value {
-            NodeValue::Text(t) => {
-                if !*in_code_block {
-                    plain_text.push_str(t);
-                    plain_text.push(' ');
-                }
-            }
-            NodeValue::CodeBlock(_) => {
-                *in_code_block = true;
-            }
-            NodeValue::SoftBreak => {
-                plain_text.push(' ');
-            }
-            NodeValue::LineBreak => {
-                plain_text.push('\n');
-            }
-            _ => {}
-        }
-        for child in node.children() {
-            extract_text(child, plain_text, in_code_block);
-        }
-        if let NodeValue::CodeBlock(_) = &node.data.borrow().value {
-            *in_code_block = false;
-        }
-    }
-    let mut in_code_block = false;
-    extract_text(root, &mut plain_text, &mut in_code_block);
-    plain_text
+    ndg_commonmark::utils::strip_markdown(content)
 }
 
 /// Process content through the markdown pipeline and extract plain text

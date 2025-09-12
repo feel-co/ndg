@@ -1,12 +1,7 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{Context, Result};
-use comrak::{
-    Arena, ComrakOptions,
-    nodes::{NodeHeading, NodeValue},
-};
 use log::info;
-use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -121,36 +116,9 @@ pub fn generate_search_index(config: &Config, markdown_files: &[PathBuf]) -> Res
 }
 
 /// Extract title from markdown content
+/// Extract title from markdown content (first H1)
 fn extract_title(content: &str) -> Option<String> {
-    let arena = Arena::new();
-    let mut options = ComrakOptions::default();
-    options.extension.table = true;
-    options.extension.footnotes = true;
-    options.extension.strikethrough = true;
-    options.extension.tasklist = true;
-    options.render.unsafe_ = true;
-
-    let root = comrak::parse_document(&arena, content, &options);
-
-    // Regex to match {#id} and []{#id} anchors
-    let anchor_re = Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})").unwrap();
-
-    for node in root.descendants() {
-        if let NodeValue::Heading(NodeHeading { level, .. }) = &node.data.borrow().value {
-            if *level == 1 {
-                let mut text = String::new();
-                for child in node.children() {
-                    if let NodeValue::Text(ref t) = child.data.borrow().value {
-                        text.push_str(t);
-                    }
-                }
-                // Clean the title by removing inline anchors and other NDG markup
-                let clean_title = anchor_re.replace_all(&text, "").trim().to_string();
-                return Some(clean_title);
-            }
-        }
-    }
-    None
+    ndg_commonmark::utils::extract_title_from_markdown(content)
 }
 
 /// Create search page

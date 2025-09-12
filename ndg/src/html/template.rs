@@ -464,10 +464,6 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     let mut doc_nav = String::new();
     let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
 
-    // Define anchor pattern regex
-    let anchor_pattern = regex::Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$")
-        .expect("Invalid regex pattern for anchor matching");
-
     // Only process markdown files if input_dir is provided
     if let Some(input_dir) = &config.input_dir {
         let entries: Vec<_> = walkdir::WalkDir::new(input_dir)
@@ -515,8 +511,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                                         },
                                         |title| {
                                             // Clean the title of any inline anchors
-
-                                            anchor_pattern.replace_all(title.trim(), "").to_string()
+                                            ndg_commonmark::utils::clean_anchor_patterns(title)
                                         },
                                     )
                                 },
