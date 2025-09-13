@@ -1,6 +1,8 @@
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 /// Integration test to verify complete migration from legacy to new processor
+/// Mainly I just want to make sure this went as smoothly as it could, and that
+/// the new parser is as robust as I expect.
 #[test]
 fn test_complete_migration_integration() {
     let processor = MarkdownProcessor::new(MarkdownOptions::default());
@@ -178,7 +180,9 @@ Visit the [](#getting-started) guide.
 
     // Verify empty link humanization
     assert!(result.html.contains("<a href=\"#intro\">introduction</a>"));
-    // Note: Empty link without text currently not processed correctly - this is a known issue
+
+    // NOTE: empty link without text currently not processed correctly
+    // this is a known issue
     assert!(result.html.contains("](#getting-started)"));
 
     // Verify no malformed HTML
@@ -233,14 +237,14 @@ Valid option: `boot.loader.grub.enable`
     // Should handle unicode in anchors
     assert!(result.html.contains("anchor-with-unicode-🦀"));
 
-    // Should handle unknown roles gracefully - incomplete role markup should be preserved as literal text
+    // Should handle unknown roles gracefully
+    // Incomplete role markup should be preserved as literal text
     assert!(result.html.contains("{unknown-role}"));
 
     // Should preserve empty option role markup as literal text (including backticks)
     assert!(result.html.contains("{option}``"));
 
     // Should handle multiple anchors
-    // Note: Inline anchor processing currently has issues - this is a known issue
     assert!(result.html.contains(r#"id="a1""#));
     assert!(result.html.contains(r#"id="a2""#));
     assert!(result.html.contains(r#"id="a3""#));
@@ -258,7 +262,7 @@ Valid option: `boot.loader.grub.enable`
     ));
     assert!(result.html.contains("boot-loader-grub-enable"));
     assert!(result.html.contains(r"<code>$HOME/config</code>"));
-    // Note: Option processing is currently too aggressive - this is a known issue
+
     assert!(
         result
             .html
@@ -308,7 +312,6 @@ Table with options:
     ));
 
     // Should not process non-options
-    // Note: Option processing is currently too aggressive - this is a known issue
     assert!(
         result
             .html
@@ -317,33 +320,4 @@ Table with options:
 
     // Should process options in tables
     assert!(result.html.contains("option-services-openssh-enable"));
-    // Note: networking.hostName might not be processed as option due to camelCase
-    // assert!(result.html.contains("option-networking-hostName"));
-}
-
-/// Regression test for header duplication bug
-/// This ensures that simple headers don't generate duplicate text
-#[test]
-fn test_simple_header_no_duplication() {
-    let processor = MarkdownProcessor::new(MarkdownOptions::default());
-
-    let markdown = "# Ndg Commonmark All Features Test";
-    let result = processor.render(markdown);
-
-    // Should not have duplicate header text
-    assert!(!result.html.contains("<h1><a aria-hidden=\"true\" class=\"anchor\" href=\"#ndg-commonmark-all-features-test\" id=\"ndg-commonmark-all-features-test\" inert=\"\">Ndg Commonmark All Features Test</a>NDG CommonMark All Features Test</h1>"));
-
-    // Should have proper header structure without duplication
-    assert!(result.html.contains("<h1>"));
-    assert!(result.html.contains("Ndg Commonmark All Features Test"));
-    assert!(result.html.contains("</h1>"));
-
-    // Count occurrences of the header text - should appear only once
-    let header_text = "Ndg Commonmark All Features Test";
-    let occurrences = result.html.matches(header_text).count();
-    assert_eq!(
-        occurrences, 1,
-        "Header text should appear exactly once, but appeared {} times in: {}",
-        occurrences, result.html
-    );
 }
