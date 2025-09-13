@@ -209,11 +209,13 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
                 if let Some(mappings_path) = &config.manpage_urls_path {
                     options.manpage_urls_path = Some(mappings_path.to_string_lossy().to_string());
                 }
+                // Configure syntax highlighting based on config
+                options.highlight_code = config.highlight_code;
                 let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
                 let result = processor.render(&content);
 
-                // Apply syntax highlighting to code blocks in HTML using ndg-commonmark logic
-                let highlighted_html = processor.highlight_codeblocks(&result.html);
+                // The HTML already includes syntax highlighting
+                let highlighted_html = result.html;
 
                 let headers = result.headers;
                 let title = result.title;
