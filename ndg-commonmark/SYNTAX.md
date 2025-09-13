@@ -42,6 +42,7 @@ ndg supports all standard CommonMark syntax including:
 - Emphasis (_italic_ and **bold**)
 - Lists (ordered and unordered)
 - Links and images
+  - [Masked links](https://github.com/feel-co/ndg) and `<autolinks>`
 - Code blocks and inline code
 - Blockquotes
 - Horizontal rules
