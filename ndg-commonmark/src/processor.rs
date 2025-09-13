@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::OnceLock,
 };
 
 use comrak::{
@@ -11,14 +10,10 @@ use comrak::{
 };
 use log::trace;
 use markup5ever::{local_name, ns};
-use syntect::{
-    highlighting::{Theme, ThemeSet},
-    html::highlighted_html_for_string,
-    parsing::SyntaxSet,
-};
 use walkdir::WalkDir;
 
 use crate::{
+    syntax::{SyntaxManager, create_default_manager},
     types::{Header, MarkdownResult},
     utils::{self, safely_process_markup},
 };
@@ -26,7 +21,7 @@ use crate::{
 /// Options for configuring the Markdown processor.
 #[derive(Debug, Clone)]
 pub struct MarkdownOptions {
-    /// Enable GitHub Flavored Markdown extensions.
+    /// Enable GitHub Flavored Markdown (GFM) extensions.
     pub gfm: bool,
 
     /// Enable Nixpkgs/NixOS documentation extensions.
@@ -35,11 +30,11 @@ pub struct MarkdownOptions {
     /// Enable syntax highlighting for code blocks.
     pub highlight_code: bool,
 
+    /// Optional: Custom syntax highlighting theme name.
+    pub highlight_theme: Option<String>,
+
     /// Optional: Path to manpage URL mappings (for {manpage} roles).
     pub manpage_urls_path: Option<String>,
-
-    /// Optional: Custom syntax highlighting theme name (must be present in syntect's `ThemeSet`)
-    pub highlight_theme: Option<String>,
 }
 
 impl Default for MarkdownOptions {
@@ -47,7 +42,7 @@ impl Default for MarkdownOptions {
         Self {
             gfm: cfg!(feature = "gfm"),
             nixpkgs: cfg!(feature = "nixpkgs"),
-            highlight_code: true,
+            highlight_code: cfg!(feature = "syntastica"),
             manpage_urls_path: None,
             highlight_theme: None,
         }
@@ -58,6 +53,7 @@ impl Default for MarkdownOptions {
 pub struct MarkdownProcessor {
     options: MarkdownOptions,
     manpage_urls: Option<HashMap<String, String>>,
+    syntax_manager: Option<SyntaxManager>,
 }
 
 impl MarkdownProcessor {
@@ -68,19 +64,34 @@ impl MarkdownProcessor {
             .manpage_urls_path
             .as_ref()
             .and_then(|path| utils::load_manpage_urls(path).ok());
+
+        let syntax_manager = if options.highlight_code {
+            create_default_manager().ok()
+        } else {
+            None
+        };
+
         Self {
             options,
             manpage_urls,
+            syntax_manager,
         }
     }
 
-    /// Highlight all code blocks in HTML using syntect
+    /// Highlight all code blocks in HTML using the configured syntax highlighter
     #[must_use]
     pub fn highlight_codeblocks(&self, html: &str) -> String {
+        if !self.options.highlight_code || self.syntax_manager.is_none() {
+            return html.to_string();
+        }
+
         use kuchikikiki::parse_html;
         use tendril::TendrilSink;
 
         let document = parse_html().one(html);
+
+        // Collect all code blocks first to avoid DOM modification during iteration
+        let mut code_blocks = Vec::new();
         for pre_node in document.select("pre > code").unwrap() {
             let code_node = pre_node.as_node();
             if let Some(element) = code_node.as_element() {
@@ -92,61 +103,41 @@ impl MarkdownProcessor {
                 let language = class_attr
                     .as_deref()
                     .and_then(|s| s.strip_prefix("language-"))
-                    .unwrap_or("txt");
+                    .unwrap_or("text");
                 let code_text = code_node.text_contents();
 
-                if let Some(highlighted) = self.highlight_code_html(&code_text, language) {
-                    // Replace <code>...</code> with highlighted HTML
-                    // We wrap in <pre> for CSS compatibility
-                    let parent = code_node.parent().unwrap();
-                    let new_html = format!("<pre>{highlighted}</pre>");
-                    let fragment = parse_html().one(new_html.as_str());
-                    parent.insert_after(fragment);
-                    parent.detach();
+                if let Some(pre_parent) = code_node.parent() {
+                    code_blocks.push((pre_parent.clone(), code_text, language.to_string()));
                 }
             }
         }
+
+        // Process each code block
+        for (pre_element, code_text, language) in code_blocks {
+            if let Some(highlighted) = self.highlight_code_html(&code_text, &language) {
+                // Replace the entire <pre><code>...</code></pre> with highlighted HTML
+                let fragment = parse_html().one(highlighted.as_str());
+                pre_element.insert_after(fragment);
+                pre_element.detach();
+            }
+        }
+
         let mut buf = Vec::new();
         document.serialize(&mut buf).unwrap();
         String::from_utf8(buf).unwrap_or_default()
     }
 
-    /// Get the syntect `SyntaxSet` (cached, thread-safe)
-    fn syntax_set() -> &'static SyntaxSet {
-        static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
-        SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
-    }
-
-    /// Get the syntect Theme (cached, thread-safe, supports user override)
-    fn theme(&self) -> &'static Theme {
-        static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
-        let theme_set = THEME_SET.get_or_init(ThemeSet::load_defaults);
-
-        // Use user-specified theme if present, else InspiredGitHub
-        let theme_name = self
-            .options
-            .highlight_theme
-            .as_deref()
-            .unwrap_or("InspiredGitHub");
-        theme_set.themes.get(theme_name).unwrap_or_else(|| {
-            theme_set
-                .themes
-                .get("InspiredGitHub")
-                .expect("Default theme missing")
-        })
-    }
-
-    /// Highlight code using syntect, returns HTML string
+    /// Highlight code using the configured syntax highlighter, returns HTML string
     fn highlight_code_html(&self, code: &str, language: &str) -> Option<String> {
         if !self.options.highlight_code {
             return None;
         }
-        let syntax_set = Self::syntax_set();
-        let syntax = syntax_set
-            .find_syntax_by_token(language)
-            .unwrap_or_else(|| syntax_set.find_syntax_plain_text());
-        let theme = self.theme();
-        highlighted_html_for_string(code, syntax_set, syntax, theme).ok()
+
+        let syntax_manager = self.syntax_manager.as_ref()?;
+
+        syntax_manager
+            .highlight_code(code, language, self.options.highlight_theme.as_deref())
+            .ok()
     }
 
     /// Render Markdown to HTML, extracting headers and title.
@@ -189,7 +180,14 @@ impl MarkdownProcessor {
             html
         };
 
-        // 7. Complete HTML post-processing
+        // 7. Apply syntax highlighting to code blocks
+        let html = if self.options.highlight_code {
+            self.highlight_codeblocks(&html)
+        } else {
+            html
+        };
+
+        // 8. Complete HTML post-processing
         let html = self.kuchiki_postprocess(&html);
 
         MarkdownResult {

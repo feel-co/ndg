@@ -26,10 +26,8 @@ rayon.workspace          = true
 regex.workspace          = true
 serde.workspace          = true
 serde_json.workspace     = true
-syntect.workspace        = true
 tera.workspace           = true
 toml.workspace           = true
-two-face.workspace       = true
 walkdir.workspace        = true
 
 [profile.dev]
