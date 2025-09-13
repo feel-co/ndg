@@ -82,7 +82,7 @@ use a fenced block syntax with a class indicator.
 
 You can also add an ID to an admonition for direct linking:
 
-```
+```plaintext
 ::: {.note #custom-id}
 This note has a custom ID and can be linked to with
 [link](#custom-id).
@@ -94,7 +94,7 @@ This note has a custom ID and can be linked to with
 Text roles provide semantic markup for specific types of content. They use a
 special syntax with curly braces and backticks.
 
-```
+```plaintext
 {command}`ls -la`                    # Terminal command
 {file}`/etc/nixos/configuration.nix` # File path
 {option}`services.nginx.enable`      # NixOS option
