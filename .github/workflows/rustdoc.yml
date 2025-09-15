@@ -32,7 +32,7 @@ jobs:
           cache-on-failure: true
 
       - name: Prepare GitHub Pages Deployment
-        run: echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark" />' >> target/doc/index.html
+        run: echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark" />' > target/doc/index.html
 
       - name: Deploy Docs
         uses: JamesIves/github-pages-deploy-action@v4
