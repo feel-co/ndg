@@ -2,12 +2,13 @@ use std::{fs, io::Write, path::Path, sync::LazyLock};
 
 use anyhow::{Context, Result};
 use log::{error, info};
+use ndg_commonmark::utils::never_matching_regex;
 use rayon::prelude::*;
 use regex::Regex;
 use serde_json::{self, Value};
 
 use crate::{
-    formatter::{markup, options::NixOption},
+    formatter::options::NixOption,
     manpage::{TROFF_ESCAPE, TROFF_FORMATTING, escape_leading_dot, get_roff_escapes, man_escape},
 };
 
@@ -17,7 +18,7 @@ use crate::{
 static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile ROLE_PATTERN regex in manpage/options.rs: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
@@ -26,7 +27,7 @@ static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile COMMAND_PROMPT regex in manpage/options.rs: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
@@ -34,7 +35,7 @@ static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
 static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
         error!("Failed to compile REPL_PROMPT regex in manpage/options.rs: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
@@ -46,7 +47,7 @@ static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
     // to filter out cases where there might be double backticks
     Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
         error!("Failed to compile INLINE_CODE regex in manpage/options.rs: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
@@ -54,7 +55,7 @@ static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
 static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"</?[a-zA-Z][^>]*>").unwrap_or_else(|e| {
         error!("Failed to compile HTML_TAGS regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
@@ -62,7 +63,7 @@ static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
 static ADMONITION_START: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap_or_else(|e| {
         error!("Failed to compile ADMONITION_START regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 // Don't use regex for simple string matching with ADMONITION_END
@@ -71,14 +72,14 @@ static ADMONITION_START: LazyLock<Regex> = LazyLock::new(|| {
 static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap_or_else(|e| {
         error!("Failed to compile LIST_ITEM regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
 static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap_or_else(|e| {
         error!("Failed to compile NUMBERED_LIST_ITEM regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 
@@ -86,7 +87,7 @@ static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
 static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap_or_else(|e| {
         error!("Failed to compile MARKDOWN_LINK regex: {e}");
-        markup::never_matching_regex()
+        never_matching_regex()
     })
 });
 

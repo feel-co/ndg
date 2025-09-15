@@ -4,12 +4,7 @@ use anyhow::{Context, Result};
 use log::{debug, info};
 use ndg_commonmark::collect_markdown_files;
 
-use crate::{
-    completion,
-    config::Config,
-    formatter::{markdown, options},
-    html, manpage,
-};
+use crate::{completion, config::Config, formatter::options, html, manpage};
 
 // Template constants
 const DEFAULT_CSS: &str = include_str!("../templates/default.css");
@@ -352,7 +347,7 @@ pub fn ensure_index(
         let content = create_fallback_index(config, markdown_files);
 
         // Create a simple HTML document using our template system
-        let headers = vec![markdown::Header {
+        let headers = vec![ndg_commonmark::Header {
             text: config.title.clone(),
             level: 1,
             id: "welcome".to_string(),

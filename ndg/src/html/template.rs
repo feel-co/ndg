@@ -1,13 +1,10 @@
 use std::{collections::HashMap, fmt::Write, fs, path::Path};
 
 use anyhow::{Context, Result};
+use ndg_commonmark::Header;
 use tera::Tera;
 
-use crate::{
-    config::Config,
-    formatter::{markdown::Header, options::NixOption},
-    html::utils,
-};
+use crate::{config::Config, formatter::options::NixOption, html::utils};
 
 // Template constants - these serve as fallbacks
 const DEFAULT_TEMPLATE: &str = include_str!("../../templates/default.html");
