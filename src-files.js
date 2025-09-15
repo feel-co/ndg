@@ -1,0 +1,2 @@
+createSrcSidebar('[["ndg",["",[["config",[],["mod.rs","templates.rs"]],["formatter",[],["markdown.rs","markup.rs","mod.rs","options.rs"]],["html",[],["mod.rs","search.rs","template.rs","utils.rs"]],["manpage",[],["mod.rs","options.rs"]]],["cli.rs","completion.rs","lib.rs","utils.rs"]]],["ndg_commonmark",["",[["processor",[],["core.rs","extensions.rs","mod.rs","types.rs"]],["syntax",[],["error.rs","mod.rs","syntastica.rs","types.rs"]]],["lib.rs","types.rs","utils.rs"]]]]');
+//{"start":19,"fragment_lengths":[267,187]}

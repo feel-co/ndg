@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["ndg",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ndg/config/struct.Config.html\" title=\"struct ndg::config::Config\">Config</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ndg/formatter/options/struct.NixOption.html\" title=\"struct ndg::formatter::options::NixOption\">NixOption</a>"]]],["ndg_commonmark",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ndg_commonmark/processor/types/struct.MarkdownOptions.html\" title=\"struct ndg_commonmark::processor::types::MarkdownOptions\">MarkdownOptions</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ndg_commonmark/syntax/struct.SyntasticaHighlighter.html\" title=\"struct ndg_commonmark::syntax::SyntasticaHighlighter\">SyntasticaHighlighter</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ndg_commonmark/syntax/types/struct.SyntaxConfig.html\" title=\"struct ndg_commonmark::syntax::types::SyntaxConfig\">SyntaxConfig</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[571,1004]}

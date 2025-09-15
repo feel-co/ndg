@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MarkdownOptions","MarkdownProcessor","PromptTransformer"],"trait":["AstTransformer"]};

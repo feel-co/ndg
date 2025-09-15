@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["capitalize_first","clean_anchor_patterns","extract_markdown_title","extract_title_from_markdown","html_escape","is_markdown_header","load_manpage_urls","never_matching_regex","process_html_elements","process_with_error_recovery","safely_process_markup","slugify","strip_markdown"]};

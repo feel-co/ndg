@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_JSON_TEMPLATE","DEFAULT_TOML_TEMPLATE"],"enum":["TemplateError"],"fn":["get_template"]};

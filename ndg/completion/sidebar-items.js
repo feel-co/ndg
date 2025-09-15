@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["generate_all","generate_comp","generate_manpage"]};

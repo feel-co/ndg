@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["SyntaxConfig","SyntaxManager"],"trait":["SyntaxHighlighter"]};

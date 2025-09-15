@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["templates"],"struct":["Config"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_search_page","generate_search_index"],"struct":["SearchDocument"]};
