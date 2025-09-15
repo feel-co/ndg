@@ -44,3 +44,13 @@ walkdir.workspace     = true
 
 [dev-dependencies]
 tempfile = "3.22.0"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+codegen-units = 1
+lto           = "thin"
+opt-level     = "s"
+panic         = "abort"
+strip         = true
