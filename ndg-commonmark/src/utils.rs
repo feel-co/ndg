@@ -7,9 +7,6 @@ use comrak::{
 };
 use regex::Regex;
 
-// Re-export from processor module
-pub use crate::processor::collect_markdown_files;
-
 /// Slugify a string for use as an anchor ID.
 /// Converts to lowercase, replaces non-alphanumeric characters with dashes,
 /// and trims leading/trailing dashes.
