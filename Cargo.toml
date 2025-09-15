@@ -5,14 +5,13 @@ resolver = "3"
 [workspace.package]
 authors      = [ "NotAShelf <raf@notashelf.dev>" ]
 categories   = [ "text-processing" ]
-description  = "Generate HTML documents and manpages for your Nix projects"
 edition      = "2024"
 keywords     = [ "markdown", "commonmark", "nix", "nixpkgs", "documentation" ]
 license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/notashelf/ndg"
 rust-version = "1.85"
-version      = "2.0.2"
+version      = "2.0.3"
 
 [workspace.dependencies]
 anyhow = "1.0.99"

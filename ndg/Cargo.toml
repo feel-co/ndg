@@ -1,11 +1,12 @@
 [package]
 name                   = "ndg"
-description.workspace  = true
+description            = "Platform agnostic documentation generator for Nix/NixOS and Nixpkgs module systems"
+authors.workspace      = true
 version.workspace      = true
 edition.workspace      = true
-authors.workspace      = true
 rust-version.workspace = true
-readme                 = "../README.md"
+readme                 = "./README.md"
+license                = "MPL-2.0"
 categories.workspace   = true
 keywords.workspace     = true
 
