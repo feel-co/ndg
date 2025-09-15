@@ -1,10 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
-use ndg::{
-    config::Config,
-    formatter::{markdown::Header, options::NixOption},
-    html::template,
-};
+use ndg::{config::Config, formatter::options::NixOption, html::template};
+use ndg_commonmark::Header;
 
 /// Helper to check for highlighted code HTML (syntect output)
 fn contains_highlighted_code(html: &str) -> bool {
