@@ -5,7 +5,8 @@ authors.workspace      = true
 version.workspace      = true
 edition.workspace      = true
 rust-version.workspace = true
-readme                 = "../README.md"
+readme                 = "./README.md"
+license                = "MPL-2.0"
 categories.workspace   = true
 keywords.workspace     = true
 
@@ -36,9 +37,9 @@ syntastica-core       = { version = "0.6.1", optional = true }
 syntastica-parsers    = { version = "0.6.1", features = [ "all" ], optional = true }
 syntastica-themes     = { version = "0.6.1", optional = true }
 syntect               = { workspace = true, optional = true }
-two-face              = { version = "0.4.3", optional = true, features = ["syntect-default-onig"] }
 tendril.workspace     = true
 thiserror.workspace   = true
+two-face              = { version = "0.4.3", optional = true, features = [ "syntect-default-onig" ] }
 walkdir.workspace     = true
 
 [dev-dependencies]
