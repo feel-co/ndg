@@ -1073,6 +1073,7 @@ dependencies = [
  "tempfile",
  "tendril",
  "thiserror 2.0.16",
+ "two-face",
  "walkdir",
 ]
 
@@ -2707,6 +2708,17 @@ checksum = "ab11fc124851b0db4dd5e55983bbd9631192e93238389dcd44521715e5d53e28"
 dependencies = [
  "cc",
  "tree-sitter-language",
+]
+
+[[package]]
+name = "two-face"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "384eda438ddf62e2c6f39a174452d952d9d9df5a8ad5ade22198609f8dcaf852"
+dependencies = [
+ "once_cell",
+ "serde",
+ "syntect",
 ]
 
 [[package]]
