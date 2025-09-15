@@ -31,8 +31,13 @@ jobs:
           cache-targets: false
           cache-on-failure: true
 
+      - name: Build Rust Documentation
+        run: cargo doc --workspace --all-features --no-deps
+
       - name: Prepare GitHub Pages Deployment
-        run: echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark" />' > target/doc/index.html
+        run: |
+          mkdir -p target/doc
+          echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark" />' > target/doc/index.html
 
       - name: Deploy Docs
         uses: JamesIves/github-pages-deploy-action@v4
