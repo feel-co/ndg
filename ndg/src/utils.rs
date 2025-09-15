@@ -2,6 +2,7 @@ use std::{fmt::Write, fs, path::Path};
 
 use anyhow::{Context, Result};
 use log::{debug, info};
+use ndg_commonmark::collect_markdown_files;
 
 use crate::{
     completion,
@@ -195,7 +196,7 @@ pub fn generate_options_manpage(
 pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>> {
     if let Some(ref input_dir) = config.input_dir {
         info!("Input directory: {}", input_dir.display());
-        let files = ndg_commonmark::utils::collect_markdown_files(input_dir);
+        let files = collect_markdown_files(input_dir);
         info!("Found {} markdown files", files.len());
 
         if !files.is_empty() {
