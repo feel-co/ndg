@@ -44,7 +44,7 @@ pub use crate::processor::process_role_markup;
 #[cfg(feature = "nixpkgs")]
 pub use crate::processor::{process_block_elements, process_file_includes, process_inline_anchors};
 pub use crate::{
-    processor::{AstTransformer, MarkdownOptions, MarkdownProcessor},
+    processor::{AstTransformer, MarkdownOptions, MarkdownProcessor, collect_markdown_files},
     syntax::{SyntaxConfig, SyntaxError, SyntaxHighlighter, SyntaxManager, create_default_manager},
     types::{Header, MarkdownResult},
 };
