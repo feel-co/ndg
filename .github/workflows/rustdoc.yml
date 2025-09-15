@@ -32,7 +32,7 @@ jobs:
           cache-on-failure: true
 
       - name: Build Rust Documentation
-        run: cargo doc --workspace --all-features --no-deps
+        run: cargo doc --workspace --no-deps
 
       - name: Prepare GitHub Pages Deployment
         run: |
