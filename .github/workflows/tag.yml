@@ -1,0 +1,32 @@
+name: Tag version
+
+concurrency: tag
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v5
+        name: Checkout
+
+      - name: Read version
+        run: |
+          echo -n "ndg_version=v" >> "$GITHUB_ENV"
+          nix run nixpkgs#fq -- -r '.workspace.package.version' Cargo.toml >> "$GITHUB_ENV"
+          cat "$GITHUB_ENV"
+
+      - name: Tag
+        run: |
+          set -x
+          git tag $ndg_version
+          git push --tags || :
