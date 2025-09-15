@@ -474,7 +474,28 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
             .collect();
 
         if !entries.is_empty() {
-            for entry in entries {
+            // Partition entries into special and regular
+            let mut special_entries = Vec::new();
+            let mut regular_entries = Vec::new();
+
+            for entry in &entries {
+                let path = entry.path();
+                if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
+                    let file_name = rel_doc_path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_ascii_lowercase();
+                    if file_name == "index.md" || file_name == "readme.md" {
+                        special_entries.push(entry);
+                    } else {
+                        regular_entries.push(entry);
+                    }
+                }
+            }
+
+            // Helper closure to render a nav entry
+            let mut render_entry = |entry: &walkdir::DirEntry| {
                 let path = entry.path();
                 if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
                     let mut html_path = rel_doc_path.to_path_buf();
@@ -509,10 +530,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                                                 .to_string_lossy()
                                                 .to_string()
                                         },
-                                        |title| {
-                                            // Clean the title of any inline anchors
-                                            ndg_commonmark::utils::clean_anchor_patterns(title)
-                                        },
+                                        |title| ndg_commonmark::utils::clean_anchor_patterns(title),
                                     )
                                 },
                             )
@@ -525,6 +543,15 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                     )
                     .expect("Failed to write to doc_nav string");
                 }
+            };
+
+            // Render special entries first (index.md, README.md)
+            for entry in &special_entries {
+                render_entry(entry);
+            }
+            // Then render regular entries
+            for entry in &regular_entries {
+                render_entry(entry);
             }
         }
     }
