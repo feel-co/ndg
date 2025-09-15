@@ -1,15 +1,16 @@
-//! Syntect-based syntax highlighting backend.
+//! Syntect-based syntax highlighting backend enhanced with two-face.
 //!
-//! This module provides a legacy regex-based syntax highlighter using the
-//! Syntect library. It serves as a fallback when Syntastica is not available
-//! or when the syntect feature is explicitly enabled.
+//! This module provides a syntax highlighter using the Syntect library,
+//! which uses Sublime Text's syntax definitions (TextMate grammars),
+//! significantly enhanced with the two-face crate for extended
+//! syntax definitions and themes.
 
 use std::sync::OnceLock;
 
-use syntect::{
-    highlighting::{Theme, ThemeSet},
-    html::highlighted_html_for_string,
-    parsing::SyntaxSet,
+use syntect::{highlighting::Theme, html::highlighted_html_for_string, parsing::SyntaxSet};
+use two_face::{
+    re_exports::syntect::highlighting::ThemeSet,
+    theme::{EmbeddedLazyThemeSet, EmbeddedThemeName},
 };
 
 use super::{
@@ -17,7 +18,7 @@ use super::{
     types::{SyntaxConfig, SyntaxHighlighter, SyntaxManager},
 };
 
-/// Syntect-based syntax highlighter (legacy/fallback).
+/// Syntect-based syntax highlighter
 pub struct SyntectHighlighter {
     theme_name: String,
 }
@@ -30,28 +31,78 @@ impl SyntectHighlighter {
         }
     }
 
-    /// Get the syntect SyntaxSet (cached, thread-safe).
+    /// Get the syntect SyntaxSet.
     fn syntax_set() -> &'static SyntaxSet {
         static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
-        SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
+        SYNTAX_SET.get_or_init(two_face::syntax::extra_newlines)
     }
 
-    /// Get the syntect ThemeSet (cached, thread-safe).
-    fn theme_set() -> &'static ThemeSet {
-        static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
-        THEME_SET.get_or_init(ThemeSet::load_defaults)
+    /// Get the syntect ThemeSet with extended themes.
+    fn theme_set() -> &'static EmbeddedLazyThemeSet {
+        static THEME_SET: OnceLock<EmbeddedLazyThemeSet> = OnceLock::new();
+        THEME_SET.get_or_init(two_face::theme::extra)
+    }
+
+    /// Get the default syntect ThemeSet for fallback themes.
+    fn default_theme_set() -> &'static ThemeSet {
+        static DEFAULT_THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
+        DEFAULT_THEME_SET.get_or_init(ThemeSet::load_defaults)
     }
 
     /// Get the theme by name.
     fn get_theme(&self, theme_name: Option<&str>) -> &'static Theme {
         let theme_set = Self::theme_set();
+        let default_theme_set = Self::default_theme_set();
         let name = theme_name.unwrap_or(&self.theme_name);
-        theme_set.themes.get(name).unwrap_or_else(|| {
-            theme_set
-                .themes
-                .get("InspiredGitHub")
-                .expect("Default theme missing")
-        })
+
+        // Try to get theme from default syntect themes first
+        if let Some(theme) = default_theme_set.themes.get(name) {
+            return theme;
+        }
+
+        // Try to get theme from two-face themes by matching name
+        let embedded_theme = match name {
+            "Ansi" => Some(EmbeddedThemeName::Ansi),
+            "Base16" => Some(EmbeddedThemeName::Base16),
+            "Base16EightiesDark" => Some(EmbeddedThemeName::Base16EightiesDark),
+            "Base16MochaDark" => Some(EmbeddedThemeName::Base16MochaDark),
+            "Base16OceanDark" => Some(EmbeddedThemeName::Base16OceanDark),
+            "Base16OceanLight" => Some(EmbeddedThemeName::Base16OceanLight),
+            "Base16_256" => Some(EmbeddedThemeName::Base16_256),
+            "ColdarkCold" => Some(EmbeddedThemeName::ColdarkCold),
+            "ColdarkDark" => Some(EmbeddedThemeName::ColdarkDark),
+            "DarkNeon" => Some(EmbeddedThemeName::DarkNeon),
+            "Dracula" => Some(EmbeddedThemeName::Dracula),
+            "Github" => Some(EmbeddedThemeName::Github),
+            "GruvboxDark" => Some(EmbeddedThemeName::GruvboxDark),
+            "GruvboxLight" => Some(EmbeddedThemeName::GruvboxLight),
+            "InspiredGithub" => Some(EmbeddedThemeName::InspiredGithub),
+            "Leet" => Some(EmbeddedThemeName::Leet),
+            "MonokaiExtended" => Some(EmbeddedThemeName::MonokaiExtended),
+            "MonokaiExtendedBright" => Some(EmbeddedThemeName::MonokaiExtendedBright),
+            "MonokaiExtendedLight" => Some(EmbeddedThemeName::MonokaiExtendedLight),
+            "MonokaiExtendedOrigin" => Some(EmbeddedThemeName::MonokaiExtendedOrigin),
+            "Nord" => Some(EmbeddedThemeName::Nord),
+            "OneHalfDark" => Some(EmbeddedThemeName::OneHalfDark),
+            "OneHalfLight" => Some(EmbeddedThemeName::OneHalfLight),
+            "SolarizedDark" => Some(EmbeddedThemeName::SolarizedDark),
+            "SolarizedLight" => Some(EmbeddedThemeName::SolarizedLight),
+            "SublimeSnazzy" => Some(EmbeddedThemeName::SublimeSnazzy),
+            "TwoDark" => Some(EmbeddedThemeName::TwoDark),
+            "VisualStudioDarkPlus" => Some(EmbeddedThemeName::VisualStudioDarkPlus),
+            "Zenburn" => Some(EmbeddedThemeName::Zenburn),
+            _ => None,
+        };
+
+        if let Some(embedded_name) = embedded_theme {
+            return theme_set.get(embedded_name);
+        }
+
+        // Fall back to default theme
+        default_theme_set
+            .themes
+            .get("InspiredGitHub")
+            .unwrap_or_else(|| theme_set.get(EmbeddedThemeName::InspiredGithub))
     }
 }
 
@@ -78,7 +129,46 @@ impl SyntaxHighlighter for SyntectHighlighter {
     }
 
     fn available_themes(&self) -> Vec<String> {
-        Self::theme_set().themes.keys().cloned().collect()
+        let default_theme_set = Self::default_theme_set();
+        let mut themes: Vec<String> = default_theme_set.themes.keys().cloned().collect();
+
+        // Add all embedded themes from two-face
+        let embedded_themes: Vec<String> = vec![
+            "Ansi".to_string(),
+            "Base16".to_string(),
+            "Base16EightiesDark".to_string(),
+            "Base16MochaDark".to_string(),
+            "Base16OceanDark".to_string(),
+            "Base16OceanLight".to_string(),
+            "Base16_256".to_string(),
+            "ColdarkCold".to_string(),
+            "ColdarkDark".to_string(),
+            "DarkNeon".to_string(),
+            "Dracula".to_string(),
+            "Github".to_string(),
+            "GruvboxDark".to_string(),
+            "GruvboxLight".to_string(),
+            "InspiredGithub".to_string(),
+            "Leet".to_string(),
+            "MonokaiExtended".to_string(),
+            "MonokaiExtendedBright".to_string(),
+            "MonokaiExtendedLight".to_string(),
+            "MonokaiExtendedOrigin".to_string(),
+            "Nord".to_string(),
+            "OneHalfDark".to_string(),
+            "OneHalfLight".to_string(),
+            "SolarizedDark".to_string(),
+            "SolarizedLight".to_string(),
+            "SublimeSnazzy".to_string(),
+            "TwoDark".to_string(),
+            "VisualStudioDarkPlus".to_string(),
+            "Zenburn".to_string(),
+        ];
+
+        themes.extend(embedded_themes);
+        themes.sort();
+        themes.dedup();
+        themes
     }
 
     fn highlight(&self, code: &str, language: &str, theme: Option<&str>) -> SyntaxResult<String> {
@@ -101,10 +191,7 @@ impl SyntaxHighlighter for SyntectHighlighter {
     }
 }
 
-/// Create a Syntect-based syntax manager with default configuration.
-///
-/// Syntect provides legacy syntax highlighting using regex-based parsing.
-/// Used as a fallback when Syntastica is not available.
+/// Create a Syntect-based syntax manager with configuration
 pub fn create_syntect_manager() -> SyntaxResult<SyntaxManager> {
     let highlighter = Box::new(SyntectHighlighter::default());
     let mut config = SyntaxConfig::default();
