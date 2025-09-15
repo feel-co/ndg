@@ -72,11 +72,15 @@ pub struct PromptTransformer;
 
 impl AstTransformer for PromptTransformer {
     fn transform<'a>(&self, node: &'a AstNode<'a>) {
+        use std::sync::LazyLock;
+
         use comrak::nodes::NodeValue;
         use regex::Regex;
 
-        let command_prompt_re = Regex::new(r"^\s*\$\s+(.+)$").unwrap();
-        let repl_prompt_re = Regex::new(r"^nix-repl>\s*(.*)$").unwrap();
+        static COMMAND_PROMPT_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^\s*\$\s+(.+)$").unwrap());
+        static REPL_PROMPT_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^nix-repl>\s*(.*)$").unwrap());
 
         for child in node.children() {
             {
@@ -85,7 +89,7 @@ impl AstTransformer for PromptTransformer {
                     let literal = code.literal.trim();
 
                     // Match command prompts with flexible whitespace
-                    if let Some(caps) = command_prompt_re.captures(literal) {
+                    if let Some(caps) = COMMAND_PROMPT_RE.captures(literal) {
                         // Skip escaped prompts
                         if !literal.starts_with("\\$") && !literal.starts_with("$$") {
                             let command = caps[1].trim();
@@ -94,7 +98,7 @@ impl AstTransformer for PromptTransformer {
                             );
                             data.value = NodeValue::HtmlInline(html);
                         }
-                    } else if let Some(caps) = repl_prompt_re.captures(literal) {
+                    } else if let Some(caps) = REPL_PROMPT_RE.captures(literal) {
                         // Skip double prompts
                         if !literal.starts_with("nix-repl>>") {
                             let expression = caps[1].trim();
@@ -108,5 +112,68 @@ impl AstTransformer for PromptTransformer {
             }
             self.transform(child);
         }
+    }
+}
+
+/// Builder for constructing `MarkdownOptions` with method chaining.
+#[derive(Debug, Clone)]
+pub struct MarkdownOptionsBuilder {
+    options: MarkdownOptions,
+}
+
+impl MarkdownOptionsBuilder {
+    /// Create a new builder with default options.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            options: MarkdownOptions::default(),
+        }
+    }
+
+    /// Enable or disable GitHub Flavored Markdown.
+    #[must_use]
+    pub fn gfm(mut self, enabled: bool) -> Self {
+        self.options.gfm = enabled;
+        self
+    }
+
+    /// Enable or disable Nixpkgs extensions.
+    #[must_use]
+    pub fn nixpkgs(mut self, enabled: bool) -> Self {
+        self.options.nixpkgs = enabled;
+        self
+    }
+
+    /// Enable or disable syntax highlighting.
+    #[must_use]
+    pub fn highlight_code(mut self, enabled: bool) -> Self {
+        self.options.highlight_code = enabled;
+        self
+    }
+
+    /// Set the syntax highlighting theme.
+    #[must_use]
+    pub fn highlight_theme<S: Into<String>>(mut self, theme: Option<S>) -> Self {
+        self.options.highlight_theme = theme.map(Into::into);
+        self
+    }
+
+    /// Set the manpage URLs path.
+    #[must_use]
+    pub fn manpage_urls_path<S: Into<String>>(mut self, path: Option<S>) -> Self {
+        self.options.manpage_urls_path = path.map(Into::into);
+        self
+    }
+
+    /// Build the final `MarkdownOptions`.
+    #[must_use]
+    pub fn build(self) -> MarkdownOptions {
+        self.options
+    }
+}
+
+impl Default for MarkdownOptionsBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -1,6 +1,7 @@
 //! Feature-specific Markdown processing extensions.
 
-use crate::utils::{self, safely_process_markup};
+use super::process::process_safe;
+use crate::utils;
 
 /// Apply GitHub Flavored Markdown (GFM) extensions to the input markdown.
 ///
@@ -800,7 +801,7 @@ pub fn process_manpage_references(
     html: &str,
     manpage_urls: Option<&std::collections::HashMap<String, String>>,
 ) -> String {
-    safely_process_markup(
+    process_safe(
         html,
         |html| {
             use kuchikikiki::NodeRef;
@@ -883,7 +884,7 @@ pub fn process_option_references(html: &str) -> String {
     use markup5ever::{QualName, local_name, ns};
     use tendril::TendrilSink;
 
-    safely_process_markup(
+    process_safe(
         html,
         |html| {
             let document = kuchikikiki::parse_html().one(html);

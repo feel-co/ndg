@@ -7,16 +7,18 @@
 //!
 //! The processor module is organized into focused submodules:
 //!
-//! - [`types`]: Core type definitions and configuration structures
 //! - [`core`]: Main processor implementation and processing pipeline
+//! - [`process`]: High-level processing functions with error recovery
 //! - [`extensions`]: Feature-gated processing functions for different Markdown flavors
+//! - [`types`]: Core type definitions and configuration structures
 
 pub mod core;
 pub mod extensions;
+pub mod process;
 pub mod types;
 
 // Re-export commonly used types from submodules
-pub use core::{collect_markdown_files, extract_inline_text};
+pub use core::{ProcessorFeature, collect_markdown_files, extract_inline_text};
 
 // Re-export extension functions for third-party use
 #[cfg(feature = "gfm")]
@@ -29,7 +31,13 @@ pub use extensions::process_option_references;
 pub use extensions::process_role_markup;
 #[cfg(feature = "nixpkgs")]
 pub use extensions::{process_block_elements, process_file_includes, process_inline_anchors};
-pub use types::{AstTransformer, MarkdownOptions, MarkdownProcessor, PromptTransformer};
+pub use process::{
+    ProcessorPreset, create_processor, process_batch, process_markdown_file,
+    process_markdown_string, process_safe, process_with_recovery,
+};
+pub use types::{
+    AstTransformer, MarkdownOptions, MarkdownOptionsBuilder, MarkdownProcessor, PromptTransformer,
+};
 
 #[cfg(test)]
 mod tests {

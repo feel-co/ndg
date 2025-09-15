@@ -1,7 +1,7 @@
 //! Core implementation of the Markdown processor.
 //!
 //! This module contains the main implementation of `MarkdownProcessor` and its methods,
-//! along with core processing utilities and helper functions.
+//! focused on the core rendering pipeline and configuration management.
 
 use std::{
     collections::HashMap,
@@ -17,11 +17,14 @@ use log::trace;
 use markup5ever::local_name;
 use walkdir::WalkDir;
 
-use super::types::{AstTransformer, MarkdownOptions, MarkdownProcessor, PromptTransformer};
+use super::{
+    process::process_safe,
+    types::{AstTransformer, MarkdownOptions, MarkdownProcessor, PromptTransformer},
+};
 use crate::{
     syntax::create_default_manager,
     types::{Header, MarkdownResult},
-    utils::{self, safely_process_markup},
+    utils,
 };
 
 impl MarkdownProcessor {
@@ -44,6 +47,29 @@ impl MarkdownProcessor {
             manpage_urls,
             syntax_manager,
         }
+    }
+
+    /// Get the processor configuration options.
+    #[must_use]
+    pub fn options(&self) -> &MarkdownOptions {
+        &self.options
+    }
+
+    /// Check if a specific feature is enabled.
+    #[must_use]
+    pub fn has_feature(&self, feature: ProcessorFeature) -> bool {
+        match feature {
+            ProcessorFeature::Gfm => self.options.gfm,
+            ProcessorFeature::Nixpkgs => self.options.nixpkgs,
+            ProcessorFeature::SyntaxHighlighting => self.options.highlight_code,
+            ProcessorFeature::ManpageUrls => self.manpage_urls.is_some(),
+        }
+    }
+
+    /// Get the manpage URLs mapping for use with standalone functions.
+    #[must_use]
+    pub fn manpage_urls(&self) -> Option<&HashMap<String, String>> {
+        self.manpage_urls.as_ref()
     }
 
     /// Highlight all code blocks in HTML using the configured syntax highlighter
@@ -75,19 +101,29 @@ impl MarkdownProcessor {
                 let code_text = code_node.text_contents();
 
                 if let Some(pre_parent) = code_node.parent() {
-                    code_blocks.push((pre_parent.clone(), code_text, language.to_string()));
+                    code_blocks.push((
+                        pre_parent.clone(),
+                        code_node.clone(),
+                        code_text,
+                        language.to_string(),
+                    ));
                 }
             }
         }
 
         // Process each code block
-        for (pre_element, code_text, language) in code_blocks {
+        for (pre_element, _code_node, code_text, language) in code_blocks {
             if let Some(highlighted) = self.highlight_code_html(&code_text, &language) {
-                // Replace the entire <pre><code>...</code></pre> with highlighted HTML
-                let fragment = parse_html().one(highlighted.as_str());
+                // Wrap highlighted HTML in <pre><code> with appropriate classes
+                let wrapped_html = format!(
+                    r#"<pre class="highlight"><code class="language-{}">{}</code></pre>"#,
+                    language, highlighted
+                );
+                let fragment = parse_html().one(wrapped_html.as_str());
                 pre_element.insert_after(fragment);
                 pre_element.detach();
             }
+            // Do not add highlight/language-* classes if not highlighted
         }
 
         let mut buf = Vec::new();
@@ -111,47 +147,9 @@ impl MarkdownProcessor {
     /// Render Markdown to HTML, extracting headers and title.
     #[must_use]
     pub fn render(&self, markdown: &str) -> MarkdownResult {
-        // 1. Preprocess (includes, block elements, headers, inline anchors, roles)
         let preprocessed = self.preprocess(markdown);
-
-        // 2. Extract headers and title
         let (headers, title) = self.extract_headers(&preprocessed);
-
-        // 3. Convert to HTML
-        let html = self.convert_to_html(&preprocessed);
-
-        // 4. Process option references
-        let html = if cfg!(feature = "ndg-flavored") {
-            #[cfg(feature = "ndg-flavored")]
-            {
-                super::extensions::process_option_references(&html)
-            }
-            #[cfg(not(feature = "ndg-flavored"))]
-            {
-                html
-            }
-        } else {
-            html
-        };
-
-        // 5. Autolinks are handled natively by comrak when GFM is enabled
-
-        // 6. Post-process manpage references
-        let html = if self.options.nixpkgs {
-            self.process_manpage_references_html(&html)
-        } else {
-            html
-        };
-
-        // 7. Apply syntax highlighting to code blocks
-        let html = if self.options.highlight_code {
-            self.highlight_codeblocks(&html)
-        } else {
-            html
-        };
-
-        // 8. Complete HTML post-processing
-        let html = self.kuchiki_postprocess(&html);
+        let html = self.process_html_pipeline(&preprocessed);
 
         MarkdownResult {
             html,
@@ -160,42 +158,58 @@ impl MarkdownProcessor {
         }
     }
 
-    /// Preprocess the markdown content (includes, block elements, headers, roles, etc).
-    fn preprocess(&self, content: &str) -> String {
-        // 1. Process file includes if nixpkgs feature is enabled
-        let with_includes = if self.options.nixpkgs {
-            #[cfg(feature = "nixpkgs")]
+    /// Process the HTML generation and post-processing pipeline.
+    fn process_html_pipeline(&self, content: &str) -> String {
+        let mut html = self.convert_to_html(content);
+
+        // Apply feature-specific post-processing
+        if cfg!(feature = "ndg-flavored") {
+            #[cfg(feature = "ndg-flavored")]
             {
-                super::extensions::process_file_includes(content, std::path::Path::new("."))
+                html = super::extensions::process_option_references(&html);
             }
-            #[cfg(not(feature = "nixpkgs"))]
-            {
-                content.to_string()
-            }
-        } else {
-            content.to_string()
-        };
-
-        // 2. Process block elements (admonitions, figures, definition lists)
-        let preprocessed = if self.options.nixpkgs {
-            super::extensions::process_block_elements(&with_includes)
-        } else {
-            with_includes
-        };
-
-        // 3. Process inline anchors
-        let with_inline_anchors = if self.options.nixpkgs {
-            super::extensions::process_inline_anchors(&preprocessed)
-        } else {
-            preprocessed
-        };
-
-        // 4. Process role markup
-        if self.options.nixpkgs || cfg!(feature = "ndg-flavored") {
-            super::extensions::process_role_markup(&with_inline_anchors, self.manpage_urls.as_ref())
-        } else {
-            with_inline_anchors
         }
+
+        if self.options.nixpkgs {
+            html = self.process_manpage_references_html(&html);
+        }
+
+        if self.options.highlight_code {
+            html = self.highlight_codeblocks(&html);
+        }
+
+        self.kuchiki_postprocess(&html)
+    }
+
+    /// Preprocess the markdown content with all enabled transformations.
+    fn preprocess(&self, content: &str) -> String {
+        let mut processed = content.to_string();
+
+        if self.options.nixpkgs {
+            processed = self.apply_nixpkgs_preprocessing(&processed);
+        }
+
+        if self.options.nixpkgs || cfg!(feature = "ndg-flavored") {
+            processed =
+                super::extensions::process_role_markup(&processed, self.manpage_urls.as_ref());
+        }
+
+        processed
+    }
+
+    /// Apply Nixpkgs-specific preprocessing steps.
+    #[cfg(feature = "nixpkgs")]
+    fn apply_nixpkgs_preprocessing(&self, content: &str) -> String {
+        let with_includes =
+            super::extensions::process_file_includes(content, std::path::Path::new("."));
+        let with_blocks = super::extensions::process_block_elements(&with_includes);
+        super::extensions::process_inline_anchors(&with_blocks)
+    }
+
+    /// Apply Nixpkgs-specific preprocessing steps (no-op when feature disabled).
+    #[cfg(not(feature = "nixpkgs"))]
+    fn apply_nixpkgs_preprocessing(&self, content: &str) -> String {
+        content.to_string()
     }
 
     /// Extract headers and title from the markdown content.
@@ -294,26 +308,21 @@ impl MarkdownProcessor {
 
     /// Convert markdown to HTML using comrak and configured options.
     fn convert_to_html(&self, content: &str) -> String {
-        safely_process_markup(
-            content,
-            |content| {
-                let arena = Arena::new();
-                let options = self.comrak_options();
-                let root = parse_document(&arena, content, &options);
+        // Process directly without panic catching for better performance
+        let arena = Arena::new();
+        let options = self.comrak_options();
+        let root = parse_document(&arena, content, &options);
 
-                // Apply AST transformations
-                let prompt_transformer = PromptTransformer;
-                prompt_transformer.transform(root);
+        // Apply AST transformations
+        let prompt_transformer = PromptTransformer;
+        prompt_transformer.transform(root);
 
-                let mut html_output = Vec::new();
-                comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
-                let html = String::from_utf8(html_output).unwrap_or_default();
+        let mut html_output = Vec::new();
+        comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
+        let html = String::from_utf8(html_output).unwrap_or_default();
 
-                // Post-process HTML to handle header anchors
-                self.process_header_anchors_html(&html)
-            },
-            "<div class=\"error\">Error processing markdown content</div>",
-        )
+        // Post-process HTML to handle header anchors
+        self.process_header_anchors_html(&html)
     }
 
     /// Process header anchors in HTML by finding {#id} syntax and converting to proper id attributes
@@ -360,55 +369,35 @@ impl MarkdownProcessor {
         options
     }
 
-    /// Get the manpage URLs mapping for use with standalone functions.
-    #[must_use]
-    pub fn manpage_urls(&self) -> Option<&HashMap<String, String>> {
-        self.manpage_urls.as_ref()
-    }
-
     /// Post-process HTML to enhance manpage references with URL links.
-    /// This finds <span class="manpage-reference"> elements and converts them to links when URLs are available.
     #[cfg(feature = "nixpkgs")]
     fn process_manpage_references_html(&self, html: &str) -> String {
         super::extensions::process_manpage_references(html, self.manpage_urls.as_ref())
     }
 
+    /// Post-process HTML to enhance manpage references (no-op when feature disabled).
+    #[cfg(not(feature = "nixpkgs"))]
+    fn process_manpage_references_html(&self, html: &str) -> String {
+        html.to_string()
+    }
+
     /// HTML post-processing using kuchiki DOM manipulation.
     fn kuchiki_postprocess(&self, html: &str) -> String {
-        safely_process_markup(
-            html,
-            |html| {
-                use tendril::TendrilSink;
+        // Use a standalone function to avoid borrowing issues
+        kuchiki_postprocess_html(html, |document| {
+            self.apply_dom_transformations(document);
+        })
+    }
 
-                let document = kuchikikiki::parse_html().one(html);
-
-                // Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
-                self.process_list_item_id_markers(&document);
-
-                // Process header anchors with comments: <h1>text<!-- anchor: id --></h1>
-                self.process_header_anchor_comments(&document);
-
-                // Process remaining inline anchors in list items: <li>[]{#id}content</li>
-                self.process_list_item_inline_anchors(&document);
-
-                // Process inline anchors in paragraphs: <p>[]{#id}content</p>
-                self.process_paragraph_inline_anchors(&document);
-
-                // Process remaining standalone inline anchors
-                self.process_remaining_inline_anchors(&document);
-
-                // Process empty auto-links: [](#anchor)
-                self.process_empty_auto_links(&document);
-
-                // Process empty HTML links: <a href="#anchor"></a>
-                self.process_empty_html_links(&document);
-
-                let mut out = Vec::new();
-                document.serialize(&mut out).ok();
-                String::from_utf8(out).unwrap_or_default()
-            },
-            html,
-        )
+    /// Apply all DOM transformations to the parsed HTML document.
+    fn apply_dom_transformations(&self, document: &kuchikikiki::NodeRef) {
+        self.process_list_item_id_markers(document);
+        self.process_header_anchor_comments(document);
+        self.process_list_item_inline_anchors(document);
+        self.process_paragraph_inline_anchors(document);
+        self.process_remaining_inline_anchors(document);
+        self.process_empty_auto_links(document);
+        self.process_empty_html_links(document);
     }
 
     /// Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
@@ -863,4 +852,38 @@ pub fn collect_markdown_files(input_dir: &Path) -> Vec<PathBuf> {
 
     trace!("Found {} markdown files to process", files.len());
     files
+}
+
+/// Features that can be queried on a processor instance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessorFeature {
+    /// GitHub Flavored Markdown support
+    Gfm,
+    /// Nixpkgs documentation extensions
+    Nixpkgs,
+    /// Syntax highlighting for code blocks
+    SyntaxHighlighting,
+    /// Manpage URL mapping support
+    ManpageUrls,
+}
+
+/// Standalone HTML post-processing function to avoid borrowing issues.
+fn kuchiki_postprocess_html<F>(html: &str, transform_fn: F) -> String
+where
+    F: FnOnce(&kuchikikiki::NodeRef),
+{
+    process_safe(
+        html,
+        |html| {
+            use tendril::TendrilSink;
+
+            let document = kuchikikiki::parse_html().one(html);
+            transform_fn(&document);
+
+            let mut out = Vec::new();
+            document.serialize(&mut out).ok();
+            String::from_utf8(out).unwrap_or_default()
+        },
+        html,
+    )
 }
