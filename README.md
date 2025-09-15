@@ -32,6 +32,8 @@ for your projects.
 
 ### ndg-commonmark
 
+[published on crates.io]: https://crates.io/crates/ndg-commonmark
+
 While designing ndg, a lot of Markdown processing functionality had to be baked
 in because there is no library that helps you parse nixpkgs-flavored Markdown in
 your tools. The official documentation generator, `nixos-render-docs`, uses an
@@ -42,6 +44,11 @@ increasing its robustness and compatibility with 3rd party tooling.
 You may integrate ndg-commonmark in your utilities to implement your own,
 opinionated and unique documentation generators if ndg is not up your alley. We
 don't judge.
+
+Please note, while ndg-commonmark _is_ designed for ndg, it is not as tightly
+coupled as it could have been. If your usecase is not supported, please let us
+know in an issue and we'll see what we can do. ndg-commonmark has been
+refactored as a library and [published on crates.io] for this reason.
 
 ## Contributing
 
