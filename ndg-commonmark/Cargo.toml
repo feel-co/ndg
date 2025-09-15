@@ -25,6 +25,7 @@ syntect      = [ "dep:syntect", "dep:two-face" ]
 [dependencies]
 anyhow.workspace      = true
 comrak.workspace      = true
+html-escape.workspace = true
 html5ever.workspace   = true
 kuchikikiki.workspace = true
 log.workspace         = true
@@ -44,13 +45,3 @@ walkdir.workspace     = true
 
 [dev-dependencies]
 tempfile = "3.22.0"
-
-[profile.dev]
-opt-level = 1
-
-[profile.release]
-codegen-units = 1
-lto           = "thin"
-opt-level     = "s"
-panic         = "abort"
-strip         = true

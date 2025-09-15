@@ -1678,34 +1678,46 @@ fn format_role_markup(
     content: &str,
     manpage_urls: Option<&std::collections::HashMap<String, String>>,
 ) -> String {
+    let escaped_content = utils::html_escape(content);
     match role_type {
         "manpage" => {
             if let Some(urls) = manpage_urls {
                 if let Some(url) = urls.get(content) {
                     let clean_url = extract_url_from_html(url);
-                    format!("<a href=\"{clean_url}\" class=\"manpage-reference\">{content}</a>")
+                    format!(
+                        "<a href=\"{clean_url}\" class=\"manpage-reference\">{escaped_content}</a>"
+                    )
                 } else {
-                    format!("<span class=\"manpage-reference\">{content}</span>")
+                    format!("<span class=\"manpage-reference\">{escaped_content}</span>")
                 }
             } else {
-                format!("<span class=\"manpage-reference\">{content}</span>")
+                format!("<span class=\"manpage-reference\">{escaped_content}</span>")
             }
         }
-        "command" => format!("<code class=\"command\">{content}</code>"),
-        "env" => format!("<code class=\"env-var\">{content}</code>"),
-        "file" => format!("<code class=\"file-path\">{content}</code>"),
+        "command" => format!("<code class=\"command\">{escaped_content}</code>"),
+        "env" => format!("<code class=\"env-var\">{escaped_content}</code>"),
+        "file" => format!("<code class=\"file-path\">{escaped_content}</code>"),
         "option" => {
             if cfg!(feature = "ndg-flavored") {
-                let option_id = format!("option-{}", content.replace('.', "-"));
+                let option_id = format!(
+                    "option-{}",
+                    utils::html_escape(content)
+                        .replace('.', "-")
+                        .replace("&lt;", "-")
+                        .replace("&gt;", "-")
+                        .replace("&amp;", "-")
+                        .replace("&quot;", "-")
+                        .replace("&#x27;", "-")
+                );
                 format!(
-                    "<a class=\"option-reference\" href=\"options.html#{option_id}\"><code>{content}</code></a>"
+                    "<a class=\"option-reference\" href=\"options.html#{option_id}\"><code>{escaped_content}</code></a>"
                 )
             } else {
-                format!("<code>{content}</code>")
+                format!("<code>{escaped_content}</code>")
             }
         }
-        "var" => format!("<code class=\"nix-var\">{content}</code>"),
-        _ => format!("<span class=\"{role_type}-markup\">{content}</span>"),
+        "var" => format!("<code class=\"nix-var\">{escaped_content}</code>"),
+        _ => format!("<span class=\"{role_type}-markup\">{escaped_content}</span>"),
     }
 }
 
@@ -2537,4 +2549,67 @@ fn extract_url_from_html(url_or_html: &str) -> &str {
 
     // Return as-is if not HTML or if extraction fails
     url_or_html
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils;
+
+    #[test]
+    fn test_html_escape_in_role_markup() {
+        // Test that HTML characters in role content are properly escaped
+        let result = format_role_markup("option", "hjem.users.<name>.enable", None);
+
+        // Should escape < and > characters in content
+        assert!(result.contains("&lt;name&gt;"));
+        // Should not contain unescaped HTML in code content
+        assert!(!result.contains("<code>hjem.users.<name>.enable</code>"));
+        // Should contain escaped content in code
+        assert!(result.contains("<code>hjem.users.&lt;name&gt;.enable</code>"));
+        // Should have properly formatted option ID in href (no HTML chars)
+        assert!(result.contains("option-hjem-users--name--enable"));
+    }
+
+    #[test]
+    fn test_html_escape_utility() {
+        let input = "test<>&\"'";
+        let escaped = utils::html_escape(input);
+
+        // html-escape crate doesn't escape single quotes by default
+        assert_eq!(escaped, "test&lt;&gt;&amp;\"'");
+    }
+
+    #[test]
+    fn test_various_role_types_with_html_characters() {
+        let content = "<script>alert('xss')</script>";
+
+        let command_result = format_role_markup("command", content, None);
+        assert!(command_result.contains("&lt;script&gt;"));
+        assert!(!command_result.contains("<script>alert"));
+
+        let env_result = format_role_markup("env", content, None);
+        assert!(env_result.contains("&lt;script&gt;"));
+        assert!(!env_result.contains("<script>alert"));
+
+        let file_result = format_role_markup("file", content, None);
+        assert!(file_result.contains("&lt;script&gt;"));
+        assert!(!file_result.contains("<script>alert"));
+    }
+
+    #[test]
+    fn test_reported_issue_option_role_escaping() {
+        // Test the specific reported issue: {option}`hjem.users.<name>.enable`
+        let result = format_role_markup("option", "hjem.users.<name>.enable", None);
+
+        // Should not produce broken HTML like: <code>hjem.users.<name>.enable</name></code>
+        assert!(!result.contains("<name>"));
+        assert!(!result.contains("</name>"));
+
+        // Should properly escape the angle brackets
+        assert!(result.contains("&lt;name&gt;"));
+
+        // Should produce valid HTML structure
+        assert!(result.contains("<code>hjem.users.&lt;name&gt;.enable</code>"));
+    }
 }

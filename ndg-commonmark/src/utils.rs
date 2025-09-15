@@ -237,6 +237,17 @@ pub fn never_matching_regex() -> regex::Regex {
     regex::Regex::new(r"[^\s\S]").expect("Failed to compile never-matching regex")
 }
 
+/// Escape HTML special characters in text content.
+///
+/// This function escapes HTML entities using the html-escape crate.
+#[must_use]
+pub fn html_escape(text: &str) -> String {
+    // XXX: I actually don't like the idea of a wrapper this simple, but we
+    // previously used this function in many places, so keeping it for now
+    // in the name of backwards compatibility.
+    html_escape::encode_text(text).to_string()
+}
+
 /// Process text with error recovery, converting any processing errors to log messages.
 ///
 /// This provides a more lightweight alternative to `safely_process_markup` for operations
