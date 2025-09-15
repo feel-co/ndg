@@ -14,7 +14,7 @@ use comrak::{
     parse_document,
 };
 use log::trace;
-use markup5ever::{local_name, ns};
+use markup5ever::local_name;
 use walkdir::WalkDir;
 
 use super::types::{AstTransformer, MarkdownOptions, MarkdownProcessor, PromptTransformer};
@@ -354,8 +354,9 @@ impl MarkdownProcessor {
             options.extension.autolink = true;
         }
         options.render.unsafe_ = true;
-        // Disable automatic header ID generation - we handle anchors manually
+        // Enable description lists but keep custom header processing
         options.extension.header_ids = None;
+        options.extension.description_lists = true;
         options
     }
 
@@ -406,8 +407,7 @@ impl MarkdownProcessor {
                 document.serialize(&mut out).ok();
                 String::from_utf8(out).unwrap_or_default()
             },
-            // Return original HTML on error
-            "",
+            html,
         )
     }
 
@@ -440,7 +440,7 @@ impl MarkdownProcessor {
 
         for (comment_node, id) in to_modify {
             let span = kuchikikiki::NodeRef::new_element(
-                markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                markup5ever::QualName::new(None, markup5ever::ns!(html), local_name!("span")),
                 vec![
                     (
                         kuchikikiki::ExpandedName::new("", "id"),
@@ -536,7 +536,11 @@ impl MarkdownProcessor {
                         }
 
                         let span = kuchikikiki::NodeRef::new_element(
-                            markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                            markup5ever::QualName::new(
+                                None,
+                                markup5ever::ns!(html),
+                                local_name!("span"),
+                            ),
                             vec![
                                 (
                                     kuchikikiki::ExpandedName::new("", "id"),
@@ -594,7 +598,11 @@ impl MarkdownProcessor {
                         }
 
                         let span = kuchikikiki::NodeRef::new_element(
-                            markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                            markup5ever::QualName::new(
+                                None,
+                                markup5ever::ns!(html),
+                                local_name!("span"),
+                            ),
                             vec![
                                 (
                                     kuchikikiki::ExpandedName::new("", "id"),
@@ -696,7 +704,11 @@ impl MarkdownProcessor {
 
                         // Add span element
                         let span = kuchikikiki::NodeRef::new_element(
-                            markup5ever::QualName::new(None, ns!(html), local_name!("span")),
+                            markup5ever::QualName::new(
+                                None,
+                                markup5ever::ns!(html),
+                                local_name!("span"),
+                            ),
                             vec![
                                 (
                                     kuchikikiki::ExpandedName::new("", "id"),

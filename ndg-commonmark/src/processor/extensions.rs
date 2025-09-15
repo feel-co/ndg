@@ -602,20 +602,6 @@ pub fn process_block_elements(content: &str) -> String {
                 result.push(figure);
                 continue;
             }
-
-            // Check for definition lists: Term\n:   Definition
-            if !line.is_empty() && !line.starts_with(':') {
-                if let Some(next_line) = lines.peek() {
-                    if next_line.starts_with(":   ") {
-                        let term = line;
-                        let def_line = lines.next().unwrap();
-                        let definition = &def_line[4..]; // Skip ":   "
-                        let dl = format!("<dl>\n<dt>{term}</dt>\n<dd>{definition}</dd>\n</dl>");
-                        result.push(dl);
-                        continue;
-                    }
-                }
-            }
         }
 
         // Regular line, keep as-is
