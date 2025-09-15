@@ -42,7 +42,7 @@ impl SyntasticaHighlighter {
         // Load all available themes
         for theme_name in syntastica_themes::THEMES {
             if let Some(theme) = syntastica_themes::from_str(theme_name) {
-                themes.insert(theme_name.to_string(), theme);
+                themes.insert((*theme_name).to_string(), theme);
             }
         }
 

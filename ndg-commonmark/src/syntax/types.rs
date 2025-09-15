@@ -105,6 +105,7 @@ pub struct SyntaxManager {
 
 impl SyntaxManager {
     /// Create a new syntax manager with the given highlighter and config
+    #[must_use]
     pub fn new(highlighter: Box<dyn SyntaxHighlighter>, config: SyntaxConfig) -> Self {
         Self {
             highlighter,
@@ -113,16 +114,19 @@ impl SyntaxManager {
     }
 
     /// Create a new syntax manager with the default configuration
+    #[must_use]
     pub fn with_highlighter(highlighter: Box<dyn SyntaxHighlighter>) -> Self {
         Self::new(highlighter, SyntaxConfig::default())
     }
 
     /// Get the underlying highlighter
+    #[must_use]
     pub fn highlighter(&self) -> &dyn SyntaxHighlighter {
         self.highlighter.as_ref()
     }
 
     /// Get the configuration
+    #[must_use]
     pub fn config(&self) -> &SyntaxConfig {
         &self.config
     }
@@ -133,6 +137,7 @@ impl SyntaxManager {
     }
 
     /// Resolve a language name using aliases
+    #[must_use]
     pub fn resolve_language(&self, language: &str) -> String {
         self.config
             .language_aliases
@@ -182,8 +187,7 @@ impl SyntaxManager {
             self.highlight_code(code, "text", theme)
         } else {
             Err(SyntaxError::UnsupportedLanguage(format!(
-                "from filename: {}",
-                filename
+                "from filename: {filename}"
             )))
         }
     }
