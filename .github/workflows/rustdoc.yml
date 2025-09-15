@@ -1,0 +1,40 @@
+name: Main
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  CARGO_TERM_COLOR: always
+
+jobs:
+  pages:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@v4
+
+      - name: "Install Rust Toolchain"
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Restore Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+          cache-on-failure: true
+
+      - name: Prepare GitHub Pages Deployment
+        run: echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark" />' >> target/doc/index.html
+
+      - name: Deploy Docs
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ./target/doc

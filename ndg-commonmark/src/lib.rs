@@ -30,6 +30,7 @@
 //! ```
 
 pub mod processor;
+pub mod syntax;
 mod types;
 pub mod utils;
 
@@ -44,5 +45,6 @@ pub use crate::processor::process_role_markup;
 pub use crate::processor::{process_block_elements, process_file_includes, process_inline_anchors};
 pub use crate::{
     processor::{AstTransformer, MarkdownOptions, MarkdownProcessor},
+    syntax::{SyntaxConfig, SyntaxError, SyntaxHighlighter, SyntaxManager, create_default_manager},
     types::{Header, MarkdownResult},
 };

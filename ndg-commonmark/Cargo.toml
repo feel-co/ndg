@@ -16,8 +16,10 @@ path = "src/lib.rs"
 [features]
 default      = [ "ndg-flavored" ]
 gfm          = [  ]
-ndg-flavored = [ "gfm", "nixpkgs" ]
+ndg-flavored = [ "gfm", "nixpkgs", "syntastica" ]
 nixpkgs      = [  ]
+syntastica   = [ "dep:syntastica", "dep:syntastica-core", "dep:syntastica-parsers", "dep:syntastica-themes" ]
+syntect      = [ "dep:syntect", "dep:two-face" ]
 
 [dependencies]
 anyhow.workspace      = true
@@ -29,9 +31,15 @@ markup5ever.workspace = true
 regex.workspace       = true
 serde.workspace       = true
 serde_json.workspace  = true
-syntect.workspace     = true
+syntastica            = { version = "0.6.1", optional = true }
+syntastica-core       = { version = "0.6.1", optional = true }
+syntastica-parsers    = { version = "0.6.1", features = [ "all" ], optional = true }
+syntastica-themes     = { version = "0.6.1", optional = true }
+syntect               = { workspace = true, optional = true }
+two-face              = { version = "0.4.3", optional = true, features = ["syntect-default-onig"] }
 tendril.workspace     = true
+thiserror.workspace   = true
 walkdir.workspace     = true
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = "3.22.0"
