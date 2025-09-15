@@ -1,5 +1,4 @@
-use ndg::formatter::markup;
-use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
+use ndg_commonmark::{MarkdownOptions, MarkdownProcessor, processor};
 
 #[test]
 fn parses_basic_markdown_ast() {
@@ -55,7 +54,7 @@ fn markdown_processor_handles_inline_code() {
 
 #[test]
 fn safely_process_markup_handles_panic() {
-    let result = markup::safely_process_markup("foo", |_| panic!("fail"), "fallback");
+    let result = processor::safely_process_markup("foo", |_| panic!("fail"), "fallback");
     assert_eq!(result, "fallback");
 }
 
