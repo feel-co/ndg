@@ -129,7 +129,7 @@ fn test_syntastica_backend_directly() {
     // Test theme availability
     let themes = highlighter.available_themes();
     assert!(!themes.is_empty());
-    assert!(themes.contains(&"one-dark".to_string()));
+    assert!(themes.contains(&"one::dark".to_string()));
 }
 
 #[cfg(feature = "syntect")]

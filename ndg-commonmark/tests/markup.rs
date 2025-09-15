@@ -984,7 +984,7 @@ test1.md
 #[test]
 fn test_file_includes_not_processed_in_code_blocks() {
     // Test that file includes are NOT processed inside code blocks
-    let md = r"````markdown
+    let md = r"````
 ```{=include=}
 path/to/file1.md
 path/to/file2.md
@@ -994,9 +994,12 @@ path/to/file2.md
     let html = ndg_html(md);
 
     // File includes should NOT be processed inside code blocks
+    // Content should be preserved as plain text without syntax highlighting
     assert!(
-        html.contains("```{=include=}") && html.contains("path/to/file1.md"),
-        "File include syntax should be preserved in code blocks. Got:\n{html}"
+        html.contains("```{=include=}")
+            && html.contains("path/to/file1.md")
+            && html.contains("<pre><code>"),
+        "File include syntax should be preserved in code blocks as plain text. Got:\n{html}"
     );
 }
 
