@@ -1,6 +1,6 @@
 # Templates are vendored code.
 # https://github.com/github-linguist/linguist/blob/main/docs/overrides.md#vendored-code
-templates/* linguist-vendored
+**/templates/* linguist-vendored
 
 # Don't diff churn.
 *.lock -text -diff
