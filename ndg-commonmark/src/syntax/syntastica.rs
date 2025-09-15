@@ -3,6 +3,16 @@
 //! This module provides a modern tree-sitter based syntax highlighter using the
 //! Syntastica library, which offers excellent language support including native
 //! Nix highlighting.
+//!
+//! ## Theme Support
+//!
+//! We programmaticall loads all available themes from `syntastica-themes`
+//! Some of the popular themes included are:
+//! - github (dark/light variants)
+//! - gruvbox (dark/light)
+//! - nord, dracula, catppuccin
+//! - tokyo night, solarized, monokai
+//! - And many more...
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -23,27 +33,18 @@ pub struct SyntasticaHighlighter {
 }
 
 impl SyntasticaHighlighter {
-    /// Create a new Syntastica highlighter with default themes.
+    /// Create a new Syntastica highlighter with all available themes.
     pub fn new() -> SyntaxResult<Self> {
         let language_set = Arc::new(LanguageSetImpl::new());
 
         let mut themes = HashMap::new();
 
-        // Add default themes from syntastica-themes
-        themes.insert(
-            "gruvbox-dark".to_string(),
-            syntastica_themes::gruvbox::dark(),
-        );
-        themes.insert(
-            "gruvbox-light".to_string(),
-            syntastica_themes::gruvbox::light(),
-        );
-
-        themes.insert("one-dark".to_string(), syntastica_themes::one::dark());
-        themes.insert("one-light".to_string(), syntastica_themes::one::light());
-        themes.insert("github".to_string(), syntastica_themes::github::dark());
-
-        // FIXME: add more themes
+        // Load all available themes
+        for theme_name in syntastica_themes::THEMES {
+            if let Some(theme) = syntastica_themes::from_str(theme_name) {
+                themes.insert(theme_name.to_string(), theme);
+            }
+        }
 
         let default_theme = syntastica_themes::one::dark();
 
@@ -167,7 +168,9 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
     }
 
     fn available_themes(&self) -> Vec<String> {
-        self.themes.keys().cloned().collect()
+        let mut themes: Vec<String> = self.themes.keys().cloned().collect();
+        themes.sort();
+        themes
     }
 
     fn highlight(&self, code: &str, language: &str, theme: Option<&str>) -> SyntaxResult<String> {
