@@ -3,7 +3,7 @@
 //! Currently supported backends:
 //! - **Syntastica** - Modern tree-sitter based highlighting with 60+ themes
 //! - **Syntect** - Uses Sublime Text syntax definitions, with two-face added
-//!    for extended syntax definitions
+//!   for extended syntax definitions
 
 pub mod error;
 pub mod types;
@@ -38,7 +38,7 @@ pub use syntect::*;
 /// - Return an error if both are enabled (mutual exclusivity check)
 /// - Return an error if neither is enabled
 ///
-/// **Note**: While the SYntect feature is enabled, the two-face crate
+/// **Note**: While the `Syntect` feature is enabled, the two-face crate
 /// will also be pulled to provide additional Syntax highlighting.
 pub fn create_default_manager() -> SyntaxResult<SyntaxManager> {
     // Runtime check for mutual exclusivity (backup to compile-time check)
@@ -49,7 +49,7 @@ pub fn create_default_manager() -> SyntaxResult<SyntaxManager> {
 
     #[cfg(feature = "syntastica")]
     {
-        return create_syntastica_manager();
+        create_syntastica_manager()
     }
 
     #[cfg(feature = "syntect")]
