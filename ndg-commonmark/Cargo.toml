@@ -15,9 +15,9 @@ name = "ndg_commonmark"
 path = "src/lib.rs"
 
 [features]
-default      = [ "ndg-flavored" ]
+default      = [ "ndg-flavored", "syntastica" ]
 gfm          = [  ]
-ndg-flavored = [ "gfm", "nixpkgs", "syntastica" ]
+ndg-flavored = [ "gfm", "nixpkgs" ]
 nixpkgs      = [  ]
 syntastica   = [ "dep:syntastica", "dep:syntastica-core", "dep:syntastica-parsers", "dep:syntastica-themes" ]
 syntect      = [ "dep:syntect", "dep:two-face" ]
