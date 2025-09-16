@@ -275,7 +275,7 @@ mod tests {
         let basic = create_processor(ProcessorPreset::Basic);
         assert!(basic.options.gfm);
         assert!(!basic.options.nixpkgs);
-        assert!(!basic.options.highlight_code);
+        assert!(basic.options.highlight_code);
 
         let enhanced = create_processor(ProcessorPreset::Ndg);
         assert!(enhanced.options.gfm);
