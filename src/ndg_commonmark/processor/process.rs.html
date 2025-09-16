@@ -21,11 +21,11 @@
 <a href=#21 id=21 data-nosnippet>21</a>/// # Returns
 <a href=#22 id=22 data-nosnippet>22</a>///
 <a href=#23 id=23 data-nosnippet>23</a>/// A `MarkdownResult` with processed HTML, headers, and title
-<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">pub fn </span>process_with_recovery(processor: <span class="kw-2">&amp;</span>MarkdownProcessor, content: <span class="kw-2">&amp;</span>str) -&gt; MarkdownResult {
+<a href=#24 id=24 data-nosnippet>24</a></span><span class="attr">#[must_use] </span><span class="kw">pub fn </span>process_with_recovery(processor: <span class="kw-2">&amp;</span>MarkdownProcessor, content: <span class="kw-2">&amp;</span>str) -&gt; MarkdownResult {
 <a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">match </span>std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| processor.render(content))) {
 <a href=#26 id=26 data-nosnippet>26</a>        <span class="prelude-val">Ok</span>(result) =&gt; result,
 <a href=#27 id=27 data-nosnippet>27</a>        <span class="prelude-val">Err</span>(panic_err) =&gt; {
-<a href=#28 id=28 data-nosnippet>28</a>            <span class="macro">error!</span>(<span class="string">"Panic during markdown processing: {:?}"</span>, panic_err);
+<a href=#28 id=28 data-nosnippet>28</a>            <span class="macro">error!</span>(<span class="string">"Panic during markdown processing: {panic_err:?}"</span>);
 <a href=#29 id=29 data-nosnippet>29</a>            MarkdownResult {
 <a href=#30 id=30 data-nosnippet>30</a>                html: <span class="string">"&lt;div class=\"error\"&gt;Critical error processing markdown content&lt;/div&gt;"
 <a href=#31 id=31 data-nosnippet>31</a>                    </span>.to_string(),
@@ -97,7 +97,7 @@
 <a href=#97 id=97 data-nosnippet>97</a>/// * `read_file_fn` - Function to read file content from path
 <a href=#98 id=98 data-nosnippet>98</a>///
 <a href=#99 id=99 data-nosnippet>99</a>/// # Returns
-<a href=#100 id=100 data-nosnippet>100</a>/// Vector of tuples containing (file_path, processing_result)
+<a href=#100 id=100 data-nosnippet>100</a>/// Vector of tuples containing (`file_path`, `processing_result`)
 <a href=#101 id=101 data-nosnippet>101</a></span><span class="kw">pub fn </span>process_batch&lt;I, F&gt;(
 <a href=#102 id=102 data-nosnippet>102</a>    processor: <span class="kw-2">&amp;</span>MarkdownProcessor,
 <a href=#103 id=103 data-nosnippet>103</a>    files: I,
@@ -112,7 +112,7 @@
 <a href=#112 id=112 data-nosnippet>112</a>            <span class="kw">let </span>path_str = path.display().to_string();
 <a href=#113 id=113 data-nosnippet>113</a>            <span class="kw">let </span>result = <span class="kw">match </span>read_file_fn(<span class="kw-2">&amp;</span>path) {
 <a href=#114 id=114 data-nosnippet>114</a>                <span class="prelude-val">Ok</span>(content) =&gt; <span class="prelude-val">Ok</span>(process_with_recovery(processor, <span class="kw-2">&amp;</span>content)),
-<a href=#115 id=115 data-nosnippet>115</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Failed to read file: {}"</span>, e)),
+<a href=#115 id=115 data-nosnippet>115</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Failed to read file: {e}"</span>)),
 <a href=#116 id=116 data-nosnippet>116</a>            };
 <a href=#117 id=117 data-nosnippet>117</a>            (path_str, result)
 <a href=#118 id=118 data-nosnippet>118</a>        })
@@ -131,7 +131,7 @@
 <a href=#131 id=131 data-nosnippet>131</a>/// # Returns
 <a href=#132 id=132 data-nosnippet>132</a>///
 <a href=#133 id=133 data-nosnippet>133</a>/// A configured `MarkdownProcessor`
-<a href=#134 id=134 data-nosnippet>134</a></span><span class="kw">pub fn </span>create_processor(preset: ProcessorPreset) -&gt; MarkdownProcessor {
+<a href=#134 id=134 data-nosnippet>134</a></span><span class="attr">#[must_use] </span><span class="kw">pub fn </span>create_processor(preset: ProcessorPreset) -&gt; MarkdownProcessor {
 <a href=#135 id=135 data-nosnippet>135</a>    <span class="kw">let </span>options = <span class="kw">match </span>preset {
 <a href=#136 id=136 data-nosnippet>136</a>        ProcessorPreset::Basic =&gt; MarkdownOptions {
 <a href=#137 id=137 data-nosnippet>137</a>            gfm: <span class="bool-val">true</span>,
@@ -165,9 +165,9 @@
 <a href=#165 id=165 data-nosnippet>165</a></span><span class="kw">pub enum </span>ProcessorPreset {
 <a href=#166 id=166 data-nosnippet>166</a>    <span class="doccomment">/// Markdown processing with only Github Flavored Markdown (GFM) support
 <a href=#167 id=167 data-nosnippet>167</a>    </span>Basic,
-<a href=#168 id=168 data-nosnippet>168</a>    <span class="doccomment">/// Markdown processing with only Nixpkgs-flavored CommonMark support
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="doccomment">/// Markdown processing with only Nixpkgs-flavored `CommonMark` support
 <a href=#169 id=169 data-nosnippet>169</a>    </span>Nixpkgs,
-<a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// Enhanced Markdown processing with support for GFM and Nixpkgs-flavored CommonMark support
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// Enhanced Markdown processing with support for GFM and Nixpkgs-flavored `CommonMark` support
 <a href=#171 id=171 data-nosnippet>171</a>    </span>Ndg,
 <a href=#172 id=172 data-nosnippet>172</a>}
 <a href=#173 id=173 data-nosnippet>173</a>
@@ -182,7 +182,7 @@
 <a href=#182 id=182 data-nosnippet>182</a>///
 <a href=#183 id=183 data-nosnippet>183</a>/// # Returns
 <a href=#184 id=184 data-nosnippet>184</a>/// A `MarkdownResult` with processed content
-<a href=#185 id=185 data-nosnippet>185</a></span><span class="kw">pub fn </span>process_markdown_string(content: <span class="kw-2">&amp;</span>str, preset: ProcessorPreset) -&gt; MarkdownResult {
+<a href=#185 id=185 data-nosnippet>185</a></span><span class="attr">#[must_use] </span><span class="kw">pub fn </span>process_markdown_string(content: <span class="kw-2">&amp;</span>str, preset: ProcessorPreset) -&gt; MarkdownResult {
 <a href=#186 id=186 data-nosnippet>186</a>    <span class="kw">let </span>processor = create_processor(preset);
 <a href=#187 id=187 data-nosnippet>187</a>    process_with_recovery(<span class="kw-2">&amp;</span>processor, content)
 <a href=#188 id=188 data-nosnippet>188</a>}
@@ -275,7 +275,7 @@
 <a href=#275 id=275 data-nosnippet>275</a>        <span class="kw">let </span>basic = create_processor(ProcessorPreset::Basic);
 <a href=#276 id=276 data-nosnippet>276</a>        <span class="macro">assert!</span>(basic.options.gfm);
 <a href=#277 id=277 data-nosnippet>277</a>        <span class="macro">assert!</span>(!basic.options.nixpkgs);
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="macro">assert!</span>(!basic.options.highlight_code);
+<a href=#278 id=278 data-nosnippet>278</a>        <span class="macro">assert!</span>(basic.options.highlight_code);
 <a href=#279 id=279 data-nosnippet>279</a>
 <a href=#280 id=280 data-nosnippet>280</a>        <span class="kw">let </span>enhanced = create_processor(ProcessorPreset::Ndg);
 <a href=#281 id=281 data-nosnippet>281</a>        <span class="macro">assert!</span>(enhanced.options.gfm);
