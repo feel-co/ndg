@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["core","extensions","types"]};
+window.SIDEBAR_ITEMS = {"mod":["core","extensions","process","types"]};

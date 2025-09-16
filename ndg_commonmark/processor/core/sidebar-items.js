@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["collect_markdown_files","extract_inline_text"]};
+window.SIDEBAR_ITEMS = {"enum":["ProcessorFeature"],"fn":["collect_markdown_files","extract_inline_text"]};

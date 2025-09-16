@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["markdown","markup","options"]};
+window.SIDEBAR_ITEMS = {"mod":["options"]};

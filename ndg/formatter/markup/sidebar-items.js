@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["never_matching_regex","safely_process_markup"]};

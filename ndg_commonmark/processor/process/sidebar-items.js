@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ProcessorPreset"],"fn":["create_processor","process_batch","process_markdown_file","process_markdown_string","process_safe","process_with_comprehensive_error_recovery","process_with_recovery"]};
