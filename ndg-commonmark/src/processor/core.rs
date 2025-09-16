@@ -116,8 +116,7 @@ impl MarkdownProcessor {
             if let Some(highlighted) = self.highlight_code_html(&code_text, &language) {
                 // Wrap highlighted HTML in <pre><code> with appropriate classes
                 let wrapped_html = format!(
-                    r#"<pre class="highlight"><code class="language-{}">{}</code></pre>"#,
-                    language, highlighted
+                    r#"<pre class="highlight"><code class="language-{language}">{highlighted}</code></pre>"#
                 );
                 let fragment = parse_html().one(wrapped_html.as_str());
                 pre_element.insert_after(fragment);

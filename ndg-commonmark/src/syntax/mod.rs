@@ -49,7 +49,7 @@ pub fn create_default_manager() -> SyntaxResult<SyntaxManager> {
 
     #[cfg(feature = "syntastica")]
     {
-        return create_syntastica_manager();
+        create_syntastica_manager()
     }
 
     #[cfg(feature = "syntect")]

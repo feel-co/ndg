@@ -291,7 +291,7 @@ pub fn create_fallback_index(config: &Config, markdown_files: &[std::path::PathB
 }
 
 /// Create a markdown processor from ndg config
-pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
+#[must_use] pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
     let mut builder = MarkdownOptionsBuilder::new()
         .gfm(true)
         .highlight_code(config.highlight_code);

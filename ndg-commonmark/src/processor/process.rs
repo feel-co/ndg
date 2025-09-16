@@ -21,11 +21,11 @@ use crate::types::MarkdownResult;
 /// # Returns
 ///
 /// A `MarkdownResult` with processed HTML, headers, and title
-pub fn process_with_recovery(processor: &MarkdownProcessor, content: &str) -> MarkdownResult {
+#[must_use] pub fn process_with_recovery(processor: &MarkdownProcessor, content: &str) -> MarkdownResult {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| processor.render(content))) {
         Ok(result) => result,
         Err(panic_err) => {
-            error!("Panic during markdown processing: {:?}", panic_err);
+            error!("Panic during markdown processing: {panic_err:?}");
             MarkdownResult {
                 html: "<div class=\"error\">Critical error processing markdown content</div>"
                     .to_string(),
@@ -97,7 +97,7 @@ where
 /// * `read_file_fn` - Function to read file content from path
 ///
 /// # Returns
-/// Vector of tuples containing (file_path, processing_result)
+/// Vector of tuples containing (`file_path`, `processing_result`)
 pub fn process_batch<I, F>(
     processor: &MarkdownProcessor,
     files: I,
@@ -112,7 +112,7 @@ where
             let path_str = path.display().to_string();
             let result = match read_file_fn(&path) {
                 Ok(content) => Ok(process_with_recovery(processor, &content)),
-                Err(e) => Err(format!("Failed to read file: {}", e)),
+                Err(e) => Err(format!("Failed to read file: {e}")),
             };
             (path_str, result)
         })
@@ -131,7 +131,7 @@ where
 /// # Returns
 ///
 /// A configured `MarkdownProcessor`
-pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
+#[must_use] pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
     let options = match preset {
         ProcessorPreset::Basic => MarkdownOptions {
             gfm: true,
@@ -165,9 +165,9 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
 pub enum ProcessorPreset {
     /// Markdown processing with only Github Flavored Markdown (GFM) support
     Basic,
-    /// Markdown processing with only Nixpkgs-flavored CommonMark support
+    /// Markdown processing with only Nixpkgs-flavored `CommonMark` support
     Nixpkgs,
-    /// Enhanced Markdown processing with support for GFM and Nixpkgs-flavored CommonMark support
+    /// Enhanced Markdown processing with support for GFM and Nixpkgs-flavored `CommonMark` support
     Ndg,
 }
 
@@ -182,7 +182,7 @@ pub enum ProcessorPreset {
 ///
 /// # Returns
 /// A `MarkdownResult` with processed content
-pub fn process_markdown_string(content: &str, preset: ProcessorPreset) -> MarkdownResult {
+#[must_use] pub fn process_markdown_string(content: &str, preset: ProcessorPreset) -> MarkdownResult {
     let processor = create_processor(preset);
     process_with_recovery(&processor, content)
 }

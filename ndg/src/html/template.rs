@@ -527,7 +527,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                                                 .to_string_lossy()
                                                 .to_string()
                                         },
-                                        |title| ndg_commonmark::utils::clean_anchor_patterns(title),
+                                        ndg_commonmark::utils::clean_anchor_patterns,
                                     )
                                 },
                             )
