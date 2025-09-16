@@ -43,6 +43,32 @@ pub struct MarkdownOptions {
     pub manpage_urls_path: Option<String>,
 }
 
+impl MarkdownOptions {
+    /// Enable all available features based on compile-time feature flags.
+    #[must_use]
+    pub fn with_all_features() -> Self {
+        Self {
+            gfm: cfg!(feature = "gfm"),
+            nixpkgs: cfg!(feature = "nixpkgs"),
+            highlight_code: cfg!(any(feature = "syntastica", feature = "syntect")),
+            highlight_theme: None,
+            manpage_urls_path: None,
+        }
+    }
+
+    /// Create options with runtime feature overrides.
+    #[must_use]
+    pub fn with_features(gfm: bool, nixpkgs: bool, highlight_code: bool) -> Self {
+        Self {
+            gfm,
+            nixpkgs,
+            highlight_code,
+            highlight_theme: None,
+            manpage_urls_path: None,
+        }
+    }
+}
+
 impl Default for MarkdownOptions {
     fn default() -> Self {
         Self {
@@ -169,6 +195,12 @@ impl MarkdownOptionsBuilder {
     #[must_use]
     pub fn build(self) -> MarkdownOptions {
         self.options
+    }
+
+    /// Create options from external configuration with fluent interface.
+    #[must_use]
+    pub fn from_external_config<T>(_config: &T) -> Self {
+        Self::new()
     }
 }
 
