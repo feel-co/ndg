@@ -27,9 +27,9 @@ pub fn process_with_recovery(processor: &MarkdownProcessor, content: &str) -> Ma
         Err(panic_err) => {
             error!("Panic during markdown processing: {:?}", panic_err);
             MarkdownResult {
-                html: format!(
-                    "<div class=\"error\">Critical error processing markdown content</div>"
-                ),
+                html: "<div class=\"error\">Critical error processing markdown content</div>"
+                    .to_string(),
+
                 headers: Vec::new(),
                 title: None,
             }
@@ -121,24 +121,26 @@ where
 
 /// Create a processor with sensible defaults for library usage.
 ///
-/// This function provides a convenient way to create a processor with
+/// Provides a convenient way to create a processor with
 /// commonly used settings for different use cases.
 ///
 /// # Arguments
+///
 /// * `preset` - The preset configuration to use
 ///
 /// # Returns
+///
 /// A configured `MarkdownProcessor`
 pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
     let options = match preset {
         ProcessorPreset::Basic => MarkdownOptions {
             gfm: true,
             nixpkgs: false,
-            highlight_code: false,
+            highlight_code: true,
             highlight_theme: None,
             manpage_urls_path: None,
         },
-        ProcessorPreset::Enhanced => MarkdownOptions {
+        ProcessorPreset::Ndg => MarkdownOptions {
             gfm: true,
             nixpkgs: false,
             highlight_code: true,
@@ -152,29 +154,21 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
             highlight_theme: Some("github".to_string()),
             manpage_urls_path: None,
         },
-        ProcessorPreset::Documentation => MarkdownOptions {
-            gfm: true,
-            nixpkgs: true,
-            highlight_code: true,
-            highlight_theme: Some("github".to_string()),
-            manpage_urls_path: Some("manpage_urls.json".to_string()),
-        },
     };
 
     MarkdownProcessor::new(options)
 }
 
-/// Preset configurations for common use cases.
+/// Preset configurations for common use cases. In some cases those presets will require
+/// certain feature flags to be enabled.
 #[derive(Debug, Clone, Copy)]
 pub enum ProcessorPreset {
-    /// Basic markdown processing with GFM support
+    /// Markdown processing with only Github Flavored Markdown (GFM) support
     Basic,
-    /// Enhanced processing with syntax highlighting
-    Enhanced,
-    /// Nixpkgs documentation processing
+    /// Markdown processing with only Nixpkgs-flavored CommonMark support
     Nixpkgs,
-    /// Full documentation processing with all features
-    Documentation,
+    /// Enhanced Markdown processing with support for GFM and Nixpkgs-flavored CommonMark support
+    Ndg,
 }
 
 /// Process markdown content from a string with error recovery.
@@ -283,7 +277,7 @@ mod tests {
         assert!(!basic.options.nixpkgs);
         assert!(!basic.options.highlight_code);
 
-        let enhanced = create_processor(ProcessorPreset::Enhanced);
+        let enhanced = create_processor(ProcessorPreset::Ndg);
         assert!(enhanced.options.gfm);
         assert!(!enhanced.options.nixpkgs);
         assert!(enhanced.options.highlight_code);
