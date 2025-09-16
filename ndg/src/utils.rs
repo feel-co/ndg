@@ -2,7 +2,7 @@ use std::{fmt::Write, fs, path::Path};
 
 use anyhow::{Context, Result};
 use log::{debug, info};
-use ndg_commonmark::collect_markdown_files;
+use ndg_commonmark::{MarkdownOptionsBuilder, MarkdownProcessor, collect_markdown_files};
 
 use crate::{completion, config::Config, formatter::options, html, manpage};
 
@@ -201,13 +201,7 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<std::path::PathBuf>
             use crate::html::template;
             files.par_iter().try_for_each(|file_path| {
                 let content = std::fs::read_to_string(file_path)?;
-                let mut options = ndg_commonmark::processor::MarkdownOptions::default();
-                if let Some(mappings_path) = &config.manpage_urls_path {
-                    options.manpage_urls_path = Some(mappings_path.to_string_lossy().to_string());
-                }
-                // Configure syntax highlighting based on config
-                options.highlight_code = config.highlight_code;
-                let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+                let processor = create_processor_from_config(config);
                 let result = processor.render(&content);
 
                 // The HTML already includes syntax highlighting
@@ -294,6 +288,19 @@ pub fn create_fallback_index(config: &Config, markdown_files: &[std::path::PathB
     }
 
     content
+}
+
+/// Create a markdown processor from ndg config
+pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
+    let mut builder = MarkdownOptionsBuilder::new()
+        .gfm(true)
+        .highlight_code(config.highlight_code);
+
+    if let Some(mappings_path) = &config.manpage_urls_path {
+        builder = builder.manpage_urls_path(Some(mappings_path.to_string_lossy().to_string()));
+    }
+
+    MarkdownProcessor::new(builder.build())
 }
 
 /// Extract the page title from a markdown file

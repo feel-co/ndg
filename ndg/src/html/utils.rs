@@ -39,9 +39,8 @@ pub fn strip_markdown(content: &str) -> String {
 
 /// Process content through the markdown pipeline and extract plain text
 #[must_use]
-pub fn process_content_to_plain_text(content: &str, _config: &crate::config::Config) -> String {
-    let options = ndg_commonmark::processor::MarkdownOptions::default();
-    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+pub fn process_content_to_plain_text(content: &str, config: &crate::config::Config) -> String {
+    let processor = crate::utils::create_processor_from_config(config);
     let result = processor.render(content);
     strip_markdown(&result.html)
         .replace('\n', " ")

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use log::debug;
 use serde_json::{self, Value};
 
-use crate::{config::Config, html::template};
+use crate::{config::Config, html::template, utils::create_processor_from_config};
 
 /// Represents a `NixOS` configuration option
 #[derive(Debug, Clone, Default)]
@@ -81,8 +81,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
                 if let Some(Value::String(desc)) = option_data.get("description") {
                     let processed_desc = escape_html_in_markdown(desc);
-                    let options = ndg_commonmark::processor::MarkdownOptions::default();
-                    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+                    let processor = create_processor_from_config(config);
                     let result = processor.render(&processed_desc);
                     option.description = result.html;
                 }

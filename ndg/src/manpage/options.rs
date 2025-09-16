@@ -558,16 +558,20 @@ fn selective_man_escape(text: &str) -> String {
 fn process_roles(text: &str) -> String {
     // Using shared implementation for text role processing, specifically for troff
     // output format
-    let options = ndg_commonmark::processor::MarkdownOptions::default();
-    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
-    ndg_commonmark::process_role_markup(text, processor.manpage_urls())
+    use ndg_commonmark::{MarkdownOptions, MarkdownProcessor, process_role_markup};
+
+    let options = MarkdownOptions::default();
+    let processor = MarkdownProcessor::new(options);
+    process_role_markup(text, processor.manpage_urls())
 }
 
 /// Process command prompts ($ command)
 fn process_command_prompts(text: &str) -> String {
     // Use ndg-commonmark to process markdown, then convert HTML to troff
-    let options = ndg_commonmark::processor::MarkdownOptions::default();
-    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
+
+    let options = MarkdownOptions::default();
+    let processor = MarkdownProcessor::new(options);
     let result = processor.render(text);
 
     // Convert HTML command prompts to troff format
@@ -583,8 +587,10 @@ fn process_command_prompts(text: &str) -> String {
 /// Process REPL prompts (nix-repl> command)
 fn process_repl_prompts(text: &str) -> String {
     // Use ndg-commonmark to process markdown, then convert HTML to troff
-    let options = ndg_commonmark::processor::MarkdownOptions::default();
-    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
+
+    let options = MarkdownOptions::default();
+    let processor = MarkdownProcessor::new(options);
     let result = processor.render(text);
 
     // Convert HTML REPL prompts to troff format
@@ -664,8 +670,10 @@ fn process_admonitions(text: &str) -> String {
 /// Process inline code blocks
 fn process_inline_code(text: &str) -> String {
     // Use ndg-commonmark to process markdown, then convert HTML to troff
-    let options = ndg_commonmark::processor::MarkdownOptions::default();
-    let processor = ndg_commonmark::processor::MarkdownProcessor::new(options);
+    use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
+
+    let options = MarkdownOptions::default();
+    let processor = MarkdownProcessor::new(options);
     let result = processor.render(text);
 
     // Convert HTML code tags to troff format
