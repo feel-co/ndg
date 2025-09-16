@@ -205,10 +205,10 @@ Content with null bytes \x00
 
 #[test]
 fn test_error_handling_utilities() {
-    use ndg_commonmark::utils::{never_matching_regex, safely_process_markup};
+    use ndg_commonmark::{process_safe, utils::never_matching_regex};
 
     // Test safely_process_markup with a function that panics
-    let result = safely_process_markup(
+    let result = process_safe(
         "test input",
         |_| panic!("This function panics!"),
         "fallback output",
@@ -216,7 +216,7 @@ fn test_error_handling_utilities() {
     assert_eq!(result, "fallback output");
 
     // Test safely_process_markup with a normal function
-    let result = safely_process_markup(
+    let result = process_safe(
         "test input",
         |input| format!("processed: {input}"),
         "fallback",
