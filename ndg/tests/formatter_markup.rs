@@ -54,7 +54,7 @@ fn markdown_processor_handles_inline_code() {
 
 #[test]
 fn safely_process_markup_handles_panic() {
-    let result = processor::safely_process_markup("foo", |_| panic!("fail"), "fallback");
+    let result = processor::process_safe("foo", |_| panic!("fail"), "fallback");
     assert_eq!(result, "fallback");
 }
 

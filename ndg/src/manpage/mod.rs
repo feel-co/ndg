@@ -2,7 +2,7 @@ mod options;
 
 use std::{collections::HashMap, sync::LazyLock};
 
-use ndg_commonmark::{safely_process_markup, utils::never_matching_regex};
+use ndg_commonmark::{process_safe, utils::never_matching_regex};
 use regex::Regex;
 
 pub use crate::manpage::options::generate_manpage;
@@ -40,7 +40,7 @@ pub fn get_roff_escapes() -> HashMap<char, &'static str> {
 /// Escapes a string for use in manpages
 #[must_use]
 pub fn man_escape(s: &str) -> String {
-    safely_process_markup(
+    process_safe(
         s,
         |text| {
             let escapes = get_roff_escapes();
@@ -63,7 +63,7 @@ pub fn man_escape(s: &str) -> String {
 /// Escape a leading dot to prevent it from being interpreted as a troff command
 #[must_use]
 pub fn escape_leading_dot(text: &str) -> String {
-    safely_process_markup(
+    process_safe(
         text,
         |text| {
             if text.starts_with('.') || text.starts_with('\'') {

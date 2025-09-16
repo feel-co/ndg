@@ -115,6 +115,7 @@ where
 }
 
 /// Strip markdown formatting and return plain text.
+///
 /// This processes the markdown through the AST and extracts only text content,
 /// excluding code blocks and other formatting.
 #[must_use]
@@ -184,45 +185,6 @@ pub fn load_manpage_urls(
     Ok(mappings)
 }
 
-/// Safely process markup with panic recovery and graceful error handling.
-///
-/// Wraps potentially panicking operations and provides
-/// graceful degradation when processing fails, ensuring that malformed
-/// input doesn't crash the entire document processor.
-pub fn safely_process_markup<F>(text: &str, process_fn: F, default_on_error: &str) -> String
-where
-    F: FnOnce(&str) -> String,
-{
-    // Avoid processing empty strings
-    if text.is_empty() {
-        return String::new();
-    }
-
-    // Catch any potential panics caused by malformed input or processing errors
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| process_fn(text)));
-
-    match result {
-        Ok(processed_text) => processed_text,
-        Err(e) => {
-            // Log the error but allow the program to continue
-            if let Some(error_msg) = e.downcast_ref::<String>() {
-                log::error!("Error processing markup: {error_msg}");
-            } else if let Some(error_msg) = e.downcast_ref::<&str>() {
-                log::error!("Error processing markup: {error_msg}");
-            } else {
-                log::error!("Unknown error occurred while processing markup");
-            }
-
-            // Return the original text or default value to prevent breaking the entire document
-            if default_on_error.is_empty() {
-                text.to_string()
-            } else {
-                default_on_error.to_string()
-            }
-        }
-    }
-}
-
 /// Create a regex that never matches anything.
 ///
 /// This is used as a fallback pattern when a regex fails to compile.
@@ -243,26 +205,4 @@ pub fn html_escape(text: &str) -> String {
     // previously used this function in many places, so keeping it for now
     // in the name of backwards compatibility.
     html_escape::encode_text(text).to_string()
-}
-
-/// Process text with error recovery, converting any processing errors to log messages.
-///
-/// This provides a more lightweight alternative to `safely_process_markup` for operations
-/// that are unlikely to panic but may have logical errors.
-pub fn process_with_error_recovery<F, T>(
-    operation_name: &str,
-    input: T,
-    process_fn: F,
-) -> Result<String, String>
-where
-    F: FnOnce(T) -> Result<String, Box<dyn std::error::Error>>,
-{
-    match process_fn(input) {
-        Ok(result) => Ok(result),
-        Err(e) => {
-            let error_msg = format!("Error in {operation_name}: {e}");
-            log::error!("{error_msg}");
-            Err(error_msg)
-        }
-    }
 }
