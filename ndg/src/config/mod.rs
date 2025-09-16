@@ -112,6 +112,14 @@ pub struct Config {
     /// GitHub revision for linking to source files
     #[serde(default = "default_revision")]
     pub revision: String,
+
+    /// `OpenGraph` tags to inject into the HTML head (e.g., {"og:title": "...", "og:image": "..."})
+    #[serde(default)]
+    pub opengraph: Option<std::collections::HashMap<String, String>>,
+
+    /// Additional meta tags to inject into the HTML head (e.g., {"description": "...", "keywords": "..."})
+    #[serde(default)]
+    pub meta_tags: Option<std::collections::HashMap<String, String>>,
 }
 
 impl Config {

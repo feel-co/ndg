@@ -77,6 +77,12 @@ highlight_code = true
 
 # GitHub revision for linking to source files (defaults to 'local')
 revision = "main"
+
+# OpenGraph tags to inject into the HTML head (example: { og:title = "My Project", og:image = "..." })
+# opengraph = { og:title = "My Project", og:image = "https://example.com/image.png" }
+
+# Additional meta tags to inject into the HTML head (example: { description = "Docs", keywords = "nix,docs" })
+# meta_tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
 "#;
 
 /// Default configuration template in JSON format.
@@ -89,7 +95,14 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "generate_search": true,
   "options_toc_depth": 2,
   "highlight_code": true,
-  "revision": "main"
+  "revision": "main",
+  "opengraph": {
+    "og:title": "My Project",
+  },
+  "meta_tags": {
+    "description": "Documentation for My Project",
+    "keywords": "nix,docs,ndg,nixos"
+  }
 }
 "#;
 

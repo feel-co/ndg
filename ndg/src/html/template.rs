@@ -43,6 +43,54 @@ pub fn render(
     // Generate asset and navigation paths based on file location
     let asset_paths = utils::generate_asset_paths(rel_path);
 
+    // Prepare meta tags HTML
+    let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
+        meta_tags
+            .iter()
+            .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+            .collect::<Vec<_>>()
+            .join("\n    ")
+    } else {
+        String::new()
+    };
+
+    // Prepare OpenGraph tags HTML, handling og:image as local path or URL
+    let opengraph_html = if let Some(opengraph) = &config.opengraph {
+        opengraph
+            .iter()
+            .map(|(k, v)| {
+                if k == "og:image" && !v.starts_with("http://") && !v.starts_with("https://") {
+                    // Local file path: copy to assets/ and use relative path
+                    let image_path = std::path::Path::new(v.as_str());
+                    let assets_dir = config.output_dir.join("assets");
+                    let file_name = image_path
+                        .file_name()
+                        .and_then(|f| f.to_str())
+                        .unwrap_or(v.as_str());
+                    let dest_path = assets_dir.join(file_name);
+                    // Only copy if not already present
+                    if let Err(e) = std::fs::create_dir_all(&assets_dir) {
+                        log::error!("Failed to create assets dir for og:image: {e}");
+                    }
+                    if let Err(e) = std::fs::copy(image_path, &dest_path) {
+                        log::error!(
+                            "Failed to copy og:image from {} to {}: {e}",
+                            v,
+                            dest_path.display()
+                        );
+                    }
+                    let rel_path = format!("assets/{file_name}");
+                    format!(r#"<meta property="{k}" content="{rel_path}" />"#)
+                } else {
+                    format!(r#"<meta property="{k}" content="{v}" />"#)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n    ")
+    } else {
+        String::new()
+    };
+
     // Create context
     let mut tera_context = tera::Context::new();
     tera_context.insert("content", content);
@@ -54,6 +102,8 @@ pub fn render(
     tera_context.insert("has_options", has_options);
     tera_context.insert("custom_scripts", &custom_scripts);
     tera_context.insert("generate_search", &config.generate_search);
+    tera_context.insert("meta_tags_html", &meta_tags_html);
+    tera_context.insert("opengraph_html", &opengraph_html);
 
     // Add asset paths
     tera_context.insert(
@@ -137,6 +187,29 @@ pub fn render_options(config: &Config, options: &HashMap<String, NixOption>) -> 
     tera_context.insert("has_options", "class=\"active\"");
     tera_context.insert("toc", &options_toc);
     tera_context.insert("generate_search", &config.generate_search);
+
+    // Add meta and opengraph tags
+    let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
+        meta_tags
+            .iter()
+            .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+            .collect::<Vec<_>>()
+            .join("\n    ")
+    } else {
+        String::new()
+    };
+
+    let opengraph_html = if let Some(opengraph) = &config.opengraph {
+        opengraph
+            .iter()
+            .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
+            .collect::<Vec<_>>()
+            .join("\n    ")
+    } else {
+        String::new()
+    };
+    tera_context.insert("meta_tags_html", &meta_tags_html);
+    tera_context.insert("opengraph_html", &opengraph_html);
 
     // Add proper asset paths with fallback values in case keys are missing
     tera_context.insert(
@@ -378,6 +451,29 @@ pub fn render_search(config: &Config, context: &HashMap<&str, String>) -> Result
     tera_context.insert("has_options", has_options);
     tera_context.insert("toc", ""); // no TOC for search page
     tera_context.insert("generate_search", &true); // always true for search page
+
+    // Add meta and opengraph tags
+    let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
+        meta_tags
+            .iter()
+            .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+            .collect::<Vec<_>>()
+            .join("\n    ")
+    } else {
+        String::new()
+    };
+
+    let opengraph_html = if let Some(opengraph) = &config.opengraph {
+        opengraph
+            .iter()
+            .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
+            .collect::<Vec<_>>()
+            .join("\n    ")
+    } else {
+        String::new()
+    };
+    tera_context.insert("meta_tags_html", &meta_tags_html);
+    tera_context.insert("opengraph_html", &opengraph_html);
 
     // Add asset paths with fallback values in case keys are missing
     tera_context.insert(
