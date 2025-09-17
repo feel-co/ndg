@@ -1,7 +1,8 @@
 //! Main processing functions for Markdown content.
 //!
 //! This module contains the core processing pipeline functions that handle
-//! error recovery, markup processing, and coordinate the overall rendering flow.
+//! error recovery, markup processing, and coordinate the overall rendering
+//! flow.
 
 use log::error;
 
@@ -21,20 +22,27 @@ use crate::types::MarkdownResult;
 /// # Returns
 ///
 /// A `MarkdownResult` with processed HTML, headers, and title
-#[must_use] pub fn process_with_recovery(processor: &MarkdownProcessor, content: &str) -> MarkdownResult {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| processor.render(content))) {
-        Ok(result) => result,
-        Err(panic_err) => {
-            error!("Panic during markdown processing: {panic_err:?}");
-            MarkdownResult {
-                html: "<div class=\"error\">Critical error processing markdown content</div>"
-                    .to_string(),
+#[must_use]
+pub fn process_with_recovery(
+  processor: &MarkdownProcessor,
+  content: &str,
+) -> MarkdownResult {
+  match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    processor.render(content)
+  })) {
+    Ok(result) => result,
+    Err(panic_err) => {
+      error!("Panic during markdown processing: {panic_err:?}");
+      MarkdownResult {
+        html: "<div class=\"error\">Critical error processing markdown \
+               content</div>"
+          .to_string(),
 
-                headers: Vec::new(),
-                title: None,
-            }
-        }
-    }
+        headers: Vec::new(),
+        title:   None,
+      }
+    },
+  }
 }
 
 /// Safely process markup content with error recovery.
@@ -54,36 +62,39 @@ use crate::types::MarkdownResult;
 /// The processed content or fallback on error
 pub fn process_safe<F>(content: &str, processor_fn: F, fallback: &str) -> String
 where
-    F: FnOnce(&str) -> String,
+  F: FnOnce(&str) -> String,
 {
-    // Avoid processing empty strings
-    if content.is_empty() {
-        return String::new();
-    }
+  // Avoid processing empty strings
+  if content.is_empty() {
+    return String::new();
+  }
 
-    // Catch any potential panics caused by malformed input or processing errors
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| processor_fn(content)));
+  // Catch any potential panics caused by malformed input or processing errors
+  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    processor_fn(content)
+  }));
 
-    match result {
-        Ok(processed_text) => processed_text,
-        Err(e) => {
-            // Log the error but allow the program to continue
-            if let Some(error_msg) = e.downcast_ref::<String>() {
-                log::error!("Error processing markup: {error_msg}");
-            } else if let Some(error_msg) = e.downcast_ref::<&str>() {
-                log::error!("Error processing markup: {error_msg}");
-            } else {
-                log::error!("Unknown error occurred while processing markup");
-            }
+  match result {
+    Ok(processed_text) => processed_text,
+    Err(e) => {
+      // Log the error but allow the program to continue
+      if let Some(error_msg) = e.downcast_ref::<String>() {
+        log::error!("Error processing markup: {error_msg}");
+      } else if let Some(error_msg) = e.downcast_ref::<&str>() {
+        log::error!("Error processing markup: {error_msg}");
+      } else {
+        log::error!("Unknown error occurred while processing markup");
+      }
 
-            // Return the original text or default value to prevent breaking the entire document
-            if fallback.is_empty() {
-                content.to_string()
-            } else {
-                fallback.to_string()
-            }
-        }
-    }
+      // Return the original text or default value to prevent breaking the
+      // entire document
+      if fallback.is_empty() {
+        content.to_string()
+      } else {
+        fallback.to_string()
+      }
+    },
+  }
 }
 
 /// Process a batch of markdown files with consistent error handling.
@@ -99,24 +110,24 @@ where
 /// # Returns
 /// Vector of tuples containing (`file_path`, `processing_result`)
 pub fn process_batch<I, F>(
-    processor: &MarkdownProcessor,
-    files: I,
-    read_file_fn: F,
+  processor: &MarkdownProcessor,
+  files: I,
+  read_file_fn: F,
 ) -> Vec<(String, Result<MarkdownResult, String>)>
 where
-    I: Iterator<Item = std::path::PathBuf>,
-    F: Fn(&std::path::Path) -> Result<String, std::io::Error>,
+  I: Iterator<Item = std::path::PathBuf>,
+  F: Fn(&std::path::Path) -> Result<String, std::io::Error>,
 {
-    files
-        .map(|path| {
-            let path_str = path.display().to_string();
-            let result = match read_file_fn(&path) {
-                Ok(content) => Ok(process_with_recovery(processor, &content)),
-                Err(e) => Err(format!("Failed to read file: {e}")),
-            };
-            (path_str, result)
-        })
-        .collect()
+  files
+    .map(|path| {
+      let path_str = path.display().to_string();
+      let result = match read_file_fn(&path) {
+        Ok(content) => Ok(process_with_recovery(processor, &content)),
+        Err(e) => Err(format!("Failed to read file: {e}")),
+      };
+      (path_str, result)
+    })
+    .collect()
 }
 
 /// Create a processor with sensible defaults for library usage.
@@ -131,44 +142,52 @@ where
 /// # Returns
 ///
 /// A configured `MarkdownProcessor`
-#[must_use] pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
-    let options = match preset {
-        ProcessorPreset::Basic => MarkdownOptions {
-            gfm: true,
-            nixpkgs: false,
-            highlight_code: true,
-            highlight_theme: None,
-            manpage_urls_path: None,
-        },
-        ProcessorPreset::Ndg => MarkdownOptions {
-            gfm: true,
-            nixpkgs: false,
-            highlight_code: true,
-            highlight_theme: Some("github".to_string()),
-            manpage_urls_path: None,
-        },
-        ProcessorPreset::Nixpkgs => MarkdownOptions {
-            gfm: true,
-            nixpkgs: true,
-            highlight_code: true,
-            highlight_theme: Some("github".to_string()),
-            manpage_urls_path: None,
-        },
-    };
+#[must_use]
+pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
+  let options = match preset {
+    ProcessorPreset::Basic => {
+      MarkdownOptions {
+        gfm:               true,
+        nixpkgs:           false,
+        highlight_code:    true,
+        highlight_theme:   None,
+        manpage_urls_path: None,
+      }
+    },
+    ProcessorPreset::Ndg => {
+      MarkdownOptions {
+        gfm:               true,
+        nixpkgs:           false,
+        highlight_code:    true,
+        highlight_theme:   Some("github".to_string()),
+        manpage_urls_path: None,
+      }
+    },
+    ProcessorPreset::Nixpkgs => {
+      MarkdownOptions {
+        gfm:               true,
+        nixpkgs:           true,
+        highlight_code:    true,
+        highlight_theme:   Some("github".to_string()),
+        manpage_urls_path: None,
+      }
+    },
+  };
 
-    MarkdownProcessor::new(options)
+  MarkdownProcessor::new(options)
 }
 
-/// Preset configurations for common use cases. In some cases those presets will require
-/// certain feature flags to be enabled.
+/// Preset configurations for common use cases. In some cases those presets will
+/// require certain feature flags to be enabled.
 #[derive(Debug, Clone, Copy)]
 pub enum ProcessorPreset {
-    /// Markdown processing with only Github Flavored Markdown (GFM) support
-    Basic,
-    /// Markdown processing with only Nixpkgs-flavored `CommonMark` support
-    Nixpkgs,
-    /// Enhanced Markdown processing with support for GFM and Nixpkgs-flavored `CommonMark` support
-    Ndg,
+  /// Markdown processing with only Github Flavored Markdown (GFM) support
+  Basic,
+  /// Markdown processing with only Nixpkgs-flavored `CommonMark` support
+  Nixpkgs,
+  /// Enhanced Markdown processing with support for GFM and Nixpkgs-flavored
+  /// `CommonMark` support
+  Ndg,
 }
 
 /// Process markdown content from a string with error recovery.
@@ -182,9 +201,13 @@ pub enum ProcessorPreset {
 ///
 /// # Returns
 /// A `MarkdownResult` with processed content
-#[must_use] pub fn process_markdown_string(content: &str, preset: ProcessorPreset) -> MarkdownResult {
-    let processor = create_processor(preset);
-    process_with_recovery(&processor, content)
+#[must_use]
+pub fn process_markdown_string(
+  content: &str,
+  preset: ProcessorPreset,
+) -> MarkdownResult {
+  let processor = create_processor(preset);
+  process_with_recovery(&processor, content)
 }
 
 /// Process markdown content from a file with error recovery.
@@ -199,20 +222,22 @@ pub enum ProcessorPreset {
 /// # Returns
 /// A `Result` containing the `MarkdownResult` or an error message
 pub fn process_markdown_file(
-    file_path: &std::path::Path,
-    preset: ProcessorPreset,
+  file_path: &std::path::Path,
+  preset: ProcessorPreset,
 ) -> Result<MarkdownResult, String> {
-    let content = std::fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file {}: {}", file_path.display(), e))?;
+  let content = std::fs::read_to_string(file_path).map_err(|e| {
+    format!("Failed to read file {}: {}", file_path.display(), e)
+  })?;
 
-    let processor = create_processor(preset);
-    Ok(process_with_recovery(&processor, &content))
+  let processor = create_processor(preset);
+  Ok(process_with_recovery(&processor, &content))
 }
 
 /// Process text with comprehensive error recovery.
 ///
 /// This provides error recovery for operations that may have logical errors,
-/// converting processing errors to log messages and returning detailed error information.
+/// converting processing errors to log messages and returning detailed error
+/// information.
 ///
 /// # Arguments
 /// * `operation_name` - Name of the operation for logging context
@@ -222,107 +247,110 @@ pub fn process_markdown_file(
 /// # Returns
 /// Result containing the processed content or an error message
 pub fn process_with_comprehensive_error_recovery<F, T>(
-    operation_name: &str,
-    input: T,
-    process_fn: F,
+  operation_name: &str,
+  input: T,
+  process_fn: F,
 ) -> Result<String, String>
 where
-    F: FnOnce(T) -> Result<String, Box<dyn std::error::Error>>,
+  F: FnOnce(T) -> Result<String, Box<dyn std::error::Error>>,
 {
-    match process_fn(input) {
-        Ok(result) => Ok(result),
-        Err(e) => {
-            let error_msg = format!("Error in {operation_name}: {e}");
-            log::error!("{error_msg}");
-            Err(error_msg)
-        }
-    }
+  match process_fn(input) {
+    Ok(result) => Ok(result),
+    Err(e) => {
+      let error_msg = format!("Error in {operation_name}: {e}");
+      log::error!("{error_msg}");
+      Err(error_msg)
+    },
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+  use std::path::Path;
 
-    use super::*;
+  use super::*;
 
-    #[test]
-    fn test_safely_process_markup_success() {
-        let content = "test content";
-        let result = process_safe(content, |s| format!("processed: {}", s), "fallback");
-        assert_eq!(result, "processed: test content");
+  #[test]
+  fn test_safely_process_markup_success() {
+    let content = "test content";
+    let result =
+      process_safe(content, |s| format!("processed: {}", s), "fallback");
+    assert_eq!(result, "processed: test content");
+  }
+
+  #[test]
+  fn test_safely_process_markup_fallback() {
+    let content = "test content";
+    let result = process_safe(content, |_| panic!("test panic"), "fallback");
+    assert_eq!(result, "fallback");
+  }
+
+  #[test]
+  fn test_process_markdown_string() {
+    let content = "# Test Header\n\nSome content.";
+    let result = process_markdown_string(content, ProcessorPreset::Basic);
+
+    assert!(result.html.contains("<h1"));
+    assert!(result.html.contains("Test Header"));
+    assert_eq!(result.title, Some("Test Header".to_string()));
+    assert_eq!(result.headers.len(), 1);
+  }
+
+  #[test]
+  fn test_create_processor_presets() {
+    let basic = create_processor(ProcessorPreset::Basic);
+    assert!(basic.options.gfm);
+    assert!(!basic.options.nixpkgs);
+    assert!(basic.options.highlight_code);
+
+    let enhanced = create_processor(ProcessorPreset::Ndg);
+    assert!(enhanced.options.gfm);
+    assert!(!enhanced.options.nixpkgs);
+    assert!(enhanced.options.highlight_code);
+
+    let nixpkgs = create_processor(ProcessorPreset::Nixpkgs);
+    assert!(nixpkgs.options.gfm);
+    assert!(nixpkgs.options.nixpkgs);
+    assert!(nixpkgs.options.highlight_code);
+  }
+
+  #[test]
+  fn test_process_batch() {
+    let processor = create_processor(ProcessorPreset::Basic);
+    let paths = vec![Path::new("test1.md"), Path::new("test2.md")];
+
+    let read_fn = |path: &Path| -> Result<String, std::io::Error> {
+      match path.file_name().and_then(|n| n.to_str()) {
+        Some("test1.md") => Ok("# Test 1".to_string()),
+        Some("test2.md") => Ok("# Test 2".to_string()),
+        _ => {
+          Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "File not found",
+          ))
+        },
+      }
+    };
+
+    let results = process_batch(
+      &processor,
+      paths.into_iter().map(|p| p.to_path_buf()),
+      read_fn,
+    );
+    assert_eq!(results.len(), 2);
+
+    for (path, result) in results {
+      match result {
+        Ok(markdown_result) => {
+          assert!(markdown_result.html.contains("<h1"));
+          if path.contains("test1") {
+            assert!(markdown_result.html.contains("Test 1"));
+          } else {
+            assert!(markdown_result.html.contains("Test 2"));
+          }
+        },
+        Err(_) => panic!("Unexpected error for path: {}", path),
+      }
     }
-
-    #[test]
-    fn test_safely_process_markup_fallback() {
-        let content = "test content";
-        let result = process_safe(content, |_| panic!("test panic"), "fallback");
-        assert_eq!(result, "fallback");
-    }
-
-    #[test]
-    fn test_process_markdown_string() {
-        let content = "# Test Header\n\nSome content.";
-        let result = process_markdown_string(content, ProcessorPreset::Basic);
-
-        assert!(result.html.contains("<h1"));
-        assert!(result.html.contains("Test Header"));
-        assert_eq!(result.title, Some("Test Header".to_string()));
-        assert_eq!(result.headers.len(), 1);
-    }
-
-    #[test]
-    fn test_create_processor_presets() {
-        let basic = create_processor(ProcessorPreset::Basic);
-        assert!(basic.options.gfm);
-        assert!(!basic.options.nixpkgs);
-        assert!(basic.options.highlight_code);
-
-        let enhanced = create_processor(ProcessorPreset::Ndg);
-        assert!(enhanced.options.gfm);
-        assert!(!enhanced.options.nixpkgs);
-        assert!(enhanced.options.highlight_code);
-
-        let nixpkgs = create_processor(ProcessorPreset::Nixpkgs);
-        assert!(nixpkgs.options.gfm);
-        assert!(nixpkgs.options.nixpkgs);
-        assert!(nixpkgs.options.highlight_code);
-    }
-
-    #[test]
-    fn test_process_batch() {
-        let processor = create_processor(ProcessorPreset::Basic);
-        let paths = vec![Path::new("test1.md"), Path::new("test2.md")];
-
-        let read_fn = |path: &Path| -> Result<String, std::io::Error> {
-            match path.file_name().and_then(|n| n.to_str()) {
-                Some("test1.md") => Ok("# Test 1".to_string()),
-                Some("test2.md") => Ok("# Test 2".to_string()),
-                _ => Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "File not found",
-                )),
-            }
-        };
-
-        let results = process_batch(
-            &processor,
-            paths.into_iter().map(|p| p.to_path_buf()),
-            read_fn,
-        );
-        assert_eq!(results.len(), 2);
-
-        for (path, result) in results {
-            match result {
-                Ok(markdown_result) => {
-                    assert!(markdown_result.html.contains("<h1"));
-                    if path.contains("test1") {
-                        assert!(markdown_result.html.contains("Test 1"));
-                    } else {
-                        assert!(markdown_result.html.contains("Test 2"));
-                    }
-                }
-                Err(_) => panic!("Unexpected error for path: {}", path),
-            }
-        }
-    }
+  }
 }

@@ -1,36 +1,40 @@
-use ndg_commonmark::{MarkdownOptions, MarkdownProcessor, syntax::create_default_manager};
+use ndg_commonmark::{
+  MarkdownOptions,
+  MarkdownProcessor,
+  syntax::create_default_manager,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("=== NDG CommonMark Syntax Highlighting ===\n");
+  println!("=== NDG CommonMark Syntax Highlighting ===\n");
 
-    // 1. Basic usage with MarkdownProcessor
-    demo_markdown_processor()?;
+  // 1. Basic usage with MarkdownProcessor
+  demo_markdown_processor()?;
 
-    // 2. Direct syntax manager usage
-    demo_syntax_manager()?;
+  // 2. Direct syntax manager usage
+  demo_syntax_manager()?;
 
-    // 3: Multiple language support
-    demo_multiple_languages()?;
+  // 3: Multiple language support
+  demo_multiple_languages()?;
 
-    // 4: Theme showcase
-    demo_themes()?;
+  // 4: Theme showcase
+  demo_themes()?;
 
-    // 5. Language detection
-    demo_language_detection()?;
+  // 5. Language detection
+  demo_language_detection()?;
 
-    Ok(())
+  Ok(())
 }
 
 fn demo_markdown_processor() -> Result<(), Box<dyn std::error::Error>> {
-    println!("1. Markdown Processor with Syntax Highlighting\n");
+  println!("1. Markdown Processor with Syntax Highlighting\n");
 
-    let mut options = MarkdownOptions::default();
-    options.highlight_code = true;
-    options.highlight_theme = Some("one-dark".to_string());
+  let mut options = MarkdownOptions::default();
+  options.highlight_code = true;
+  options.highlight_theme = Some("one-dark".to_string());
 
-    let processor = MarkdownProcessor::new(options);
+  let processor = MarkdownProcessor::new(options);
 
-    let markdown = r#"
+  let markdown = r#"
 # Code Examples
 
 Here's some Rust code:
@@ -87,39 +91,39 @@ with lib;
 ```
 "#;
 
-    let result = processor.render(markdown);
+  let result = processor.render(markdown);
 
-    println!("Generated HTML (excerpt):");
-    let html = &result.html;
-    if html.len() > 500 {
-        println!("{}...\n", &html[..500]);
-    } else {
-        println!("{}\n", html);
-    }
+  println!("Generated HTML (excerpt):");
+  let html = &result.html;
+  if html.len() > 500 {
+    println!("{}...\n", &html[..500]);
+  } else {
+    println!("{}\n", html);
+  }
 
-    println!("Title: {:?}", result.title);
-    println!("Headers: {:?}\n", result.headers);
+  println!("Title: {:?}", result.title);
+  println!("Headers: {:?}\n", result.headers);
 
-    Ok(())
+  Ok(())
 }
 
 fn demo_syntax_manager() -> Result<(), Box<dyn std::error::Error>> {
-    println!("2. Direct Syntax Manager Usage\n");
+  println!("2. Direct Syntax Manager Usage\n");
 
-    let manager = create_default_manager()?;
+  let manager = create_default_manager()?;
 
-    println!("Backend: {}", manager.highlighter().name());
-    println!(
-        "Supported languages: {}",
-        manager.highlighter().supported_languages().len()
-    );
-    println!(
-        "Available themes: {}",
-        manager.highlighter().available_themes().len()
-    );
+  println!("Backend: {}", manager.highlighter().name());
+  println!(
+    "Supported languages: {}",
+    manager.highlighter().supported_languages().len()
+  );
+  println!(
+    "Available themes: {}",
+    manager.highlighter().available_themes().len()
+  );
 
-    // Highlight some code directly
-    let rust_code = r#"
+  // Highlight some code directly
+  let rust_code = r#"
 #[derive(Debug, Clone)]
 pub struct Config {
     pub name: String,
@@ -136,145 +140,150 @@ impl Default for Config {
 }
 "#;
 
-    let highlighted = manager.highlight_code(rust_code, "rust", Some("one-dark"))?;
-    println!("Highlighted Rust code (excerpt):");
-    if highlighted.len() > 200 {
-        println!("{}...\n", &highlighted[..200]);
-    } else {
-        println!("{}\n", highlighted);
-    }
+  let highlighted =
+    manager.highlight_code(rust_code, "rust", Some("one-dark"))?;
+  println!("Highlighted Rust code (excerpt):");
+  if highlighted.len() > 200 {
+    println!("{}...\n", &highlighted[..200]);
+  } else {
+    println!("{}\n", highlighted);
+  }
 
-    Ok(())
+  Ok(())
 }
 
 fn demo_multiple_languages() -> Result<(), Box<dyn std::error::Error>> {
-    println!("3. Multiple Language Support\n");
+  println!("3. Multiple Language Support\n");
 
-    let manager = create_default_manager()?;
+  let manager = create_default_manager()?;
 
-    let examples = vec![
-        (
-            "JavaScript",
-            "js",
-            "const greeting = (name) => `Hello, ${name}!`;",
-        ),
-        (
-            "Python",
-            "python",
-            "def fibonacci(n):\n    return n if n <= 1 else fibonacci(n-1) + fibonacci(n-2)",
-        ),
-        (
-            "Nix",
-            "nix",
-            "{ pkgs }: pkgs.writeText \"hello\" \"Hello, world!\"",
-        ),
-        (
-            "Bash",
-            "bash",
-            "#!/bin/bash\necho \"Processing files...\"\nfind . -name \"*.rs\" | wc -l",
-        ),
-    ];
+  let examples = vec![
+    (
+      "JavaScript",
+      "js",
+      "const greeting = (name) => `Hello, ${name}!`;",
+    ),
+    (
+      "Python",
+      "python",
+      "def fibonacci(n):\n    return n if n <= 1 else fibonacci(n-1) + \
+       fibonacci(n-2)",
+    ),
+    (
+      "Nix",
+      "nix",
+      "{ pkgs }: pkgs.writeText \"hello\" \"Hello, world!\"",
+    ),
+    (
+      "Bash",
+      "bash",
+      "#!/bin/bash\necho \"Processing files...\"\nfind . -name \"*.rs\" | wc \
+       -l",
+    ),
+  ];
 
-    for (lang_name, lang_code, code) in examples {
-        println!("--- {} ---", lang_name);
+  for (lang_name, lang_code, code) in examples {
+    println!("--- {} ---", lang_name);
 
-        match manager.highlight_code(code, lang_code, None) {
-            Ok(highlighted) => {
-                println!("✓ Successfully highlighted {} code", lang_name);
-                if highlighted.len() > 100 {
-                    println!("Preview: {}...", &highlighted[..100]);
-                } else {
-                    println!("Full output: {}", highlighted);
-                }
-            }
-            Err(e) => {
-                println!("✗ Failed to highlight {}: {}", lang_name, e);
-            }
+    match manager.highlight_code(code, lang_code, None) {
+      Ok(highlighted) => {
+        println!("✓ Successfully highlighted {} code", lang_name);
+        if highlighted.len() > 100 {
+          println!("Preview: {}...", &highlighted[..100]);
+        } else {
+          println!("Full output: {}", highlighted);
         }
-        println!();
+      },
+      Err(e) => {
+        println!("✗ Failed to highlight {}: {}", lang_name, e);
+      },
     }
+    println!();
+  }
 
-    Ok(())
+  Ok(())
 }
 
 fn demo_themes() -> Result<(), Box<dyn std::error::Error>> {
-    println!("4. Theme Showcase\n");
+  println!("4. Theme Showcase\n");
 
-    let manager = create_default_manager()?;
-    let themes = manager.highlighter().available_themes();
+  let manager = create_default_manager()?;
+  let themes = manager.highlighter().available_themes();
 
-    println!("Available themes: {:?}", themes);
+  println!("Available themes: {:?}", themes);
 
-    let sample_code = "fn main() { println!(\"Hello, themes!\"); }";
+  let sample_code = "fn main() { println!(\"Hello, themes!\"); }";
 
-    for theme in themes.iter().take(3) {
-        // Show first 3 themes
-        println!("--- Theme: {} ---", theme);
-        match manager.highlight_code(sample_code, "rust", Some(theme)) {
-            Ok(highlighted) => {
-                if highlighted.len() > 150 {
-                    println!("{}...", &highlighted[..150]);
-                } else {
-                    println!("{}", highlighted);
-                }
-            }
-            Err(e) => {
-                println!("Error with theme {}: {}", theme, e);
-            }
+  for theme in themes.iter().take(3) {
+    // Show first 3 themes
+    println!("--- Theme: {} ---", theme);
+    match manager.highlight_code(sample_code, "rust", Some(theme)) {
+      Ok(highlighted) => {
+        if highlighted.len() > 150 {
+          println!("{}...", &highlighted[..150]);
+        } else {
+          println!("{}", highlighted);
         }
-        println!();
+      },
+      Err(e) => {
+        println!("Error with theme {}: {}", theme, e);
+      },
     }
+    println!();
+  }
 
-    Ok(())
+  Ok(())
 }
 
 fn demo_language_detection() -> Result<(), Box<dyn std::error::Error>> {
-    println!("5. Language Detection from Filenames\n");
+  println!("5. Language Detection from Filenames\n");
 
-    let manager = create_default_manager()?;
+  let manager = create_default_manager()?;
 
-    let test_files = vec![
-        "main.rs",
-        "script.py",
-        "config.nix",
-        "build.sh",
-        "package.json",
-        "README.md",
-        "style.css",
-        "index.html",
-        "unknown.xyz",
-    ];
+  let test_files = vec![
+    "main.rs",
+    "script.py",
+    "config.nix",
+    "build.sh",
+    "package.json",
+    "README.md",
+    "style.css",
+    "index.html",
+    "unknown.xyz",
+  ];
 
-    for filename in test_files {
-        if let Some(detected_lang) = manager.highlighter().language_from_filename(filename) {
-            println!("✓ {}: detected as '{}'", filename, detected_lang);
-        } else {
-            println!("✗ {}: no language detected", filename);
-        }
+  for filename in test_files {
+    if let Some(detected_lang) =
+      manager.highlighter().language_from_filename(filename)
+    {
+      println!("✓ {}: detected as '{}'", filename, detected_lang);
+    } else {
+      println!("✗ {}: no language detected", filename);
     }
+  }
 
-    println!();
+  println!();
 
-    // Test alias resolution
-    println!("Language alias resolution:");
-    let aliases = vec!["js", "py", "ts", "sh", "yml"];
-    for alias in aliases {
-        let resolved = manager.resolve_language(alias);
-        println!("  {} -> {}", alias, resolved);
-    }
+  // Test alias resolution
+  println!("Language alias resolution:");
+  let aliases = vec!["js", "py", "ts", "sh", "yml"];
+  for alias in aliases {
+    let resolved = manager.resolve_language(alias);
+    println!("  {} -> {}", alias, resolved);
+  }
 
-    Ok(())
+  Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    #[test]
-    fn test_demo_functions() {
-        // Test that demo functions don't panic
-        let _ = demo_syntax_manager();
-        let _ = demo_multiple_languages();
-        let _ = demo_language_detection();
-    }
+  #[test]
+  fn test_demo_functions() {
+    // Test that demo functions don't panic
+    let _ = demo_syntax_manager();
+    let _ = demo_multiple_languages();
+    let _ = demo_language_detection();
+  }
 }

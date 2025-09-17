@@ -6,17 +6,19 @@ use std::fmt;
 /// operations, providing clear error messages and context for debugging.
 #[derive(Debug)]
 pub enum TemplateError {
-    /// Indicates that the requested configuration format is not supported.
-    /// Contains the name of the unsupported format.
-    UnsupportedFormat(String),
+  /// Indicates that the requested configuration format is not supported.
+  /// Contains the name of the unsupported format.
+  UnsupportedFormat(String),
 }
 
 impl fmt::Display for TemplateError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnsupportedFormat(format) => write!(f, "Unsupported config format: {format}"),
-        }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::UnsupportedFormat(format) => {
+        write!(f, "Unsupported config format: {format}")
+      },
     }
+  }
 }
 
 impl std::error::Error for TemplateError {}
@@ -108,9 +110,9 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
 
 /// Get the correct configuration template based on the requested format.
 pub fn get_template(format: &str) -> Result<&'static str, TemplateError> {
-    match format.to_lowercase().as_str() {
-        "toml" => Ok(DEFAULT_TOML_TEMPLATE),
-        "json" => Ok(DEFAULT_JSON_TEMPLATE),
-        _ => Err(TemplateError::UnsupportedFormat(format.to_string())),
-    }
+  match format.to_lowercase().as_str() {
+    "toml" => Ok(DEFAULT_TOML_TEMPLATE),
+    "json" => Ok(DEFAULT_JSON_TEMPLATE),
+    _ => Err(TemplateError::UnsupportedFormat(format.to_string())),
+  }
 }

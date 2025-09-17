@@ -1,14 +1,18 @@
 //! # NDG-Commonmark
 //!
-//! This is a high-performance Markdown processor designed for Nix, `NixOS` and Nixpkgs documentation
-//! featuring AST-based processing with role markup, autolinks, GFM support and more.
+//! This is a high-performance Markdown processor designed for Nix, `NixOS` and
+//! Nixpkgs documentation featuring AST-based processing with role markup,
+//! autolinks, GFM support and more.
 //!
 //! ## Processing
 //!
 //! ```rust
-//! use ndg_commonmark::{process_markdown_string, ProcessorPreset};
+//! use ndg_commonmark::{ProcessorPreset, process_markdown_string};
 //!
-//! let result = process_markdown_string("# Hello World\n\nThis is **bold** text.", ProcessorPreset::Basic);
+//! let result = process_markdown_string(
+//!   "# Hello World\n\nThis is **bold** text.",
+//!   ProcessorPreset::Basic,
+//! );
 //! println!("HTML: {}", result.html);
 //! println!("Title: {:?}", result.title);
 //! ```
@@ -16,7 +20,7 @@
 //! ## API
 //!
 //! ```rust
-//! use ndg_commonmark::{MarkdownProcessor, MarkdownOptions};
+//! use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 //!
 //! let processor = MarkdownProcessor::new(MarkdownOptions::default());
 //! let result = processor.render("# Hello World\n\nThis is **bold** text.");
@@ -29,14 +33,14 @@
 //! ## Builder Pattern
 //!
 //! ```rust
-//! use ndg_commonmark::{MarkdownProcessor, MarkdownOptionsBuilder};
+//! use ndg_commonmark::{MarkdownOptionsBuilder, MarkdownProcessor};
 //!
 //! let options = MarkdownOptionsBuilder::new()
-//!     .gfm(true)
-//!     .nixpkgs(true)
-//!     .highlight_code(true)
-//!     .highlight_theme(Some("github"))
-//!     .build();
+//!   .gfm(true)
+//!   .nixpkgs(true)
+//!   .highlight_code(true)
+//!   .highlight_theme(Some("github"))
+//!   .build();
 //!
 //! let processor = MarkdownProcessor::new(options);
 //! ```
@@ -51,17 +55,37 @@ pub mod utils;
 pub use crate::processor::apply_gfm_extensions;
 #[cfg(feature = "nixpkgs")]
 pub use crate::processor::{
-    process_block_elements, process_file_includes, process_inline_anchors,
-    process_option_references, process_role_markup,
+  process_block_elements,
+  process_file_includes,
+  process_inline_anchors,
+  process_option_references,
+  process_role_markup,
 };
 // Those don't require any feature gates, unlike above APIs.
 pub use crate::{
-    processor::{
-        AstTransformer, MarkdownOptions, MarkdownOptionsBuilder, MarkdownProcessor,
-        ProcessorFeature, ProcessorPreset, PromptTransformer, collect_markdown_files,
-        create_processor, extract_inline_text, process_batch, process_markdown_file,
-        process_markdown_string, process_safe, process_with_recovery,
-    },
-    syntax::{SyntaxConfig, SyntaxError, SyntaxHighlighter, SyntaxManager, create_default_manager},
-    types::{Header, MarkdownResult},
+  processor::{
+    AstTransformer,
+    MarkdownOptions,
+    MarkdownOptionsBuilder,
+    MarkdownProcessor,
+    ProcessorFeature,
+    ProcessorPreset,
+    PromptTransformer,
+    collect_markdown_files,
+    create_processor,
+    extract_inline_text,
+    process_batch,
+    process_markdown_file,
+    process_markdown_string,
+    process_safe,
+    process_with_recovery,
+  },
+  syntax::{
+    SyntaxConfig,
+    SyntaxError,
+    SyntaxHighlighter,
+    SyntaxManager,
+    create_default_manager,
+  },
+  types::{Header, MarkdownResult},
 };
