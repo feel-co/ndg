@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ title }}</title>
+    {{ meta_tags_html | safe }} {{ opengraph_html | safe }}
     <script>
       // Apply sidebar state immediately to prevent flash
       (function () {
@@ -20,11 +21,15 @@
     <div class="container">
       <header>
         <div class="header-left">
-          <h1 class="site-title"><a href="{{ index_path }}">{{ site_title }}</a></h1>
+          <h1 class="site-title">
+            <a href="{{ index_path }}">{{ site_title }}</a>
+          </h1>
         </div>
         <nav class="header-nav">
           <ul>
-            <li {{ has_options|safe }}><a href="{{ options_path }}">Options</a></li>
+            <li {{ has_options|safe }}>
+              <a href="{{ options_path }}">Options</a>
+            </li>
             <li class="active"><a href="{{ search_path }}">Search</a></li>
           </ul>
         </nav>
