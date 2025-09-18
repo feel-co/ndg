@@ -5,8 +5,7 @@ concurrency: tag
 on:
   workflow_dispatch:
   push:
-    branches:
-      - master
+    branches: [ "main" ]
 
 jobs:
   main:
