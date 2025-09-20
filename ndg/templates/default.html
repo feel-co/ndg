@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -26,17 +26,18 @@
           <h1 class="site-title">
             <a href="{{ index_path }}">{{ site_title }}</a>
           </h1>
+
+          <nav class="header-nav">
+            <ul>
+              <li {{ has_options|safe }}>
+                <a href="{{ options_path }}">Options</a>
+              </li>
+              {% if generate_search %}
+              <li><a href="{{ search_path }}">Search</a></li>
+              {% endif %}
+            </ul>
+          </nav>
         </div>
-        <nav class="header-nav">
-          <ul>
-            <li {{ has_options|safe }}>
-              <a href="{{ options_path }}">Options</a>
-            </li>
-            {% if generate_search %}
-            <li><a href="{{ search_path }}">Search</a></li>
-            {% endif %}
-          </ul>
-        </nav>
         {% if generate_search %}
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Search..." />
