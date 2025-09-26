@@ -1,6 +1,6 @@
 //! Type definitions for the Markdown processor.
 //!
-//! This module contains all the core types used by the processor, including:
+//! Contains all the core types used by the processor, including:
 //! - Configuration options (`MarkdownOptions`)
 //! - The main processor struct (`MarkdownProcessor`)
 //! - AST transformation traits and implementations
@@ -46,7 +46,7 @@ pub struct MarkdownOptions {
 impl MarkdownOptions {
   /// Enable all available features based on compile-time feature flags.
   #[must_use]
-  pub fn with_all_features() -> Self {
+  pub const fn with_all_features() -> Self {
     Self {
       gfm:               cfg!(feature = "gfm"),
       nixpkgs:           cfg!(feature = "nixpkgs"),
@@ -58,7 +58,11 @@ impl MarkdownOptions {
 
   /// Create options with runtime feature overrides.
   #[must_use]
-  pub fn with_features(gfm: bool, nixpkgs: bool, highlight_code: bool) -> Self {
+  pub const fn with_features(
+    gfm: bool,
+    nixpkgs: bool,
+    highlight_code: bool,
+  ) -> Self {
     Self {
       gfm,
       nixpkgs,
@@ -164,21 +168,21 @@ impl MarkdownOptionsBuilder {
 
   /// Enable or disable GitHub Flavored Markdown.
   #[must_use]
-  pub fn gfm(mut self, enabled: bool) -> Self {
+  pub const fn gfm(mut self, enabled: bool) -> Self {
     self.options.gfm = enabled;
     self
   }
 
   /// Enable or disable Nixpkgs extensions.
   #[must_use]
-  pub fn nixpkgs(mut self, enabled: bool) -> Self {
+  pub const fn nixpkgs(mut self, enabled: bool) -> Self {
     self.options.nixpkgs = enabled;
     self
   }
 
   /// Enable or disable syntax highlighting.
   #[must_use]
-  pub fn highlight_code(mut self, enabled: bool) -> Self {
+  pub const fn highlight_code(mut self, enabled: bool) -> Self {
     self.options.highlight_code = enabled;
     self
   }

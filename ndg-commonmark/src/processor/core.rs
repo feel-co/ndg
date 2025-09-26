@@ -3,7 +3,6 @@
 //! This module contains the main implementation of `MarkdownProcessor` and its
 //! methods, focused on the core rendering pipeline and configuration
 //! management.
-
 use std::{
   collections::HashMap,
   path::{Path, PathBuf},
@@ -60,7 +59,7 @@ impl MarkdownProcessor {
 
   /// Access processor options.
   #[must_use]
-  pub fn options(&self) -> &MarkdownOptions {
+  pub const fn options(&self) -> &MarkdownOptions {
     &self.options
   }
 
@@ -72,7 +71,7 @@ impl MarkdownProcessor {
 
   /// Check if a specific feature is enabled.
   #[must_use]
-  pub fn has_feature(&self, feature: ProcessorFeature) -> bool {
+  pub const fn has_feature(&self, feature: ProcessorFeature) -> bool {
     match feature {
       ProcessorFeature::Gfm => self.options.gfm,
       ProcessorFeature::Nixpkgs => self.options.nixpkgs,
@@ -83,7 +82,7 @@ impl MarkdownProcessor {
 
   /// Get the manpage URLs mapping for use with standalone functions.
   #[must_use]
-  pub fn manpage_urls(&self) -> Option<&HashMap<String, String>> {
+  pub const fn manpage_urls(&self) -> Option<&HashMap<String, String>> {
     self.manpage_urls.as_ref()
   }
 
@@ -223,10 +222,7 @@ impl MarkdownProcessor {
   #[cfg(feature = "nixpkgs")]
   fn apply_nixpkgs_preprocessing(&self, content: &str) -> String {
     let (with_includes, included_files) =
-      super::extensions::process_file_includes_with_metadata(
-        content,
-        &self.base_dir,
-      );
+      super::extensions::process_file_includes(content, &self.base_dir);
     self.included_files.borrow_mut().extend(included_files);
     let with_blocks = super::extensions::process_block_elements(&with_includes);
     super::extensions::process_inline_anchors(&with_blocks)
@@ -285,10 +281,10 @@ impl MarkdownProcessor {
             NodeValue::Emph => text.push_str(&extract_inline_text(child)),
             NodeValue::Strong => text.push_str(&extract_inline_text(child)),
             NodeValue::Strikethrough => {
-              text.push_str(&extract_inline_text(child))
+              text.push_str(&extract_inline_text(child));
             },
             NodeValue::Superscript => {
-              text.push_str(&extract_inline_text(child))
+              text.push_str(&extract_inline_text(child));
             },
             NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
             NodeValue::FootnoteReference(..) => {
@@ -877,7 +873,7 @@ pub fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
       NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
       NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
       NodeValue::FootnoteReference(..) => {
-        text.push_str(&extract_inline_text(child))
+        text.push_str(&extract_inline_text(child));
       },
       NodeValue::HtmlInline(_) => {},
       NodeValue::Image(..) => {},

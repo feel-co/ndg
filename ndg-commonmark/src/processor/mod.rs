@@ -13,7 +13,6 @@
 //! - [`extensions`]: Feature-gated processing functions for different Markdown
 //!   flavors
 //! - [`types`]: Core type definitions and configuration structures
-
 pub mod core;
 pub mod extensions;
 pub mod process;

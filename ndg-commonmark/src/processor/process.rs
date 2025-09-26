@@ -1,9 +1,4 @@
 //! Main processing functions for Markdown content.
-//!
-//! This module contains the core processing pipeline functions that handle
-//! error recovery, markup processing, and coordinate the overall rendering
-//! flow.
-
 use log::error;
 
 use super::types::{MarkdownOptions, MarkdownProcessor};
@@ -241,11 +236,13 @@ pub fn process_markdown_file(
 /// configuration and base directory for resolving includes.
 ///
 /// # Arguments
+///
 /// * `file_path` - Path to the markdown file
 /// * `base_dir` - Base directory for resolving relative includes
 /// * `preset` - The processor preset to use
 ///
 /// # Returns
+///
 /// A `Result` containing the `MarkdownResult` or an error message
 pub fn process_markdown_file_with_basedir(
   file_path: &std::path::Path,
@@ -258,37 +255,6 @@ pub fn process_markdown_file_with_basedir(
 
   let processor = create_processor(preset).with_base_dir(base_dir);
   Ok(process_with_recovery(&processor, &content))
-}
-
-/// Process text with comprehensive error recovery.
-///
-/// This provides error recovery for operations that may have logical errors,
-/// converting processing errors to log messages and returning detailed error
-/// information.
-///
-/// # Arguments
-/// * `operation_name` - Name of the operation for logging context
-/// * `input` - Input data to process
-/// * `process_fn` - The processing function to apply
-///
-/// # Returns
-/// Result containing the processed content or an error message
-pub fn process_with_comprehensive_error_recovery<F, T>(
-  operation_name: &str,
-  input: T,
-  process_fn: F,
-) -> Result<String, String>
-where
-  F: FnOnce(T) -> Result<String, Box<dyn std::error::Error>>,
-{
-  match process_fn(input) {
-    Ok(result) => Ok(result),
-    Err(e) => {
-      let error_msg = format!("Error in {operation_name}: {e}");
-      log::error!("{error_msg}");
-      Err(error_msg)
-    },
-  }
 }
 
 #[cfg(test)]

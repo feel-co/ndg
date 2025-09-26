@@ -137,7 +137,7 @@ impl SyntaxManager {
 
   /// Get the configuration
   #[must_use]
-  pub fn config(&self) -> &SyntaxConfig {
+  pub const fn config(&self) -> &SyntaxConfig {
     &self.config
   }
 
