@@ -6,12 +6,12 @@ resolver = "3"
 authors      = [ "NotAShelf <raf@notashelf.dev>" ]
 categories   = [ "text-processing" ]
 edition      = "2024"
-keywords     = [ "markdown", "commonmark", "nix", "nixpkgs", "documentation" ]
+keywords     = [ "markdown", "commonmark", "nix", "nixpkgs", "nixos", "documentation" ]
 license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/notashelf/ndg"
 rust-version = "1.85"
-version      = "2.1.0"
+version      = "2.2.0"
 
 [workspace.dependencies]
 anyhow = "1.0.99"
