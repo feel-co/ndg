@@ -206,51 +206,179 @@ pub fn generate_options_manpage(
   Ok(())
 }
 
+/// Collect all included files from markdown documents
+pub fn collect_included_files(
+  config: &Config,
+) -> Result<std::collections::HashSet<std::path::PathBuf>> {
+  use std::collections::HashSet;
+  let mut all_included_files: HashSet<std::path::PathBuf> = HashSet::new();
+
+  if let Some(ref input_dir) = config.input_dir {
+    let files = collect_markdown_files(input_dir);
+
+    for file_path in &files {
+      let content = std::fs::read_to_string(file_path)?;
+      let processor = create_processor_from_config(config);
+      let base_dir = file_path.parent().unwrap_or_else(|| {
+        config
+          .input_dir
+          .as_deref()
+          .unwrap_or(std::path::Path::new("."))
+      });
+      let processor = processor.with_base_dir(base_dir);
+      let result = processor.render(&content);
+
+      for inc in &result.included_files {
+        // Include paths are relative to the file's directory, not input_dir
+        let inc_path = base_dir.join(&inc.path);
+        if let Ok(inc_rel) = inc_path.strip_prefix(input_dir) {
+          all_included_files.insert(inc_rel.to_path_buf());
+        }
+      }
+    }
+  }
+
+  Ok(all_included_files)
+}
+
 /// Process markdown files
 pub fn process_markdown_files(
   config: &Config,
 ) -> Result<Vec<std::path::PathBuf>> {
+  use std::collections::HashMap;
   if let Some(ref input_dir) = config.input_dir {
     info!("Input directory: {}", input_dir.display());
     let files = collect_markdown_files(input_dir);
     info!("Found {} markdown files", files.len());
 
-    if !files.is_empty() {
-      // Process files in parallel
-      use rayon::prelude::*;
+    // Map: output html path -> (content, headers, title, source md, is_include)
+    // FIXME: clippy warning about type complexity, it's not wrong tbh
+    let mut output_map: HashMap<
+      String,
+      (
+        String,
+        Vec<ndg_commonmark::Header>,
+        Option<String>,
+        std::path::PathBuf,
+        bool,
+      ),
+    > = HashMap::new();
 
-      use crate::html::template;
-      files.par_iter().try_for_each(|file_path| {
-        let content = std::fs::read_to_string(file_path)?;
-        let processor = create_processor_from_config(config);
-        let result = processor.render(&content);
+    // Track custom outputs keyed by included file path
+    let mut pending_custom_outputs: HashMap<std::path::PathBuf, Vec<String>> =
+      HashMap::new();
 
-        // The HTML already includes syntax highlighting
-        let highlighted_html = result.html;
+    // First pass: collect all custom outputs for included files
+    for file_path in &files {
+      let content = std::fs::read_to_string(file_path)?;
+      let processor = create_processor_from_config(config);
 
-        let headers = result.headers;
-        let title = result.title;
-        let input_dir = config.input_dir.as_ref().expect("input_dir required");
-        let rel_path = file_path
-          .strip_prefix(input_dir)
-          .expect("strip_prefix failed");
-        let mut output_path = config.output_dir.join(rel_path);
-        output_path.set_extension("html");
+      let base_dir = file_path.parent().unwrap_or_else(|| {
+        config
+          .input_dir
+          .as_deref()
+          .unwrap_or(std::path::Path::new("."))
+      });
+      let processor = processor.with_base_dir(base_dir);
 
-        let html = template::render(
-          config,
-          &highlighted_html,
-          title.as_deref().unwrap_or(&config.title),
-          &headers,
-          rel_path,
-        )?;
+      let result = processor.render(&content);
 
-        if let Some(parent) = output_path.parent() {
-          std::fs::create_dir_all(parent)?;
+      // Track custom outputs for included files
+      for inc in &result.included_files {
+        if let Some(ref custom_output) = inc.custom_output {
+          let inc_path = base_dir.join(&inc.path);
+          if let Ok(inc_rel) = inc_path.strip_prefix(input_dir) {
+            pending_custom_outputs
+              .entry(inc_rel.to_path_buf())
+              .or_default()
+              .push(custom_output.clone());
+          }
         }
-        std::fs::write(&output_path, html)?;
-        Ok::<(), anyhow::Error>(())
-      })?;
+      }
+    }
+
+    for file_path in &files {
+      let content = std::fs::read_to_string(file_path)?;
+      let processor = create_processor_from_config(config);
+
+      // Set base directory to file's parent directory for relative includes
+      let base_dir = file_path.parent().unwrap_or_else(|| {
+        config
+          .input_dir
+          .as_deref()
+          .unwrap_or(std::path::Path::new("."))
+      });
+      let processor = processor.with_base_dir(base_dir);
+
+      let result = processor.render(&content);
+
+      let input_dir = config.input_dir.as_ref().expect("input_dir required");
+      let rel_path = file_path
+        .strip_prefix(input_dir)
+        .expect("strip_prefix failed");
+      let mut output_path = rel_path.to_path_buf();
+      output_path.set_extension("html");
+      let output_path_str = output_path.to_string_lossy().to_string();
+
+      // Check if this file is included in another file
+      let is_included = config.excluded_files.contains(rel_path);
+
+      // Get any pending custom outputs for this file
+      let custom_outputs =
+        pending_custom_outputs.remove(rel_path).unwrap_or_default();
+
+      // If this file has custom outputs via html:into-file, write to those
+      // locations
+      if custom_outputs.is_empty() {
+        output_map.insert(
+          output_path_str,
+          (
+            result.html,
+            result.headers,
+            result.title,
+            file_path.clone(),
+            is_included,
+          ),
+        );
+      } else {
+        for custom in custom_outputs {
+          output_map.insert(
+            custom.clone(),
+            (
+              result.html.clone(),
+              result.headers.clone(),
+              result.title.clone(),
+              file_path.clone(),
+              false,
+            ),
+          );
+        }
+      }
+    }
+
+    // Write outputs, skipping those marked as included (unless they have custom
+    // output)
+    use crate::html::template;
+
+    for (out_path, (html_content, headers, title, _src_md, is_included)) in
+      &output_map
+    {
+      if *is_included {
+        continue;
+      }
+      let rel_path = std::path::Path::new(out_path);
+      let html = template::render(
+        config,
+        html_content,
+        title.as_deref().unwrap_or(&config.title),
+        headers,
+        rel_path,
+      )?;
+      let output_path = config.output_dir.join(rel_path);
+      if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent)?;
+      }
+      std::fs::write(&output_path, html)?;
     }
 
     Ok(files)

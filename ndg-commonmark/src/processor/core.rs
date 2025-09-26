@@ -3,7 +3,6 @@
 //! This module contains the main implementation of `MarkdownProcessor` and its
 //! methods, focused on the core rendering pipeline and configuration
 //! management.
-
 use std::{
   collections::HashMap,
   path::{Path, PathBuf},
@@ -53,18 +52,26 @@ impl MarkdownProcessor {
       options,
       manpage_urls,
       syntax_manager,
+      included_files: std::cell::RefCell::new(Vec::new()),
+      base_dir: std::path::PathBuf::from("."),
     }
   }
 
-  /// Get the processor configuration options.
+  /// Access processor options.
   #[must_use]
-  pub fn options(&self) -> &MarkdownOptions {
+  pub const fn options(&self) -> &MarkdownOptions {
     &self.options
+  }
+
+  /// Set the base directory for resolving relative file paths.
+  pub fn with_base_dir(mut self, base_dir: &std::path::Path) -> Self {
+    self.base_dir = base_dir.to_path_buf();
+    self
   }
 
   /// Check if a specific feature is enabled.
   #[must_use]
-  pub fn has_feature(&self, feature: ProcessorFeature) -> bool {
+  pub const fn has_feature(&self, feature: ProcessorFeature) -> bool {
     match feature {
       ProcessorFeature::Gfm => self.options.gfm,
       ProcessorFeature::Nixpkgs => self.options.nixpkgs,
@@ -75,7 +82,7 @@ impl MarkdownProcessor {
 
   /// Get the manpage URLs mapping for use with standalone functions.
   #[must_use]
-  pub fn manpage_urls(&self) -> Option<&HashMap<String, String>> {
+  pub const fn manpage_urls(&self) -> Option<&HashMap<String, String>> {
     self.manpage_urls.as_ref()
   }
 
@@ -155,6 +162,9 @@ impl MarkdownProcessor {
   /// Render Markdown to HTML, extracting headers and title.
   #[must_use]
   pub fn render(&self, markdown: &str) -> MarkdownResult {
+    // Clear previous includes
+    self.included_files.borrow_mut().clear();
+
     let preprocessed = self.preprocess(markdown);
     let (headers, title) = self.extract_headers(&preprocessed);
     let html = self.process_html_pipeline(&preprocessed);
@@ -163,6 +173,7 @@ impl MarkdownProcessor {
       html,
       headers,
       title,
+      included_files: self.included_files.borrow().clone(),
     }
   }
 
@@ -210,10 +221,9 @@ impl MarkdownProcessor {
   /// Apply Nixpkgs-specific preprocessing steps.
   #[cfg(feature = "nixpkgs")]
   fn apply_nixpkgs_preprocessing(&self, content: &str) -> String {
-    let with_includes = super::extensions::process_file_includes(
-      content,
-      std::path::Path::new("."),
-    );
+    let (with_includes, included_files) =
+      super::extensions::process_file_includes(content, &self.base_dir);
+    self.included_files.borrow_mut().extend(included_files);
     let with_blocks = super::extensions::process_block_elements(&with_includes);
     super::extensions::process_inline_anchors(&with_blocks)
   }
@@ -271,10 +281,10 @@ impl MarkdownProcessor {
             NodeValue::Emph => text.push_str(&extract_inline_text(child)),
             NodeValue::Strong => text.push_str(&extract_inline_text(child)),
             NodeValue::Strikethrough => {
-              text.push_str(&extract_inline_text(child))
+              text.push_str(&extract_inline_text(child));
             },
             NodeValue::Superscript => {
-              text.push_str(&extract_inline_text(child))
+              text.push_str(&extract_inline_text(child));
             },
             NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
             NodeValue::FootnoteReference(..) => {
@@ -863,7 +873,7 @@ pub fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
       NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
       NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
       NodeValue::FootnoteReference(..) => {
-        text.push_str(&extract_inline_text(child))
+        text.push_str(&extract_inline_text(child));
       },
       NodeValue::HtmlInline(_) => {},
       NodeValue::Image(..) => {},

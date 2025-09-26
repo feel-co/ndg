@@ -938,7 +938,8 @@ End of document.",
       file2_path.file_name().unwrap().to_str().unwrap()
     );
 
-    let result = ndg_commonmark::process_file_includes(&md, dir.path());
+    let (result, _included_files) =
+      ndg_commonmark::process_file_includes(&md, dir.path());
 
     // Should include both files
     assert!(result.contains("# Included File 1"));
@@ -958,7 +959,7 @@ some/file.md
 ```
 ````";
 
-    let result =
+    let (result, _included_files) =
       ndg_commonmark::process_file_includes(md, std::path::Path::new("."));
 
     // Should NOT process includes inside code blocks

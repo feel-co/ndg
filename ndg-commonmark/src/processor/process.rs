@@ -1,9 +1,4 @@
 //! Main processing functions for Markdown content.
-//!
-//! This module contains the core processing pipeline functions that handle
-//! error recovery, markup processing, and coordinate the overall rendering
-//! flow.
-
 use log::error;
 
 use super::types::{MarkdownOptions, MarkdownProcessor};
@@ -38,8 +33,9 @@ pub fn process_with_recovery(
                content</div>"
           .to_string(),
 
-        headers: Vec::new(),
-        title:   None,
+        headers:        Vec::new(),
+        title:          None,
+        included_files: Vec::new(),
       }
     },
   }
@@ -229,39 +225,36 @@ pub fn process_markdown_file(
     format!("Failed to read file {}: {}", file_path.display(), e)
   })?;
 
-  let processor = create_processor(preset);
+  let base_dir = file_path.parent().unwrap_or(std::path::Path::new("."));
+  let processor = create_processor(preset).with_base_dir(base_dir);
   Ok(process_with_recovery(&processor, &content))
 }
 
-/// Process text with comprehensive error recovery.
+/// Process markdown content from a file with custom base directory.
 ///
-/// This provides error recovery for operations that may have logical errors,
-/// converting processing errors to log messages and returning detailed error
-/// information.
+/// This function reads a markdown file and processes it with the specified
+/// configuration and base directory for resolving includes.
 ///
 /// # Arguments
-/// * `operation_name` - Name of the operation for logging context
-/// * `input` - Input data to process
-/// * `process_fn` - The processing function to apply
+///
+/// * `file_path` - Path to the markdown file
+/// * `base_dir` - Base directory for resolving relative includes
+/// * `preset` - The processor preset to use
 ///
 /// # Returns
-/// Result containing the processed content or an error message
-pub fn process_with_comprehensive_error_recovery<F, T>(
-  operation_name: &str,
-  input: T,
-  process_fn: F,
-) -> Result<String, String>
-where
-  F: FnOnce(T) -> Result<String, Box<dyn std::error::Error>>,
-{
-  match process_fn(input) {
-    Ok(result) => Ok(result),
-    Err(e) => {
-      let error_msg = format!("Error in {operation_name}: {e}");
-      log::error!("{error_msg}");
-      Err(error_msg)
-    },
-  }
+///
+/// A `Result` containing the `MarkdownResult` or an error message
+pub fn process_markdown_file_with_basedir(
+  file_path: &std::path::Path,
+  base_dir: &std::path::Path,
+  preset: ProcessorPreset,
+) -> Result<MarkdownResult, String> {
+  let content = std::fs::read_to_string(file_path).map_err(|e| {
+    format!("Failed to read file {}: {}", file_path.display(), e)
+  })?;
+
+  let processor = create_processor(preset).with_base_dir(base_dir);
+  Ok(process_with_recovery(&processor, &content))
 }
 
 #[cfg(test)]

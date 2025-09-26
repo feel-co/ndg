@@ -76,6 +76,7 @@ pub use crate::{
     extract_inline_text,
     process_batch,
     process_markdown_file,
+    process_markdown_file_with_basedir,
     process_markdown_string,
     process_safe,
     process_with_recovery,
@@ -87,5 +88,5 @@ pub use crate::{
     SyntaxManager,
     create_default_manager,
   },
-  types::{Header, MarkdownResult},
+  types::{Header, IncludedFile, MarkdownResult},
 };

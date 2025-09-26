@@ -21,7 +21,7 @@
 !/.editorconfig
 
 # Nix
-!/flake/**/*.nix
+!/flake/
 !/flake.nix
 !/flake.lock
 !/shell.nix

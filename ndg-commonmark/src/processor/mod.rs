@@ -13,7 +13,6 @@
 //! - [`extensions`]: Feature-gated processing functions for different Markdown
 //!   flavors
 //! - [`types`]: Core type definitions and configuration structures
-
 pub mod core;
 pub mod extensions;
 pub mod process;
@@ -42,6 +41,7 @@ pub use process::{
   create_processor,
   process_batch,
   process_markdown_file,
+  process_markdown_file_with_basedir,
   process_markdown_string,
   process_safe,
   process_with_recovery,
