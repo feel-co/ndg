@@ -42,6 +42,10 @@ const fn default_true() -> bool {
   true
 }
 
+fn default_excluded_files() -> std::collections::HashSet<std::path::PathBuf> {
+  std::collections::HashSet::new()
+}
+
 /// Configuration options for ndg
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
@@ -117,6 +121,10 @@ pub struct Config {
   /// "og:image": "..."})
   #[serde(default)]
   pub opengraph: Option<std::collections::HashMap<String, String>>,
+
+  /// Files to exclude from sidebar navigation (included files)
+  #[serde(skip, default = "default_excluded_files")]
+  pub excluded_files: std::collections::HashSet<std::path::PathBuf>,
 
   /// Additional meta tags to inject into the HTML head (e.g., {"description":
   /// "...", "keywords": "..."})

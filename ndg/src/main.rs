@@ -112,14 +112,14 @@ fn main() -> Result<()> {
   }
 
   // Create configuration from CLI and/or config file
-  let config = Config::load(&cli)?;
+  let mut config = Config::load(&cli)?;
 
   // Run the main documentation generation process
-  generate_documentation(&config)
+  generate_documentation(&mut config)
 }
 
 /// Main documentation generation process
-fn generate_documentation(config: &Config) -> Result<()> {
+fn generate_documentation(config: &mut Config) -> Result<()> {
   info!("Starting documentation generation...");
 
   // Ensure output directory exists
@@ -133,9 +133,14 @@ fn generate_documentation(config: &Config) -> Result<()> {
     .build_global()?;
 
   // Process markdown files if input directory is provided
+  // Collect all included files first
+  let excluded_files = utils::collect_included_files(config)?;
+  config.excluded_files = excluded_files;
+
+  // Process markdown files
   let markdown_files = utils::process_markdown_files(config)?;
 
-  // Process options.json if provided
+  // Process options if provided
   let options_processed = utils::process_options_file(config)?;
 
   // Check if we need to create a fallback index.html

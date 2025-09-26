@@ -585,8 +585,18 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
       .into_iter()
       .filter_map(std::result::Result::ok)
       .filter(|e| {
-        e.path().is_file()
-          && e.path().extension().is_some_and(|ext| ext == "md")
+        if !e.path().is_file()
+          || e.path().extension().is_none_or(|ext| ext != "md")
+        {
+          return false;
+        }
+
+        // Filter out excluded files (included files)
+        if let Ok(rel_path) = e.path().strip_prefix(input_dir) {
+          !config.excluded_files.contains(rel_path)
+        } else {
+          false
+        }
       })
       .collect();
 
