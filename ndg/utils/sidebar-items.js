@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["copy_assets","create_fallback_index","create_processor_from_config","ensure_index","extract_page_title","generate_options_manpage","handle_generate_command","process_markdown_files","process_options_file"]};
+window.SIDEBAR_ITEMS = {"fn":["collect_included_files","copy_assets","create_fallback_index","create_processor_from_config","ensure_index","extract_page_title","generate_options_manpage","handle_generate_command","process_markdown_files","process_options_file"]};
