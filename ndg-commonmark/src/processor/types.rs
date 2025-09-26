@@ -86,6 +86,9 @@ pub struct MarkdownProcessor {
   pub(crate) options:        MarkdownOptions,
   pub(crate) manpage_urls:   Option<HashMap<String, String>>,
   pub(crate) syntax_manager: Option<crate::syntax::SyntaxManager>,
+  pub(crate) included_files:
+    std::cell::RefCell<Vec<crate::types::IncludedFile>>,
+  pub(crate) base_dir:       std::path::PathBuf,
 }
 
 /// Trait for AST transformations (e.g., prompt highlighting).

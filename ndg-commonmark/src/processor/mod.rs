@@ -42,6 +42,7 @@ pub use process::{
   create_processor,
   process_batch,
   process_markdown_file,
+  process_markdown_file_with_basedir,
   process_markdown_string,
   process_safe,
   process_with_recovery,

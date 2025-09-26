@@ -38,8 +38,9 @@ pub fn process_with_recovery(
                content</div>"
           .to_string(),
 
-        headers: Vec::new(),
-        title:   None,
+        headers:        Vec::new(),
+        title:          None,
+        included_files: Vec::new(),
       }
     },
   }
@@ -229,7 +230,33 @@ pub fn process_markdown_file(
     format!("Failed to read file {}: {}", file_path.display(), e)
   })?;
 
-  let processor = create_processor(preset);
+  let base_dir = file_path.parent().unwrap_or(std::path::Path::new("."));
+  let processor = create_processor(preset).with_base_dir(base_dir);
+  Ok(process_with_recovery(&processor, &content))
+}
+
+/// Process markdown content from a file with custom base directory.
+///
+/// This function reads a markdown file and processes it with the specified
+/// configuration and base directory for resolving includes.
+///
+/// # Arguments
+/// * `file_path` - Path to the markdown file
+/// * `base_dir` - Base directory for resolving relative includes
+/// * `preset` - The processor preset to use
+///
+/// # Returns
+/// A `Result` containing the `MarkdownResult` or an error message
+pub fn process_markdown_file_with_basedir(
+  file_path: &std::path::Path,
+  base_dir: &std::path::Path,
+  preset: ProcessorPreset,
+) -> Result<MarkdownResult, String> {
+  let content = std::fs::read_to_string(file_path).map_err(|e| {
+    format!("Failed to read file {}: {}", file_path.display(), e)
+  })?;
+
+  let processor = create_processor(preset).with_base_dir(base_dir);
   Ok(process_with_recovery(&processor, &content))
 }
 

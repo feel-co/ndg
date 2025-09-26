@@ -1,7 +1,7 @@
 //! Feature-specific Markdown processing extensions.
 
 use super::process::process_safe;
-use crate::utils;
+use crate::{types::IncludedFile, utils};
 
 /// Apply GitHub Flavored Markdown (GFM) extensions to the input markdown.
 ///
@@ -52,30 +52,96 @@ pub fn process_file_includes(
   markdown: &str,
   base_dir: &std::path::Path,
 ) -> String {
+  let (content, _) = process_file_includes_with_metadata(markdown, base_dir);
+  content
+}
+
+/// Process file includes with metadata tracking.
+///
+/// This function processes file include syntax and returns both the processed
+/// content and metadata about included files. It supports the `html:into-file`
+/// directive for custom output paths, akin to nixos-render-docs own format.
+///
+/// # Arguments
+///
+/// * `markdown` - The markdown content to process
+/// * `base_dir` - Base directory for resolving relative file paths
+///
+/// # Returns
+///
+/// A tuple containing the processed markdown content and a vector of included
+/// files
+pub fn process_file_includes_with_metadata(
+  markdown: &str,
+  base_dir: &std::path::Path,
+) -> (String, Vec<IncludedFile>) {
   use std::{fs, path::Path};
 
-  // Check if a path is safe (no absolute, no ..)
-  fn is_safe_path(path: &str) -> bool {
+  // Check if a path is safe (no absolute paths, no excessive directory
+  // traversal)
+  fn is_safe_path(path: &str, _base_dir: &Path) -> bool {
     let p = Path::new(path);
-    !p.is_absolute() && !path.contains("..") && !path.contains('\\')
+    if p.is_absolute() || path.contains('\\') {
+      return false;
+    }
+
+    // Allow relative paths including .. but prevent excessive traversal
+    // FIXME: this is too simple, but works *for now*. I'm certainly going
+    // to write this to perform much stronger validation.
+    !path.starts_with("/") && !path.contains("../../../")
   }
 
-  // Read included files, return concatenated content
-  fn read_includes(listing: &str, base_dir: &Path) -> String {
+  // Parse include directive for custom output path
+  fn parse_include_directive(line: &str) -> Option<String> {
+    if let Some(start) = line.find("html:into-file=") {
+      let start = start + "html:into-file=".len();
+      if let Some(end) = line[start..].find(' ') {
+        Some(line[start..start + end].to_string())
+      } else {
+        // Take rest of line after =
+        Some(line[start..].trim().to_string())
+      }
+    } else {
+      None
+    }
+  }
+
+  // Read included files, return concatenated content and metadata
+  fn read_includes(
+    listing: &str,
+    base_dir: &Path,
+    custom_output: Option<String>,
+  ) -> (String, Vec<IncludedFile>) {
     let mut result = String::new();
+    let mut included_files = Vec::new();
+
     for line in listing.lines() {
       let trimmed = line.trim();
-      if trimmed.is_empty() || !is_safe_path(trimmed) {
+      if trimmed.is_empty() || !is_safe_path(trimmed, base_dir) {
         continue;
       }
       let full_path = base_dir.join(trimmed);
       log::info!("Including file: {}", full_path.display());
+
       match fs::read_to_string(&full_path) {
         Ok(content) => {
-          result.push_str(&content);
-          if !content.ends_with('\n') {
+          // Recursively process includes in the included content
+          let file_dir = full_path.parent().unwrap_or(base_dir);
+          let (processed_content, mut nested_includes) =
+            process_file_includes_with_metadata(&content, file_dir);
+
+          result.push_str(&processed_content);
+          if !processed_content.ends_with('\n') {
             result.push('\n');
           }
+
+          included_files.push(IncludedFile {
+            path:          trimmed.to_string(),
+            custom_output: custom_output.clone(),
+          });
+
+          // Add nested includes to our list
+          included_files.append(&mut nested_includes);
         },
         Err(_) => {
           // Insert a warning comment for missing files
@@ -86,11 +152,12 @@ pub fn process_file_includes(
         },
       }
     }
-    result
+    (result, included_files)
   }
 
   // Replace {=include=} code blocks with included file contents
   let mut output = String::new();
+  let mut all_included_files = Vec::new();
   let mut lines = markdown.lines().peekable();
   let mut in_code_block = false;
   let mut code_fence_char = None;
@@ -101,6 +168,9 @@ pub fn process_file_includes(
 
     // Check for includes BEFORE checking for code fences
     if !in_code_block && trimmed.starts_with("```{=include=}") {
+      // Parse custom output directive from the include line
+      let custom_output = parse_include_directive(trimmed);
+
       // Start of an include block
       let mut include_listing = String::new();
       for next_line in lines.by_ref() {
@@ -111,8 +181,10 @@ pub fn process_file_includes(
         include_listing.push('\n');
       }
 
-      let included = read_includes(&include_listing, base_dir);
+      let (included, mut included_files) =
+        read_includes(&include_listing, base_dir, custom_output);
       output.push_str(&included);
+      all_included_files.append(&mut included_files);
       continue;
     }
 
@@ -144,7 +216,7 @@ pub fn process_file_includes(
     output.push('\n');
   }
 
-  output
+  (output, all_included_files)
 }
 
 /// Process role markup in markdown content.

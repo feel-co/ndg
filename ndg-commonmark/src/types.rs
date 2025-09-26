@@ -12,6 +12,15 @@ pub struct Header {
   pub id:    String,
 }
 
+/// Represents a file that was included via `{=include=}` directive.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct IncludedFile {
+  /// Path to the included file.
+  pub path:          String,
+  /// Optional custom output path from `html:into-file` directive.
+  pub custom_output: Option<String>,
+}
+
 /// Result of Markdown processing.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MarkdownResult {
@@ -23,4 +32,7 @@ pub struct MarkdownResult {
 
   /// Title of the document, if found (usually first H1).
   pub title: Option<String>,
+
+  /// Files that were included via `{=include=}` directives.
+  pub included_files: Vec<IncludedFile>,
 }

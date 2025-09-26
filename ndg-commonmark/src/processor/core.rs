@@ -53,13 +53,21 @@ impl MarkdownProcessor {
       options,
       manpage_urls,
       syntax_manager,
+      included_files: std::cell::RefCell::new(Vec::new()),
+      base_dir: std::path::PathBuf::from("."),
     }
   }
 
-  /// Get the processor configuration options.
+  /// Access processor options.
   #[must_use]
   pub fn options(&self) -> &MarkdownOptions {
     &self.options
+  }
+
+  /// Set the base directory for resolving relative file paths.
+  pub fn with_base_dir(mut self, base_dir: &std::path::Path) -> Self {
+    self.base_dir = base_dir.to_path_buf();
+    self
   }
 
   /// Check if a specific feature is enabled.
@@ -155,6 +163,9 @@ impl MarkdownProcessor {
   /// Render Markdown to HTML, extracting headers and title.
   #[must_use]
   pub fn render(&self, markdown: &str) -> MarkdownResult {
+    // Clear previous includes
+    self.included_files.borrow_mut().clear();
+
     let preprocessed = self.preprocess(markdown);
     let (headers, title) = self.extract_headers(&preprocessed);
     let html = self.process_html_pipeline(&preprocessed);
@@ -163,6 +174,7 @@ impl MarkdownProcessor {
       html,
       headers,
       title,
+      included_files: self.included_files.borrow().clone(),
     }
   }
 
@@ -210,10 +222,12 @@ impl MarkdownProcessor {
   /// Apply Nixpkgs-specific preprocessing steps.
   #[cfg(feature = "nixpkgs")]
   fn apply_nixpkgs_preprocessing(&self, content: &str) -> String {
-    let with_includes = super::extensions::process_file_includes(
-      content,
-      std::path::Path::new("."),
-    );
+    let (with_includes, included_files) =
+      super::extensions::process_file_includes_with_metadata(
+        content,
+        &self.base_dir,
+      );
+    self.included_files.borrow_mut().extend(included_files);
     let with_blocks = super::extensions::process_block_elements(&with_includes);
     super::extensions::process_inline_anchors(&with_blocks)
   }
