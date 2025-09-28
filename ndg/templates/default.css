@@ -299,7 +299,7 @@ header {
   display: flex;
   gap: var(--space-6);
   align-items: center;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.16);
   z-index: 100;
   position: sticky;
   top: 0px;
@@ -337,6 +337,11 @@ header {
 
 /* Header navigation styling */
 .header-nav {
+  position: sticky;
+  top: 0;
+  background-color: var(--header-bg);
+  z-index: 101;
+
   ul {
     display: flex;
     list-style: none;
@@ -1393,6 +1398,7 @@ h6:hover .copy-link {
 
   header {
     padding: var(--space-3) var(--space-4);
+    box-shadow: 0 4px 24px 0 rgba(0,0,0,0.16);
   }
 
   .site-title {
