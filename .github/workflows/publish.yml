@@ -1,17 +1,15 @@
 name: Publish Crates
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
 
 jobs:
   publish:
-    name: Publish Rust Crates
+    name: Publish ndg-commonmark
     runs-on: ubuntu-latest
-    environment:
-      name: crates-io
-      url: https://crates.io
     permissions:
       contents: read
 
@@ -26,11 +24,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Publish ndg-commonmark
-        working-directory: ./ndg-commonmark
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          cargo publish --no-verify --locked
+          cargo publish -p ndg-commonmark --no-verify --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Wait for ndg-commonmark to be available
         run: |
@@ -38,10 +33,3 @@ jobs:
             sleep 10
             cargo search ndg-commonmark | grep -q ndg-commonmark && break
           done
-
-      - name: Publish ndg
-        working-directory: ./ndg
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          cargo publish --no-verify --locked
