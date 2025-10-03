@@ -348,12 +348,11 @@ impl MarkdownProcessor {
     let prompt_transformer = PromptTransformer;
     prompt_transformer.transform(root);
 
-    let mut html_output = Vec::new();
+    let mut html_output = String::new();
     comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
-    let html = String::from_utf8(html_output).unwrap_or_default();
 
     // Post-process HTML to handle header anchors
-    self.process_header_anchors_html(&html)
+    self.process_header_anchors_html(&html_output)
   }
 
   /// Process header anchors in HTML by finding {#id} syntax and converting to

@@ -18,9 +18,9 @@ fn render_html_after_transform(
   let root = parse_document(&arena, markdown, &options);
   transformer.transform(root);
 
-  let mut html_output = Vec::new();
+  let mut html_output = String::new();
   comrak::format_html(root, &options, &mut html_output).unwrap();
-  String::from_utf8(html_output).unwrap()
+  html_output
 }
 
 #[test]
