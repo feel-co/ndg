@@ -14,7 +14,7 @@ jobs:
       pull-requests: read
     steps:
       - name: "Checkout Repository"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: "Get changed files"
         id: changed-files
@@ -44,26 +44,34 @@ jobs:
 
     steps:
       - name: "Set up QEMU support"
+        if
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
 
-      - name: Install Lix
-        uses: DeterminateSystems/nix-installer-action@main
+      - uses: cachix/install-nix-action@v31
         with:
-          diagnostic-endpoint: '' # no personalized self-merges tyvm.
-          source-url: 'https://install.lix.systems/lix/lix-installer-x86_64-linux'
-          logger: pretty
-          extra-conf: |
-            experimental-features = nix-command flakes fetch-tree
-            allow-import-from-derivation = false
-            extra-platforms = aarch64-linux
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v16
+        with:
+          name: feel-co
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       - name: "Checkout Repository"
         uses: actions/checkout@v4
 
       - name: "Build packages"
-        run: nix build -L .#checks.${{ matrix.system }}.default -v
+        run: nix build -L .#packages.${{ matrix.system }}.default -v
+
+      # We already have cachix, but this'll help re-use our Nix store
+      # inside the cache to achieve less wasted CI time. Unfortunately
+      # Nix *really* sucks for incremental builds :(
+      - name: Restore and save Nix store
+        uses: nix-community/cache-nix-action@v6
+        with:
+          # Restore and save a cache using this key
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/*.lock', '**/*.rs') }}
 
       # For debugging purposes, the default check is standalone so
       # it can be opened or served with zero overhead.
