@@ -25,14 +25,7 @@
             <a href="{{ index_path }}">{{ site_title }}</a>
           </h1>
         </div>
-        <nav class="header-nav">
-          <ul>
-            <li {{ has_options|safe }}>
-              <a href="{{ options_path }}">Options</a>
-            </li>
-            <li class="active"><a href="{{ search_path }}">Search</a></li>
-          </ul>
-        </nav>
+        {{ navbar_html|safe }}
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
@@ -85,9 +78,7 @@
         </main>
       </div>
 
-      <footer>
-        <p>{{ footer_text }}</p>
-      </footer>
+      {{ footer_html|safe }}
     </div>
 
     {{ custom_scripts|safe }}
