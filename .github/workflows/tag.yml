@@ -27,5 +27,5 @@ jobs:
       - name: Tag
         run: |
           set -x
-          git tag $ndg_version
+          git tag v$ndg_version
           git push --tags || :
