@@ -605,6 +605,10 @@ impl Config {
       "options_toc.html",
       include_str!("../../templates/options_toc.html"),
     );
+    templates
+      .insert("navbar.html", include_str!("../../templates/navbar.html"));
+    templates
+      .insert("footer.html", include_str!("../../templates/footer.html"));
 
     // CSS and JS assets
     templates

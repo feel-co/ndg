@@ -137,12 +137,15 @@ users always start with the latest default templates and can easily update them
 when ndg is upgraded. Though, ndg will fall back to internal templates when none
 are provided.
 
+See the [templating documntation](./docs/TEMPLATING.md) for details about the
+templating. If your use-case is not supported, feel free to request a feature!
+
 ## Detailed Usage
 
 The first subcommand in ndg's compartmentalized architecture is for HTML
 generation. The `html` subcommand includes the following options:
 
-```
+```plaintext
 Options:
   -i, --input-dir <INPUT_DIR>
           Path to the directory containing markdown files

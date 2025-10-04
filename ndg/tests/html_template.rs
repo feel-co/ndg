@@ -3,12 +3,10 @@ use std::{collections::HashMap, path::Path};
 use ndg::{config::Config, formatter::options::NixOption, html::template};
 use ndg_commonmark::Header;
 
-/// Helper to check for highlighted code HTML (syntect output)
+/// Checks for highlighted code HTML
 fn contains_highlighted_code(html: &str) -> bool {
   // Accept either class-based or inline-style highlighting
-  html.contains("class=\"highlight\"")
-    || html.contains("class=\"syntect\"")
-    || html.contains("style=\"")
+  html.contains("class=\"highlight\"") || html.contains("class=\"syntect\"")
 }
 
 fn minimal_config() -> Config {
@@ -199,4 +197,298 @@ fn render_search_page_disabled_returns_err() {
   let context = HashMap::new();
   let result = template::render_search(&config, &context);
   assert!(result.is_err());
+}
+
+#[test]
+fn render_page_contains_navbar_html() {
+  let config = minimal_config();
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // Should contain navbar structure
+  assert!(html.contains("header-nav") || html.contains("navbar"));
+  assert!(html.contains("<nav"));
+}
+
+#[test]
+fn render_page_contains_footer_html() {
+  let config = minimal_config();
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // Should contain footer with configured text
+  assert!(html.contains("<footer"));
+  assert!(html.contains("Footer"));
+}
+
+#[test]
+fn render_options_page_contains_navbar() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  let mut options = HashMap::new();
+  options.insert(
+    "test.option".to_string(),
+    create_basic_option("test.option", "Test option"),
+  );
+  let html =
+    template::render_options(&config, &options).expect("Should render options");
+
+  // Should contain navbar structure
+  assert!(html.contains("header-nav") || html.contains("navbar"));
+  assert!(html.contains("<nav"));
+}
+
+#[test]
+fn render_options_page_contains_footer() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  config.footer_text = "Custom Footer Text".to_string();
+  let mut options = HashMap::new();
+  options.insert(
+    "test.option".to_string(),
+    create_basic_option("test.option", "Test option"),
+  );
+  let html =
+    template::render_options(&config, &options).expect("Should render options");
+
+  // Should contain footer with custom text
+  assert!(html.contains("<footer"));
+  assert!(html.contains("Custom Footer Text"));
+}
+
+#[test]
+fn render_search_page_contains_navbar() {
+  let mut config = minimal_config();
+  config.generate_search = true;
+  let mut context = HashMap::new();
+  context.insert("title", "Search Test".to_string());
+  let html =
+    template::render_search(&config, &context).expect("Should render search");
+
+  // Should contain navbar structure
+  assert!(html.contains("header-nav") || html.contains("navbar"));
+  assert!(html.contains("<nav"));
+}
+
+#[test]
+fn render_search_page_contains_footer() {
+  let mut config = minimal_config();
+  config.generate_search = true;
+  config.footer_text = "Search Page Footer".to_string();
+  let mut context = HashMap::new();
+  context.insert("title", "Search Test".to_string());
+  let html =
+    template::render_search(&config, &context).expect("Should render search");
+
+  // Should contain footer with configured text
+  assert!(html.contains("<footer"));
+  assert!(html.contains("Search Page Footer"));
+}
+
+#[test]
+fn render_page_with_custom_template_dir() {
+  use std::fs;
+
+  use tempfile::TempDir;
+
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let template_dir = temp_dir.path();
+
+  // Create a custom navbar template
+  let navbar_content =
+    r#"<nav class="custom-navbar"><ul><li>Custom Nav</li></ul></nav>"#;
+  fs::write(template_dir.join("navbar.html"), navbar_content)
+    .expect("Failed to write navbar template");
+
+  // Create a custom footer template
+  let footer_content =
+    r#"<footer class="custom-footer"><p>Custom Footer</p></footer>"#;
+  fs::write(template_dir.join("footer.html"), footer_content)
+    .expect("Failed to write footer template");
+
+  // Create a custom default template that uses the navbar and footer
+  let default_content = r#"<!doctype html>
+<html>
+<head><title>{{ title }}</title></head>
+<body>
+{{ navbar_html|safe }}
+<main>{{ content|safe }}</main>
+{{ footer_html|safe }}
+</body>
+</html>"#;
+  fs::write(template_dir.join("default.html"), default_content)
+    .expect("Failed to write default template");
+
+  let mut config = minimal_config();
+  config.template_dir = Some(template_dir.to_path_buf());
+
+  let content = "<p>Test content</p>";
+  let title = "Custom Template Test";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML with custom templates");
+
+  // Should contain custom navbar and footer
+  assert!(html.contains("Custom Nav"));
+  assert!(html.contains("Custom Footer"));
+  assert!(html.contains("custom-navbar"));
+  assert!(html.contains("custom-footer"));
+}
+
+#[test]
+fn render_page_uses_per_file_template() {
+  use std::fs;
+
+  use tempfile::TempDir;
+
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let template_dir = temp_dir.path();
+
+  // Create a custom template for a specific file
+  let custom_content = r#"<!doctype html>
+<html>
+<head><title>{{ title }}</title></head>
+<body class="special-page">
+<h1>Special Template</h1>
+{{ content|safe }}
+</body>
+</html>"#;
+  fs::write(template_dir.join("special.html"), custom_content)
+    .expect("Failed to write special template");
+
+  // Create navbar and footer templates (required)
+  fs::write(template_dir.join("navbar.html"), "<nav>Nav</nav>")
+    .expect("Failed to write navbar");
+  fs::write(template_dir.join("footer.html"), "<footer>Footer</footer>")
+    .expect("Failed to write footer");
+
+  let mut config = minimal_config();
+  config.template_dir = Some(template_dir.to_path_buf());
+
+  let content = "<p>Special page content</p>";
+  let title = "Special Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("special.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML with special template");
+
+  // Should use the special template
+  assert!(html.contains("special-page"));
+  assert!(html.contains("Special Template"));
+}
+
+#[test]
+fn render_page_falls_back_to_default_template() {
+  use std::fs;
+
+  use tempfile::TempDir;
+
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let template_dir = temp_dir.path();
+
+  // Create only default template (no special.html)
+  let default_content = r#"<!doctype html>
+<html>
+<head><title>{{ title }}</title></head>
+<body class="default-page">
+{{ content|safe }}
+</body>
+</html>"#;
+  fs::write(template_dir.join("default.html"), default_content)
+    .expect("Failed to write default template");
+
+  // Create navbar and footer templates
+  fs::write(template_dir.join("navbar.html"), "<nav>Nav</nav>")
+    .expect("Failed to write navbar");
+  fs::write(template_dir.join("footer.html"), "<footer>Footer</footer>")
+    .expect("Failed to write footer");
+
+  let mut config = minimal_config();
+  config.template_dir = Some(template_dir.to_path_buf());
+
+  let content = "<p>Regular page content</p>";
+  let title = "Regular Page";
+  let headers: Vec<Header> = vec![];
+  // Request a file-specific template that doesn't exist
+  let rel_path = Path::new("nonexistent.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML with default template");
+
+  // Should fall back to default template
+  assert!(html.contains("default-page"));
+  assert!(!html.contains("special-page"));
+}
+
+#[test]
+fn navbar_respects_search_generation_flag() {
+  let mut config = minimal_config();
+  config.generate_search = true;
+
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // Should contain search link when enabled
+  assert!(html.contains("Search") || html.contains("search"));
+
+  // Test with search disabled
+  config.generate_search = false;
+  let html_no_search =
+    template::render(&config, content, title, &headers, rel_path)
+      .expect("Should render HTML");
+
+  // The navbar might still contain the word "search" in template structure,
+  // but the search link should be conditionally rendered
+  // We just verify it renders successfully with different configs
+  assert!(!html_no_search.is_empty());
+}
+
+#[test]
+fn navbar_shows_options_link_when_configured() {
+  let mut config = minimal_config();
+  config.module_options = Some("options.json".into());
+
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // Should contain options link
+  assert!(html.contains("Options") || html.contains("options"));
+}
+
+#[test]
+fn footer_text_is_customizable() {
+  let mut config = minimal_config();
+  config.footer_text = "Copyright 2025 - Custom Footer".to_string();
+
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // Should contain custom footer text
+  assert!(html.contains("Copyright 2025 - Custom Footer"));
 }

@@ -1068,6 +1068,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "tempfile",
  "tera",
  "toml 0.9.7",
  "walkdir",

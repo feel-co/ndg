@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -27,16 +27,7 @@
             <a href="{{ index_path }}">{{ site_title }}</a>
           </h1>
 
-          <nav class="header-nav">
-            <ul>
-              <li {{ has_options|safe }}>
-                <a href="{{ options_path }}">Options</a>
-              </li>
-              {% if generate_search %}
-              <li><a href="{{ search_path }}">Search</a></li>
-              {% endif %}
-            </ul>
-          </nav>
+          {{ navbar_html|safe }}
         </div>
         {% if generate_search %}
         <div class="search-container">
@@ -76,9 +67,7 @@
         <main class="content">{{ content|safe }}</main>
       </div>
 
-      <footer>
-        <p>{{ footer_text }}</p>
-      </footer>
+      {{ footer_html|safe }}
     </div>
 
     {{ custom_scripts|safe }}

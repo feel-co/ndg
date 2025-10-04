@@ -286,7 +286,8 @@ body .mobile-sidebar-fab {
 .container {
   display: flex;
   flex-direction: column;
-  width: 100wh;
+  min-height: 100vh;
+  width: 100%;
   max-width: 100%;
   margin: 0 auto;
 }
@@ -404,10 +405,11 @@ header {
 
 /* Sidebar  */
 .sidebar {
-  position: sticky;
+  position: fixed;
+  left: 0;
   top: var(--header-height);
   width: 300px;
-  height: calc(100vh - 64px);
+  height: calc(100vh - var(--header-height));
   background-color: var(--sidebar-bg);
   padding: var(--space-4);
   border-right: 1px solid var(--border-color);
@@ -458,7 +460,6 @@ header {
   .sidebar-collapsed &,
   .sidebar-collapsed-init & {
     transform: translateX(-100%);
-    width: 0px;
   }
 }
 
@@ -1360,8 +1361,6 @@ h6:hover .copy-link {
 /* Responsive Design */
 @media (max-width: 800px) {
   .sidebar {
-    position: fixed;
-    left: 0;
     top: 60px;
     height: calc(100vh - 60px);
     z-index: 90;

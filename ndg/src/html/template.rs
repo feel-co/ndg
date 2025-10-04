@@ -12,6 +12,8 @@ const OPTIONS_TEMPLATE: &str = include_str!("../../templates/options.html");
 const SEARCH_TEMPLATE: &str = include_str!("../../templates/search.html");
 const OPTIONS_TOC_TEMPLATE: &str =
   include_str!("../../templates/options_toc.html");
+const NAVBAR_TEMPLATE: &str = include_str!("../../templates/navbar.html");
+const FOOTER_TEMPLATE: &str = include_str!("../../templates/footer.html");
 
 /// Render a documentation page
 pub fn render(
@@ -22,9 +24,40 @@ pub fn render(
   rel_path: &Path,
 ) -> Result<String> {
   let mut tera = Tera::default();
-  let template_content =
-    get_template_content(config, "default.html", DEFAULT_TEMPLATE)?;
+
+  // Check for file-specific template (e.g., foo.html for foo.md)
+  let file_stem = rel_path
+    .file_stem()
+    .and_then(|s| s.to_str())
+    .unwrap_or("default");
+  let specific_template_name = format!("{}.html", file_stem);
+
+  // Try to load file-specific template first, then fall back to default
+  let template_content = if let Ok(specific_content) = get_template_content(
+    config,
+    &specific_template_name,
+    "", // no fallback for specific templates
+  ) {
+    if !specific_content.is_empty() {
+      specific_content
+    } else {
+      get_template_content(config, "default.html", DEFAULT_TEMPLATE)?
+    }
+  } else {
+    get_template_content(config, "default.html", DEFAULT_TEMPLATE)?
+  };
+
   tera.add_raw_template("default", &template_content)?;
+
+  // Load navbar template
+  let navbar_content =
+    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
+  tera.add_raw_template("navbar", &navbar_content)?;
+
+  // Load footer template
+  let footer_content =
+    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
+  tera.add_raw_template("footer", &footer_content)?;
 
   // Generate table of contents from headers
   let toc = generate_toc(headers);
@@ -96,12 +129,40 @@ pub fn render(
     String::new()
   };
 
+  // Render navbar and footer
+  let navbar_html = tera.render("navbar", &{
+    let mut ctx = tera::Context::new();
+    ctx.insert("has_options", has_options);
+    ctx.insert("generate_search", &config.generate_search);
+    ctx.insert(
+      "options_path",
+      asset_paths
+        .get("options_path")
+        .map_or("options.html", std::string::String::as_str),
+    );
+    ctx.insert(
+      "search_path",
+      asset_paths
+        .get("search_path")
+        .map_or("search.html", std::string::String::as_str),
+    );
+    ctx
+  })?;
+
+  let footer_html = tera.render("footer", &{
+    let mut ctx = tera::Context::new();
+    ctx.insert("footer_text", &config.footer_text);
+    ctx
+  })?;
+
   // Create context
   let mut tera_context = tera::Context::new();
   tera_context.insert("content", content);
   tera_context.insert("title", title);
   tera_context.insert("site_title", &config.title);
   tera_context.insert("footer_text", &config.footer_text);
+  tera_context.insert("navbar_html", &navbar_html);
+  tera_context.insert("footer_html", &footer_html);
   tera_context.insert("toc", &toc);
   tera_context.insert("doc_nav", &doc_nav);
   tera_context.insert("has_options", has_options);
@@ -163,6 +224,16 @@ pub fn render_options(
     get_template_content(config, "options.html", OPTIONS_TEMPLATE)?;
   tera.add_raw_template("options", &options_template)?;
 
+  // Load navbar template
+  let navbar_content =
+    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
+  tera.add_raw_template("navbar", &navbar_content)?;
+
+  // Load footer template
+  let footer_content =
+    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
+  tera.add_raw_template("footer", &footer_content)?;
+
   // Create options HTML
   let options_html = generate_options_html(options);
 
@@ -185,6 +256,32 @@ pub fn render_options(
   // Generate asset and navigation paths (options page is at root)
   let asset_paths = utils::generate_asset_paths(root_path);
 
+  // Render navbar and footer
+  let navbar_html = tera.render("navbar", &{
+    let mut ctx = tera::Context::new();
+    ctx.insert("has_options", "class=\"active\"");
+    ctx.insert("generate_search", &config.generate_search);
+    ctx.insert(
+      "options_path",
+      asset_paths
+        .get("options_path")
+        .map_or("options.html", std::string::String::as_str),
+    );
+    ctx.insert(
+      "search_path",
+      asset_paths
+        .get("search_path")
+        .map_or("search.html", std::string::String::as_str),
+    );
+    ctx
+  })?;
+
+  let footer_html = tera.render("footer", &{
+    let mut ctx = tera::Context::new();
+    ctx.insert("footer_text", &config.footer_text);
+    ctx
+  })?;
+
   // Create context
   let mut tera_context = tera::Context::new();
   tera_context.insert("title", &format!("{} - Options", config.title));
@@ -192,6 +289,8 @@ pub fn render_options(
   tera_context.insert("heading", &format!("{} Options", config.title));
   tera_context.insert("options", &options_html);
   tera_context.insert("footer_text", &config.footer_text);
+  tera_context.insert("navbar_html", &navbar_html);
+  tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("doc_nav", &doc_nav);
   tera_context.insert("has_options", "class=\"active\"");
@@ -433,6 +532,16 @@ pub fn render_search(
     get_template_content(config, "search.html", SEARCH_TEMPLATE)?;
   tera.add_raw_template("search", &search_template)?;
 
+  // Load navbar template
+  let navbar_content =
+    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
+  tera.add_raw_template("navbar", &navbar_content)?;
+
+  // Load footer template
+  let footer_content =
+    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
+  tera.add_raw_template("footer", &footer_content)?;
+
   let title_str = context
     .get("title")
     .cloned()
@@ -455,12 +564,40 @@ pub fn render_search(
   // Generate asset and navigation paths (search page is at root)
   let asset_paths = utils::generate_asset_paths(root_path);
 
+  // Render navbar and footer
+  let navbar_html = tera.render("navbar", &{
+    let mut ctx = tera::Context::new();
+    ctx.insert("has_options", has_options);
+    ctx.insert("generate_search", &config.generate_search);
+    ctx.insert(
+      "options_path",
+      asset_paths
+        .get("options_path")
+        .map_or("options.html", std::string::String::as_str),
+    );
+    ctx.insert(
+      "search_path",
+      asset_paths
+        .get("search_path")
+        .map_or("search.html", std::string::String::as_str),
+    );
+    ctx
+  })?;
+
+  let footer_html = tera.render("footer", &{
+    let mut ctx = tera::Context::new();
+    ctx.insert("footer_text", &config.footer_text);
+    ctx
+  })?;
+
   // Create Tera context
   let mut tera_context = tera::Context::new();
   tera_context.insert("title", &title_str);
   tera_context.insert("site_title", &config.title);
   tera_context.insert("heading", "Search");
   tera_context.insert("footer_text", &config.footer_text);
+  tera_context.insert("navbar_html", &navbar_html);
+  tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("doc_nav", &doc_nav);
   tera_context.insert("has_options", has_options);
@@ -570,6 +707,7 @@ fn get_template_content(
   }
 
   // Use fallback embedded template if no custom template found
+  // If fallback is empty, return empty string (used for optional templates)
   Ok(fallback.to_string())
 }
 
