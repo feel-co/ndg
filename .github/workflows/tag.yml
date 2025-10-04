@@ -1,12 +1,14 @@
 name: Tag version
-
 concurrency: tag
-
 on:
   workflow_dispatch:
   push:
     branches: ["main"]
-
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+permissions:
+  contents: write
 jobs:
   main:
     runs-on: ubuntu-latest
@@ -14,20 +16,22 @@ jobs:
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-
       - uses: actions/checkout@v5
         name: Checkout
-
       - name: Read version
         run: |
           echo "NDG_VERSION=v$(nix run nixpkgs#fq -- -r '.workspace.package.version' Cargo.toml)" >> "$GITHUB_ENV"
           cat "$GITHUB_ENV"
-
       - name: Tag
         run: |
           set -ex
           echo "Tags before:"
           git tag -l
+          echo "Checking if tag $NDG_VERSION exists on remote..."
+          if git ls-remote --tags origin | grep -q "refs/tags/$NDG_VERSION$"; then
+            echo "Tag $NDG_VERSION already exists on remote. Skipping tag creation and push."
+            exit 0
+          fi
           git tag $NDG_VERSION
           echo "Tags after:"
           git tag -l
