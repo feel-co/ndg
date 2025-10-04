@@ -2,9 +2,9 @@ name: Build with Cargo
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   changes:
@@ -24,8 +24,8 @@ jobs:
             files:
               - 'Cargo.toml'
               - 'Cargo.lock'
-              - 'ndg/*'
-              - 'ndg-commonmark/*'
+              - 'ndg/**'
+              - 'ndg-commonmark/**'
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -74,4 +74,3 @@ jobs:
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
-
