@@ -204,6 +204,7 @@ pub fn process_file_includes(
 ///
 /// * `content` - The markdown content to process
 /// * `manpage_urls` - Optional mapping of manpage names to URLs
+/// * `auto_link_options` - Whether to convert {option} roles to links
 ///
 /// # Returns
 ///
@@ -213,6 +214,7 @@ pub fn process_file_includes(
 pub fn process_role_markup(
   content: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
+  auto_link_options: bool,
 ) -> String {
   let mut result = String::new();
   let mut chars = content.chars().peekable();
@@ -296,7 +298,7 @@ pub fn process_role_markup(
       let mut temp_chars = remaining_str.chars().peekable();
 
       if let Some(role_markup) =
-        parse_role_markup(&mut temp_chars, manpage_urls)
+        parse_role_markup(&mut temp_chars, manpage_urls, auto_link_options)
       {
         // Valid role markup found, advance the main iterator
         let remaining_after_parse: String = temp_chars.collect();
@@ -325,6 +327,7 @@ pub fn process_role_markup(
 fn parse_role_markup(
   chars: &mut std::iter::Peekable<std::str::Chars>,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
+  auto_link_options: bool,
 ) -> Option<String> {
   let mut role_name = String::new();
 
@@ -364,7 +367,12 @@ fn parse_role_markup(
       if content.is_empty() && !matches!(role_name.as_str(), "manpage") {
         return None; // reject empty content for most roles
       }
-      return Some(format_role_markup(&role_name, &content, manpage_urls));
+      return Some(format_role_markup(
+        &role_name,
+        &content,
+        manpage_urls,
+        auto_link_options,
+      ));
     }
     content.push(ch);
   }
@@ -379,6 +387,7 @@ pub fn format_role_markup(
   role_type: &str,
   content: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
+  auto_link_options: bool,
 ) -> String {
   let escaped_content = utils::html_escape(content);
   match role_type {
@@ -401,7 +410,7 @@ pub fn format_role_markup(
     "env" => format!("<code class=\"env-var\">{escaped_content}</code>"),
     "file" => format!("<code class=\"file-path\">{escaped_content}</code>"),
     "option" => {
-      if cfg!(feature = "ndg-flavored") {
+      if cfg!(feature = "ndg-flavored") && auto_link_options {
         let option_id = format!("option-{}", content.replace('.', "-"));
         format!(
           "<a class=\"option-reference\" \
@@ -417,15 +426,136 @@ pub fn format_role_markup(
   }
 }
 
+/// Process MyST-style autolinks in markdown content.
+///
+/// Converts MyST-like autolinks supported by Nixpkgs-flavored commonmark:
+/// - `[](#anchor)` -> `[](#anchor) -> {{ANCHOR}}` (placeholder for comrak)
+/// - `[](https://url)` -> `<https://url>` (converted to standard autolink)
+///
+/// # Arguments
+///
+/// * `content` - The markdown content to process
+///
+/// # Returns
+///
+/// The processed markdown with `MyST` autolinks converted as a [`String`]
+#[must_use]
+pub fn process_myst_autolinks(content: &str) -> String {
+  let mut result = String::with_capacity(content.len());
+  let mut in_code_block = false;
+  let mut code_fence_char = None;
+  let mut code_fence_count = 0;
+
+  for line in content.lines() {
+    let trimmed = line.trim_start();
+
+    // Check for code fences
+    if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+      let fence_char = trimmed.chars().next().unwrap();
+      let fence_count =
+        trimmed.chars().take_while(|&c| c == fence_char).count();
+
+      if fence_count >= 3 {
+        if !in_code_block {
+          in_code_block = true;
+          code_fence_char = Some(fence_char);
+          code_fence_count = fence_count;
+        } else if code_fence_char == Some(fence_char)
+          && fence_count >= code_fence_count
+        {
+          in_code_block = false;
+          code_fence_char = None;
+          code_fence_count = 0;
+        }
+      }
+    }
+
+    // Only process MyST autolinks if we're not in a code block
+    if in_code_block {
+      result.push_str(line);
+      result.push('\n');
+    } else {
+      result.push_str(&process_line_myst_autolinks(line));
+      result.push('\n');
+    }
+  }
+
+  result
+}
+
+/// Process `MyST` autolinks in a single line.
+fn process_line_myst_autolinks(line: &str) -> String {
+  let mut result = String::with_capacity(line.len());
+  let mut chars = line.chars().peekable();
+
+  while let Some(ch) = chars.next() {
+    if ch == '[' && chars.peek() == Some(&']') {
+      chars.next(); // consume ']'
+
+      // Check if this is []{#...} syntax (inline anchor, not autolink)
+      // Nice pit, would be a shame if someone was to... fall into it.
+      if chars.peek() == Some(&'{') {
+        // This is inline anchor syntax, not autolink, keep as-is
+        result.push_str("[]");
+        continue;
+      }
+
+      if chars.peek() == Some(&'(') {
+        chars.next(); // consume '('
+
+        // Collect URL until ')'
+        let mut url = String::new();
+        let mut found_closing = false;
+        while let Some(&next_ch) = chars.peek() {
+          if next_ch == ')' {
+            chars.next(); // consume ')'
+            found_closing = true;
+            break;
+          }
+          url.push(next_ch);
+          chars.next();
+        }
+
+        if found_closing && !url.is_empty() {
+          // Check if it's an anchor link (starts with #) or a URL
+          if url.starts_with('#') {
+            // Add placeholder text for comrak to parse it as a link
+            result.push_str(&format!("[{{{{ANCHOR}}}}]({url})"));
+          } else if url.starts_with("http://") || url.starts_with("https://") {
+            // Convert URL autolinks to standard <url> format
+            result.push_str(&format!("<{url}>"));
+          } else {
+            // Keep other patterns as-is
+            result.push_str(&format!("[]({url})"));
+          }
+        } else {
+          // Malformed, put back what we consumed
+          result.push_str("](");
+          result.push_str(&url);
+        }
+      } else {
+        // Not a link, put back consumed character
+        result.push(']');
+      }
+    } else {
+      result.push(ch);
+    }
+  }
+
+  result
+}
+
 /// Process inline anchors in markdown content.
 ///
 /// This function processes inline anchor syntax like `[]{#my-anchor}` while
 /// being code-block aware to avoid processing inside code fences.
 ///
 /// # Arguments
+///
 /// * `content` - The markdown content to process
 ///
 /// # Returns
+///
 /// The processed markdown with inline anchors converted to HTML spans
 #[cfg(feature = "nixpkgs")]
 #[must_use]

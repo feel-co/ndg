@@ -204,6 +204,9 @@ impl MarkdownProcessor {
   fn preprocess(&self, content: &str) -> String {
     let mut processed = content.to_string();
 
+    // Process MyST-style autolinks first
+    processed = super::extensions::process_myst_autolinks(&processed);
+
     if self.options.nixpkgs {
       processed = self.apply_nixpkgs_preprocessing(&processed);
     }
@@ -212,6 +215,7 @@ impl MarkdownProcessor {
       processed = super::extensions::process_role_markup(
         &processed,
         self.manpage_urls.as_ref(),
+        self.options.auto_link_options,
       );
     }
 
@@ -430,6 +434,7 @@ impl MarkdownProcessor {
     self.process_list_item_inline_anchors(document);
     self.process_paragraph_inline_anchors(document);
     self.process_remaining_inline_anchors(document);
+    self.process_option_anchor_links(document);
     self.process_empty_auto_links(document);
     self.process_empty_html_links(document);
   }
@@ -801,7 +806,16 @@ impl MarkdownProcessor {
         let text_content = link_element.text_contents();
 
         if let Some(href_value) = href {
-          if href_value.starts_with('#') && text_content.trim().is_empty() {
+          if href_value.starts_with('#')
+            && (text_content.trim().is_empty()
+              || text_content.trim() == "{{ANCHOR}}")
+          {
+            // Clear placeholder text if present
+            if text_content.trim() == "{{ANCHOR}}" {
+              for child in link_element.children() {
+                child.detach();
+              }
+            }
             // Empty link with anchor - add humanized text
             let display_text = self.humanize_anchor_id(&href_value);
             link_element.append(kuchikikiki::NodeRef::new_text(display_text));
@@ -817,13 +831,75 @@ impl MarkdownProcessor {
       let link_element = link_node.as_node();
       let text_content = link_element.text_contents();
 
-      if text_content.trim().is_empty() {
+      if text_content.trim().is_empty() || text_content.trim() == "{{ANCHOR}}" {
+        // Clear placeholder text if present
+        if text_content.trim() == "{{ANCHOR}}" {
+          for child in link_element.children() {
+            child.detach();
+          }
+        }
         if let Some(element) = link_element.as_element() {
           if let Some(href) =
             element.attributes.borrow().get(local_name!("href"))
           {
             let display_text = self.humanize_anchor_id(href);
             link_element.append(kuchikikiki::NodeRef::new_text(display_text));
+          }
+        }
+      }
+    }
+  }
+
+  /// Process option anchor links: [](#opt-option.path) -> link to options.html
+  fn process_option_anchor_links(&self, document: &kuchikikiki::NodeRef) {
+    let mut to_modify = Vec::new();
+
+    // Collect all option anchor links first
+    for link_node in document.select("a[href^='#opt-']").unwrap() {
+      let link_element = link_node.as_node();
+      if let Some(element) = link_element.as_element() {
+        let href = element
+          .attributes
+          .borrow()
+          .get(local_name!("href"))
+          .map(std::string::ToString::to_string);
+        let text_content = link_element.text_contents();
+
+        if let Some(href_value) = href {
+          if href_value.starts_with("#opt-") {
+            let option_anchor = href_value[1..].to_string(); // remove the leading #
+            let needs_text_replacement = text_content.trim().is_empty()
+              || text_content.trim() == "{{ANCHOR}}";
+            to_modify.push((
+              link_element.clone(),
+              option_anchor,
+              needs_text_replacement,
+            ));
+          }
+        }
+      }
+    }
+
+    // Apply modifications
+    for (link_element, option_anchor, needs_text_replacement) in to_modify {
+      if let Some(element) = link_element.as_element() {
+        let new_href = format!("options.html#{option_anchor}");
+        element
+          .attributes
+          .borrow_mut()
+          .insert(local_name!("href"), new_href);
+
+        if needs_text_replacement {
+          // Clear existing content
+          for child in link_element.children() {
+            child.detach();
+          }
+
+          // Extract option name from anchor
+          // opt-services-nginx-enable -> services.nginx.enable
+          if let Some(option_path) = option_anchor.strip_prefix("opt-") {
+            let option_name = option_path.replace('-', ".");
+            link_element.append(kuchikikiki::NodeRef::new_text(option_name));
           }
         }
       }

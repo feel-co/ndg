@@ -41,6 +41,11 @@ pub struct MarkdownOptions {
 
   /// Optional: Path to manpage URL mappings (for {manpage} roles).
   pub manpage_urls_path: Option<String>,
+
+  /// Enable automatic linking for option role markup.
+  /// When `true`, `{option}` roles will be converted to links to options.html.
+  /// When `false`, they will be rendered as plain `<code>` elements.
+  pub auto_link_options: bool,
 }
 
 impl MarkdownOptions {
@@ -53,6 +58,7 @@ impl MarkdownOptions {
       highlight_code:    cfg!(any(feature = "syntastica", feature = "syntect")),
       highlight_theme:   None,
       manpage_urls_path: None,
+      auto_link_options: true,
     }
   }
 
@@ -69,6 +75,7 @@ impl MarkdownOptions {
       highlight_code,
       highlight_theme: None,
       manpage_urls_path: None,
+      auto_link_options: true,
     }
   }
 }
@@ -81,6 +88,7 @@ impl Default for MarkdownOptions {
       highlight_code:    cfg!(feature = "syntastica"),
       manpage_urls_path: None,
       highlight_theme:   None,
+      auto_link_options: true,
     }
   }
 }
@@ -198,6 +206,13 @@ impl MarkdownOptionsBuilder {
   #[must_use]
   pub fn manpage_urls_path<S: Into<String>>(mut self, path: Option<S>) -> Self {
     self.options.manpage_urls_path = path.map(Into::into);
+    self
+  }
+
+  /// Enable or disable automatic linking for {option} role markup.
+  #[must_use]
+  pub const fn auto_link_options(mut self, enabled: bool) -> Self {
+    self.options.auto_link_options = enabled;
     self
   }
 

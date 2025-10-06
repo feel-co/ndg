@@ -148,6 +148,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         highlight_code:    true,
         highlight_theme:   None,
         manpage_urls_path: None,
+        auto_link_options: true,
       }
     },
     ProcessorPreset::Ndg => {
@@ -157,6 +158,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         highlight_code:    true,
         highlight_theme:   Some("github".to_string()),
         manpage_urls_path: None,
+        auto_link_options: true,
       }
     },
     ProcessorPreset::Nixpkgs => {
@@ -166,6 +168,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         highlight_code:    true,
         highlight_theme:   Some("github".to_string()),
         manpage_urls_path: None,
+        auto_link_options: true,
       }
     },
   };

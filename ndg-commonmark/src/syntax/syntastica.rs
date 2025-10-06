@@ -237,7 +237,9 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
 /// excellent language support including native Nix highlighting.
 pub fn create_syntastica_manager() -> SyntaxResult<SyntaxManager> {
   let highlighter = Box::new(SyntasticaHighlighter::new()?);
-  let mut config = SyntaxConfig::default();
-  config.default_theme = Some("one-dark".to_string());
+  let config = SyntaxConfig {
+    default_theme: Some("one-dark".to_string()),
+    ..Default::default()
+  };
   Ok(SyntaxManager::new(highlighter, config))
 }
