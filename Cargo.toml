@@ -15,7 +15,7 @@ version      = "2.2.1"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
-clap = { version = "4.5.47", default-features = false, features = [
+clap = { version = "4.5.48", default-features = false, features = [
   "std",
   "derive",
   "help",
