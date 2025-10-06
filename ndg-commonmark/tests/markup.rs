@@ -361,6 +361,16 @@ fn test_autolink() {
 }
 
 #[test]
+fn test_myst_autolink_bracket() {
+  // MyST-style autolink: [](https://google.com)
+  let md = "Try [](https://google.com) for search.";
+  let html = ndg_html(md);
+  assert_html_contains(&html, &[
+    r#"<a href="https://google.com">https://google.com</a>"#,
+  ]);
+}
+
+#[test]
 fn test_header_extraction() {
   let md = "# Title\n\n## Section {#sec}\n### Subsection";
   let (_html, headers, title) = ndg_full_result(md);
