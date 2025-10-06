@@ -30,7 +30,7 @@ pub fn render(
     .file_stem()
     .and_then(|s| s.to_str())
     .unwrap_or("default");
-  let specific_template_name = format!("{}.html", file_stem);
+  let specific_template_name = format!("{file_stem}.html");
 
   // Try to load file-specific template first, then fall back to default
   let template_content = if let Ok(specific_content) = get_template_content(
@@ -38,10 +38,10 @@ pub fn render(
     &specific_template_name,
     "", // no fallback for specific templates
   ) {
-    if !specific_content.is_empty() {
-      specific_content
-    } else {
+    if specific_content.is_empty() {
       get_template_content(config, "default.html", DEFAULT_TEMPLATE)?
+    } else {
+      specific_content
     }
   } else {
     get_template_content(config, "default.html", DEFAULT_TEMPLATE)?
