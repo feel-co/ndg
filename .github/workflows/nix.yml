@@ -59,7 +59,7 @@ jobs:
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
       - name: "Checkout Repository"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: "Build packages"
         run: nix build -L .#packages.${{ matrix.system }}.default -v
