@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg/src/config/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ndg" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0-nightly (595b9a498 2025-10-03)" data-channel="nightly" data-search-js="search-de4c8920.js" data-stringdex-js="stringdex-828709d0.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">ndg/config/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">pub mod </span>templates;
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg/src/config/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ndg" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0-nightly (839222065 2025-10-05)" data-channel="nightly" data-search-js="search-de4c8920.js" data-stringdex-js="stringdex-828709d0.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">ndg/config/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">pub mod </span>templates;
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>std::{
 <a href=#4 id=4 data-nosnippet>4</a>  fs,
@@ -527,95 +527,94 @@
 <a href=#527 id=527 data-nosnippet>527</a>    </span><span class="kw">if </span>!errors.is_empty() {
 <a href=#528 id=528 data-nosnippet>528</a>      <span class="kw">let </span>error_message = errors.join(<span class="string">"\n"</span>);
 <a href=#529 id=529 data-nosnippet>529</a>      <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-<a href=#530 id=530 data-nosnippet>530</a>        <span class="string">"Configuration path validation errors:\n{}"</span>,
-<a href=#531 id=531 data-nosnippet>531</a>        error_message
-<a href=#532 id=532 data-nosnippet>532</a>      ));
-<a href=#533 id=533 data-nosnippet>533</a>    }
-<a href=#534 id=534 data-nosnippet>534</a>
-<a href=#535 id=535 data-nosnippet>535</a>    <span class="prelude-val">Ok</span>(())
-<a href=#536 id=536 data-nosnippet>536</a>  }
-<a href=#537 id=537 data-nosnippet>537</a>
-<a href=#538 id=538 data-nosnippet>538</a>  <span class="doccomment">/// Generate a default configuration file with commented explanations
-<a href=#539 id=539 data-nosnippet>539</a>  </span><span class="kw">pub fn </span>generate_default_config(format: <span class="kw-2">&amp;</span>str, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#540 id=540 data-nosnippet>540</a>    <span class="comment">// Get template from the templates module
-<a href=#541 id=541 data-nosnippet>541</a>    </span><span class="kw">let </span>config_content = <span class="kw">crate</span>::config::templates::get_template(format)
-<a href=#542 id=542 data-nosnippet>542</a>      .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"{}"</span>, e))<span class="question-mark">?</span>;
-<a href=#543 id=543 data-nosnippet>543</a>
-<a href=#544 id=544 data-nosnippet>544</a>    fs::write(path, config_content).with_context(|| {
-<a href=#545 id=545 data-nosnippet>545</a>      <span class="macro">format!</span>(<span class="string">"Failed to write default config to {}"</span>, path.display())
-<a href=#546 id=546 data-nosnippet>546</a>    })<span class="question-mark">?</span>;
-<a href=#547 id=547 data-nosnippet>547</a>
-<a href=#548 id=548 data-nosnippet>548</a>    <span class="macro">log::info!</span>(<span class="string">"Created default configuration file: {}"</span>, path.display());
-<a href=#549 id=549 data-nosnippet>549</a>    <span class="prelude-val">Ok</span>(())
-<a href=#550 id=550 data-nosnippet>550</a>  }
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a>  <span class="doccomment">/// Export embedded templates to a directory for customization
-<a href=#553 id=553 data-nosnippet>553</a>  </span><span class="kw">pub fn </span>export_templates(output_dir: <span class="kw-2">&amp;</span>Path, force: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#554 id=554 data-nosnippet>554</a>    <span class="comment">// Create output directory if it doesn't exist
-<a href=#555 id=555 data-nosnippet>555</a>    </span>fs::create_dir_all(output_dir).with_context(|| {
-<a href=#556 id=556 data-nosnippet>556</a>      <span class="macro">format!</span>(
-<a href=#557 id=557 data-nosnippet>557</a>        <span class="string">"Failed to create template directory: {}"</span>,
-<a href=#558 id=558 data-nosnippet>558</a>        output_dir.display()
-<a href=#559 id=559 data-nosnippet>559</a>      )
-<a href=#560 id=560 data-nosnippet>560</a>    })<span class="question-mark">?</span>;
-<a href=#561 id=561 data-nosnippet>561</a>
-<a href=#562 id=562 data-nosnippet>562</a>    <span class="comment">// Get all embedded template sources
-<a href=#563 id=563 data-nosnippet>563</a>    </span><span class="kw">let </span>templates = <span class="self">Self</span>::get_template_sources();
-<a href=#564 id=564 data-nosnippet>564</a>
-<a href=#565 id=565 data-nosnippet>565</a>    <span class="kw">for </span>(filename, content) <span class="kw">in </span>templates {
-<a href=#566 id=566 data-nosnippet>566</a>      <span class="kw">let </span>file_path = output_dir.join(filename);
-<a href=#567 id=567 data-nosnippet>567</a>
-<a href=#568 id=568 data-nosnippet>568</a>      <span class="comment">// Check if file exists and force flag
-<a href=#569 id=569 data-nosnippet>569</a>      </span><span class="kw">if </span>file_path.exists() &amp;&amp; !force {
-<a href=#570 id=570 data-nosnippet>570</a>        <span class="macro">log::warn!</span>(
-<a href=#571 id=571 data-nosnippet>571</a>          <span class="string">"Skipping existing file: {} (use --force to overwrite)"</span>,
-<a href=#572 id=572 data-nosnippet>572</a>          file_path.display()
-<a href=#573 id=573 data-nosnippet>573</a>        );
-<a href=#574 id=574 data-nosnippet>574</a>        <span class="kw">continue</span>;
-<a href=#575 id=575 data-nosnippet>575</a>      }
-<a href=#576 id=576 data-nosnippet>576</a>
-<a href=#577 id=577 data-nosnippet>577</a>      fs::write(<span class="kw-2">&amp;</span>file_path, content).with_context(|| {
-<a href=#578 id=578 data-nosnippet>578</a>        <span class="macro">format!</span>(<span class="string">"Failed to write template file: {}"</span>, file_path.display())
-<a href=#579 id=579 data-nosnippet>579</a>      })<span class="question-mark">?</span>;
-<a href=#580 id=580 data-nosnippet>580</a>
-<a href=#581 id=581 data-nosnippet>581</a>      <span class="macro">log::info!</span>(<span class="string">"Exported template: {}"</span>, file_path.display());
-<a href=#582 id=582 data-nosnippet>582</a>    }
-<a href=#583 id=583 data-nosnippet>583</a>
-<a href=#584 id=584 data-nosnippet>584</a>    <span class="macro">log::info!</span>(<span class="string">"Templates exported to: {}"</span>, output_dir.display());
-<a href=#585 id=585 data-nosnippet>585</a>    <span class="macro">log::info!</span>(
-<a href=#586 id=586 data-nosnippet>586</a>      <span class="string">"Use --template-dir {} to customize your documentation"</span>,
-<a href=#587 id=587 data-nosnippet>587</a>      output_dir.display()
-<a href=#588 id=588 data-nosnippet>588</a>    );
-<a href=#589 id=589 data-nosnippet>589</a>    <span class="prelude-val">Ok</span>(())
-<a href=#590 id=590 data-nosnippet>590</a>  }
-<a href=#591 id=591 data-nosnippet>591</a>
-<a href=#592 id=592 data-nosnippet>592</a>  <span class="doccomment">/// Get mapping of template filenames to their embedded content
-<a href=#593 id=593 data-nosnippet>593</a>  </span><span class="kw">fn </span>get_template_sources()
-<a href=#594 id=594 data-nosnippet>594</a>  -&gt; std::collections::HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
-<a href=#595 id=595 data-nosnippet>595</a>    <span class="kw">let </span><span class="kw-2">mut </span>templates = std::collections::HashMap::new();
-<a href=#596 id=596 data-nosnippet>596</a>
-<a href=#597 id=597 data-nosnippet>597</a>    <span class="comment">// HTML templates
-<a href=#598 id=598 data-nosnippet>598</a>    </span>templates
-<a href=#599 id=599 data-nosnippet>599</a>      .insert(<span class="string">"default.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/default.html"</span>));
-<a href=#600 id=600 data-nosnippet>600</a>    templates
-<a href=#601 id=601 data-nosnippet>601</a>      .insert(<span class="string">"options.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/options.html"</span>));
-<a href=#602 id=602 data-nosnippet>602</a>    templates
-<a href=#603 id=603 data-nosnippet>603</a>      .insert(<span class="string">"search.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/search.html"</span>));
-<a href=#604 id=604 data-nosnippet>604</a>    templates.insert(
-<a href=#605 id=605 data-nosnippet>605</a>      <span class="string">"options_toc.html"</span>,
-<a href=#606 id=606 data-nosnippet>606</a>      <span class="macro">include_str!</span>(<span class="string">"../../templates/options_toc.html"</span>),
-<a href=#607 id=607 data-nosnippet>607</a>    );
-<a href=#608 id=608 data-nosnippet>608</a>    templates
-<a href=#609 id=609 data-nosnippet>609</a>      .insert(<span class="string">"navbar.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/navbar.html"</span>));
-<a href=#610 id=610 data-nosnippet>610</a>    templates
-<a href=#611 id=611 data-nosnippet>611</a>      .insert(<span class="string">"footer.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/footer.html"</span>));
-<a href=#612 id=612 data-nosnippet>612</a>
-<a href=#613 id=613 data-nosnippet>613</a>    <span class="comment">// CSS and JS assets
-<a href=#614 id=614 data-nosnippet>614</a>    </span>templates
-<a href=#615 id=615 data-nosnippet>615</a>      .insert(<span class="string">"default.css"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/default.css"</span>));
-<a href=#616 id=616 data-nosnippet>616</a>    templates.insert(<span class="string">"search.js"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/search.js"</span>));
-<a href=#617 id=617 data-nosnippet>617</a>    templates.insert(<span class="string">"main.js"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/main.js"</span>));
-<a href=#618 id=618 data-nosnippet>618</a>
-<a href=#619 id=619 data-nosnippet>619</a>    templates
-<a href=#620 id=620 data-nosnippet>620</a>  }
-<a href=#621 id=621 data-nosnippet>621</a>}</code></pre></div></section></main></body></html>
+<a href=#530 id=530 data-nosnippet>530</a>        <span class="string">"Configuration path validation errors:\n{error_message}"
+<a href=#531 id=531 data-nosnippet>531</a>      </span>));
+<a href=#532 id=532 data-nosnippet>532</a>    }
+<a href=#533 id=533 data-nosnippet>533</a>
+<a href=#534 id=534 data-nosnippet>534</a>    <span class="prelude-val">Ok</span>(())
+<a href=#535 id=535 data-nosnippet>535</a>  }
+<a href=#536 id=536 data-nosnippet>536</a>
+<a href=#537 id=537 data-nosnippet>537</a>  <span class="doccomment">/// Generate a default configuration file with commented explanations
+<a href=#538 id=538 data-nosnippet>538</a>  </span><span class="kw">pub fn </span>generate_default_config(format: <span class="kw-2">&amp;</span>str, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#539 id=539 data-nosnippet>539</a>    <span class="comment">// Get template from the templates module
+<a href=#540 id=540 data-nosnippet>540</a>    </span><span class="kw">let </span>config_content = <span class="kw">crate</span>::config::templates::get_template(format)
+<a href=#541 id=541 data-nosnippet>541</a>      .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"{e}"</span>))<span class="question-mark">?</span>;
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>    fs::write(path, config_content).with_context(|| {
+<a href=#544 id=544 data-nosnippet>544</a>      <span class="macro">format!</span>(<span class="string">"Failed to write default config to {}"</span>, path.display())
+<a href=#545 id=545 data-nosnippet>545</a>    })<span class="question-mark">?</span>;
+<a href=#546 id=546 data-nosnippet>546</a>
+<a href=#547 id=547 data-nosnippet>547</a>    <span class="macro">log::info!</span>(<span class="string">"Created default configuration file: {}"</span>, path.display());
+<a href=#548 id=548 data-nosnippet>548</a>    <span class="prelude-val">Ok</span>(())
+<a href=#549 id=549 data-nosnippet>549</a>  }
+<a href=#550 id=550 data-nosnippet>550</a>
+<a href=#551 id=551 data-nosnippet>551</a>  <span class="doccomment">/// Export embedded templates to a directory for customization
+<a href=#552 id=552 data-nosnippet>552</a>  </span><span class="kw">pub fn </span>export_templates(output_dir: <span class="kw-2">&amp;</span>Path, force: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="comment">// Create output directory if it doesn't exist
+<a href=#554 id=554 data-nosnippet>554</a>    </span>fs::create_dir_all(output_dir).with_context(|| {
+<a href=#555 id=555 data-nosnippet>555</a>      <span class="macro">format!</span>(
+<a href=#556 id=556 data-nosnippet>556</a>        <span class="string">"Failed to create template directory: {}"</span>,
+<a href=#557 id=557 data-nosnippet>557</a>        output_dir.display()
+<a href=#558 id=558 data-nosnippet>558</a>      )
+<a href=#559 id=559 data-nosnippet>559</a>    })<span class="question-mark">?</span>;
+<a href=#560 id=560 data-nosnippet>560</a>
+<a href=#561 id=561 data-nosnippet>561</a>    <span class="comment">// Get all embedded template sources
+<a href=#562 id=562 data-nosnippet>562</a>    </span><span class="kw">let </span>templates = <span class="self">Self</span>::get_template_sources();
+<a href=#563 id=563 data-nosnippet>563</a>
+<a href=#564 id=564 data-nosnippet>564</a>    <span class="kw">for </span>(filename, content) <span class="kw">in </span>templates {
+<a href=#565 id=565 data-nosnippet>565</a>      <span class="kw">let </span>file_path = output_dir.join(filename);
+<a href=#566 id=566 data-nosnippet>566</a>
+<a href=#567 id=567 data-nosnippet>567</a>      <span class="comment">// Check if file exists and force flag
+<a href=#568 id=568 data-nosnippet>568</a>      </span><span class="kw">if </span>file_path.exists() &amp;&amp; !force {
+<a href=#569 id=569 data-nosnippet>569</a>        <span class="macro">log::warn!</span>(
+<a href=#570 id=570 data-nosnippet>570</a>          <span class="string">"Skipping existing file: {} (use --force to overwrite)"</span>,
+<a href=#571 id=571 data-nosnippet>571</a>          file_path.display()
+<a href=#572 id=572 data-nosnippet>572</a>        );
+<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">continue</span>;
+<a href=#574 id=574 data-nosnippet>574</a>      }
+<a href=#575 id=575 data-nosnippet>575</a>
+<a href=#576 id=576 data-nosnippet>576</a>      fs::write(<span class="kw-2">&amp;</span>file_path, content).with_context(|| {
+<a href=#577 id=577 data-nosnippet>577</a>        <span class="macro">format!</span>(<span class="string">"Failed to write template file: {}"</span>, file_path.display())
+<a href=#578 id=578 data-nosnippet>578</a>      })<span class="question-mark">?</span>;
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>      <span class="macro">log::info!</span>(<span class="string">"Exported template: {}"</span>, file_path.display());
+<a href=#581 id=581 data-nosnippet>581</a>    }
+<a href=#582 id=582 data-nosnippet>582</a>
+<a href=#583 id=583 data-nosnippet>583</a>    <span class="macro">log::info!</span>(<span class="string">"Templates exported to: {}"</span>, output_dir.display());
+<a href=#584 id=584 data-nosnippet>584</a>    <span class="macro">log::info!</span>(
+<a href=#585 id=585 data-nosnippet>585</a>      <span class="string">"Use --template-dir {} to customize your documentation"</span>,
+<a href=#586 id=586 data-nosnippet>586</a>      output_dir.display()
+<a href=#587 id=587 data-nosnippet>587</a>    );
+<a href=#588 id=588 data-nosnippet>588</a>    <span class="prelude-val">Ok</span>(())
+<a href=#589 id=589 data-nosnippet>589</a>  }
+<a href=#590 id=590 data-nosnippet>590</a>
+<a href=#591 id=591 data-nosnippet>591</a>  <span class="doccomment">/// Get mapping of template filenames to their embedded content
+<a href=#592 id=592 data-nosnippet>592</a>  </span><span class="kw">fn </span>get_template_sources()
+<a href=#593 id=593 data-nosnippet>593</a>  -&gt; std::collections::HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+<a href=#594 id=594 data-nosnippet>594</a>    <span class="kw">let </span><span class="kw-2">mut </span>templates = std::collections::HashMap::new();
+<a href=#595 id=595 data-nosnippet>595</a>
+<a href=#596 id=596 data-nosnippet>596</a>    <span class="comment">// HTML templates
+<a href=#597 id=597 data-nosnippet>597</a>    </span>templates
+<a href=#598 id=598 data-nosnippet>598</a>      .insert(<span class="string">"default.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/default.html"</span>));
+<a href=#599 id=599 data-nosnippet>599</a>    templates
+<a href=#600 id=600 data-nosnippet>600</a>      .insert(<span class="string">"options.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/options.html"</span>));
+<a href=#601 id=601 data-nosnippet>601</a>    templates
+<a href=#602 id=602 data-nosnippet>602</a>      .insert(<span class="string">"search.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/search.html"</span>));
+<a href=#603 id=603 data-nosnippet>603</a>    templates.insert(
+<a href=#604 id=604 data-nosnippet>604</a>      <span class="string">"options_toc.html"</span>,
+<a href=#605 id=605 data-nosnippet>605</a>      <span class="macro">include_str!</span>(<span class="string">"../../templates/options_toc.html"</span>),
+<a href=#606 id=606 data-nosnippet>606</a>    );
+<a href=#607 id=607 data-nosnippet>607</a>    templates
+<a href=#608 id=608 data-nosnippet>608</a>      .insert(<span class="string">"navbar.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/navbar.html"</span>));
+<a href=#609 id=609 data-nosnippet>609</a>    templates
+<a href=#610 id=610 data-nosnippet>610</a>      .insert(<span class="string">"footer.html"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/footer.html"</span>));
+<a href=#611 id=611 data-nosnippet>611</a>
+<a href=#612 id=612 data-nosnippet>612</a>    <span class="comment">// CSS and JS assets
+<a href=#613 id=613 data-nosnippet>613</a>    </span>templates
+<a href=#614 id=614 data-nosnippet>614</a>      .insert(<span class="string">"default.css"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/default.css"</span>));
+<a href=#615 id=615 data-nosnippet>615</a>    templates.insert(<span class="string">"search.js"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/search.js"</span>));
+<a href=#616 id=616 data-nosnippet>616</a>    templates.insert(<span class="string">"main.js"</span>, <span class="macro">include_str!</span>(<span class="string">"../../templates/main.js"</span>));
+<a href=#617 id=617 data-nosnippet>617</a>
+<a href=#618 id=618 data-nosnippet>618</a>    templates
+<a href=#619 id=619 data-nosnippet>619</a>  }
+<a href=#620 id=620 data-nosnippet>620</a>}</code></pre></div></section></main></body></html>

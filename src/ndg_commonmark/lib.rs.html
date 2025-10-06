@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg-commonmark/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ndg_commonmark" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0-nightly (595b9a498 2025-10-03)" data-channel="nightly" data-search-js="search-de4c8920.js" data-stringdex-js="stringdex-828709d0.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">ndg_commonmark/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! # NDG-Commonmark
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg-commonmark/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ndg_commonmark" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0-nightly (839222065 2025-10-05)" data-channel="nightly" data-search-js="search-de4c8920.js" data-stringdex-js="stringdex-828709d0.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">ndg_commonmark/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! # NDG-Commonmark
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! This is a high-performance Markdown processor designed for Nix, `NixOS` and
 <a href=#4 id=4 data-nosnippet>4</a>//! Nixpkgs documentation featuring AST-based processing with role markup,
@@ -58,35 +58,36 @@
 <a href=#58 id=58 data-nosnippet>58</a>  process_block_elements,
 <a href=#59 id=59 data-nosnippet>59</a>  process_file_includes,
 <a href=#60 id=60 data-nosnippet>60</a>  process_inline_anchors,
-<a href=#61 id=61 data-nosnippet>61</a>  process_option_references,
-<a href=#62 id=62 data-nosnippet>62</a>  process_role_markup,
-<a href=#63 id=63 data-nosnippet>63</a>};
-<a href=#64 id=64 data-nosnippet>64</a><span class="comment">// Those don't require any feature gates, unlike above APIs.
-<a href=#65 id=65 data-nosnippet>65</a></span><span class="kw">pub use crate</span>::{
-<a href=#66 id=66 data-nosnippet>66</a>  processor::{
-<a href=#67 id=67 data-nosnippet>67</a>    AstTransformer,
-<a href=#68 id=68 data-nosnippet>68</a>    MarkdownOptions,
-<a href=#69 id=69 data-nosnippet>69</a>    MarkdownOptionsBuilder,
-<a href=#70 id=70 data-nosnippet>70</a>    MarkdownProcessor,
-<a href=#71 id=71 data-nosnippet>71</a>    ProcessorFeature,
-<a href=#72 id=72 data-nosnippet>72</a>    ProcessorPreset,
-<a href=#73 id=73 data-nosnippet>73</a>    PromptTransformer,
-<a href=#74 id=74 data-nosnippet>74</a>    collect_markdown_files,
-<a href=#75 id=75 data-nosnippet>75</a>    create_processor,
-<a href=#76 id=76 data-nosnippet>76</a>    extract_inline_text,
-<a href=#77 id=77 data-nosnippet>77</a>    process_batch,
-<a href=#78 id=78 data-nosnippet>78</a>    process_markdown_file,
-<a href=#79 id=79 data-nosnippet>79</a>    process_markdown_file_with_basedir,
-<a href=#80 id=80 data-nosnippet>80</a>    process_markdown_string,
-<a href=#81 id=81 data-nosnippet>81</a>    process_safe,
-<a href=#82 id=82 data-nosnippet>82</a>    process_with_recovery,
-<a href=#83 id=83 data-nosnippet>83</a>  },
-<a href=#84 id=84 data-nosnippet>84</a>  syntax::{
-<a href=#85 id=85 data-nosnippet>85</a>    SyntaxConfig,
-<a href=#86 id=86 data-nosnippet>86</a>    SyntaxError,
-<a href=#87 id=87 data-nosnippet>87</a>    SyntaxHighlighter,
-<a href=#88 id=88 data-nosnippet>88</a>    SyntaxManager,
-<a href=#89 id=89 data-nosnippet>89</a>    create_default_manager,
-<a href=#90 id=90 data-nosnippet>90</a>  },
-<a href=#91 id=91 data-nosnippet>91</a>  types::{Header, IncludedFile, MarkdownResult},
-<a href=#92 id=92 data-nosnippet>92</a>};</code></pre></div></section></main></body></html>
+<a href=#61 id=61 data-nosnippet>61</a>  process_myst_autolinks,
+<a href=#62 id=62 data-nosnippet>62</a>  process_option_references,
+<a href=#63 id=63 data-nosnippet>63</a>  process_role_markup,
+<a href=#64 id=64 data-nosnippet>64</a>};
+<a href=#65 id=65 data-nosnippet>65</a><span class="comment">// Those don't require any feature gates, unlike above APIs.
+<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">pub use crate</span>::{
+<a href=#67 id=67 data-nosnippet>67</a>  processor::{
+<a href=#68 id=68 data-nosnippet>68</a>    AstTransformer,
+<a href=#69 id=69 data-nosnippet>69</a>    MarkdownOptions,
+<a href=#70 id=70 data-nosnippet>70</a>    MarkdownOptionsBuilder,
+<a href=#71 id=71 data-nosnippet>71</a>    MarkdownProcessor,
+<a href=#72 id=72 data-nosnippet>72</a>    ProcessorFeature,
+<a href=#73 id=73 data-nosnippet>73</a>    ProcessorPreset,
+<a href=#74 id=74 data-nosnippet>74</a>    PromptTransformer,
+<a href=#75 id=75 data-nosnippet>75</a>    collect_markdown_files,
+<a href=#76 id=76 data-nosnippet>76</a>    create_processor,
+<a href=#77 id=77 data-nosnippet>77</a>    extract_inline_text,
+<a href=#78 id=78 data-nosnippet>78</a>    process_batch,
+<a href=#79 id=79 data-nosnippet>79</a>    process_markdown_file,
+<a href=#80 id=80 data-nosnippet>80</a>    process_markdown_file_with_basedir,
+<a href=#81 id=81 data-nosnippet>81</a>    process_markdown_string,
+<a href=#82 id=82 data-nosnippet>82</a>    process_safe,
+<a href=#83 id=83 data-nosnippet>83</a>    process_with_recovery,
+<a href=#84 id=84 data-nosnippet>84</a>  },
+<a href=#85 id=85 data-nosnippet>85</a>  syntax::{
+<a href=#86 id=86 data-nosnippet>86</a>    SyntaxConfig,
+<a href=#87 id=87 data-nosnippet>87</a>    SyntaxError,
+<a href=#88 id=88 data-nosnippet>88</a>    SyntaxHighlighter,
+<a href=#89 id=89 data-nosnippet>89</a>    SyntaxManager,
+<a href=#90 id=90 data-nosnippet>90</a>    create_default_manager,
+<a href=#91 id=91 data-nosnippet>91</a>  },
+<a href=#92 id=92 data-nosnippet>92</a>  types::{Header, IncludedFile, MarkdownResult},
+<a href=#93 id=93 data-nosnippet>93</a>};</code></pre></div></section></main></body></html>
