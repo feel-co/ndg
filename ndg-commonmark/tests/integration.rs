@@ -4,7 +4,7 @@ use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 /// Mainly I just want to make sure this went as smoothly as it could, and that
 /// the new parser is as robust as I expect.
 #[test]
-fn test_complete_migration_integration() {
+fn test_migration_integration() {
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
   let complex_markdown = r#"# Main Documentation
@@ -179,9 +179,12 @@ Visit the [](#getting-started) guide.
   // Verify empty link humanization
   assert!(result.html.contains("<a href=\"#intro\">introduction</a>"));
 
-  // NOTE: empty link without text currently not processed correctly
-  // this is a known issue
-  assert!(result.html.contains("](#getting-started)"));
+  // Verify empty anchor links are processed correctly
+  assert!(
+    result
+      .html
+      .contains("<a href=\"#getting-started\">Getting Started</a>")
+  );
 
   // Verify no malformed HTML
   assert!(!result.html.contains("href=\"<a href"));
