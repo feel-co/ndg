@@ -58,36 +58,35 @@
 <a href=#58 id=58 data-nosnippet>58</a>  process_block_elements,
 <a href=#59 id=59 data-nosnippet>59</a>  process_file_includes,
 <a href=#60 id=60 data-nosnippet>60</a>  process_inline_anchors,
-<a href=#61 id=61 data-nosnippet>61</a>  process_myst_autolinks,
-<a href=#62 id=62 data-nosnippet>62</a>  process_option_references,
-<a href=#63 id=63 data-nosnippet>63</a>  process_role_markup,
-<a href=#64 id=64 data-nosnippet>64</a>};
-<a href=#65 id=65 data-nosnippet>65</a><span class="comment">// Those don't require any feature gates, unlike above APIs.
-<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">pub use crate</span>::{
-<a href=#67 id=67 data-nosnippet>67</a>  processor::{
-<a href=#68 id=68 data-nosnippet>68</a>    AstTransformer,
-<a href=#69 id=69 data-nosnippet>69</a>    MarkdownOptions,
-<a href=#70 id=70 data-nosnippet>70</a>    MarkdownOptionsBuilder,
-<a href=#71 id=71 data-nosnippet>71</a>    MarkdownProcessor,
-<a href=#72 id=72 data-nosnippet>72</a>    ProcessorFeature,
-<a href=#73 id=73 data-nosnippet>73</a>    ProcessorPreset,
-<a href=#74 id=74 data-nosnippet>74</a>    PromptTransformer,
-<a href=#75 id=75 data-nosnippet>75</a>    collect_markdown_files,
-<a href=#76 id=76 data-nosnippet>76</a>    create_processor,
-<a href=#77 id=77 data-nosnippet>77</a>    extract_inline_text,
-<a href=#78 id=78 data-nosnippet>78</a>    process_batch,
-<a href=#79 id=79 data-nosnippet>79</a>    process_markdown_file,
-<a href=#80 id=80 data-nosnippet>80</a>    process_markdown_file_with_basedir,
-<a href=#81 id=81 data-nosnippet>81</a>    process_markdown_string,
-<a href=#82 id=82 data-nosnippet>82</a>    process_safe,
-<a href=#83 id=83 data-nosnippet>83</a>    process_with_recovery,
-<a href=#84 id=84 data-nosnippet>84</a>  },
-<a href=#85 id=85 data-nosnippet>85</a>  syntax::{
-<a href=#86 id=86 data-nosnippet>86</a>    SyntaxConfig,
-<a href=#87 id=87 data-nosnippet>87</a>    SyntaxError,
-<a href=#88 id=88 data-nosnippet>88</a>    SyntaxHighlighter,
-<a href=#89 id=89 data-nosnippet>89</a>    SyntaxManager,
-<a href=#90 id=90 data-nosnippet>90</a>    create_default_manager,
-<a href=#91 id=91 data-nosnippet>91</a>  },
-<a href=#92 id=92 data-nosnippet>92</a>  types::{Header, IncludedFile, MarkdownResult},
-<a href=#93 id=93 data-nosnippet>93</a>};</code></pre></div></section></main></body></html>
+<a href=#61 id=61 data-nosnippet>61</a>  process_option_references,
+<a href=#62 id=62 data-nosnippet>62</a>  process_role_markup,
+<a href=#63 id=63 data-nosnippet>63</a>};
+<a href=#64 id=64 data-nosnippet>64</a><span class="comment">// Those don't require any feature gates, unlike above APIs.
+<a href=#65 id=65 data-nosnippet>65</a></span><span class="kw">pub use crate</span>::{
+<a href=#66 id=66 data-nosnippet>66</a>  processor::{
+<a href=#67 id=67 data-nosnippet>67</a>    AstTransformer,
+<a href=#68 id=68 data-nosnippet>68</a>    MarkdownOptions,
+<a href=#69 id=69 data-nosnippet>69</a>    MarkdownOptionsBuilder,
+<a href=#70 id=70 data-nosnippet>70</a>    MarkdownProcessor,
+<a href=#71 id=71 data-nosnippet>71</a>    ProcessorFeature,
+<a href=#72 id=72 data-nosnippet>72</a>    ProcessorPreset,
+<a href=#73 id=73 data-nosnippet>73</a>    PromptTransformer,
+<a href=#74 id=74 data-nosnippet>74</a>    collect_markdown_files,
+<a href=#75 id=75 data-nosnippet>75</a>    create_processor,
+<a href=#76 id=76 data-nosnippet>76</a>    extract_inline_text,
+<a href=#77 id=77 data-nosnippet>77</a>    process_batch,
+<a href=#78 id=78 data-nosnippet>78</a>    process_markdown_file,
+<a href=#79 id=79 data-nosnippet>79</a>    process_markdown_file_with_basedir,
+<a href=#80 id=80 data-nosnippet>80</a>    process_markdown_string,
+<a href=#81 id=81 data-nosnippet>81</a>    process_safe,
+<a href=#82 id=82 data-nosnippet>82</a>    process_with_recovery,
+<a href=#83 id=83 data-nosnippet>83</a>  },
+<a href=#84 id=84 data-nosnippet>84</a>  syntax::{
+<a href=#85 id=85 data-nosnippet>85</a>    SyntaxConfig,
+<a href=#86 id=86 data-nosnippet>86</a>    SyntaxError,
+<a href=#87 id=87 data-nosnippet>87</a>    SyntaxHighlighter,
+<a href=#88 id=88 data-nosnippet>88</a>    SyntaxManager,
+<a href=#89 id=89 data-nosnippet>89</a>    create_default_manager,
+<a href=#90 id=90 data-nosnippet>90</a>  },
+<a href=#91 id=91 data-nosnippet>91</a>  types::{Header, IncludedFile, MarkdownResult},
+<a href=#92 id=92 data-nosnippet>92</a>};</code></pre></div></section></main></body></html>
