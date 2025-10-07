@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Commands"],"fn":["generate_completions","generate_manpage","main"],"struct":["Xtask"]};

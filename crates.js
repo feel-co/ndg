@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["ndg","ndg_commonmark"];
-//{"start":21,"fragment_lengths":[5,17]}
+window.ALL_CRATES = ["ndg","ndg_commonmark","xtask"];
+//{"start":21,"fragment_lengths":[5,17,8]}
