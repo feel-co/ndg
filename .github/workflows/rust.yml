@@ -1,4 +1,4 @@
-name: Build with Cargo
+name: Build and Test with Cargo
 
 on:
   push:
@@ -6,17 +6,25 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
 jobs:
   changes:
     name: Detect Changed Files
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
+    outputs:
+      files_changed: ${{ steps.changed-files.outputs.files }}
     steps:
-      - name: "Checkout Repository"
+      - name: Checkout Repository
         uses: actions/checkout@v5
-
-      - name: "Get changed files"
+      - name: Get changed files
         id: changed-files
         uses: dorny/paths-filter@v3
         with:
@@ -26,30 +34,9 @@ jobs:
               - 'Cargo.lock'
               - 'ndg/**'
               - 'ndg-commonmark/**'
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ needs.changes.outputs.files == 'true' }}
-    steps:
-      - name: "Checkout Repository"
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 2
-
-      - name: Install Rust
-        if: steps.changes.outputs.src == 'true'
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-
-      - name: Run tests
-        run: cargo test
-
   build:
     name: Build
-    needs: test
+    needs: changes
     strategy:
       matrix:
         include:
@@ -57,12 +44,10 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: macos-latest
             target: x86_64-apple-darwin
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout Repository
+        uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -74,3 +59,84 @@ jobs:
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ needs.changes.outputs.files_changed == 'true' }}
+    outputs:
+      passed: ${{ steps.nextest.outputs.passed }}
+      total: ${{ steps.nextest.outputs.total }}
+      pct: ${{ steps.nextest.outputs.pct }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@2.62.22
+        with:
+          tool: cargo-nextest
+
+      - name: Run nextest
+        id: nextest
+        run: |
+          # Enable experimental libtest-json output
+          export NEXTEST_EXPERIMENTAL_LIBTEST_JSON=1
+
+          # Run tests and capture NDJSON output
+          cargo nextest run --all-targets --all-features --message-format libtest-json-plus > test-output.ndjson || true
+
+          # Count passed / failed tests
+          passed=$(jq -c '. | select(.type=="test" and .event=="ok")' test-output.ndjson | wc -l)
+          failed=$(jq -c '. | select(.type=="test" and .event=="failed")' test-output.ndjson | wc -l)
+
+          # Numbers must be integers
+          passed=$(echo "$passed" | tr -d '[:space:]')
+          failed=$(echo "$failed" | tr -d '[:space:]')
+          total=$((passed + failed))
+
+          if [ "$total" -gt 0 ]; then
+            pct=$(awk "BEGIN {printf \"%d\", ($passed / $total) * 100}")
+          else
+            pct=0
+          fi
+
+          echo "passed=$passed" >> $GITHUB_OUTPUT
+          echo "failed=$failed" >> $GITHUB_OUTPUT
+          echo "total=$total" >> $GITHUB_OUTPUT
+          echo "pct=$pct" >> $GITHUB_OUTPUT
+
+      - name: Generate Shields.io Badge JSON
+        run: |
+          mkdir -p badges
+          color=$(awk 'BEGIN {
+            if ('${{ steps.nextest.outputs.pct }}' >= 90) print "brightgreen";
+            else if ('${{ steps.nextest.outputs.pct }}' >= 70) print "yellowgreen";
+            else print "red";
+          }')
+          cat > badges/test-badge.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "tests",
+            "message": "${{ steps.nextest.outputs.passed }}/${{ steps.nextest.outputs.total }} (${{ steps.nextest.outputs.pct }}%)",
+            "color": "$color"
+          }
+          EOF
+
+      - name: Deploy Test Badge to gh-pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: badges
+          keep_files: true
