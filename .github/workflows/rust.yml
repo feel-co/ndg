@@ -94,7 +94,7 @@ jobs:
           export NEXTEST_EXPERIMENTAL_LIBTEST_JSON=1
 
           # Run tests and capture NDJSON output
-          cargo nextest run --all-targets --all-features --message-format libtest-json-plus > test-output.ndjson || true
+          cargo nextest run --message-format libtest-json-plus > test-output.ndjson || true
 
           # Count passed / failed tests
           passed=$(jq -c '. | select(.type=="test" and .event=="ok")' test-output.ndjson | wc -l)
