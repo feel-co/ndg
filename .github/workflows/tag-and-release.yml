@@ -1,18 +1,56 @@
-name: Create Tagged Release
+name: Tag and Release
 
 on:
+  workflow_dispatch:
   push:
-    tags: ["v*"]
-  workflow_run:
-    workflows: ["Tag version"]
-    types:
-      - completed
+    branches: ["main"]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
 
 permissions:
   contents: write
 
 jobs:
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      ndg_version: ${{ steps.read_version.outputs.ndg_version }}
+    steps:
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v5
+        name: Checkout
+      - name: Read version
+        id: read_version
+        run: |
+          echo "ndg_version=v$(nix run nixpkgs#fq -- -r '.workspace.package.version' Cargo.toml)" >> "$GITHUB_OUTPUT"
+      - name: Tag
+        run: |
+          set -ex
+          echo "Tags before:"
+          git tag -l
+          echo "Checking if tag ${{ steps.read_version.outputs.ndg_version }} exists on remote..."
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ steps.read_version.outputs.ndg_version }}$"; then
+            echo "Tag ${{ steps.read_version.outputs.ndg_version }} already exists on remote. Skipping tag creation and push."
+            exit 0
+          fi
+          git tag ${{ steps.read_version.outputs.ndg_version }}
+          echo "Tags after:"
+          git tag -l
+          git push --tags
+          echo "Verifying tag on remote:"
+          git fetch --tags
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ steps.read_version.outputs.ndg_version }}$"; then
+            echo "Tag ${{ steps.read_version.outputs.ndg_version }} successfully pushed to remote."
+          else
+            echo "::error:: Tag ${{ steps.read_version.outputs.ndg_version }} not found on remote after push." >&2
+            exit 1
+          fi
+
   create-release:
+    needs: tag
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -22,6 +60,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.tag.outputs.ndg_version }}
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -42,14 +81,6 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             name: ndg-macos-amd64
-            cross: false
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            name: ndg-macos-arm64
-            cross: true
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: ndg-windows-amd64.exe
             cross: false
 
     runs-on: ${{ matrix.os }}
@@ -76,27 +107,22 @@ jobs:
         with:
           tool: cross
 
-      - name: Build binary (native)
+      - name: Build binary
         if: ${{ !matrix.cross }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Build binary (cross)
+      - name: Build binary
         if: ${{ matrix.cross }}
         run: cross build --release --target ${{ matrix.target }}
 
-      - name: Prepare binary (Unix)
-        if: ${{ !contains(matrix.os, 'windows') }}
+      - name: Prepare binary
         run: |
           cp target/${{ matrix.target }}/release/ndg ${{ matrix.name }}
-
-      - name: Prepare binary (Windows)
-        if: contains(matrix.os, 'windows')
-        run: |
-          cp target/${{ matrix.target }}/release/ndg.exe ${{ matrix.name }}
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.create-release.outputs.tag_name || needs.tag.outputs.ndg_version }}
           files: ${{ matrix.name }}
 
   generate-checksums:
@@ -108,7 +134,7 @@ jobs:
       - name: Download Assets
         uses: robinraju/release-downloader@v1
         with:
-          tag: ${{ github.ref_name }}
+          tag: ${{ needs.tag.outputs.ndg_version }}
           fileName: "ndg-*"
           out-file-path: "."
 
@@ -119,5 +145,5 @@ jobs:
       - name: Upload Checksums
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.tag.outputs.ndg_version }}
           files: SHA256SUMS
