@@ -1050,7 +1050,7 @@ dependencies = [
 
 [[package]]
 name = "ndg"
-version = "2.2.2"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1074,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-commonmark"
-version = "2.2.2"
+version = "2.3.0"
 dependencies = [
  "comrak",
  "html-escape",
@@ -3194,7 +3194,7 @@ checksum = "5c573471f125075647d03df72e026074b7203790d41351cd6edc96f46bcccd36"
 
 [[package]]
 name = "xtask"
-version = "2.2.2"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "clap",
