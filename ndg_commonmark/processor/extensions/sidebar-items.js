@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["apply_gfm_extensions","format_role_markup","process_block_elements","process_file_includes","process_inline_anchors","process_manpage_references","process_option_references","process_role_markup"]};
+window.SIDEBAR_ITEMS = {"fn":["apply_gfm_extensions","format_role_markup","process_block_elements","process_file_includes","process_inline_anchors","process_manpage_references","process_myst_autolinks","process_option_references","process_role_markup"]};
