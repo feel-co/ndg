@@ -4,8 +4,9 @@ use clap::{Command, CommandFactory, Parser, Subcommand};
 
 /// Command line interface for ndg
 #[derive(Parser, Debug)]
-#[command(author, version, about = "Nix Documentation Generator")]
+#[command(author, version, about = "NDG: Not a Docs Generator")]
 pub struct Cli {
+  /// Subcommand to execute (see [`Commands`])
   #[command(subcommand)]
   pub command: Option<Commands>,
 
@@ -18,6 +19,7 @@ pub struct Cli {
   pub config_file: Option<PathBuf>,
 }
 
+/// All supported subcommands for the ndg CLI.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
   /// Initialize a new NDG configuration file
@@ -26,7 +28,7 @@ pub enum Commands {
     #[arg(short, long, default_value = "ndg.toml")]
     output: PathBuf,
 
-    /// Format of the configuration file (toml or json)
+    /// Format of the configuration file.
     #[arg(short = 'F', long, default_value = "toml", value_parser = ["toml", "json"])]
     format: String,
 
@@ -35,47 +37,47 @@ pub enum Commands {
     force: bool,
   },
 
-  /// Export default templates to a directory for customization
+  /// Export default templates to a directory for customization.
   ExportTemplates {
-    /// Output directory for template files
+    /// Output directory for template files.
     #[arg(short, long, default_value = "templates")]
     output_dir: PathBuf,
 
-    /// Overwrite existing files
+    /// Whether to overwrite existing files.
     #[arg(long)]
     force: bool,
   },
 
-  /// Generate shell completions and manpages
+  /// Generate shell completions and manpages.
   Generate {
-    /// Directory to output generated files
+    /// Directory to output generated files.
     #[arg(short, long, default_value = "dist")]
     output_dir: PathBuf,
 
-    /// Only generate shell completions
+    /// Only generate shell completions.
     #[arg(long)]
     completions_only: bool,
 
-    /// Only generate manpage
+    /// Only generate manpage.
     #[arg(long)]
     manpage_only: bool,
   },
 
-  /// Process documentation and generate HTML
+  /// Process documentation and generate HTML.
   Html {
-    /// Path to the directory containing markdown files
+    /// Path to the directory containing markdown files.
     #[arg(short, long)]
     input_dir: Option<PathBuf>,
 
-    /// Output directory for generated documentation
+    /// Output directory for generated documentation.
     #[arg(short, long)]
     output_dir: Option<PathBuf>,
 
-    /// Number of threads to use for parallel processing
+    /// Number of threads to use for parallel processing.
     #[arg(short = 'p', long = "jobs")]
     jobs: Option<usize>,
 
-    /// Path to custom template file
+    /// Path to custom template file.
     #[arg(short, long)]
     template: Option<PathBuf>,
 
@@ -101,7 +103,7 @@ pub enum Commands {
     #[arg(short = 'T', long)]
     title: Option<String>,
 
-    /// Footer text for the documentation
+    /// Footer text for the documentation.
     #[arg(short = 'f', long)]
     footer: Option<String>,
 
@@ -110,30 +112,30 @@ pub enum Commands {
     #[arg(short = 'j', long)]
     module_options: Option<PathBuf>,
 
-    /// Depth of parent categories in options TOC
+    /// Depth of parent categories in options section in the sidebar.
     #[arg(long = "options-depth", value_parser = clap::value_parser!(usize))]
     options_toc_depth: Option<usize>,
 
-    /// Path to manpage URL mappings JSON file
+    /// Path to manpage URL mappings JSON file.
     #[arg(long = "manpage-urls")]
     manpage_urls: Option<PathBuf>,
 
-    /// Whether to generate search functionality
+    /// Whether to generate search data and render relevant components.
     #[arg(short = 'S', long = "generate-search")]
     generate_search: Option<bool>,
 
-    /// Whether to enable syntax highlighting for code blocks
+    /// Whether to enable syntax highlighting for code blocks.
     #[arg(long = "highlight-code")]
     highlight_code: Option<bool>,
 
-    /// GitHub revision for linking to source files (defaults to 'local')
-    #[arg(long)]
+    /// GitHub revision for linking to source files.
+    #[arg(long, default_value = "local")]
     revision: Option<String>,
   },
 
-  /// Generate manpage from options
+  /// Generate manpage from options.
   Manpage {
-    /// Path to a JSON file containing module options
+    /// Path to a JSON file containing module options.
     #[arg(short = 'j', long, required = true)]
     module_options: PathBuf,
 
@@ -160,11 +162,14 @@ pub enum Commands {
 }
 
 impl Cli {
+  /// Parse command line arguments into a [`Cli`] struct.
   #[must_use]
   pub fn parse_args() -> Self {
     Self::parse()
   }
 
+  /// Return a [`clap::Command`] for the CLI, for use in shell completions and
+  /// manpage generation.
   #[must_use]
   pub fn command() -> Command {
     <Self as CommandFactory>::command()

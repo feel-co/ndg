@@ -10,10 +10,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::cli::{Cli, Commands};
 
-// I know this looks silly, but my understanding is that this is the most
+// XXX: I know this looks silly, but my understanding is that this is the most
 // type-correct and re-usable way. Functions allow for more complex default
 // values that can't be expressed as literals. For example, creating a
-// PathBuf would require execution, not just a literal value. Should be fine.
+// `PathBuf` would require execution, not just a literal value.
+// So this should be fine, but I'm open to suggestions.
 const fn default_input_dir() -> Option<PathBuf> {
   None
 }
@@ -46,74 +47,79 @@ fn default_excluded_files() -> std::collections::HashSet<std::path::PathBuf> {
   std::collections::HashSet::new()
 }
 
-/// Configuration options for ndg
+/// Configuration for the NDG documentation generator.
+///
+/// [`Config`] holds all configuration options for controlling documentation
+/// generation, including input/output directories, template customization,
+/// search, syntax highlighting, and more. Fields are typically loaded from a
+/// TOML or JSON config file, but can also be set via CLI arguments.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
-  /// Input directory containing markdown files
+  /// Input directory containing markdown files.
   #[serde(default = "default_input_dir")]
   pub input_dir: Option<PathBuf>,
 
-  /// Output directory for generated documentation
+  /// Output directory for generated documentation.
   #[serde(default = "default_output_dir")]
   pub output_dir: PathBuf,
 
-  /// Path to options.json file (optional)
+  /// Path to options.json file (optional).
   #[serde(default)]
   pub module_options: Option<PathBuf>,
 
-  /// Path to custom template file
+  /// Path to custom template file.
   #[serde(default)]
   pub template_path: Option<PathBuf>,
 
-  /// Path to template directory containing all template files
+  /// Path to template directory containing all template files.
   #[serde(default)]
   pub template_dir: Option<PathBuf>,
 
-  /// Paths to custom stylesheets
+  /// Paths to custom stylesheets.
   #[serde(default)]
   pub stylesheet_paths: Vec<PathBuf>,
 
-  /// Paths to custom JavaScript files
+  /// Paths to custom JavaScript files.
   #[serde(default)]
   pub script_paths: Vec<PathBuf>,
 
-  /// Directory containing additional assets
+  /// Directory containing additional assets.
   #[serde(default)]
   pub assets_dir: Option<PathBuf>,
 
-  /// Path to manpage URL mappings JSON file
+  /// Path to manpage URL mappings JSON file.
   #[serde(default)]
   pub manpage_urls_path: Option<PathBuf>,
 
-  /// Title for the documentation
+  /// Title for the documentation.
   #[serde(default = "default_title")]
   pub title: String,
 
-  /// Number of threads to use for parallel processing
+  /// Number of threads to use for parallel processing.
   #[serde(default)]
   pub jobs: Option<usize>,
 
-  /// Whether to generate anchors for headings
+  /// Whether to generate anchors for headings.
   #[serde(default = "default_true")]
   pub generate_anchors: bool,
 
-  /// Whether to generate a search index
+  /// Whether to generate a search index.
   #[serde(default = "default_true")]
   pub generate_search: bool,
 
-  /// Text to be inserted in the footer
+  /// Text to be inserted in the footer.
   #[serde(default = "default_footer_text")]
   pub footer_text: String,
 
-  /// Depth of parent categories in options TOC
+  /// Depth of parent categories in options TOC.
   #[serde(default = "default_options_toc_depth")]
   pub options_toc_depth: usize,
 
-  /// Whether to enable syntax highlighting for code blocks
+  /// Whether to enable syntax highlighting for code blocks.
   #[serde(default = "default_true")]
   pub highlight_code: bool,
 
-  /// GitHub revision for linking to source files
+  /// GitHub revision for linking to source files.
   #[serde(default = "default_revision")]
   pub revision: String,
 
@@ -122,7 +128,7 @@ pub struct Config {
   #[serde(default)]
   pub opengraph: Option<std::collections::HashMap<String, String>>,
 
-  /// Files to exclude from sidebar navigation (included files)
+  /// Files to exclude from sidebar navigation (included files).
   #[serde(skip, default = "default_excluded_files")]
   pub excluded_files: std::collections::HashSet<std::path::PathBuf>,
 
@@ -133,8 +139,16 @@ pub struct Config {
 }
 
 impl Config {
-  /// Create a new configuration from a file
-  /// Only TOML and JSON are supported for the time being.
+  /// Load configuration from a file (TOML or JSON).
+  ///
+  /// # Arguments
+  ///
+  /// * `path` - Path to the configuration file.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the file cannot be read or parsed, or if the format is
+  /// unsupported.
   pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
     let path = path.as_ref();
     let content = fs::read_to_string(path).with_context(|| {
@@ -171,7 +185,18 @@ impl Config {
     )
   }
 
-  /// Load config from file and CLI arguments
+  /// Load configuration from file and CLI arguments, merging them.
+  ///
+  /// This function loads configuration from a file (if provided or discovered),
+  /// then merges in CLI arguments, and validates required fields.
+  ///
+  /// # Arguments
+  ///
+  /// * `cli` - The parsed CLI arguments.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if required fields are missing or paths are invalid.
   pub fn load(cli: &Cli) -> Result<Self> {
     let mut config = if let Some(config_path) = &cli.config_file {
       // Config file explicitly specified via CLI

@@ -10,7 +10,12 @@ use crate::{
   utils::create_processor_from_config,
 };
 
-/// Represents a `NixOS` configuration option
+/// Represents a `NixOS` configuration option.
+///
+/// This struct holds all relevant metadata for a single NixOS module option,
+/// including its name, type, description, default and example values,
+/// declaration location, and visibility flags. Used for rendering options
+/// documentation.
 #[derive(Debug, Clone, Default)]
 pub struct NixOption {
   /// Option name (e.g., "services.nginx.enable")
@@ -47,7 +52,21 @@ pub struct NixOption {
   pub read_only: bool,
 }
 
-/// Process options from a JSON file
+/// Process options from a JSON file and generate the options documentation
+/// page.
+///
+/// Reads the options JSON file, parses all options, sorts and formats them,
+/// and writes the rendered HTML to the output directory specified in the
+/// config.
+///
+/// # Arguments
+///
+/// * `config` - The loaded configuration for documentation generation.
+/// * `options_path` - Path to the options.json file.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read, parsed, or written.
 pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   // Read options JSON
   let json_content = fs::read_to_string(options_path).context(format!(
@@ -92,7 +111,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
         // Handle default values
         if let Some(default_val) = option_data.get("default") {
-          if let Some(extracted_value) = extract_value_from_json(default_val) {
+          if let Some(extracted_value) = value_from_json(default_val) {
             option.default_text = Some(extracted_value);
           } else {
             option.default = Some(default_val.clone());
@@ -105,7 +124,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
         // Handle example values
         if let Some(example_val) = option_data.get("example") {
-          if let Some(extracted_value) = extract_value_from_json(example_val) {
+          if let Some(extracted_value) = value_from_json(example_val) {
             option.example_text = Some(extracted_value);
           } else {
             option.example = Some(example_val.clone());
@@ -225,7 +244,19 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   Ok(())
 }
 
-/// Format location with URL handling based on nixos-render-docs
+/// Format location with URL handling based on nixos-render-docs.
+///
+/// Converts a location value from the options JSON into a display string and
+/// an optional URL, supporting both local and GitHub-based references.
+///
+/// # Arguments
+///
+/// * `loc_value` - The JSON value representing the location.
+/// * `revision` - The git revision for GitHub links.
+///
+/// # Returns
+///
+/// A tuple of (display string, URL).
 fn format_location(
   loc_value: &Value,
   revision: &str,
@@ -285,7 +316,18 @@ fn format_location(
 }
 
 /// Escape HTML tags in markdown text before it's processed by the markdown
-/// processor, but preserve code blocks
+/// processor, but preserve code blocks.
+///
+/// This function ensures that angle brackets are escaped outside of code
+/// blocks, preventing accidental HTML injection in documentation.
+///
+/// # Arguments
+///
+/// * `text` - The markdown text to escape.
+///
+/// # Returns
+///
+/// The escaped string, safe for markdown rendering.
 fn escape_html_in_markdown(text: &str) -> String {
   // Split the text on backticks (`) to separate code blocks from regular text
   let mut result = String::with_capacity(text.len());
@@ -333,8 +375,16 @@ fn escape_html_in_markdown(text: &str) -> String {
   result
 }
 
-/// Extract the value from special JSON structures like literalExpression
-fn extract_value_from_json(value: &Value) -> Option<String> {
+/// Extract the value from special JSON structures like literalExpression.
+///
+/// # Arguments
+///
+/// * `value` - The JSON value to extract.
+///
+/// # Returns
+///
+/// An extracted string value, or None if not extractable.
+fn value_from_json(value: &Value) -> Option<String> {
   if let Value::Object(obj) = value {
     // literalExpression and similar structured values
     if let Some(Value::String(type_name)) = obj.get("_type") {
@@ -345,8 +395,8 @@ fn extract_value_from_json(value: &Value) -> Option<String> {
         "literalExpression" | "literalDocBook" | "literalMD" => {
           if let Some(Value::String(text)) = obj.get("text") {
             // For literalExpression, we should parse it as Nix code that may
-            // contain special characters Use code formatting
-            // markers (backticks) to indicate this is code The
+            // contain special characters. Use code formatting
+            // markers (backticks) to indicate this is code. The
             // backticks will be used by the renderer to understand
             // this needs special handling
             if type_name.as_str() == "literalExpression" {
