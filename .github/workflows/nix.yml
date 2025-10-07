@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
+    outputs:
+      files_changed: ${{ steps.changed-files.outputs.files }}
     steps:
       - name: "Checkout Repository"
         uses: actions/checkout@v5
@@ -33,10 +35,10 @@ jobs:
               - 'default.nix'
               - 'shell.nix'
   nix:
-    name: "Build with Nix"
+    name: Build with Nix
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ needs.changes.outputs.files == 'true' }}
+    if: ${{ needs.changes.outputs.files_changed == 'true' }}
     strategy:
       matrix:
         system:
