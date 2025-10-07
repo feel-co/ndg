@@ -6,7 +6,8 @@ use clap_mangen::Man;
 
 use crate::cli::Cli;
 
-/// Generates shell completions for the ndg CLI.
+/// Generate shell completions for the ndg CLI and write them to the specified
+/// output directory.
 pub fn generate_comp<P: AsRef<Path>>(output_dir: P) -> Result<()> {
   let output_dir = output_dir.as_ref();
   fs::create_dir_all(output_dir)?;
@@ -22,7 +23,8 @@ pub fn generate_comp<P: AsRef<Path>>(output_dir: P) -> Result<()> {
   Ok(())
 }
 
-/// Generates a manpage for the ndg CLI.
+/// Generate a manual page for the ndg CLI and write it to the specified output
+/// directory.
 pub fn generate_manpage<P: AsRef<Path>>(output_dir: P) -> Result<()> {
   let output_dir = output_dir.as_ref();
   fs::create_dir_all(output_dir)?;
@@ -42,7 +44,8 @@ pub fn generate_manpage<P: AsRef<Path>>(output_dir: P) -> Result<()> {
   Ok(())
 }
 
-/// Generates both shell completions and a manpage for the ndg CLI.
+/// Generate both shell completions and a manpage for the ndg CLI, writing them
+/// to the specified output directory.
 pub fn generate_all<P: AsRef<Path>>(output_dir: P) -> Result<()> {
   let output_dir = output_dir.as_ref();
 
