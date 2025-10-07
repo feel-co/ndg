@@ -527,8 +527,7 @@ impl Config {
     if !errors.is_empty() {
       let error_message = errors.join("\n");
       return Err(anyhow::anyhow!(
-        "Configuration path validation errors:\n{}",
-        error_message
+        "Configuration path validation errors:\n{error_message}"
       ));
     }
 
@@ -539,7 +538,7 @@ impl Config {
   pub fn generate_default_config(format: &str, path: &Path) -> Result<()> {
     // Get template from the templates module
     let config_content = crate::config::templates::get_template(format)
-      .map_err(|e| anyhow::anyhow!("{}", e))?;
+      .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     fs::write(path, config_content).with_context(|| {
       format!("Failed to write default config to {}", path.display())

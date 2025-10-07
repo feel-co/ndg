@@ -576,7 +576,7 @@ fn process_roles(text: &str) -> String {
 
   let options = MarkdownOptions::default();
   let processor = MarkdownProcessor::new(options);
-  process_role_markup(text, processor.manpage_urls())
+  process_role_markup(text, processor.manpage_urls(), true)
 }
 
 /// Process command prompts ($ command)

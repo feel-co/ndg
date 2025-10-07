@@ -331,7 +331,10 @@ Empty links: <a href=\"#sec-introduction\"></a> and <a \
 
   // Should humanize anchor text by removing prefixes and formatting
   assert!(html.contains("<a href=\"#sec-introduction\">Introduction</a>"));
+  // opt- anchors should be converted to options.html links with proper option
+  // names
   assert!(html.contains(
-    "<a href=\"#opt-services-nginx-enable\">Services Nginx Enable</a>"
+    "<a href=\"options.html#opt-services-nginx-enable\">services.nginx.\
+     enable</a>"
   ));
 }

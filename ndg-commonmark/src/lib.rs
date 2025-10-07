@@ -58,6 +58,7 @@ pub use crate::processor::{
   process_block_elements,
   process_file_includes,
   process_inline_anchors,
+  process_myst_autolinks,
   process_option_references,
   process_role_markup,
 };

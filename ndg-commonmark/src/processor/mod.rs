@@ -26,6 +26,7 @@ pub use core::{ProcessorFeature, collect_markdown_files, extract_inline_text};
 pub use extensions::apply_gfm_extensions;
 #[cfg(feature = "nixpkgs")]
 pub use extensions::process_manpage_references;
+pub use extensions::process_myst_autolinks;
 #[cfg(feature = "ndg-flavored")]
 pub use extensions::process_option_references;
 #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
@@ -67,6 +68,7 @@ mod tests {
         "option",
         "hjem.users.<name>.enable",
         None,
+        true,
       );
 
       // Should escape < and > characters in content
@@ -97,17 +99,17 @@ mod tests {
       let content = "<script>alert('xss')</script>";
 
       let command_result =
-        super::extensions::format_role_markup("command", content, None);
+        super::extensions::format_role_markup("command", content, None, true);
       assert!(command_result.contains("&lt;script&gt;"));
       assert!(!command_result.contains("<script>alert"));
 
       let env_result =
-        super::extensions::format_role_markup("env", content, None);
+        super::extensions::format_role_markup("env", content, None, true);
       assert!(env_result.contains("&lt;script&gt;"));
       assert!(!env_result.contains("<script>alert"));
 
       let file_result =
-        super::extensions::format_role_markup("file", content, None);
+        super::extensions::format_role_markup("file", content, None, true);
       assert!(file_result.contains("&lt;script&gt;"));
       assert!(!file_result.contains("<script>alert"));
     }
@@ -122,6 +124,7 @@ mod tests {
         "option",
         "hjem.users.<name>.enable",
         None,
+        true,
       );
 
       // Should not produce broken HTML like:
@@ -148,6 +151,7 @@ mod tests {
         "option",
         "services.foo.<bar>.enable",
         None,
+        true,
       );
 
       // Option ID should preserve angle brackets

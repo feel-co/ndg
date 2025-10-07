@@ -200,7 +200,7 @@ fn test_option_reference() {
 #[test]
 fn test_myst_role_markup() {
   let md = r"{command}`foo`";
-  let html = ndg_commonmark::process_role_markup(md, None);
+  let html = ndg_commonmark::process_role_markup(md, None, true);
   assert_html_contains(&html, &[r#"<code class="command">foo</code>"#]);
 }
 
@@ -224,7 +224,8 @@ fn test_manpage_role_with_url() {
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
-  let html = ndg_commonmark::process_role_markup(md, processor.manpage_urls());
+  let html =
+    ndg_commonmark::process_role_markup(md, processor.manpage_urls(), true);
   assert_html_contains(&html, &[
     r#"<a href="https://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html" class="manpage-reference">cat(1)</a>"#,
   ]);
@@ -250,7 +251,8 @@ fn test_manpage_role_without_url() {
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
-  let html = ndg_commonmark::process_role_markup(md, processor.manpage_urls());
+  let html =
+    ndg_commonmark::process_role_markup(md, processor.manpage_urls(), true);
   assert_html_contains(&html, &[
     r#"<span class="manpage-reference">doesnotexist(1)</span>"#,
   ]);
@@ -264,7 +266,7 @@ fn test_role_markup_in_lists() {
 - {option}`services.nginx.enable`
 - {var}`pkgs`
 - {manpage}`nix.conf(5)`";
-  let html = ndg_commonmark::process_role_markup(md, None);
+  let html = ndg_commonmark::process_role_markup(md, None, true);
 
   // Test that all role types are processed correctly
   assert_html_contains(&html, &[
@@ -295,21 +297,21 @@ fn test_role_markup_in_lists() {
 fn test_role_markup_edge_cases() {
   // Test role with special characters
   let md = r"{file}`/path/with-dashes_and.dots`";
-  let html = ndg_commonmark::process_role_markup(md, None);
+  let html = ndg_commonmark::process_role_markup(md, None, true);
   assert_html_contains(&html, &[
     r#"<code class="file-path">/path/with-dashes_and.dots</code>"#,
   ]);
 
   // Test role with spaces
   let md = r"{command}`ls -la | grep test`";
-  let html = ndg_commonmark::process_role_markup(md, None);
+  let html = ndg_commonmark::process_role_markup(md, None, true);
   assert_html_contains(&html, &[
     r#"<code class="command">ls -la | grep test</code>"#,
   ]);
 
   // Test unknown role type
   let md = r"{unknown}`content`";
-  let html = ndg_commonmark::process_role_markup(md, None);
+  let html = ndg_commonmark::process_role_markup(md, None, true);
   assert_html_contains(&html, &[
     r#"<span class="unknown-markup">content</span>"#,
   ]);
@@ -358,6 +360,164 @@ fn test_autolink() {
   assert_html_contains(&html, &[
     r#"<a href="https://example.com">https://example.com</a>"#,
   ]);
+}
+
+#[test]
+fn test_myst_autolink_bracket() {
+  // MyST-style autolink: [](https://google.com)
+  let md = "Try [](https://google.com) for search.";
+  let html = ndg_html(md);
+  assert_html_contains(&html, &[
+    r#"<a href="https://google.com">https://google.com</a>"#,
+  ]);
+}
+
+#[test]
+fn test_auto_link_options_enabled() {
+  // Test that {option} roles are converted to links when auto_link_options is
+  // true
+  let md = r"Use {option}`services.nginx.enable` to configure nginx.";
+  let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.auto_link_options = true;
+  let processor = ndg_commonmark::MarkdownProcessor::new(opts);
+  let html = processor.render(md).html;
+
+  assert_html_contains(&html, &[
+    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#,
+  ]);
+}
+
+#[test]
+fn test_auto_link_options_disabled() {
+  // Test that {option} roles are NOT converted to links when auto_link_options
+  // is false
+  let md = r"Use {option}`services.nginx.enable` to configure nginx.";
+  let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.auto_link_options = false;
+  let processor = ndg_commonmark::MarkdownProcessor::new(opts);
+  let html = processor.render(md).html;
+
+  // Should render as plain code, not as a link
+  assert!(
+    html.contains(r"<code>services.nginx.enable</code>"),
+    "Expected plain code element when auto_link_options is false. Got:\n{html}"
+  );
+  assert!(
+    !html.contains(r#"<a class="option-reference""#),
+    "Should not contain option-reference link when auto_link_options is \
+     false. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_option_anchor_link_empty() {
+  // Test [](#opt-services-nginx-enable) -> link to options.html with filled
+  // text
+  let md = r"See [](#opt-services-nginx-enable) for details.";
+  let html = ndg_html(md);
+
+  assert_html_contains(&html, &[
+    r#"<a href="options.html#opt-services-nginx-enable">services.nginx.enable</a>"#,
+  ]);
+}
+
+#[test]
+fn test_option_anchor_link_with_text() {
+  // Test [custom text](#opt-services-nginx-enable) -> link with custom text
+  let md = r"See [the nginx option](#opt-services-nginx-enable) for details.";
+  let html = ndg_html(md);
+
+  assert_html_contains(&html, &[
+    r#"<a href="options.html#opt-services-nginx-enable">the nginx option</a>"#,
+  ]);
+}
+
+#[test]
+fn test_option_anchor_link_complex() {
+  // Test multiple option anchor links
+  let md = r"Configure [](#opt-services-nginx-enable) and [](#opt-services-nginx-virtualHosts).";
+  let html = ndg_html(md);
+
+  assert_html_contains(&html, &[
+    r#"<a href="options.html#opt-services-nginx-enable">services.nginx.enable</a>"#,
+    r#"<a href="options.html#opt-services-nginx-virtualHosts">services.nginx.virtualHosts</a>"#,
+  ]);
+}
+
+#[test]
+fn test_option_anchor_link_not_opt_prefix() {
+  // Test that non-opt anchors are not transformed
+  let md = r"See [](#getting-started) for details.";
+  let html = ndg_html(md);
+
+  // Should NOT be transformed to options.html
+  assert!(
+    !html.contains("options.html"),
+    "Non-opt anchors should not be transformed. Got:\n{html}"
+  );
+  assert_html_contains(&html, &[
+    r##"<a href="#getting-started">Getting Started</a>"##,
+  ]);
+}
+
+#[test]
+fn test_auto_link_options_and_opt_anchors_regression() {
+  // Regression test for:
+  // 1. Configurable auto_link_options for {option} role markup
+  // 2. Support for [](#opt-*) syntax to link to options.html
+
+  // Test 1: auto_link_options enabled (default)
+  let md_with_role = r"Use {option}`services.nginx.enable` to enable nginx.";
+  let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.auto_link_options = true;
+  let processor = ndg_commonmark::MarkdownProcessor::new(opts);
+  let html = processor.render(md_with_role).html;
+  assert!(
+    html.contains(r#"<a class="option-reference""#),
+    "Expected {{option}} role to be converted to link when auto_link_options \
+     is true. Got:\n{html}"
+  );
+
+  // Test 2: auto_link_options disabled
+  let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.auto_link_options = false;
+  let processor = ndg_commonmark::MarkdownProcessor::new(opts);
+  let html = processor.render(md_with_role).html;
+  assert!(
+    !html.contains(r#"<a class="option-reference""#)
+      && html.contains(r"<code>services.nginx.enable</code>"),
+    "Expected {{option}} role to be plain code when auto_link_options is \
+     false. Got:\n{html}"
+  );
+
+  // Test 3: [](#opt-*) syntax with empty link text
+  let md_with_opt = r"See [](#opt-services-nginx-enable) for details.";
+  let processor = ndg_commonmark::MarkdownProcessor::new(
+    ndg_commonmark::MarkdownOptions::default(),
+  );
+  let html = processor.render(md_with_opt).html;
+  assert!(
+    html.contains(
+      r#"<a href="options.html#opt-services-nginx-enable">services.nginx.enable</a>"#
+    ),
+    "Expected [](#opt-*) to be converted to options.html link with option \
+     name. Got:\n{html}"
+  );
+
+  // Test 4: [](#opt-*) syntax with custom text
+  let md_with_custom_text =
+    r"See [the nginx option](#opt-services-nginx-enable) for details.";
+  let processor = ndg_commonmark::MarkdownProcessor::new(
+    ndg_commonmark::MarkdownOptions::default(),
+  );
+  let html = processor.render(md_with_custom_text).html;
+  assert!(
+    html.contains(
+      r#"<a href="options.html#opt-services-nginx-enable">the nginx option</a>"#
+    ),
+    "Expected [](#opt-*) with custom text to preserve custom text. \
+     Got:\n{html}"
+  );
 }
 
 #[test]
