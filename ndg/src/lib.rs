@@ -32,7 +32,6 @@
 //! in the [Github repository]. Please refer to the project README for more
 //! information about the project, installing NDG, and CLI usage.
 pub mod cli;
-pub mod completion;
 pub mod config;
 pub mod formatter;
 pub mod html;
