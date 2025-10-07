@@ -1,0 +1,14 @@
+[package]
+name              = "xtask"
+description       = "Build and development tasks for ndg"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+publish           = false
+
+[dependencies]
+anyhow.workspace        = true
+clap.workspace          = true
+clap_complete.workspace = true
+clap_mangen.workspace   = true
+ndg.workspace           = true

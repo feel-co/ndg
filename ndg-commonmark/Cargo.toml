@@ -23,10 +23,8 @@ syntastica   = [ "dep:syntastica", "dep:syntastica-core", "dep:syntastica-parser
 syntect      = [ "dep:syntect", "dep:two-face" ]
 
 [dependencies]
-anyhow.workspace      = true
 comrak.workspace      = true
 html-escape.workspace = true
-html5ever.workspace   = true
 kuchikikiki.workspace = true
 log.workspace         = true
 markup5ever.workspace = true

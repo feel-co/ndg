@@ -5,12 +5,14 @@
 # Packages
 !/ndg/
 !/ndg-commonmark/
+!/xtask/
 
 # Rust/Cargo
 !/Cargo.lock
 !/Cargo.toml
 
 # Configuration files
+!/.cargo/
 !/.config/
 !/.rustfmt.toml
 !/.clippy.toml

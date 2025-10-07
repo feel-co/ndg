@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Command, CommandFactory, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 /// Command line interface for ndg
 #[derive(Parser, Debug)]
@@ -46,21 +46,6 @@ pub enum Commands {
     /// Whether to overwrite existing files.
     #[arg(long)]
     force: bool,
-  },
-
-  /// Generate shell completions and manpages.
-  Generate {
-    /// Directory to output generated files.
-    #[arg(short, long, default_value = "dist")]
-    output_dir: PathBuf,
-
-    /// Only generate shell completions.
-    #[arg(long)]
-    completions_only: bool,
-
-    /// Only generate manpage.
-    #[arg(long)]
-    manpage_only: bool,
   },
 
   /// Process documentation and generate HTML.
@@ -166,12 +151,5 @@ impl Cli {
   #[must_use]
   pub fn parse_args() -> Self {
     Self::parse()
-  }
-
-  /// Return a [`clap::Command`] for the CLI, for use in shell completions and
-  /// manpage generation.
-  #[must_use]
-  pub fn command() -> Command {
-    <Self as CommandFactory>::command()
   }
 }

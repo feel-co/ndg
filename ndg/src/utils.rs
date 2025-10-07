@@ -8,7 +8,7 @@ use ndg_commonmark::{
   collect_markdown_files,
 };
 
-use crate::{completion, config::Config, formatter::options, html, manpage};
+use crate::{config::Config, formatter::options, html, manpage};
 
 // Template constants
 const DEFAULT_CSS: &str = include_str!("../templates/default.css");
@@ -165,24 +165,6 @@ fn generate_css(config: &Config) -> Result<String> {
   }
 
   Ok(combined_css)
-}
-
-/// Handle the generate command
-pub fn handle_generate_command(
-  output_dir: &std::path::Path,
-  completions_only: bool,
-  manpage_only: bool,
-) -> Result<()> {
-  if completions_only {
-    completion::generate_comp(output_dir)?;
-    println!("Shell completions generated in {}", output_dir.display());
-  } else if manpage_only {
-    completion::generate_manpage(output_dir)?;
-    println!("Manpage generated in {}", output_dir.display());
-  } else {
-    completion::generate_all(output_dir)?;
-  }
-  Ok(())
 }
 
 /// Generate a manpage from options JSON

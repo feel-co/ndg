@@ -4,7 +4,6 @@ use anyhow::{Context, Result};
 use log::{LevelFilter, info};
 
 mod cli;
-mod completion;
 mod config;
 mod formatter;
 mod html;
@@ -74,18 +73,6 @@ fn main() -> Result<()> {
           format!("Failed to export templates to {}", output_dir.display())
         })?;
         return Ok(());
-      },
-
-      Commands::Generate {
-        output_dir,
-        completions_only,
-        manpage_only,
-      } => {
-        return utils::handle_generate_command(
-          output_dir,
-          *completions_only,
-          *manpage_only,
-        );
       },
 
       Commands::Manpage {
