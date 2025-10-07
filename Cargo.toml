@@ -9,9 +9,9 @@ edition      = "2024"
 keywords     = [ "markdown", "commonmark", "nix", "nixpkgs", "nixos", "documentation" ]
 license      = "MPL-2.0"
 readme       = true
-repository   = "https://github.com/notashelf/ndg"
+repository   = "https://github.com/feel-co/ndg"
 rust-version = "1.85"
-version      = "2.2.1"
+version      = "2.2.2"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
