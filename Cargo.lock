@@ -1054,8 +1054,6 @@ version = "2.2.2"
 dependencies = [
  "anyhow",
  "clap",
- "clap_complete",
- "clap_mangen",
  "comrak",
  "env_logger",
  "fs_extra",
@@ -1078,10 +1076,8 @@ dependencies = [
 name = "ndg-commonmark"
 version = "2.2.2"
 dependencies = [
- "anyhow",
  "comrak",
  "html-escape",
- "html5ever",
  "kuchikikiki",
  "log",
  "markup5ever",
