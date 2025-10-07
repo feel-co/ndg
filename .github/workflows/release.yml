@@ -3,6 +3,10 @@ name: Create Tagged Release
 on:
   push:
     tags: ["v*"]
+  workflow_run:
+    workflows: ["Tag version"]
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -117,4 +121,3 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: SHA256SUMS
-

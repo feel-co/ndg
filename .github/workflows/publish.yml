@@ -3,8 +3,11 @@ name: Publish Crates
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
+  workflow_run:
+    workflows: ["Tag version"]
+    types:
+      - completed
 
 jobs:
   publish:
@@ -25,11 +28,17 @@ jobs:
 
       - name: Publish ndg-commonmark
         run: |
-          cargo publish -p ndg-commonmark --no-verify --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          if [ -z "${{ secrets.CARGO_REGISTRY_SECRET }}" ]; then
+            echo "CARGO_REGISTRY_SECRET is not set. Skipping publish."
+            exit 0
+          fi
+
+          cargo publish -p ndg-commonmark \
+            --no-verify --locked --token ${{ secrets.CARGO_REGISTRY_SECRET }}
 
       - name: Wait for ndg-commonmark to be available
         run: |
-          for i in {1..15}; do
-            sleep 10
+          for i in {1..10}; do
+            sleep 3
             cargo search ndg-commonmark | grep -q ndg-commonmark && break
           done
