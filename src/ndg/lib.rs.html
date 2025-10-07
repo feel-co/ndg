@@ -1,12 +1,40 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ndg" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-68b7e25d.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">ndg/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! NDG's internal API exposed in order to be used in unit testing. While this
-<a href=#2 id=2 data-nosnippet>2</a>//! could be useful for end users, end users should opt in to consume
-<a href=#3 id=3 data-nosnippet>3</a>//! ndg-commonmark directly. This interface is for testing purposes ONLY and
-<a href=#4 id=4 data-nosnippet>4</a>//! will not make any guarantees of stability.
-<a href=#5 id=5 data-nosnippet>5</a>
-<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">pub mod </span>cli;
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">pub mod </span>completion;
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">pub mod </span>config;
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub mod </span>formatter;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub mod </span>html;
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">pub mod </span>manpage;
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">pub mod </span>utils;</code></pre></div></section></main></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ndg" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-68b7e25d.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">ndg/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! # NDG: Not a Docs Generator
+<a href=#2 id=2 data-nosnippet>2</a>//!
+<a href=#3 id=3 data-nosnippet>3</a>//! `ndg` is a fast, customizable documentation generator for Nix, NixOS, and
+<a href=#4 id=4 data-nosnippet>4</a>//! Nixpkgs module systems. It converts Markdown and Nix module options into
+<a href=#5 id=5 data-nosnippet>5</a>//! HTML and manpages, supporting Nixpkgs-flavored CommonMark, automatic table
+<a href=#6 id=6 data-nosnippet>6</a>//! of contents, search, multi-threading, and fully customizable templates.
+<a href=#7 id=7 data-nosnippet>7</a>//!
+<a href=#8 id=8 data-nosnippet>8</a>//! ## Features
+<a href=#9 id=9 data-nosnippet>9</a>//! - Markdown to HTML and Manpage conversion with Nixpkgs-flavored CommonMark
+<a href=#10 id=10 data-nosnippet>10</a>//!   support
+<a href=#11 id=11 data-nosnippet>11</a>//! - Automatic table of contents and heading anchors
+<a href=#12 id=12 data-nosnippet>12</a>//! - Search functionality across documents
+<a href=#13 id=13 data-nosnippet>13</a>//! - Nix module options support for generating documentation from
+<a href=#14 id=14 data-nosnippet>14</a>//!   `options.json`
+<a href=#15 id=15 data-nosnippet>15</a>//! - Fully customizable templates and stylesheets
+<a href=#16 id=16 data-nosnippet>16</a>//! - Multi-threading for fast generation of large documentation sets
+<a href=#17 id=17 data-nosnippet>17</a>//! - Seamless integration with Nix workflows
+<a href=#18 id=18 data-nosnippet>18</a>//!
+<a href=#19 id=19 data-nosnippet>19</a>//! ## Usage
+<a href=#20 id=20 data-nosnippet>20</a>//!
+<a href=#21 id=21 data-nosnippet>21</a>//! Be advised that NDG's internal API is exposed ONLY in order to be used in
+<a href=#22 id=22 data-nosnippet>22</a>//! our unit tests. While this API could be useful to end users, e.g., by
+<a href=#23 id=23 data-nosnippet>23</a>//! exposing some wrapper functions, [ndg-commonmark](../ndg_commonmark)'s own
+<a href=#24 id=24 data-nosnippet>24</a>//! API should be preferred for library use. This interface is for
+<a href=#25 id=25 data-nosnippet>25</a>//! testing purposes ONLY and will not make any guarantees of stability between
+<a href=#26 id=26 data-nosnippet>26</a>//! versions.
+<a href=#27 id=27 data-nosnippet>27</a>//!
+<a href=#28 id=28 data-nosnippet>28</a>//! ### CLI Use
+<a href=#29 id=29 data-nosnippet>29</a>//!
+<a href=#30 id=30 data-nosnippet>30</a>//! [Github Repository]: https://github.com/feel-co/ndg
+<a href=#31 id=31 data-nosnippet>31</a>//! NDG is primarily designed as a CLI utility, and its documentation is located
+<a href=#32 id=32 data-nosnippet>32</a>//! in the [Github repository]. Please refer to the project README for more
+<a href=#33 id=33 data-nosnippet>33</a>//! information about the project, installing NDG, and CLI usage.
+<a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">pub mod </span>cli;
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">pub mod </span>completion;
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">pub mod </span>config;
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">pub mod </span>formatter;
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">pub mod </span>html;
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">pub mod </span>manpage;
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">pub mod </span>utils;</code></pre></div></section></main></body></html>

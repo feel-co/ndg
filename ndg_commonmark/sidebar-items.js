@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["processor","syntax","utils"],"struct":["Header","IncludedFile","MarkdownResult"]};
+window.SIDEBAR_ITEMS = {"mod":["processor","syntax","types","utils"]};
