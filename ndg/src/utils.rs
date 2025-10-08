@@ -1,170 +1,17 @@
+mod assets;
+
 use std::{fmt::Write, fs, path::Path};
 
-use color_eyre::eyre::{self, Context, Result};
-use log::{debug, info};
+use color_eyre::eyre::{self, Context};
+use log::info;
 use ndg_commonmark::{
   MarkdownOptionsBuilder,
   MarkdownProcessor,
   collect_markdown_files,
 };
 
+pub use crate::utils::assets::copy_assets;
 use crate::{config::Config, formatter::options, html, manpage};
-
-// Template constants
-const DEFAULT_CSS: &str = include_str!("../templates/default.css");
-const SEARCH_JS: &str = include_str!("../templates/search.js");
-const MAIN_JS: &str = include_str!("../templates/main.js");
-
-/// Copy assets to output directory
-pub fn copy_assets(config: &Config) -> Result<()> {
-  // Create assets directory
-  let assets_dir = config.output_dir.join("assets");
-  fs::create_dir_all(&assets_dir)?;
-
-  // Generate and write CSS
-  let css = generate_css(config)?;
-  fs::write(assets_dir.join("style.css"), css)
-    .context("Failed to write CSS file")?;
-
-  // Copy main.js, which is always needed for the default templates
-  copy_template_asset(config, &assets_dir, "main.js", MAIN_JS)?;
-
-  // Copy custom assets if they exist
-  copy_custom_assets(config, &assets_dir)?;
-
-  // Copy script files to assets directory
-  copy_script_files(config, &assets_dir)?;
-
-  // Create search.js for search functionality
-  if config.generate_search {
-    copy_template_asset(config, &assets_dir, "search.js", SEARCH_JS)?;
-  }
-
-  Ok(())
-}
-
-/// Copies template asset while still allowing user override
-fn copy_template_asset(
-  config: &Config,
-  assets_dir: &Path,
-  filename: &str,
-  fallback_content: &str,
-) -> eyre::Result<()> {
-  let content = if let Some(path) = config.get_template_file(filename) {
-    if path.exists() {
-      fs::read_to_string(&path).wrap_err({
-        format!("Failed to read {} from: {}", filename, path.display())
-      })?
-    } else {
-      fallback_content.to_string()
-    }
-  } else {
-    fallback_content.to_string()
-  };
-
-  fs::write(assets_dir.join(filename), content)
-    .wrap_err_with(|| format!("Failed to write {filename} to assets directory"))
-}
-
-/// Copy custom assets from the configured directory
-fn copy_custom_assets(config: &Config, assets_dir: &Path) -> eyre::Result<()> {
-  if let Some(custom_assets_dir) = &config.assets_dir {
-    if custom_assets_dir.exists() && custom_assets_dir.is_dir() {
-      debug!("Copying custom assets from {}", custom_assets_dir.display());
-
-      let options = fs_extra::dir::CopyOptions::new().overwrite(true);
-      fs_extra::dir::copy(custom_assets_dir, assets_dir, &options)
-        .wrap_err("Failed to copy custom assets")?;
-    }
-  }
-  Ok(())
-}
-
-/// Copy script files to the assets directory
-fn copy_script_files(config: &Config, assets_dir: &Path) -> eyre::Result<()> {
-  for script_path in &config.script_paths {
-    if script_path.exists() {
-      let file_name = script_path
-        .file_name()
-        .ok_or_else(|| eyre::eyre!("Invalid script filename"))?;
-      let dest_path = assets_dir.join(file_name);
-
-      fs::read(script_path)
-        .wrap_err_with(|| {
-          format!("Failed to read script file {}", script_path.display())
-        })
-        .and_then(|content| {
-          fs::write(&dest_path, content).wrap_err_with(|| {
-            format!("Failed to write script file to {}", dest_path.display())
-          })
-        })?;
-    }
-  }
-  Ok(())
-}
-
-/// Generate CSS from stylesheet
-fn generate_css(config: &Config) -> eyre::Result<String> {
-  // Use template CSS if available, otherwise use default CSS
-  let mut combined_css = if let Some(template_path) = config.get_template_path()
-  {
-    let template_css_path = template_path.join("default.css");
-    if template_css_path.exists() {
-      fs::read_to_string(&template_css_path).wrap_err({
-        format!(
-          "Failed to read template CSS: {}",
-          template_css_path.display()
-        )
-      })?
-    } else {
-      // No template CSS found, use default
-      String::from(DEFAULT_CSS)
-    }
-  } else {
-    // No template directory specified, use default CSS
-    String::from(DEFAULT_CSS)
-  };
-
-  // Add any custom stylesheets provided via --stylesheet
-  if !config.stylesheet_paths.is_empty() {
-    // Process each stylesheet in order
-    for (index, stylesheet_path) in config.stylesheet_paths.iter().enumerate() {
-      if stylesheet_path.exists() {
-        let content = fs::read_to_string(stylesheet_path).wrap_err({
-          format!(
-            "Failed to read stylesheet {}: {}",
-            index + 1,
-            stylesheet_path.display()
-          )
-        })?;
-
-        // Process SCSS if needed
-        let processed_content =
-          if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
-            grass::from_string(content.clone(), &grass::Options::default())
-              .wrap_err({
-                format!(
-                  "Failed to compile SCSS to CSS for stylesheet {}",
-                  index + 1
-                )
-              })?
-          } else {
-            content
-          };
-
-        // Add a comment to separate multiple stylesheets
-        combined_css.push_str("\n\n/* Custom Stylesheet ");
-        combined_css.push_str(&(index + 1).to_string());
-        combined_css.push_str(": ");
-        combined_css.push_str(&stylesheet_path.display().to_string());
-        combined_css.push_str(" */\n");
-        combined_css.push_str(&processed_content);
-      }
-    }
-  }
-
-  Ok(combined_css)
-}
 
 /// Generate a manpage from options JSON
 pub fn generate_options_manpage(
