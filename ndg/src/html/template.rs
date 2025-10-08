@@ -727,6 +727,60 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let root_prefix =
     crate::utils::html::calculate_root_relative_path(current_file_rel_path);
 
+  fn render_nav_entry(
+    doc_nav: &mut String,
+    root_prefix: &str,
+    input_dir: &Path,
+    entry: &walkdir::DirEntry,
+  ) {
+    let path = entry.path();
+    if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
+      let mut html_path = rel_doc_path.to_path_buf();
+      html_path.set_extension("html");
+
+      let target_path =
+        format!("{}{}", root_prefix, html_path.to_string_lossy());
+
+      let page_title = std::fs::read_to_string(path).map_or_else(
+        |_| {
+          html_path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string()
+        },
+        |content| {
+          content.lines().next().map_or_else(
+            || {
+              html_path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+            },
+            |first_line| {
+              first_line.strip_prefix("# ").map_or_else(
+                || {
+                  html_path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string()
+                },
+                ndg_commonmark::utils::clean_anchor_patterns,
+              )
+            },
+          )
+        },
+      );
+
+      let _ = writeln!(
+        doc_nav,
+        "<li><a href=\"{target_path}\">{page_title}</a></li>"
+      );
+    }
+  }
+
   // Only process markdown files if input_dir is provided
   if let Some(input_dir) = &config.input_dir {
     let entries: Vec<_> = walkdir::WalkDir::new(input_dir)
@@ -770,81 +824,31 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         }
       }
 
-      // Helper closure to render a nav entry
-      let mut render_entry = |entry: &walkdir::DirEntry| {
-        let path = entry.path();
-        if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
-          let mut html_path = rel_doc_path.to_path_buf();
-          html_path.set_extension("html");
-
-          // Create relative path from current file to target file
-          let target_path =
-            format!("{}{}", root_prefix, html_path.to_string_lossy());
-
-          let page_title = fs::read_to_string(path).map_or_else(
-            |_| {
-              html_path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string()
-            },
-            |content| {
-              content.lines().next().map_or_else(
-                || {
-                  html_path
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string()
-                },
-                |first_line| {
-                  first_line.strip_prefix("# ").map_or_else(
-                    || {
-                      html_path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string()
-                    },
-                    ndg_commonmark::utils::clean_anchor_patterns,
-                  )
-                },
-              )
-            },
-          );
-
-          writeln!(
-            doc_nav,
-            "<li><a href=\"{target_path}\">{page_title}</a></li>"
-          )
-          .expect("Failed to write to doc_nav string");
-        }
-      };
-
       // Render special entries first (index.md, README.md)
       for entry in &special_entries {
-        render_entry(entry);
+        render_nav_entry(&mut doc_nav, &root_prefix, input_dir, entry);
       }
       // Then render regular entries
       for entry in &regular_entries {
-        render_entry(entry);
+        render_nav_entry(&mut doc_nav, &root_prefix, input_dir, entry);
       }
     }
   }
 
   // Add link to options page if module_options is configured
   if doc_nav.is_empty() && config.module_options.is_some() {
-    doc_nav.push_str(&format!(
-      "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>\n"
-    ));
+    let _ = writeln!(
+      doc_nav,
+      "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>"
+    );
   }
 
   // Add search link only if search is enabled
   if config.generate_search {
-    doc_nav.push_str(&format!(
-      "<li><a href=\"{root_prefix}search.html\">Search</a></li>\n"
-    ));
+    let _ = writeln!(
+      doc_nav,
+      "<li><a href=\"{root_prefix}search.html\">Search</a></li>"
+    );
   }
 
   doc_nav
