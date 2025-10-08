@@ -348,7 +348,21 @@ pub fn process_markdown_files(
       if *is_included {
         continue;
       }
+
       let rel_path = std::path::Path::new(out_path);
+      if rel_path.is_absolute() {
+        log::warn!(
+          "Output path '{out_path}' is absolute (would write to '{}'). \
+           Attempting to normalize to relative.",
+          rel_path.display()
+        );
+      }
+
+      // Always force rel_path to be relative, never absolute
+      let rel_path = rel_path
+        .strip_prefix(std::path::MAIN_SEPARATOR_STR)
+        .unwrap_or(rel_path);
+
       let html = template::render(
         config,
         html_content,
@@ -356,10 +370,12 @@ pub fn process_markdown_files(
         headers,
         rel_path,
       )?;
+
       let output_path = config.output_dir.join(rel_path);
       if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent)?;
       }
+
       std::fs::write(&output_path, html)?;
     }
 
