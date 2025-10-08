@@ -41,10 +41,16 @@ in
     versionCheckProgram = "${placeholder "out"}/bin/${finalAttrs.meta.mainProgram}";
     versionCheckProgramArg = "--version";
     doInstallCheck = true;
+    cargoBuildFlags = [
+      "-p"
+      "ndg"
+      "-p"
+      "xtask"
+    ];
 
     postInstall =
       lib.optionalString
-      (stdenv.hostPlatform.canExecute stdenv.targetPlatform) ''
+      (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
         # Install required files with the 'dist' task
         $out/bin/xtask dist
 
