@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg/src/html/search.rs`."><title>search.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ndg" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-68b7e25d.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">ndg/html/</div>search.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{collections::HashMap, fs, path::PathBuf};
 <a href=#2 id=2 data-nosnippet>2</a>
-<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>color_eyre::eyre::{Context, <span class="prelude-ty">Result</span>};
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>log::info;
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>serde::Serialize;
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>serde_json::Value;
@@ -39,116 +39,123 @@
 <a href=#39 id=39 data-nosnippet>39</a>  </span><span class="kw">if </span>!markdown_files.is_empty() &amp;&amp; config.input_dir.is_some() {
 <a href=#40 id=40 data-nosnippet>40</a>    <span class="kw">let </span>input_dir = config.input_dir.as_ref().unwrap();
 <a href=#41 id=41 data-nosnippet>41</a>    <span class="kw">for </span>file_path <span class="kw">in </span>markdown_files {
-<a href=#42 id=42 data-nosnippet>42</a>      <span class="kw">let </span>content = fs::read_to_string(file_path).context(<span class="macro">format!</span>(
-<a href=#43 id=43 data-nosnippet>43</a>        <span class="string">"Failed to read file for search indexing: {}"</span>,
-<a href=#44 id=44 data-nosnippet>44</a>        file_path.display()
-<a href=#45 id=45 data-nosnippet>45</a>      ))<span class="question-mark">?</span>;
-<a href=#46 id=46 data-nosnippet>46</a>
-<a href=#47 id=47 data-nosnippet>47</a>      <span class="kw">let </span>title = extract_title(<span class="kw-2">&amp;</span>content).unwrap_or_else(|| {
-<a href=#48 id=48 data-nosnippet>48</a>        file_path
-<a href=#49 id=49 data-nosnippet>49</a>          .file_stem()
-<a href=#50 id=50 data-nosnippet>50</a>          .unwrap_or_default()
-<a href=#51 id=51 data-nosnippet>51</a>          .to_string_lossy()
-<a href=#52 id=52 data-nosnippet>52</a>          .to_string()
-<a href=#53 id=53 data-nosnippet>53</a>      });
-<a href=#54 id=54 data-nosnippet>54</a>
-<a href=#55 id=55 data-nosnippet>55</a>      <span class="comment">// Use the existing markdown processor to handle all NDG-specific markup
-<a href=#56 id=56 data-nosnippet>56</a>      </span><span class="kw">let </span>plain_text = utils::process_content_to_plain_text(<span class="kw-2">&amp;</span>content, config);
-<a href=#57 id=57 data-nosnippet>57</a>
-<a href=#58 id=58 data-nosnippet>58</a>      <span class="kw">let </span>rel_path = file_path.strip_prefix(input_dir).context(<span class="macro">format!</span>(
-<a href=#59 id=59 data-nosnippet>59</a>        <span class="string">"Failed to determine relative path for {}"</span>,
-<a href=#60 id=60 data-nosnippet>60</a>        file_path.display()
-<a href=#61 id=61 data-nosnippet>61</a>      ))<span class="question-mark">?</span>;
-<a href=#62 id=62 data-nosnippet>62</a>
-<a href=#63 id=63 data-nosnippet>63</a>      <span class="kw">let </span><span class="kw-2">mut </span>output_path = rel_path.to_owned();
-<a href=#64 id=64 data-nosnippet>64</a>      output_path.set_extension(<span class="string">"html"</span>);
-<a href=#65 id=65 data-nosnippet>65</a>
-<a href=#66 id=66 data-nosnippet>66</a>      documents.push(SearchDocument {
-<a href=#67 id=67 data-nosnippet>67</a>        id: doc_id.to_string(),
-<a href=#68 id=68 data-nosnippet>68</a>        title,
-<a href=#69 id=69 data-nosnippet>69</a>        content: plain_text,
-<a href=#70 id=70 data-nosnippet>70</a>        path: output_path.to_string_lossy().to_string(),
-<a href=#71 id=71 data-nosnippet>71</a>      });
-<a href=#72 id=72 data-nosnippet>72</a>
-<a href=#73 id=73 data-nosnippet>73</a>      doc_id += <span class="number">1</span>;
-<a href=#74 id=74 data-nosnippet>74</a>    }
-<a href=#75 id=75 data-nosnippet>75</a>  }
+<a href=#42 id=42 data-nosnippet>42</a>      <span class="kw">let </span>content = fs::read_to_string(file_path).wrap_err_with(|| {
+<a href=#43 id=43 data-nosnippet>43</a>        <span class="macro">format!</span>(
+<a href=#44 id=44 data-nosnippet>44</a>          <span class="string">"Failed to read file for search indexing: {}"</span>,
+<a href=#45 id=45 data-nosnippet>45</a>          file_path.display()
+<a href=#46 id=46 data-nosnippet>46</a>        )
+<a href=#47 id=47 data-nosnippet>47</a>      })<span class="question-mark">?</span>;
+<a href=#48 id=48 data-nosnippet>48</a>
+<a href=#49 id=49 data-nosnippet>49</a>      <span class="kw">let </span>title = extract_title(<span class="kw-2">&amp;</span>content).unwrap_or_else(|| {
+<a href=#50 id=50 data-nosnippet>50</a>        file_path
+<a href=#51 id=51 data-nosnippet>51</a>          .file_stem()
+<a href=#52 id=52 data-nosnippet>52</a>          .unwrap_or_default()
+<a href=#53 id=53 data-nosnippet>53</a>          .to_string_lossy()
+<a href=#54 id=54 data-nosnippet>54</a>          .to_string()
+<a href=#55 id=55 data-nosnippet>55</a>      });
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a>      <span class="comment">// Use the existing markdown processor to handle all NDG-specific markup
+<a href=#58 id=58 data-nosnippet>58</a>      </span><span class="kw">let </span>plain_text = utils::process_content_to_plain_text(<span class="kw-2">&amp;</span>content, config);
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a>      <span class="kw">let </span>rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
+<a href=#61 id=61 data-nosnippet>61</a>        <span class="macro">format!</span>(
+<a href=#62 id=62 data-nosnippet>62</a>          <span class="string">"Failed to determine relative path for {}"</span>,
+<a href=#63 id=63 data-nosnippet>63</a>          file_path.display()
+<a href=#64 id=64 data-nosnippet>64</a>        )
+<a href=#65 id=65 data-nosnippet>65</a>      })<span class="question-mark">?</span>;
+<a href=#66 id=66 data-nosnippet>66</a>
+<a href=#67 id=67 data-nosnippet>67</a>      <span class="kw">let </span><span class="kw-2">mut </span>output_path = rel_path.to_owned();
+<a href=#68 id=68 data-nosnippet>68</a>      output_path.set_extension(<span class="string">"html"</span>);
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a>      documents.push(SearchDocument {
+<a href=#71 id=71 data-nosnippet>71</a>        id: doc_id.to_string(),
+<a href=#72 id=72 data-nosnippet>72</a>        title,
+<a href=#73 id=73 data-nosnippet>73</a>        content: plain_text,
+<a href=#74 id=74 data-nosnippet>74</a>        path: output_path.to_string_lossy().to_string(),
+<a href=#75 id=75 data-nosnippet>75</a>      });
 <a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a>  <span class="comment">// Process options if available
-<a href=#78 id=78 data-nosnippet>78</a>  </span><span class="kw">if let </span><span class="prelude-val">Some</span>(options_path) = <span class="kw-2">&amp;</span>config.module_options {
-<a href=#79 id=79 data-nosnippet>79</a>    <span class="comment">// Try to load options data using serde_json::Value
-<a href=#80 id=80 data-nosnippet>80</a>    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(options_content) = fs::read_to_string(options_path) {
-<a href=#81 id=81 data-nosnippet>81</a>      <span class="kw">if let </span><span class="prelude-val">Ok</span>(options_data) = serde_json::from_str::&lt;Value&gt;(<span class="kw-2">&amp;</span>options_content)
-<a href=#82 id=82 data-nosnippet>82</a>      {
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(options_obj) = options_data.as_object() {
-<a href=#84 id=84 data-nosnippet>84</a>          <span class="kw">for </span>(key, option_value) <span class="kw">in </span>options_obj {
-<a href=#85 id=85 data-nosnippet>85</a>            <span class="comment">// Extract description from the option
-<a href=#86 id=86 data-nosnippet>86</a>            </span><span class="kw">let </span>raw_description =
-<a href=#87 id=87 data-nosnippet>87</a>              option_value[<span class="string">"description"</span>].as_str().unwrap_or(<span class="string">""</span>);
-<a href=#88 id=88 data-nosnippet>88</a>
-<a href=#89 id=89 data-nosnippet>89</a>            <span class="comment">// Use the same clean processing as for markdown files
-<a href=#90 id=90 data-nosnippet>90</a>            </span><span class="kw">let </span>plain_description =
-<a href=#91 id=91 data-nosnippet>91</a>              utils::process_content_to_plain_text(raw_description, config);
+<a href=#77 id=77 data-nosnippet>77</a>      doc_id += <span class="number">1</span>;
+<a href=#78 id=78 data-nosnippet>78</a>    }
+<a href=#79 id=79 data-nosnippet>79</a>  }
+<a href=#80 id=80 data-nosnippet>80</a>
+<a href=#81 id=81 data-nosnippet>81</a>  <span class="comment">// Process options if available
+<a href=#82 id=82 data-nosnippet>82</a>  </span><span class="kw">if let </span><span class="prelude-val">Some</span>(options_path) = <span class="kw-2">&amp;</span>config.module_options {
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="comment">// Try to load options data using serde_json::Value
+<a href=#84 id=84 data-nosnippet>84</a>    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(options_content) = fs::read_to_string(options_path) {
+<a href=#85 id=85 data-nosnippet>85</a>      <span class="kw">if let </span><span class="prelude-val">Ok</span>(options_data) = serde_json::from_str::&lt;Value&gt;(<span class="kw-2">&amp;</span>options_content)
+<a href=#86 id=86 data-nosnippet>86</a>      {
+<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(options_obj) = options_data.as_object() {
+<a href=#88 id=88 data-nosnippet>88</a>          <span class="kw">for </span>(key, option_value) <span class="kw">in </span>options_obj {
+<a href=#89 id=89 data-nosnippet>89</a>            <span class="comment">// Extract description from the option
+<a href=#90 id=90 data-nosnippet>90</a>            </span><span class="kw">let </span>raw_description =
+<a href=#91 id=91 data-nosnippet>91</a>              option_value[<span class="string">"description"</span>].as_str().unwrap_or(<span class="string">""</span>);
 <a href=#92 id=92 data-nosnippet>92</a>
-<a href=#93 id=93 data-nosnippet>93</a>            <span class="comment">// Create search entry for this option
-<a href=#94 id=94 data-nosnippet>94</a>            </span>documents.push(SearchDocument {
-<a href=#95 id=95 data-nosnippet>95</a>              id:      doc_id.to_string(),
-<a href=#96 id=96 data-nosnippet>96</a>              title:   <span class="macro">format!</span>(<span class="string">"Option: {key}"</span>),
-<a href=#97 id=97 data-nosnippet>97</a>              content: plain_description,
-<a href=#98 id=98 data-nosnippet>98</a>              path:    <span class="macro">format!</span>(<span class="string">"options.html#option-{}"</span>, key.replace(<span class="string">'.'</span>, <span class="string">"-"</span>)),
-<a href=#99 id=99 data-nosnippet>99</a>            });
-<a href=#100 id=100 data-nosnippet>100</a>            doc_id += <span class="number">1</span>;
-<a href=#101 id=101 data-nosnippet>101</a>          }
-<a href=#102 id=102 data-nosnippet>102</a>        }
-<a href=#103 id=103 data-nosnippet>103</a>      }
-<a href=#104 id=104 data-nosnippet>104</a>    }
-<a href=#105 id=105 data-nosnippet>105</a>  }
-<a href=#106 id=106 data-nosnippet>106</a>
-<a href=#107 id=107 data-nosnippet>107</a>  <span class="comment">// Write search index data.
-<a href=#108 id=108 data-nosnippet>108</a>  // Always create a valid JSON array, even if empty.
-<a href=#109 id=109 data-nosnippet>109</a>  </span><span class="kw">let </span>search_data_path = search_dir.join(<span class="string">"search-data.json"</span>);
-<a href=#110 id=110 data-nosnippet>110</a>  fs::write(<span class="kw-2">&amp;</span>search_data_path, serde_json::to_string(<span class="kw-2">&amp;</span>documents)<span class="question-mark">?</span>).context(
-<a href=#111 id=111 data-nosnippet>111</a>    <span class="macro">format!</span>(
-<a href=#112 id=112 data-nosnippet>112</a>      <span class="string">"Failed to write search data to {}"</span>,
-<a href=#113 id=113 data-nosnippet>113</a>      search_data_path.display()
-<a href=#114 id=114 data-nosnippet>114</a>    ),
-<a href=#115 id=115 data-nosnippet>115</a>  )<span class="question-mark">?</span>;
-<a href=#116 id=116 data-nosnippet>116</a>
-<a href=#117 id=117 data-nosnippet>117</a>  <span class="comment">// Create search page
-<a href=#118 id=118 data-nosnippet>118</a>  </span>create_search_page(config)<span class="question-mark">?</span>;
-<a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>  <span class="macro">info!</span>(<span class="string">"Search index generated successfully"</span>);
+<a href=#93 id=93 data-nosnippet>93</a>            <span class="comment">// Use the same clean processing as for markdown files
+<a href=#94 id=94 data-nosnippet>94</a>            </span><span class="kw">let </span>plain_description =
+<a href=#95 id=95 data-nosnippet>95</a>              utils::process_content_to_plain_text(raw_description, config);
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a>            <span class="comment">// Create search entry for this option
+<a href=#98 id=98 data-nosnippet>98</a>            </span>documents.push(SearchDocument {
+<a href=#99 id=99 data-nosnippet>99</a>              id:      doc_id.to_string(),
+<a href=#100 id=100 data-nosnippet>100</a>              title:   <span class="macro">format!</span>(<span class="string">"Option: {key}"</span>),
+<a href=#101 id=101 data-nosnippet>101</a>              content: plain_description,
+<a href=#102 id=102 data-nosnippet>102</a>              path:    <span class="macro">format!</span>(<span class="string">"options.html#option-{}"</span>, key.replace(<span class="string">'.'</span>, <span class="string">"-"</span>)),
+<a href=#103 id=103 data-nosnippet>103</a>            });
+<a href=#104 id=104 data-nosnippet>104</a>            doc_id += <span class="number">1</span>;
+<a href=#105 id=105 data-nosnippet>105</a>          }
+<a href=#106 id=106 data-nosnippet>106</a>        }
+<a href=#107 id=107 data-nosnippet>107</a>      }
+<a href=#108 id=108 data-nosnippet>108</a>    }
+<a href=#109 id=109 data-nosnippet>109</a>  }
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>  <span class="comment">// Write search index data.
+<a href=#112 id=112 data-nosnippet>112</a>  // Always create a valid JSON array, even if empty.
+<a href=#113 id=113 data-nosnippet>113</a>  </span><span class="kw">let </span>search_data_path = search_dir.join(<span class="string">"search-data.json"</span>);
+<a href=#114 id=114 data-nosnippet>114</a>  fs::write(<span class="kw-2">&amp;</span>search_data_path, serde_json::to_string(<span class="kw-2">&amp;</span>documents)<span class="question-mark">?</span>)
+<a href=#115 id=115 data-nosnippet>115</a>    .wrap_err_with(|| {
+<a href=#116 id=116 data-nosnippet>116</a>      <span class="macro">format!</span>(
+<a href=#117 id=117 data-nosnippet>117</a>        <span class="string">"Failed to write search data to {}"</span>,
+<a href=#118 id=118 data-nosnippet>118</a>        search_data_path.display()
+<a href=#119 id=119 data-nosnippet>119</a>      )
+<a href=#120 id=120 data-nosnippet>120</a>    })<span class="question-mark">?</span>;
 <a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>  <span class="prelude-val">Ok</span>(())
-<a href=#123 id=123 data-nosnippet>123</a>}
+<a href=#122 id=122 data-nosnippet>122</a>  <span class="comment">// Create search page
+<a href=#123 id=123 data-nosnippet>123</a>  </span>create_search_page(config)<span class="question-mark">?</span>;
 <a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a><span class="doccomment">/// Extract title from markdown content
-<a href=#126 id=126 data-nosnippet>126</a>/// Extract title from markdown content (first H1)
-<a href=#127 id=127 data-nosnippet>127</a></span><span class="kw">fn </span>extract_title(content: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
-<a href=#128 id=128 data-nosnippet>128</a>  ndg_commonmark::utils::extract_title_from_markdown(content)
-<a href=#129 id=129 data-nosnippet>129</a>}
-<a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a><span class="doccomment">/// Create search page
-<a href=#132 id=132 data-nosnippet>132</a></span><span class="kw">pub fn </span>create_search_page(config: <span class="kw-2">&amp;</span>Config) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#133 id=133 data-nosnippet>133</a>  <span class="kw">if </span>!config.generate_search {
-<a href=#134 id=134 data-nosnippet>134</a>    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#135 id=135 data-nosnippet>135</a>  }
-<a href=#136 id=136 data-nosnippet>136</a>
-<a href=#137 id=137 data-nosnippet>137</a>  <span class="macro">info!</span>(<span class="string">"Creating search page..."</span>);
-<a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a>  <span class="comment">// Create context for the search page
-<a href=#140 id=140 data-nosnippet>140</a>  </span><span class="kw">let </span><span class="kw-2">mut </span>context = HashMap::new();
-<a href=#141 id=141 data-nosnippet>141</a>  context.insert(<span class="string">"title"</span>, <span class="macro">format!</span>(<span class="string">"{} - Search"</span>, config.title));
-<a href=#142 id=142 data-nosnippet>142</a>
-<a href=#143 id=143 data-nosnippet>143</a>  <span class="comment">// Render the search page using the template
-<a href=#144 id=144 data-nosnippet>144</a>  </span><span class="kw">let </span>html = html::template::render_search(config, <span class="kw-2">&amp;</span>context)<span class="question-mark">?</span>;
-<a href=#145 id=145 data-nosnippet>145</a>
-<a href=#146 id=146 data-nosnippet>146</a>  <span class="comment">// Write the search page to the output directory
-<a href=#147 id=147 data-nosnippet>147</a>  </span><span class="kw">let </span>search_page_path = config.output_dir.join(<span class="string">"search.html"</span>);
-<a href=#148 id=148 data-nosnippet>148</a>  fs::write(<span class="kw-2">&amp;</span>search_page_path, <span class="kw-2">&amp;</span>html).context(<span class="macro">format!</span>(
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="string">"Failed to write search page to {}"</span>,
-<a href=#150 id=150 data-nosnippet>150</a>    search_page_path.display()
-<a href=#151 id=151 data-nosnippet>151</a>  ))<span class="question-mark">?</span>;
-<a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a>  <span class="prelude-val">Ok</span>(())
-<a href=#154 id=154 data-nosnippet>154</a>}</code></pre></div></section></main></body></html>
+<a href=#125 id=125 data-nosnippet>125</a>  <span class="macro">info!</span>(<span class="string">"Search index generated successfully"</span>);
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>  <span class="prelude-val">Ok</span>(())
+<a href=#128 id=128 data-nosnippet>128</a>}
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a><span class="doccomment">/// Extract title from markdown content
+<a href=#131 id=131 data-nosnippet>131</a>/// Extract title from markdown content (first H1)
+<a href=#132 id=132 data-nosnippet>132</a></span><span class="kw">fn </span>extract_title(content: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#133 id=133 data-nosnippet>133</a>  ndg_commonmark::utils::extract_title_from_markdown(content)
+<a href=#134 id=134 data-nosnippet>134</a>}
+<a href=#135 id=135 data-nosnippet>135</a>
+<a href=#136 id=136 data-nosnippet>136</a><span class="doccomment">/// Create search page
+<a href=#137 id=137 data-nosnippet>137</a></span><span class="kw">pub fn </span>create_search_page(config: <span class="kw-2">&amp;</span>Config) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#138 id=138 data-nosnippet>138</a>  <span class="kw">if </span>!config.generate_search {
+<a href=#139 id=139 data-nosnippet>139</a>    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#140 id=140 data-nosnippet>140</a>  }
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a>  <span class="macro">info!</span>(<span class="string">"Creating search page..."</span>);
+<a href=#143 id=143 data-nosnippet>143</a>
+<a href=#144 id=144 data-nosnippet>144</a>  <span class="comment">// Create context for the search page
+<a href=#145 id=145 data-nosnippet>145</a>  </span><span class="kw">let </span><span class="kw-2">mut </span>context = HashMap::new();
+<a href=#146 id=146 data-nosnippet>146</a>  context.insert(<span class="string">"title"</span>, <span class="macro">format!</span>(<span class="string">"{} - Search"</span>, config.title));
+<a href=#147 id=147 data-nosnippet>147</a>
+<a href=#148 id=148 data-nosnippet>148</a>  <span class="comment">// Render the search page using the template
+<a href=#149 id=149 data-nosnippet>149</a>  </span><span class="kw">let </span>html = html::template::render_search(config, <span class="kw-2">&amp;</span>context)<span class="question-mark">?</span>;
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>  <span class="comment">// Write the search page to the output directory
+<a href=#152 id=152 data-nosnippet>152</a>  </span><span class="kw">let </span>search_page_path = config.output_dir.join(<span class="string">"search.html"</span>);
+<a href=#153 id=153 data-nosnippet>153</a>  fs::write(<span class="kw-2">&amp;</span>search_page_path, <span class="kw-2">&amp;</span>html).wrap_err_with(|| {
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="macro">format!</span>(
+<a href=#155 id=155 data-nosnippet>155</a>      <span class="string">"Failed to write search page to {}"</span>,
+<a href=#156 id=156 data-nosnippet>156</a>      search_page_path.display()
+<a href=#157 id=157 data-nosnippet>157</a>    )
+<a href=#158 id=158 data-nosnippet>158</a>  })<span class="question-mark">?</span>;
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>  <span class="prelude-val">Ok</span>(())
+<a href=#161 id=161 data-nosnippet>161</a>}</code></pre></div></section></main></body></html>

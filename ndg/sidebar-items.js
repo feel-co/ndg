@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["cli","config","formatter","html","manpage","utils"]};
+window.SIDEBAR_ITEMS = {"mod":["cli","config","error","formatter","html","manpage","utils"]};
