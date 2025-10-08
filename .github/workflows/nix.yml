@@ -52,9 +52,19 @@ jobs:
         with:
           platforms: arm64
 
+      - name: "Install QEMU Deps"
+        if: runner.arch = 'X64'
+        run: sudo apt install binfmt-support qemu-user-static
+
       - uses: cachix/install-nix-action@v31
         with:
           nix_path: nixpkgs=channel:nixos-unstable
+          enable_kvm: true
+          extra_nix_config: |
+            system-features = nixos-test benchmark big-parallel kvm
+            # Allow cross-compiling
+            extra-platforms = aarch64-linux armv7l-linux i686-linux
+            extra-sandbox-paths = /usr/libexec/qemu-binfmt /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static /usr/bin/qemu-arm-static
 
       - uses: cachix/cachix-action@v16
         with:
