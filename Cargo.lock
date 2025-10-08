@@ -1131,6 +1131,7 @@ dependencies = [
  "env_logger",
  "fs_extra",
  "grass",
+ "html-escape",
  "jiff",
  "log",
  "ndg-commonmark",

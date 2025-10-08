@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Write, fs, path::Path};
 
 use color_eyre::eyre::{Context, Result, bail};
+use html_escape::encode_text;
 use ndg_commonmark::Header;
 use tera::Tera;
 
@@ -888,8 +889,13 @@ fn generate_toc(headers: &[Header]) -> String {
           visible_text = visible_text[..idx].trim_end();
         }
       }
-      writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, visible_text)
-        .expect("Failed to write to toc string");
+      writeln!(
+        toc,
+        "<a href=\"#{}\">{}</a>",
+        header.id,
+        encode_text(visible_text)
+      )
+      .expect("Failed to write to toc string");
     }
   }
 
