@@ -1,6 +1,6 @@
 use std::{fmt::Write, fs, path::Path};
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{self, Context, Result};
 use log::{debug, info};
 use ndg_commonmark::{
   MarkdownOptionsBuilder,
@@ -49,10 +49,10 @@ fn copy_template_asset(
   assets_dir: &Path,
   filename: &str,
   fallback_content: &str,
-) -> Result<()> {
+) -> eyre::Result<()> {
   let content = if let Some(path) = config.get_template_file(filename) {
     if path.exists() {
-      fs::read_to_string(&path).with_context(|| {
+      fs::read_to_string(&path).wrap_err({
         format!("Failed to read {} from: {}", filename, path.display())
       })?
     } else {
@@ -63,38 +63,38 @@ fn copy_template_asset(
   };
 
   fs::write(assets_dir.join(filename), content)
-    .with_context(|| format!("Failed to write {filename} to assets directory"))
+    .wrap_err_with(|| format!("Failed to write {filename} to assets directory"))
 }
 
 /// Copy custom assets from the configured directory
-fn copy_custom_assets(config: &Config, assets_dir: &Path) -> Result<()> {
+fn copy_custom_assets(config: &Config, assets_dir: &Path) -> eyre::Result<()> {
   if let Some(custom_assets_dir) = &config.assets_dir {
     if custom_assets_dir.exists() && custom_assets_dir.is_dir() {
       debug!("Copying custom assets from {}", custom_assets_dir.display());
 
       let options = fs_extra::dir::CopyOptions::new().overwrite(true);
       fs_extra::dir::copy(custom_assets_dir, assets_dir, &options)
-        .context("Failed to copy custom assets")?;
+        .wrap_err("Failed to copy custom assets")?;
     }
   }
   Ok(())
 }
 
 /// Copy script files to the assets directory
-fn copy_script_files(config: &Config, assets_dir: &Path) -> Result<()> {
+fn copy_script_files(config: &Config, assets_dir: &Path) -> eyre::Result<()> {
   for script_path in &config.script_paths {
     if script_path.exists() {
       let file_name = script_path
         .file_name()
-        .ok_or_else(|| anyhow::anyhow!("Invalid script filename"))?;
+        .ok_or_else(|| eyre::eyre!("Invalid script filename"))?;
       let dest_path = assets_dir.join(file_name);
 
       fs::read(script_path)
-        .with_context(|| {
+        .wrap_err_with(|| {
           format!("Failed to read script file {}", script_path.display())
         })
         .and_then(|content| {
-          fs::write(&dest_path, content).with_context(|| {
+          fs::write(&dest_path, content).wrap_err_with(|| {
             format!("Failed to write script file to {}", dest_path.display())
           })
         })?;
@@ -104,13 +104,13 @@ fn copy_script_files(config: &Config, assets_dir: &Path) -> Result<()> {
 }
 
 /// Generate CSS from stylesheet
-fn generate_css(config: &Config) -> Result<String> {
+fn generate_css(config: &Config) -> eyre::Result<String> {
   // Use template CSS if available, otherwise use default CSS
   let mut combined_css = if let Some(template_path) = config.get_template_path()
   {
     let template_css_path = template_path.join("default.css");
     if template_css_path.exists() {
-      fs::read_to_string(&template_css_path).with_context(|| {
+      fs::read_to_string(&template_css_path).wrap_err({
         format!(
           "Failed to read template CSS: {}",
           template_css_path.display()
@@ -130,20 +130,19 @@ fn generate_css(config: &Config) -> Result<String> {
     // Process each stylesheet in order
     for (index, stylesheet_path) in config.stylesheet_paths.iter().enumerate() {
       if stylesheet_path.exists() {
-        let content =
-          fs::read_to_string(stylesheet_path).with_context(|| {
-            format!(
-              "Failed to read stylesheet {}: {}",
-              index + 1,
-              stylesheet_path.display()
-            )
-          })?;
+        let content = fs::read_to_string(stylesheet_path).wrap_err({
+          format!(
+            "Failed to read stylesheet {}: {}",
+            index + 1,
+            stylesheet_path.display()
+          )
+        })?;
 
         // Process SCSS if needed
         let processed_content =
           if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
             grass::from_string(content.clone(), &grass::Options::default())
-              .with_context(|| {
+              .wrap_err({
                 format!(
                   "Failed to compile SCSS to CSS for stylesheet {}",
                   index + 1
@@ -175,7 +174,7 @@ pub fn generate_options_manpage(
   header: Option<&str>,
   footer: Option<&str>,
   section: u8,
-) -> Result<()> {
+) -> eyre::Result<()> {
   info!("Generating manpage from options JSON");
   manpage::generate_manpage(
     module_options,
@@ -191,7 +190,7 @@ pub fn generate_options_manpage(
 /// Collect all included files from markdown documents
 pub fn collect_included_files(
   config: &Config,
-) -> Result<std::collections::HashSet<std::path::PathBuf>> {
+) -> eyre::Result<std::collections::HashSet<std::path::PathBuf>> {
   use std::collections::HashSet;
   let mut all_included_files: HashSet<std::path::PathBuf> = HashSet::new();
 
@@ -199,7 +198,9 @@ pub fn collect_included_files(
     let files = collect_markdown_files(input_dir);
 
     for file_path in &files {
-      let content = std::fs::read_to_string(file_path)?;
+      let content = std::fs::read_to_string(file_path).wrap_err({
+        format!("Failed to read markdown file: {}", file_path.display())
+      })?;
       let processor = create_processor_from_config(config);
       let base_dir = file_path.parent().unwrap_or_else(|| {
         config
@@ -226,7 +227,7 @@ pub fn collect_included_files(
 /// Process markdown files
 pub fn process_markdown_files(
   config: &Config,
-) -> Result<Vec<std::path::PathBuf>> {
+) -> eyre::Result<Vec<std::path::PathBuf>> {
   use std::collections::HashMap;
   if let Some(ref input_dir) = config.input_dir {
     info!("Input directory: {}", input_dir.display());
@@ -252,7 +253,9 @@ pub fn process_markdown_files(
 
     // First pass: collect all custom outputs for included files
     for file_path in &files {
-      let content = std::fs::read_to_string(file_path)?;
+      let content = std::fs::read_to_string(file_path).wrap_err({
+        format!("Failed to read markdown file: {}", file_path.display())
+      })?;
       let processor = create_processor_from_config(config);
 
       let base_dir = file_path.parent().unwrap_or_else(|| {
@@ -280,7 +283,9 @@ pub fn process_markdown_files(
     }
 
     for file_path in &files {
-      let content = std::fs::read_to_string(file_path)?;
+      let content = std::fs::read_to_string(file_path).wrap_err({
+        format!("Failed to read markdown file: {}", file_path.display())
+      })?;
       let processor = create_processor_from_config(config);
 
       // Set base directory to file's parent directory for relative includes
@@ -373,10 +378,14 @@ pub fn process_markdown_files(
 
       let output_path = config.output_dir.join(rel_path);
       if let Some(parent) = output_path.parent() {
-        std::fs::create_dir_all(parent)?;
+        std::fs::create_dir_all(parent).wrap_err({
+          format!("Failed to create output directory: {}", parent.display())
+        })?;
       }
 
-      std::fs::write(&output_path, html)?;
+      std::fs::write(&output_path, html).wrap_err({
+        format!("Failed to write output HTML: {}", output_path.display())
+      })?;
     }
 
     Ok(files)
@@ -387,7 +396,7 @@ pub fn process_markdown_files(
 }
 
 /// Process options file
-pub fn process_options_file(config: &Config) -> Result<bool> {
+pub fn process_options_file(config: &Config) -> eyre::Result<bool> {
   if let Some(options_path) = &config.module_options {
     info!("Processing options.json from {}", options_path.display());
     options::process_options(config, options_path)?;
@@ -481,7 +490,7 @@ pub fn ensure_index(
   config: &Config,
   options_processed: bool,
   markdown_files: &[std::path::PathBuf],
-) -> Result<()> {
+) -> eyre::Result<()> {
   let index_path = config.output_dir.join("index.html");
 
   // Check if index.html already exists (already generated from index.md)
@@ -496,8 +505,12 @@ pub fn ensure_index(
       info!("Using options.html as index.html");
 
       // Copy the content of options.html to index.html
-      let options_content = fs::read(&options_path)?;
-      fs::write(&index_path, options_content)?;
+      let options_content = fs::read(&options_path).wrap_err({
+        format!("Failed to read options.html: {}", options_path.display())
+      })?;
+      fs::write(&index_path, options_content).wrap_err({
+        format!("Failed to write index.html: {}", index_path.display())
+      })?;
       return Ok(());
     }
   }
@@ -524,7 +537,12 @@ pub fn ensure_index(
       &std::path::PathBuf::from("index.html"),
     )?;
 
-    fs::write(&index_path, html)?;
+    fs::write(&index_path, html).wrap_err({
+      format!(
+        "Failed to write fallback index.html: {}",
+        index_path.display()
+      )
+    })?;
   }
 
   Ok(())

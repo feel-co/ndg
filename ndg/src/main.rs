@@ -1,19 +1,23 @@
 use std::fs;
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Context, Result};
 use log::{LevelFilter, info};
 
 mod cli;
 mod config;
+mod error;
 mod formatter;
 mod html;
 mod manpage;
 mod utils;
 
 use cli::{Cli, Commands};
+use color_eyre::eyre::bail;
 use config::Config;
 
 fn main() -> Result<()> {
+  color_eyre::install()?;
+
   // Parse command line arguments
   let cli = Cli::parse_args();
 
@@ -37,16 +41,16 @@ fn main() -> Result<()> {
       } => {
         // Check if file already exists and that we're not forcing overwrite
         if output.exists() && !force {
-          return Err(anyhow::anyhow!(
+          bail!(
             "Configuration file already exists: {}. Use --force to overwrite.",
             output.display()
-          ));
+          );
         }
 
         // Create parent directories if needed
         if let Some(parent) = output.parent() {
           if !parent.exists() {
-            fs::create_dir_all(parent).with_context(|| {
+            fs::create_dir_all(parent).wrap_err_with(|| {
               format!("Failed to create directory: {}", parent.display())
             })?;
             info!("Created directory: {}", parent.display());
@@ -54,12 +58,14 @@ fn main() -> Result<()> {
         }
 
         // Generate the config file
-        Config::generate_default_config(format, output).with_context(|| {
-          format!(
-            "Failed to generate configuration file: {}",
-            output.display()
-          )
-        })?;
+        Config::generate_default_config(format, output).wrap_err_with(
+          || {
+            format!(
+              "Failed to generate configuration file: {}",
+              output.display()
+            )
+          },
+        )?;
 
         info!(
           "Configuration file created successfully. Edit it to customize your \
@@ -69,7 +75,7 @@ fn main() -> Result<()> {
       },
 
       Commands::ExportTemplates { output_dir, force } => {
-        Config::export_templates(output_dir, *force).with_context(|| {
+        Config::export_templates(output_dir, *force).wrap_err_with(|| {
           format!("Failed to export templates to {}", output_dir.display())
         })?;
         return Ok(());

@@ -1,6 +1,6 @@
 use std::{fs, io::Write, path::Path, sync::LazyLock};
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Context, Result};
 use log::{error, info};
 use ndg_commonmark::utils::never_matching_regex;
 use rayon::prelude::*;
@@ -107,13 +107,12 @@ pub fn generate_manpage(
   section: u8,
 ) -> Result<()> {
   // Read options JSON
-  let json_content = fs::read_to_string(options_path).context(format!(
-    "Failed to read options file: {}",
-    options_path.display()
-  ))?;
+  let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
+    format!("Failed to read options file: {}", options_path.display())
+  })?;
 
   let options_data: Value = serde_json::from_str(&json_content)
-    .context("Failed to parse options JSON")?;
+    .wrap_err("Failed to parse options JSON")?;
 
   // Extract options
   let mut options = Vec::new();
@@ -155,10 +154,9 @@ pub fn generate_manpage(
   );
 
   // Create output file
-  let mut file = fs::File::create(&output_file).context(format!(
-    "Failed to create manpage file: {}",
-    output_file.display()
-  ))?;
+  let mut file = fs::File::create(&output_file).wrap_err_with(|| {
+    format!("Failed to create output file: {}", output_file.display())
+  })?;
 
   // Write manpage header
   let today = jiff::Zoned::now().strftime("%Y-%m-%d").to_string();

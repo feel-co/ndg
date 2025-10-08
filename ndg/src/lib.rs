@@ -1,12 +1,12 @@
 //! # NDG: Not a Docs Generator
 //!
-//! `ndg` is a fast, customizable documentation generator for Nix, NixOS, and
+//! `ndg` is a fast, customizable documentation generator for Nix, `NixOS`, and
 //! Nixpkgs module systems. It converts Markdown and Nix module options into
-//! HTML and manpages, supporting Nixpkgs-flavored CommonMark, automatic table
+//! HTML and manpages, supporting Nixpkgs-flavored `CommonMark`, automatic table
 //! of contents, search, multi-threading, and fully customizable templates.
 //!
 //! ## Features
-//! - Markdown to HTML and Manpage conversion with Nixpkgs-flavored CommonMark
+//! - Markdown to HTML and Manpage conversion with Nixpkgs-flavored `CommonMark`
 //!   support
 //! - Automatic table of contents and heading anchors
 //! - Search functionality across documents
@@ -33,6 +33,7 @@
 //! information about the project, installing NDG, and CLI usage.
 pub mod cli;
 pub mod config;
+pub mod error;
 pub mod formatter;
 pub mod html;
 pub mod manpage;

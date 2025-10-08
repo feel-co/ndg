@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Context, Result};
 use log::info;
 use serde::Serialize;
 use serde_json::Value;
@@ -39,10 +39,12 @@ pub fn generate_search_index(
   if !markdown_files.is_empty() && config.input_dir.is_some() {
     let input_dir = config.input_dir.as_ref().unwrap();
     for file_path in markdown_files {
-      let content = fs::read_to_string(file_path).context(format!(
-        "Failed to read file for search indexing: {}",
-        file_path.display()
-      ))?;
+      let content = fs::read_to_string(file_path).wrap_err_with(|| {
+        format!(
+          "Failed to read file for search indexing: {}",
+          file_path.display()
+        )
+      })?;
 
       let title = extract_title(&content).unwrap_or_else(|| {
         file_path
@@ -55,10 +57,12 @@ pub fn generate_search_index(
       // Use the existing markdown processor to handle all NDG-specific markup
       let plain_text = utils::process_content_to_plain_text(&content, config);
 
-      let rel_path = file_path.strip_prefix(input_dir).context(format!(
-        "Failed to determine relative path for {}",
-        file_path.display()
-      ))?;
+      let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
+        format!(
+          "Failed to determine relative path for {}",
+          file_path.display()
+        )
+      })?;
 
       let mut output_path = rel_path.to_owned();
       output_path.set_extension("html");
@@ -107,12 +111,13 @@ pub fn generate_search_index(
   // Write search index data.
   // Always create a valid JSON array, even if empty.
   let search_data_path = search_dir.join("search-data.json");
-  fs::write(&search_data_path, serde_json::to_string(&documents)?).context(
-    format!(
-      "Failed to write search data to {}",
-      search_data_path.display()
-    ),
-  )?;
+  fs::write(&search_data_path, serde_json::to_string(&documents)?)
+    .wrap_err_with(|| {
+      format!(
+        "Failed to write search data to {}",
+        search_data_path.display()
+      )
+    })?;
 
   // Create search page
   create_search_page(config)?;
@@ -145,10 +150,12 @@ pub fn create_search_page(config: &Config) -> Result<()> {
 
   // Write the search page to the output directory
   let search_page_path = config.output_dir.join("search.html");
-  fs::write(&search_page_path, &html).context(format!(
-    "Failed to write search page to {}",
-    search_page_path.display()
-  ))?;
+  fs::write(&search_page_path, &html).wrap_err_with(|| {
+    format!(
+      "Failed to write search page to {}",
+      search_page_path.display()
+    )
+  })?;
 
   Ok(())
 }
