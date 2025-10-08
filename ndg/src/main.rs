@@ -89,7 +89,7 @@ fn main() -> Result<()> {
         title,
         section,
       } => {
-        return utils::generate_options_manpage(
+        return manpage::generate_manpage(
           module_options,
           output_file.as_deref(),
           title.as_deref(),

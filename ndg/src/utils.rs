@@ -1,6 +1,6 @@
 mod assets;
 
-use std::{fmt::Write, fs, path::Path};
+use std::{fmt::Write, fs};
 
 use color_eyre::eyre::{self, Context};
 use log::info;
@@ -11,28 +11,7 @@ use ndg_commonmark::{
 };
 
 pub use crate::utils::assets::copy_assets;
-use crate::{config::Config, formatter::options, html, manpage};
-
-/// Generate a manpage from options JSON
-pub fn generate_options_manpage(
-  module_options: &Path,
-  output_file: Option<&Path>,
-  title: Option<&str>,
-  header: Option<&str>,
-  footer: Option<&str>,
-  section: u8,
-) -> eyre::Result<()> {
-  info!("Generating manpage from options JSON");
-  manpage::generate_manpage(
-    module_options,
-    output_file,
-    title,
-    header,
-    footer,
-    section,
-  )?;
-  Ok(())
-}
+use crate::{config::Config, formatter::options, html};
 
 /// Collect all included files from markdown documents
 pub fn collect_included_files(
