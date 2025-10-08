@@ -104,8 +104,10 @@ fn render_page_with_syntax_highlighting() {
 
   // Render markdown with a code block
   let md = "```rust\nfn main() { println!(\"hi\"); }\n```";
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = true;
+  let options = MarkdownOptions {
+    highlight_code: true,
+    ..Default::default()
+  };
   let processor = MarkdownProcessor::new(options);
   let result = processor.render(md);
   let html_content = processor.highlight_codeblocks(&result.html);

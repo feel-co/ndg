@@ -225,6 +225,14 @@ pub fn collect_included_files(
 }
 
 /// Process markdown files
+type OutputEntry = (
+  String,
+  Vec<ndg_commonmark::Header>,
+  Option<String>,
+  std::path::PathBuf,
+  bool,
+);
+
 pub fn process_markdown_files(
   config: &Config,
 ) -> eyre::Result<Vec<std::path::PathBuf>> {
@@ -234,18 +242,8 @@ pub fn process_markdown_files(
     let files = collect_markdown_files(input_dir);
     info!("Found {} markdown files", files.len());
 
-    // Map: output html path -> (content, headers, title, source md, is_include)
-    // FIXME: clippy warning about type complexity, it's not wrong tbh
-    let mut output_map: HashMap<
-      String,
-      (
-        String,
-        Vec<ndg_commonmark::Header>,
-        Option<String>,
-        std::path::PathBuf,
-        bool,
-      ),
-    > = HashMap::new();
+    // Map: output html path -> OutputEntry
+    let mut output_map: HashMap<String, OutputEntry> = HashMap::new();
 
     // Track custom outputs keyed by included file path
     let mut pending_custom_outputs: HashMap<std::path::PathBuf, Vec<String>> =
