@@ -1,6 +1,7 @@
 [workspace]
 members  = [ "ndg", "ndg-commonmark", "xtask" ]
 resolver = "3"
+default-members = [ "ndg" ]
 
 [workspace.package]
 authors      = [ "NotAShelf <raf@notashelf.dev>" ]
