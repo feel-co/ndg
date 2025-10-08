@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Write, fs, path::Path};
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Context, Result, bail};
 use ndg_commonmark::Header;
 use tera::Tera;
 
@@ -524,7 +524,7 @@ pub fn render_search(
 ) -> Result<String> {
   // Skip rendering if search is disabled
   if !config.generate_search {
-    return Err(anyhow::anyhow!("Search functionality is disabled"));
+    bail!("Search functionality is disabled");
   }
 
   let mut tera = Tera::default();
@@ -680,23 +680,18 @@ fn get_template_content(
   if let Some(template_dir) = config.get_template_path() {
     let template_path = template_dir.join(template_name);
     if template_path.exists() {
-      return fs::read_to_string(&template_path).with_context(|| {
-        format!(
-          "Failed to read custom template file: {}. Check file permissions \
-           and ensure the file is valid UTF-8",
-          template_path.display()
-        )
+      return fs::read_to_string(&template_path).wrap_err({
+        format!("Failed to read template file: {}", template_path.display())
       });
     }
   }
-
   // If template_path is specified but doesn't point to a directory with our
   // template
   if let Some(template_path) = &config.template_path {
     if template_path.exists() && template_name == "default.html" {
       // XXX: For backward compatibility
       // If template_path is a file, use it for default.html
-      return fs::read_to_string(template_path).with_context(|| {
+      return fs::read_to_string(template_path).wrap_err({
         format!(
           "Failed to read custom template file: {}. Check file permissions \
            and ensure the file is valid UTF-8",
@@ -705,7 +700,6 @@ fn get_template_content(
       });
     }
   }
-
   // Use fallback embedded template if no custom template found
   // If fallback is empty, return empty string (used for optional templates)
   Ok(fallback.to_string())

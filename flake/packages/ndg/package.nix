@@ -2,6 +2,7 @@
   lib,
   rustPlatform,
   installShellFiles,
+  versionCheckHook,
   stdenv,
 }: let
   fs = lib.fileset;
@@ -18,8 +19,11 @@ in
     src = fs.toSource {
       root = s;
       fileset = fs.unions [
+        (s + /.config)
+        (s + /.cargo)
         (s + /ndg)
         (s + /ndg-commonmark)
+        (s + /xtask)
         (s + /Cargo.lock)
         (s + /Cargo.toml)
       ];
@@ -27,13 +31,30 @@ in
 
     cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
     enableParallelBuilding = true;
+    useNextest = true;
+
+    # xtask doesn't support passing --target
+    # but nix hooks expect the folder structure from when it's set
+    env.CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.cargoShortTarget;
+
+    nativeInstallCheckInputs = [versionCheckHook];
+    versionCheckProgram = "${placeholder "out"}/bin/${finalAttrs.meta.mainProgram}";
+    versionCheckProgramArg = "--version";
+    doInstallCheck = true;
 
     postInstall =
       lib.optionalString
       (stdenv.hostPlatform.canExecute stdenv.targetPlatform) ''
-        $out/bin/ndg generate
-        installShellCompletion dist/completions/{ndg.bash,ndg.fish,_ndg}
-        installManPage dist/man/ndg.1
+        # Install required files with the 'dist' task
+        $out/bin/xtask dist
+
+        for dir in completions man; do
+          mkdir -p "$out/share/$dir"
+          cp -rf "dist/$dir" "$out/share/"
+        done
+
+        # Avoid populating PATH with an 'xtask' cmd
+        rm $out/bin/xtask
       '';
 
     meta = {

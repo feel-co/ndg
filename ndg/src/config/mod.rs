@@ -5,10 +5,12 @@ use std::{
   path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::cli::{Cli, Commands};
+use crate::{
+  cli::{Cli, Commands},
+  error::NdgError,
+};
 
 // XXX: I know this looks silly, but my understanding is that this is the most
 // type-correct and re-usable way. Functions allow for more complex default
@@ -149,40 +151,56 @@ impl Config {
   ///
   /// Returns an error if the file cannot be read or parsed, or if the format is
   /// unsupported.
-  pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+  pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, NdgError> {
     let path = path.as_ref();
-    let content = fs::read_to_string(path).with_context(|| {
-      format!("Failed to read config file: {}", path.display())
+    let content = fs::read_to_string(path).map_err(|e| {
+      NdgError::Config(format!(
+        "Failed to read config file: {}: {}",
+        path.display(),
+        e
+      ))
     })?;
 
-    path.extension().map_or_else(
-      || {
-        Err(anyhow::anyhow!(
-          "Config file has no extension: {}",
-          path.display()
-        ))
-      },
-      |ext| {
-        match ext.to_str().unwrap_or("").to_lowercase().as_str() {
+    match path.extension().and_then(|ext| ext.to_str()) {
+      Some(ext) => {
+        match ext.to_lowercase().as_str() {
           "json" => {
-            serde_json::from_str(&content).with_context(|| {
-              format!("Failed to parse JSON config from {}", path.display())
-            })
+            serde_json::from_str(&content)
+              .map_err(NdgError::from)
+              .map_err(|e| {
+                NdgError::Config(format!(
+                  "Failed to parse JSON config from {}: {}",
+                  path.display(),
+                  e
+                ))
+              })
           },
           "toml" => {
-            toml::from_str(&content).with_context(|| {
-              format!("Failed to parse TOML config from {}", path.display())
-            })
+            toml::from_str(&content)
+              .map_err(NdgError::from)
+              .map_err(|e| {
+                NdgError::Config(format!(
+                  "Failed to parse TOML config from {}: {}",
+                  path.display(),
+                  e
+                ))
+              })
           },
           _ => {
-            Err(anyhow::anyhow!(
+            Err(NdgError::Config(format!(
               "Unsupported config file format: {}",
               path.display()
-            ))
+            )))
           },
         }
       },
-    )
+      None => {
+        Err(NdgError::Config(format!(
+          "Config file has no extension: {}",
+          path.display()
+        )))
+      },
+    }
   }
 
   /// Load configuration from file and CLI arguments, merging them.
@@ -197,11 +215,15 @@ impl Config {
   /// # Errors
   ///
   /// Returns an error if required fields are missing or paths are invalid.
-  pub fn load(cli: &Cli) -> Result<Self> {
+  pub fn load(cli: &Cli) -> Result<Self, NdgError> {
     let mut config = if let Some(config_path) = &cli.config_file {
       // Config file explicitly specified via CLI
-      Self::from_file(config_path).with_context(|| {
-        format!("Failed to load config from {}", config_path.display())
+      Self::from_file(config_path).map_err(|e| {
+        NdgError::Config(format!(
+          "Failed to load config from {}: {}",
+          config_path.display(),
+          e
+        ))
       })?
     } else if let Some(discovered_config) = Self::find_config_file() {
       // Found a config file in a standard location
@@ -209,11 +231,12 @@ impl Config {
         "Using discovered config file: {}",
         discovered_config.display()
       );
-      Self::from_file(&discovered_config).with_context(|| {
-        format!(
-          "Failed to load discovered config from {}",
-          discovered_config.display()
-        )
+      Self::from_file(&discovered_config).map_err(|e| {
+        NdgError::Config(format!(
+          "Failed to load discovered config from {}: {}",
+          discovered_config.display(),
+          e
+        ))
       })?
     } else {
       Self::default()
@@ -231,33 +254,34 @@ impl Config {
       if cli.config_file.is_none() && Self::find_config_file().is_none() {
         // If there's no config file (explicit or discovered) and no Html
         // command, we're missing required data
-        return Err(anyhow::anyhow!(
+        return Err(NdgError::Config(
           "Neither config file nor 'html' subcommand provided. Use 'ndg html' \
            or provide a config file with --config."
+            .to_string(),
         ));
       }
     }
 
     // We need *at least one* source of content
     if config.input_dir.is_none() && config.module_options.is_none() {
-      return Err(anyhow::anyhow!(
+      return Err(NdgError::Config(
         "At least one of input directory or module options must be provided."
+          .to_string(),
       ));
     }
 
     // Validate input_dir if it's provided
     if let Some(ref input_dir) = config.input_dir {
       if !input_dir.exists() {
-        return Err(anyhow::anyhow!(
+        return Err(NdgError::Config(format!(
           "Input directory does not exist: {}",
           input_dir.display()
-        ));
+        )));
       }
     }
 
     // Validate all paths
     config.validate_paths()?;
-
     Ok(config)
   }
 
@@ -433,7 +457,7 @@ impl Config {
   }
 
   /// Validate all paths specified in the configuration
-  pub fn validate_paths(&self) -> Result<()> {
+  pub fn validate_paths(&self) -> Result<(), NdgError> {
     let mut errors = Vec::new();
 
     // Module options file should exist if specified
@@ -451,7 +475,7 @@ impl Config {
       }
     }
 
-    // Template path should exist if specified
+    // Template file should exist if specified
     if let Some(ref template_path) = self.template_path {
       if !template_path.exists() {
         errors.push(format!(
@@ -476,7 +500,7 @@ impl Config {
       }
     }
 
-    // Stylesheet should exist if specified
+    // Stylesheet files should exist if specified
     for (index, stylesheet_path) in self.stylesheet_paths.iter().enumerate() {
       if !stylesheet_path.exists() {
         errors.push(format!(
@@ -540,33 +564,32 @@ impl Config {
       }
     }
 
-    // Check for template/template-dir conflict and log a warning
-    if self.template_path.is_some() && self.template_dir.is_some() {
-      log::warn!(
-        "Both template file and template directory are specified. Template \
-         file will only be used if it matches the requested template name."
-      );
-    }
-
     // Return error if we found any issues
     if !errors.is_empty() {
       let error_message = errors.join("\n");
-      return Err(anyhow::anyhow!(
+      return Err(NdgError::Config(format!(
         "Configuration path validation errors:\n{error_message}"
-      ));
+      )));
     }
 
     Ok(())
   }
 
   /// Generate a default configuration file with commented explanations
-  pub fn generate_default_config(format: &str, path: &Path) -> Result<()> {
+  pub fn generate_default_config(
+    format: &str,
+    path: &Path,
+  ) -> Result<(), NdgError> {
     // Get template from the templates module
     let config_content = crate::config::templates::get_template(format)
-      .map_err(|e| anyhow::anyhow!("{e}"))?;
+      .map_err(|e| NdgError::Template(e.to_string()))?;
 
-    fs::write(path, config_content).with_context(|| {
-      format!("Failed to write default config to {}", path.display())
+    fs::write(path, config_content).map_err(|e| {
+      NdgError::Config(format!(
+        "Failed to write default config to {}: {}",
+        path.display(),
+        e
+      ))
     })?;
 
     log::info!("Created default configuration file: {}", path.display());
@@ -574,13 +597,17 @@ impl Config {
   }
 
   /// Export embedded templates to a directory for customization
-  pub fn export_templates(output_dir: &Path, force: bool) -> Result<()> {
+  pub fn export_templates(
+    output_dir: &Path,
+    force: bool,
+  ) -> Result<(), NdgError> {
     // Create output directory if it doesn't exist
-    fs::create_dir_all(output_dir).with_context(|| {
-      format!(
-        "Failed to create template directory: {}",
-        output_dir.display()
-      )
+    fs::create_dir_all(output_dir).map_err(|e| {
+      NdgError::Config(format!(
+        "Failed to create template directory: {}: {}",
+        output_dir.display(),
+        e
+      ))
     })?;
 
     // Get all embedded template sources
@@ -592,24 +619,22 @@ impl Config {
       // Check if file exists and force flag
       if file_path.exists() && !force {
         log::warn!(
-          "Skipping existing file: {} (use --force to overwrite)",
+          "File {} already exists. Use --force to overwrite.",
           file_path.display()
         );
         continue;
       }
 
-      fs::write(&file_path, content).with_context(|| {
-        format!("Failed to write template file: {}", file_path.display())
+      fs::write(&file_path, content).map_err(|e| {
+        NdgError::Config(format!(
+          "Failed to write template file: {}: {}",
+          file_path.display(),
+          e
+        ))
       })?;
-
       log::info!("Exported template: {}", file_path.display());
     }
 
-    log::info!("Templates exported to: {}", output_dir.display());
-    log::info!(
-      "Use --template-dir {} to customize your documentation",
-      output_dir.display()
-    );
     Ok(())
   }
 

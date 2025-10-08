@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Context, Result};
 use log::debug;
 use serde_json::{self, Value};
 
@@ -12,7 +12,7 @@ use crate::{
 
 /// Represents a `NixOS` configuration option.
 ///
-/// This struct holds all relevant metadata for a single NixOS module option,
+/// This struct holds all relevant metadata for a single `NixOS` module option,
 /// including its name, type, description, default and example values,
 /// declaration location, and visibility flags. Used for rendering options
 /// documentation.
@@ -69,13 +69,12 @@ pub struct NixOption {
 /// Returns an error if the file cannot be read, parsed, or written.
 pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   // Read options JSON
-  let json_content = fs::read_to_string(options_path).context(format!(
-    "Failed to read options file: {}",
-    options_path.display()
-  ))?;
+  let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
+    format!("Failed to read options file: {}", options_path.display())
+  })?;
 
   let options_data: Value = serde_json::from_str(&json_content)
-    .context("Failed to parse options JSON")?;
+    .wrap_err("Failed to parse options JSON")?;
 
   // Extract options
   let mut options = HashMap::new();
@@ -236,10 +235,9 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   // Render options page
   let html = template::render_options(config, &customized_options)?;
   let output_path = config.output_dir.join("options.html");
-  fs::write(&output_path, html).context(format!(
-    "Failed to write options file: {}",
-    output_path.display()
-  ))?;
+  fs::write(&output_path, html).wrap_err_with(|| {
+    format!("Failed to write options file: {}", output_path.display())
+  })?;
 
   Ok(())
 }

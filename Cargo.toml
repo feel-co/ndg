@@ -1,6 +1,7 @@
 [workspace]
 members  = [ "ndg", "ndg-commonmark", "xtask" ]
 resolver = "3"
+default-members = [ "ndg" ]
 
 [workspace.package]
 authors      = [ "NotAShelf <raf@notashelf.dev>" ]
@@ -48,6 +49,7 @@ tera = { version = "1.20.0", default-features = false }
 thiserror = "2.0.17"
 toml = { version = "0.9.7", default-features = false, features = [ "parse", "serde" ] }
 walkdir = "2.5.0"
+color-eyre = "0.6.5"
 
 [workspace.lints.clippy]
 alloc_instead_of_core             = "allow"
@@ -140,3 +142,6 @@ lto           = "thin"
 opt-level     = "s"
 panic         = "abort"
 strip         = true
+
+[profile.dev.package.backtrace]
+opt-level = 3
