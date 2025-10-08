@@ -5,7 +5,7 @@ use log::info;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::{config::Config, html, html::utils};
+use crate::{config::Config, html};
 
 /// Search document data structure
 #[derive(Debug, Serialize)]
@@ -55,7 +55,8 @@ pub fn generate_search_index(
       });
 
       // Use the existing markdown processor to handle all NDG-specific markup
-      let plain_text = utils::process_content_to_plain_text(&content, config);
+      let plain_text =
+        crate::utils::html::process_content_to_plain_text(&content, config);
 
       let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
         format!(
@@ -92,7 +93,10 @@ pub fn generate_search_index(
 
             // Use the same clean processing as for markdown files
             let plain_description =
-              utils::process_content_to_plain_text(raw_description, config);
+              crate::utils::html::process_content_to_plain_text(
+                raw_description,
+                config,
+              );
 
             // Create search entry for this option
             documents.push(SearchDocument {

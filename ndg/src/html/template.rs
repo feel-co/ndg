@@ -5,7 +5,7 @@ use html_escape::encode_text;
 use ndg_commonmark::Header;
 use tera::Tera;
 
-use crate::{config::Config, formatter::options::NixOption, html::utils};
+use crate::{config::Config, formatter::options::NixOption};
 
 // Template constants - these serve as fallbacks
 const DEFAULT_TEMPLATE: &str = include_str!("../../templates/default.html");
@@ -77,7 +77,7 @@ pub fn render(
   let custom_scripts = generate_custom_scripts(config, rel_path)?;
 
   // Generate asset and navigation paths based on file location
-  let asset_paths = utils::generate_asset_paths(rel_path);
+  let asset_paths = crate::utils::html::generate_asset_paths(rel_path);
 
   // Prepare meta tags HTML
   let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
@@ -255,7 +255,7 @@ pub fn render_options(
   let custom_scripts = generate_custom_scripts(config, root_path)?;
 
   // Generate asset and navigation paths (options page is at root)
-  let asset_paths = utils::generate_asset_paths(root_path);
+  let asset_paths = crate::utils::html::generate_asset_paths(root_path);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -563,7 +563,7 @@ pub fn render_search(
   };
 
   // Generate asset and navigation paths (search page is at root)
-  let asset_paths = utils::generate_asset_paths(root_path);
+  let asset_paths = crate::utils::html::generate_asset_paths(root_path);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -709,7 +709,8 @@ fn get_template_content(
 /// Generate the document navigation HTM
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let mut doc_nav = String::new();
-  let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
+  let root_prefix =
+    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
 
   // Only process markdown files if input_dir is provided
   if let Some(input_dir) = &config.input_dir {
@@ -840,7 +841,8 @@ fn generate_custom_scripts(
   current_file_rel_path: &Path,
 ) -> Result<String> {
   let mut custom_scripts = String::new();
-  let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
+  let root_prefix =
+    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
 
   // Add any user scripts from script_paths. This is additive, not replacing. To
   // replace default content, the user should specify `--template-dir` or
