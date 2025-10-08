@@ -17,6 +17,16 @@ pub struct SearchDocument {
 }
 
 /// Generate search index from markdown files
+/// Generate search index from markdown files
+///
+/// # Errors
+///
+/// Returns an error if the search directory cannot be created or if any file
+/// cannot be read or written.
+///
+/// # Panics
+///
+/// Panics if `config.input_dir` is `None` when processing markdown files.
 pub fn generate_search_index(
   config: &Config,
   markdown_files: &[PathBuf],
@@ -138,6 +148,11 @@ fn extract_title(content: &str) -> Option<String> {
 }
 
 /// Create search page
+/// Create the search page HTML and write it to the output directory.
+///
+/// # Errors
+///
+/// Returns an error if the search page cannot be rendered or written.
 pub fn create_search_page(config: &Config) -> Result<()> {
   if !config.generate_search {
     return Ok(());

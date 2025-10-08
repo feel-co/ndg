@@ -20,6 +20,11 @@ pub use crate::utils::{
 use crate::{config::Config, html::template};
 
 /// Ensure that index.html exists in the output directory
+/// Ensure that index.html exists in the output directory
+///
+/// # Errors
+///
+/// Returns an error if index.html or options.html cannot be read or written.
 pub fn ensure_index(
   config: &Config,
   options_processed: bool,

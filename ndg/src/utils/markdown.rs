@@ -81,6 +81,19 @@ pub fn collect_included_files(config: &Config) -> Result<HashSet<PathBuf>> {
 /// # Errors
 ///
 /// Returns an error if any file cannot be read, rendered, or written.
+/// Processes all markdown files in the input directory and writes HTML output.
+///
+/// This function renders all markdown files, handles custom output paths,
+/// and writes the resulting HTML files to the output directory. Files that are
+/// included in other files are skipped unless they have custom output paths.
+///
+/// # Errors
+///
+/// Returns an error if any file cannot be read, rendered, or written.
+///
+/// # Panics
+///
+/// Panics if `config.input_dir` is `None` when processing markdown files.
 pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
   if let Some(ref input_dir) = config.input_dir {
     info!("Input directory: {}", input_dir.display());
@@ -267,7 +280,8 @@ pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
 /// # Returns
 ///
 /// The extracted title or the file stem as a fallback.
-#[must_use] pub fn extract_page_title(file_path: &Path, html_path: &Path) -> String {
+#[must_use]
+pub fn extract_page_title(file_path: &Path, html_path: &Path) -> String {
   let default_title = html_path
     .file_stem()
     .unwrap_or_default()

@@ -17,6 +17,10 @@ const NAVBAR_TEMPLATE: &str = include_str!("../../templates/navbar.html");
 const FOOTER_TEMPLATE: &str = include_str!("../../templates/footer.html");
 
 /// Render a documentation page
+///
+/// # Errors
+///
+/// Returns an error if the template cannot be rendered or written.
 pub fn render(
   config: &Config,
   content: &str,
@@ -216,6 +220,11 @@ pub fn render(
 }
 
 /// Render `NixOS` module options page
+///
+/// # Errors
+///
+/// Returns an error if the options template or any required template cannot be
+/// rendered or written.
 pub fn render_options(
   config: &Config,
   options: &HashMap<String, NixOption>,
@@ -519,6 +528,12 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 }
 
 /// Render search page
+/// Render search page
+///
+/// # Errors
+///
+/// Returns an error if the search template or any required template cannot be
+/// rendered or written.
 pub fn render_search(
   config: &Config,
   context: &HashMap<&str, String>,

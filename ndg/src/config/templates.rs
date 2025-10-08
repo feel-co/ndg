@@ -109,6 +109,10 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
 "#;
 
 /// Get the correct configuration template based on the requested format.
+///
+/// # Errors
+///
+/// Returns an error if the requested format is not supported.
 pub fn get_template(format: &str) -> Result<&'static str, TemplateError> {
   match format.to_lowercase().as_str() {
     "toml" => Ok(DEFAULT_TOML_TEMPLATE),

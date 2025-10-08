@@ -457,6 +457,10 @@ impl Config {
   }
 
   /// Validate all paths specified in the configuration
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if any configured path does not exist or is invalid.
   pub fn validate_paths(&self) -> Result<(), NdgError> {
     let mut errors = Vec::new();
 
@@ -576,6 +580,11 @@ impl Config {
   }
 
   /// Generate a default configuration file with commented explanations
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the template cannot be retrieved or the file cannot be
+  /// written.
   pub fn generate_default_config(
     format: &str,
     path: &Path,
@@ -597,6 +606,11 @@ impl Config {
   }
 
   /// Export embedded templates to a directory for customization
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the output directory cannot be created or a template
+  /// cannot be written.
   pub fn export_templates(
     output_dir: &Path,
     force: bool,
