@@ -53,7 +53,7 @@ jobs:
           platforms: arm64
 
       - name: "Install QEMU Deps"
-        if: runner.arch = 'X64'
+        if: runner.arch == 'X64'
         run: sudo apt install binfmt-support qemu-user-static
 
       - uses: cachix/install-nix-action@v31
