@@ -119,7 +119,7 @@
   :root {
     /* Dark Mode Colors  */
     --bg-color: var(--neutral-950);
-    --bg-surface: #4a73b5ff;
+    --bg-surface: #304b76ff;
     --bg-surface-2: #334155;
     --text-color: #e2e8f0;
     --text-muted: #94a3b8;
