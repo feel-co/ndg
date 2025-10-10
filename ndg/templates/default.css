@@ -138,14 +138,14 @@
     --shadow-color: rgba(0, 0, 0, 0.25);
     --shadow-color-darker: rgba(0, 0, 0, 0.35);
 
-    /* Admonition Colors */
-    --admonition-note-color: #60a5fa;
-    --admonition-tip-color: #34d399;
-    --admonition-warning-color: #fbbf24;
-    --admonition-danger-color: #f87171;
-    --admonition-info-color: #818cf8;
-    --admonition-important-color: #a78bfa;
-    --admonition-example-color: #22d3ee;
+     /* Admonition Colors */
+     --admonition-note-color: #3b82f6;
+     --admonition-tip-color: #10b981;
+     --admonition-warning-color: #f59e0b;
+     --admonition-danger-color: #ef4444;
+     --admonition-info-color: #6366f1;
+     --admonition-important-color: #8b5cf6;
+     --admonition-example-color: #06b6d4;
   }
 }
 
