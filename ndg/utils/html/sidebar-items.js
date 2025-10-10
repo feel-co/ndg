@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["calculate_root_relative_path","generate_asset_paths","process_content_to_plain_text","strip_markdown"]};

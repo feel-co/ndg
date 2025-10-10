@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["collect_included_files","create_processor_from_config","extract_page_title","process_markdown_files"]};

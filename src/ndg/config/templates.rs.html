@@ -109,10 +109,14 @@
 <a href=#109 id=109 data-nosnippet>109</a>"#</span>;
 <a href=#110 id=110 data-nosnippet>110</a>
 <a href=#111 id=111 data-nosnippet>111</a><span class="doccomment">/// Get the correct configuration template based on the requested format.
-<a href=#112 id=112 data-nosnippet>112</a></span><span class="kw">pub fn </span>get_template(format: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, TemplateError&gt; {
-<a href=#113 id=113 data-nosnippet>113</a>  <span class="kw">match </span>format.to_lowercase().as_str() {
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="string">"toml" </span>=&gt; <span class="prelude-val">Ok</span>(DEFAULT_TOML_TEMPLATE),
-<a href=#115 id=115 data-nosnippet>115</a>    <span class="string">"json" </span>=&gt; <span class="prelude-val">Ok</span>(DEFAULT_JSON_TEMPLATE),
-<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(TemplateError::UnsupportedFormat(format.to_string())),
-<a href=#117 id=117 data-nosnippet>117</a>  }
-<a href=#118 id=118 data-nosnippet>118</a>}</code></pre></div></section></main></body></html>
+<a href=#112 id=112 data-nosnippet>112</a>///
+<a href=#113 id=113 data-nosnippet>113</a>/// # Errors
+<a href=#114 id=114 data-nosnippet>114</a>///
+<a href=#115 id=115 data-nosnippet>115</a>/// Returns an error if the requested format is not supported.
+<a href=#116 id=116 data-nosnippet>116</a></span><span class="kw">pub fn </span>get_template(format: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, TemplateError&gt; {
+<a href=#117 id=117 data-nosnippet>117</a>  <span class="kw">match </span>format.to_lowercase().as_str() {
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="string">"toml" </span>=&gt; <span class="prelude-val">Ok</span>(DEFAULT_TOML_TEMPLATE),
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="string">"json" </span>=&gt; <span class="prelude-val">Ok</span>(DEFAULT_JSON_TEMPLATE),
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(TemplateError::UnsupportedFormat(format.to_string())),
+<a href=#121 id=121 data-nosnippet>121</a>  }
+<a href=#122 id=122 data-nosnippet>122</a>}</code></pre></div></section></main></body></html>
