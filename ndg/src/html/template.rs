@@ -1,10 +1,11 @@
 use std::{collections::HashMap, fmt::Write, fs, path::Path};
 
 use color_eyre::eyre::{Context, Result, bail};
+use html_escape::encode_text;
 use ndg_commonmark::Header;
 use tera::Tera;
 
-use crate::{config::Config, formatter::options::NixOption, html::utils};
+use crate::{config::Config, formatter::options::NixOption};
 
 // Template constants - these serve as fallbacks
 const DEFAULT_TEMPLATE: &str = include_str!("../../templates/default.html");
@@ -16,6 +17,10 @@ const NAVBAR_TEMPLATE: &str = include_str!("../../templates/navbar.html");
 const FOOTER_TEMPLATE: &str = include_str!("../../templates/footer.html");
 
 /// Render a documentation page
+///
+/// # Errors
+///
+/// Returns an error if the template cannot be rendered or written.
 pub fn render(
   config: &Config,
   content: &str,
@@ -76,7 +81,7 @@ pub fn render(
   let custom_scripts = generate_custom_scripts(config, rel_path)?;
 
   // Generate asset and navigation paths based on file location
-  let asset_paths = utils::generate_asset_paths(rel_path);
+  let asset_paths = crate::utils::html::generate_asset_paths(rel_path);
 
   // Prepare meta tags HTML
   let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
@@ -215,6 +220,11 @@ pub fn render(
 }
 
 /// Render `NixOS` module options page
+///
+/// # Errors
+///
+/// Returns an error if the options template or any required template cannot be
+/// rendered or written.
 pub fn render_options(
   config: &Config,
   options: &HashMap<String, NixOption>,
@@ -254,7 +264,7 @@ pub fn render_options(
   let custom_scripts = generate_custom_scripts(config, root_path)?;
 
   // Generate asset and navigation paths (options page is at root)
-  let asset_paths = utils::generate_asset_paths(root_path);
+  let asset_paths = crate::utils::html::generate_asset_paths(root_path);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -518,6 +528,12 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 }
 
 /// Render search page
+/// Render search page
+///
+/// # Errors
+///
+/// Returns an error if the search template or any required template cannot be
+/// rendered or written.
 pub fn render_search(
   config: &Config,
   context: &HashMap<&str, String>,
@@ -562,7 +578,7 @@ pub fn render_search(
   };
 
   // Generate asset and navigation paths (search page is at root)
-  let asset_paths = utils::generate_asset_paths(root_path);
+  let asset_paths = crate::utils::html::generate_asset_paths(root_path);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -708,7 +724,62 @@ fn get_template_content(
 /// Generate the document navigation HTM
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let mut doc_nav = String::new();
-  let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
+  let root_prefix =
+    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
+
+  fn render_nav_entry(
+    doc_nav: &mut String,
+    root_prefix: &str,
+    input_dir: &Path,
+    entry: &walkdir::DirEntry,
+  ) {
+    let path = entry.path();
+    if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
+      let mut html_path = rel_doc_path.to_path_buf();
+      html_path.set_extension("html");
+
+      let target_path =
+        format!("{}{}", root_prefix, html_path.to_string_lossy());
+
+      let page_title = std::fs::read_to_string(path).map_or_else(
+        |_| {
+          html_path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string()
+        },
+        |content| {
+          content.lines().next().map_or_else(
+            || {
+              html_path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+            },
+            |first_line| {
+              first_line.strip_prefix("# ").map_or_else(
+                || {
+                  html_path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string()
+                },
+                ndg_commonmark::utils::clean_anchor_patterns,
+              )
+            },
+          )
+        },
+      );
+
+      let _ = writeln!(
+        doc_nav,
+        "<li><a href=\"{target_path}\">{page_title}</a></li>"
+      );
+    }
+  }
 
   // Only process markdown files if input_dir is provided
   if let Some(input_dir) = &config.input_dir {
@@ -753,81 +824,31 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         }
       }
 
-      // Helper closure to render a nav entry
-      let mut render_entry = |entry: &walkdir::DirEntry| {
-        let path = entry.path();
-        if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
-          let mut html_path = rel_doc_path.to_path_buf();
-          html_path.set_extension("html");
-
-          // Create relative path from current file to target file
-          let target_path =
-            format!("{}{}", root_prefix, html_path.to_string_lossy());
-
-          let page_title = fs::read_to_string(path).map_or_else(
-            |_| {
-              html_path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string()
-            },
-            |content| {
-              content.lines().next().map_or_else(
-                || {
-                  html_path
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string()
-                },
-                |first_line| {
-                  first_line.strip_prefix("# ").map_or_else(
-                    || {
-                      html_path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string()
-                    },
-                    ndg_commonmark::utils::clean_anchor_patterns,
-                  )
-                },
-              )
-            },
-          );
-
-          writeln!(
-            doc_nav,
-            "<li><a href=\"{target_path}\">{page_title}</a></li>"
-          )
-          .expect("Failed to write to doc_nav string");
-        }
-      };
-
       // Render special entries first (index.md, README.md)
       for entry in &special_entries {
-        render_entry(entry);
+        render_nav_entry(&mut doc_nav, &root_prefix, input_dir, entry);
       }
       // Then render regular entries
       for entry in &regular_entries {
-        render_entry(entry);
+        render_nav_entry(&mut doc_nav, &root_prefix, input_dir, entry);
       }
     }
   }
 
   // Add link to options page if module_options is configured
   if doc_nav.is_empty() && config.module_options.is_some() {
-    doc_nav.push_str(&format!(
-      "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>\n"
-    ));
+    let _ = writeln!(
+      doc_nav,
+      "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>"
+    );
   }
 
   // Add search link only if search is enabled
   if config.generate_search {
-    doc_nav.push_str(&format!(
-      "<li><a href=\"{root_prefix}search.html\">Search</a></li>\n"
-    ));
+    let _ = writeln!(
+      doc_nav,
+      "<li><a href=\"{root_prefix}search.html\">Search</a></li>"
+    );
   }
 
   doc_nav
@@ -839,7 +860,8 @@ fn generate_custom_scripts(
   current_file_rel_path: &Path,
 ) -> Result<String> {
   let mut custom_scripts = String::new();
-  let root_prefix = utils::calculate_root_relative_path(current_file_rel_path);
+  let root_prefix =
+    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
 
   // Add any user scripts from script_paths. This is additive, not replacing. To
   // replace default content, the user should specify `--template-dir` or
@@ -888,8 +910,13 @@ fn generate_toc(headers: &[Header]) -> String {
           visible_text = visible_text[..idx].trim_end();
         }
       }
-      writeln!(toc, "<a href=\"#{}\">{}</a>", header.id, visible_text)
-        .expect("Failed to write to toc string");
+      writeln!(
+        toc,
+        "<a href=\"#{}\">{}</a>",
+        header.id,
+        encode_text(visible_text)
+      )
+      .expect("Failed to write to toc string");
     }
   }
 

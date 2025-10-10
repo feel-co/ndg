@@ -89,7 +89,7 @@ fn main() -> Result<()> {
         title,
         section,
       } => {
-        return utils::generate_options_manpage(
+        return manpage::generate_manpage(
           module_options,
           output_file.as_deref(),
           title.as_deref(),
@@ -134,7 +134,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   let markdown_files = utils::process_markdown_files(config)?;
 
   // Process options if provided
-  let options_processed = utils::process_options_file(config)?;
+  let options_processed = utils::process_module_options(config)?;
 
   // Check if we need to create a fallback index.html
   utils::ensure_index(config, options_processed, &markdown_files)?;

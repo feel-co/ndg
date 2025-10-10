@@ -5,7 +5,7 @@ use log::info;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::{config::Config, html, html::utils};
+use crate::{config::Config, html};
 
 /// Search document data structure
 #[derive(Debug, Serialize)]
@@ -17,6 +17,16 @@ pub struct SearchDocument {
 }
 
 /// Generate search index from markdown files
+/// Generate search index from markdown files
+///
+/// # Errors
+///
+/// Returns an error if the search directory cannot be created or if any file
+/// cannot be read or written.
+///
+/// # Panics
+///
+/// Panics if `config.input_dir` is `None` when processing markdown files.
 pub fn generate_search_index(
   config: &Config,
   markdown_files: &[PathBuf],
@@ -55,7 +65,8 @@ pub fn generate_search_index(
       });
 
       // Use the existing markdown processor to handle all NDG-specific markup
-      let plain_text = utils::process_content_to_plain_text(&content, config);
+      let plain_text =
+        crate::utils::html::process_content_to_plain_text(&content, config);
 
       let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
         format!(
@@ -92,7 +103,10 @@ pub fn generate_search_index(
 
             // Use the same clean processing as for markdown files
             let plain_description =
-              utils::process_content_to_plain_text(raw_description, config);
+              crate::utils::html::process_content_to_plain_text(
+                raw_description,
+                config,
+              );
 
             // Create search entry for this option
             documents.push(SearchDocument {
@@ -134,6 +148,11 @@ fn extract_title(content: &str) -> Option<String> {
 }
 
 /// Create search page
+/// Create the search page HTML and write it to the output directory.
+///
+/// # Errors
+///
+/// Returns an error if the search page cannot be rendered or written.
 pub fn create_search_page(config: &Config) -> Result<()> {
   if !config.generate_search {
     return Ok(());

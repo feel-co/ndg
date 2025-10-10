@@ -98,6 +98,11 @@ static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Generate a manpage from options JSON
+/// Generate a manpage from options JSON
+///
+/// # Errors
+///
+/// Returns an error if the options file cannot be read, parsed, or written.
 pub fn generate_manpage(
   options_path: &Path,
   output_path: Option<&Path>,
