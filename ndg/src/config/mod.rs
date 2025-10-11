@@ -357,15 +357,11 @@ impl Config {
         self.manpage_urls_path = Some(manpage_urls.clone());
       }
 
-      // Handle the generate-search flag when explicitly set
-      if let Some(generate_search_val) = generate_search {
-        self.generate_search = *generate_search_val;
-      }
+      // Handle the generate-search flag, overriding config
+      self.generate_search = *generate_search;
 
-      // Handle the highlight-code flag when explicitly set
-      if let Some(highlight_code_val) = highlight_code {
-        self.highlight_code = *highlight_code_val;
-      }
+       // Handle the highlight-code flag, overriding config
+       self.highlight_code = *highlight_code;
 
       if let Some(revision) = revision {
         self.revision.clone_from(revision);

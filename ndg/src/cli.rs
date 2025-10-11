@@ -107,11 +107,11 @@ pub enum Commands {
 
     /// Whether to generate search data and render relevant components.
     #[arg(short = 'S', long = "generate-search")]
-    generate_search: Option<bool>,
+    generate_search: bool,
 
-    /// Whether to enable syntax highlighting for code blocks.
-    #[arg(long = "highlight-code")]
-    highlight_code: Option<bool>,
+     /// Whether to enable syntax highlighting for code blocks.
+     #[arg(long = "highlight-code")]
+     highlight_code: bool,
 
     /// GitHub revision for linking to source files.
     #[arg(long, default_value = "local")]
