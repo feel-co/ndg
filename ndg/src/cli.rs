@@ -109,9 +109,9 @@ pub enum Commands {
     #[arg(short = 'S', long = "generate-search")]
     generate_search: bool,
 
-     /// Whether to enable syntax highlighting for code blocks.
-     #[arg(long = "highlight-code")]
-     highlight_code: bool,
+    /// Whether to enable syntax highlighting for code blocks.
+    #[arg(long = "highlight-code")]
+    highlight_code: bool,
 
     /// GitHub revision for linking to source files.
     #[arg(long, default_value = "local")]

@@ -360,8 +360,8 @@ impl Config {
       // Handle the generate-search flag, overriding config
       self.generate_search = *generate_search;
 
-       // Handle the highlight-code flag, overriding config
-       self.highlight_code = *highlight_code;
+      // Handle the highlight-code flag, overriding config
+      self.highlight_code = *highlight_code;
 
       if let Some(revision) = revision {
         self.revision.clone_from(revision);

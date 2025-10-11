@@ -1,18 +1,19 @@
 use std::fs;
-use tempfile::tempdir;
+
 use ndg::config::Config;
-use ndg_commonmark::{process_markdown_string, ProcessorPreset};
+use ndg_commonmark::{ProcessorPreset, process_markdown_string};
+use tempfile::tempdir;
 
 #[test]
 fn test_full_document_processing() {
-    let temp_dir = tempdir().unwrap();
-    let input_dir = temp_dir.path().join("input");
-    let output_dir = temp_dir.path().join("output");
-    fs::create_dir_all(&input_dir).unwrap();
-    fs::create_dir_all(&output_dir).unwrap();
+  let temp_dir = tempdir().unwrap();
+  let input_dir = temp_dir.path().join("input");
+  let output_dir = temp_dir.path().join("output");
+  fs::create_dir_all(&input_dir).unwrap();
+  fs::create_dir_all(&output_dir).unwrap();
 
-    // Create a sample markdown file
-    let md_content = r#"# Test Document
+  // Create a sample markdown file
+  let md_content = r#"# Test Document
 
 This is a test.
 
@@ -28,47 +29,47 @@ echo "hello"
 
 More content.
 "#;
-    fs::write(input_dir.join("test.md"), md_content).unwrap();
+  fs::write(input_dir.join("test.md"), md_content).unwrap();
 
-    // Create a basic config
-    let mut config = Config::default();
-    config.input_dir = Some(input_dir.clone());
-    config.output_dir = output_dir.clone();
+  // Create a basic config
+  let mut config = Config::default();
+  config.input_dir = Some(input_dir.clone());
+  config.output_dir = output_dir.clone();
 
-    // Test config loading
-    assert_eq!(config.input_dir, Some(input_dir));
-    assert_eq!(config.output_dir, output_dir);
+  // Test config loading
+  assert_eq!(config.input_dir, Some(input_dir));
+  assert_eq!(config.output_dir, output_dir);
 }
 
 #[test]
 fn test_error_handling_on_invalid_input() {
-    let temp_dir = tempdir().unwrap();
-    let invalid_input = temp_dir.path().join("nonexistent");
-    let mut config = Config::default();
-    config.input_dir = Some(invalid_input.clone());
+  let temp_dir = tempdir().unwrap();
+  let invalid_input = temp_dir.path().join("nonexistent");
+  let mut config = Config::default();
+  config.input_dir = Some(invalid_input.clone());
 
-    // Test that config handles missing directory gracefully
-    assert_eq!(config.input_dir, Some(invalid_input));
+  // Test that config handles missing directory gracefully
+  assert_eq!(config.input_dir, Some(invalid_input));
 }
 
 #[test]
 fn test_large_file_processing() {
-    let temp_dir = tempdir().unwrap();
-    let input_dir = temp_dir.path().join("input");
-    fs::create_dir_all(&input_dir).unwrap();
+  let temp_dir = tempdir().unwrap();
+  let input_dir = temp_dir.path().join("input");
+  fs::create_dir_all(&input_dir).unwrap();
 
-    // Create a large markdown file
-    let large_content = "# Heading\n\n".repeat(1000) + "Some content.";
-    fs::write(input_dir.join("large.md"), large_content).unwrap();
+  // Create a large markdown file
+  let large_content = "# Heading\n\n".repeat(1000) + "Some content.";
+  fs::write(input_dir.join("large.md"), large_content).unwrap();
 
-    // Test that large files can be read without issues
-    let content = fs::read_to_string(input_dir.join("large.md")).unwrap();
-    assert!(content.len() > 10000);
+  // Test that large files can be read without issues
+  let content = fs::read_to_string(input_dir.join("large.md")).unwrap();
+  assert!(content.len() > 10000);
 }
 
 #[test]
 fn test_malformed_markdown_recovery() {
-    let malformed_md = r#"# Unclosed [link
+  let malformed_md = r#"# Unclosed [link
 
 Some text.
 
@@ -80,6 +81,6 @@ Some text.
 End.
 "#;
 
-    let result = process_markdown_string(malformed_md, ProcessorPreset::Basic);
-    assert!(!result.html.is_empty());
+  let result = process_markdown_string(malformed_md, ProcessorPreset::Basic);
+  assert!(!result.html.is_empty());
 }
