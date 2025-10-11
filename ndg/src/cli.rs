@@ -71,20 +71,15 @@ pub enum Commands {
     #[arg(short, long)]
     template: Option<PathBuf>,
 
-    /// Path to directory containing template files. Use 'ndg export-templates'
-    /// to get the default templates for customization. Templates in this
-    /// directory override built-in templates (default.html, options.html,
-    /// search.html, etc.)
+     /// Path to directory containing template files. Templates override built-in ones (default.html, options.html, etc.)
     #[arg(long = "template-dir")]
     template_dir: Option<PathBuf>,
 
-    /// Path to custom stylesheet. This can be specified multiple times to
-    /// include multiple stylesheets in order.
+     /// Path to custom stylesheet (can be specified multiple times)
     #[arg(short, long, action = clap::ArgAction::Append)]
     stylesheet: Vec<PathBuf>,
 
-    /// Path to custom Javascript file to include. This can be specified
-    /// multiple times to create multiple script tags in order.
+     /// Path to custom JavaScript file (can be specified multiple times)
     #[arg(long, action = clap::ArgAction::Append)]
     script: Vec<PathBuf>,
 
