@@ -37,15 +37,17 @@ several features such as
 
 ndg has several subcommands to handle different documentation tasks:
 
-```
+```console
+$ ndg --help
+NDG: Not a Docs Generator
+
 Usage: ndg [OPTIONS] [COMMAND]
 
 Commands:
   init              Initialize a new NDG configuration file
   export-templates  Export default templates to a directory for customization
-  generate          Generate shell completions and manpages for ndg itself
-  html              Generate HTML documentation from markdown files and/or module options
-  manpage           Generate manpage from module options
+  html              Process documentation and generate HTML
+  manpage           Generate manpage from options
   help              Print this message or the help of the given subcommand(s)
 
 Options:
@@ -142,6 +144,53 @@ templating. If your use-case is not supported, feel free to request a feature!
 
 ## Detailed Usage
 
+### CLI Flags and Configuration Options
+
+Customizing in NDG is done through two different methods: the configuration
+file, and the CLI flags. The latter allows for ad-hoc overrides of specific
+behaviour, such as data indexing for search and code highlighting. Two example
+flags accepted by `ndg html` are:
+
+- `--generate-search`: Enables or disables search functionality. If present,
+  search is enabled; if omitted, search is disabled.
+- `--highlight-code`: Enables or disables syntax highlighting for code blocks.
+
+Example usage:
+
+```bash
+ndg html --input-dir ./docs --output-dir ./html --title "My Project" --generate-search
+```
+
+This will override the search data generation in, e.g., `config.toml`
+
+#### Configuration Files
+
+Configuration files (TOML or JSON) allow setting options persistently. Options
+like `generate_search` can be set in the config file, but CLI flags will
+override them.
+
+Example `ndg.toml`:
+
+```toml
+input_dir = "docs"
+output_dir = "html"
+title = "My Project"
+generate_search = true  # Can be overridden by CLI
+```
+
+#### Interactions Between CLI and Config
+
+- CLI flags always take precedence over config file settings. For instance, if
+  your config file has `generate_search = true`, but you run
+  `ndg html --generate-search`, search will be disabled.
+- If neither CLI nor config specifies an option, ndg uses sensible defaults
+  (e.g., `generate_search` defaults to `true` in config but `false` via CLI if
+  not set).
+
+For a full list of options, see the help output with `ndg html --help`.
+
+### Generating HTML Documents
+
 The first subcommand in ndg's compartmentalized architecture is for HTML
 generation. The `html` subcommand includes the following options:
 
@@ -156,27 +205,28 @@ Options:
   -t, --template <TEMPLATE>
           Path to custom template file
       --template-dir <TEMPLATE_DIR>
-          Path to directory containing template files (default.html, options.html, etc.)
+          Path to directory containing template files. Use 'ndg export-templates' to get the default templates for customization. Templates in this directory override built-in templa
+tes (default.html, options.html, search.html, etc.)
   -s, --stylesheet <STYLESHEET>
-          Path to custom stylesheet
+          Path to custom stylesheet. This can be specified multiple times to include multiple stylesheets in order
       --script <SCRIPT>
-          Path to custom Javascript file to include. Can be specified multiple times to include multiple script files.
+          Path to custom Javascript file to include. This can be specified multiple times to create multiple script tags in order
   -T, --title <TITLE>
-          Title of the documentation
+          Title of the documentation. Will be used in various components via the templating options
   -f, --footer <FOOTER>
           Footer text for the documentation
   -j, --module-options <MODULE_OPTIONS>
-          Path to a JSON file containing module options
+          Path to a JSON file containing module options in the same format expected by nixos-render-docs
       --options-depth <OPTIONS_TOC_DEPTH>
-          Depth of parent categories in options TOC
+          Depth of parent categories in options section in the sidebar
       --manpage-urls <MANPAGE_URLS>
           Path to manpage URL mappings JSON file
-      --generate-search <GENERATE_SEARCH>
-          Whether to generate search functionality
-      --highlight-code <HIGHLIGHT_CODE>
+  -S, --generate-search
+          Whether to generate search data and render relevant components
+      --highlight-code
           Whether to enable syntax highlighting for code blocks
       --revision <REVISION>
-          GitHub revision for linking to source files
+          GitHub revision for linking to source files [default: local]
   -h, --help
           Print help
 ```
@@ -193,42 +243,55 @@ ndg html -i ./ndg-example/docs -o ./ndg-example/html -T "Awesome Nix Project"
 ```
 
 where `./ndg-example/docs` contains markdown files that you would like to
-convert, and `./ndg-example/html` is the result directory.
-
-The `manpage` subcommand allows generating a manpage from your options:
-
-```bash
-ndg manpage -j ./options.json -o ./man/project.5 -T "My Project" -s 5
-```
-
-The `generate` subcommand helps create shell completions and manpages for ndg
-itself:
+convert, and `./ndg-example/html` is the result directory. Optionally you may
+pass an `options.json` to also render an `options.html` page for a listing of
+your module options.
 
 ```bash
-ndg generate -o ./dist
+$ ndg html
 ```
 
-Optionally you may pass an `options.json` to also render an `options.html` page
-for a listing of your module options.
+### Generating Manpages
+
+NDG allows for Manpages to be generated for your project. While the system is
+not as robust as HTML generation due to the shortcomings of Troff the `manpage`
+subcommand allows generating a manpage from your options:
+
+```bash
+$ ndg manpage -j ./options.json --output-file ./man/project.5 --title "My Project" --section 5
+# => This will generate ./man/project.5 as your manpage.
+```
+
+For manpages, you **must provide** an `options.json` using `--module-options` or
+`-j`. Since we do not convert arbitrary pages in the Manpages mode, this is
+necessary to generate the main page containing module options.
 
 ### Customization
 
-ndg supports various customization options to tailor the output to your needs:
+NDG is an opinionated CLI utility due to the reasons that warranted its
+existence, but it still aims to support various colorful customization options
+to tailor the output to your needs, regardless of how immodest they may be.
 
-#### Custom Templates
+#### Custom Templates (HTML only)
 
-The recommended way to customize templates is to use the `export-templates`
-command to get the default templates, then modify them as needed:
+By default, HTML output's design uses a small internal template hand-crafted for
+NDG. This is suitable for certain usecases, but you might be looking for
+something more. If this is the case for you, then you are encouraged to export
+the default templates and chage them as you wish.
+
+We provide a `export-templates` subcommand that exports the default templates
+into a specified directory which you may modify as you wish, and use them using
+the `--template-dir` flag in `ndg html`.
 
 ```bash
 # Export all default templates to a directory
-ndg export-templates --output-dir my-templates
+$ ndg export-templates --output-dir my-templates
 
 # Customize the templates as needed
 # Edit my-templates/default.html, my-templates/default.css, etc.
 
-# Use your custom templates
-ndg html -i ./docs -o ./html -T "Awesome Project" --template-dir ./my-templates
+# Then, use your custom templates
+$ ndg html -i ./docs -o ./html -T "Awesome Project" --template-dir ./my-templates
 ```
 
 You can also provide a single template file using the `--template` option:
@@ -236,6 +299,11 @@ You can also provide a single template file using the `--template` option:
 ```bash
 ndg html -i ./docs -o ./html -T "Awesome Project" -t ./my-template.html
 ```
+
+The `--template` flag will ONLY override the default template, which is used in
+the generation of the converted Markdown pages. To modify search and options
+pages, you may want to export the templates in full and modify them per your
+needs.
 
 When using a template directory, ndg will look for the following files:
 
@@ -330,72 +398,107 @@ Each template can use these variables as needed. For example, in the
 
 #### Custom Stylesheet
 
-You can provide your own CSS stylesheet using the `--stylesheet` option:
+NDG also bundles its own stylesheet as a part of the default templates. This is
+meant to be a simple starting point, but you may easily override it with your
+own stylesheets if you are not satisfied with the defaults. The `--stylesheet`
+flag allows overriding the default CSS template with your own.
 
 ```bash
-ndg html -i ./docs -o ./html -T "My Project" -s ./my-styles.css
+$ ndg html -i ./docs -o ./html -T "My Project" -s ./my-styles.css
+#=> my-styles.css will be used in place of the 'default.css'
 ```
 
-ndg is able to compile SCSS as well, should you choose to pass it a file with
+> [!WARNING]
+> While overriding the CSS, it is strongly recommended that you do not partially
+> override the files. This mechanism is intended for quick and dirty edits
+> rather than full replacements, because the default HTML templates depend on
+> CSS classes in the default stylesheet. If you would like to start fresh, you
+> should consider exporting the default template, and overriding it in full.
+
+NDG is able to compile SCSS as well, should you choose to pass it a file with
 the `.scss` extension. The stylesheet will be compiled in runtime, and placed as
 a `.css` file in the output directory.
 
 #### NixOS Options
 
+[nvf]: https://github.com/notashelf/nvf
+
+One of the many purposes of NDG is to document options provided by the Nix
+module system. This behaviour is similar to `nixos-render-docs` used in the
+Nixpkgs manual, and is fully backwards compatible in terms of the file format
+expected by the utility.
+
 To include a page listing NixOS options, provide a path to your `options.json`
 file:
 
 ```bash
-ndg html -i ./docs -o ./html -T "My Project" -j ./options.json
+$ ndg html -i ./docs -o ./html -T "My Project" -j ./options.json
+#=> The output directory will contain an options.html with your option reference
 ```
 
-[nvf]: https://github.com/notashelf/nvf
+While there is no clear standard, the `options.json` is expected to be in the
+same "standard" format as the utility used by NixOS. In a traditional setup, you
+can generate this file using `pkgs.nixosOptionsDoc` by providing it with
+evaluated modules. If you are using the `ndg-builder` package instead of the raw
+CLI, module evaluation is done for you automatically.
 
-The `options.json` should be in the standard NixOS format. An example from
-[nvf], created via `pkgs.nixosOptionsDoc`.
-
-```JSON
-{
-  "vim.withRuby": {
-    "declarations": [
-      {
-        "name": "<nvf/modules/wrapper/environment/options.nix>",
-        "url": "https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"
-      }
-    ],
-    "default": {
-      "_type": "literalExpression",
-      "text": "true"
-    },
-    "description": "Whether to enable Ruby support in the Neovim wrapper.\n.",
-    "example": {
-      "_type": "literalExpression",
-      "text": "true"
-    },
-    "loc": ["vim", "withRuby"],
-    "readOnly": false,
-    "type": "boolean"
-  }
-}
-```
+> [!TIP]
+> An example from [nvf], created via `pkgs.nixosOptionsDoc`.
+>
+> ```json
+> {
+>   "vim.withRuby": {
+>     "declarations": [
+>       {
+>         "name": "<nvf/modules/wrapper/environment/options.nix>",
+>         "url": "https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"
+>       }
+>     ],
+>     "default": {
+>       "_type": "literalExpression",
+>       "text": "true"
+>     },
+>     "description": "Whether to enable Ruby support in the Neovim wrapper.\n.",
+>     "example": {
+>       "_type": "literalExpression",
+>       "text": "true"
+>     },
+>     "loc": ["vim", "withRuby"],
+>     "readOnly": false,
+>     "type": "boolean"
+>   }
+> }
+> ```
 
 #### Search Configuration
 
-By default, ndg generates a search page and a search widget for your
-documentation. You can disable this with:
+Your documentation may get convoluted as it grows more comprehensive (because
+you write such good docs!) so NDG includes the option to generate
+
+1. A search page with full indexing
+2. A search widget with limited functionality
+
+to search across your pages and option references. This _used_ to be enabled by
+default prior to version v2.4 but it now defaults to false to avoid invasive
+behaviour. You may re-enable the search page generating by passing the
+`--generate-search` flag to `ndg html`
 
 ```bash
-ndg html -i ./docs -o ./html -T "My Project" --generate-search false
+$ ndg html -i ./docs -o ./html -T "My Project"
+#=> Search page will not be generated
+
+$ ndg html -i ./docs -o ./html -T "My Project" --generate-search
+#=> Search page will be generated
 ```
 
-This will prevent the creation of search.html and the search index data, and the
-search widget won't appear in the navigation.
+While the search is disabled, all search-related functionality will be skipped
+during runtime.
 
-## Nix Integration
+## Using & Integrating with Nix
 
-### Using ndg with Nix
+### Using NDG with Nix
 
-ndg can be integrated into Nix builds to generate documentation for your
+NDG can be integrated into Nix builds to generate documentation for your
 projects. Here are several ways to use ndg with Nix:
 
 #### Installing from the Flake
@@ -404,10 +507,10 @@ The simplest way to install ndg is directly from its flake:
 
 ```bash
 # Install to your profile
-nix profile install github:feel-co/ndg
+$ nix profile install github:feel-co/ndg#ndg # do not add the ndg-builder package!
 
 # Or run without installing
-nix run github:feel-co/ndg -- html -i ./docs -o ./result -T "My Project"
+$ nix run github:feel-co/ndg -- html -i ./docs -o ./result -T "My Project"
 ```
 
 #### Using ndg-builder
@@ -455,7 +558,7 @@ included `ndg-builder` function, which properly handles all the complexities:
 }
 ```
 
-#### Manual Approach Using runCommandLocal
+#### Manual Approach Using `runCommandLocal`
 
 If you need more control, you can use `runCommandLocal` directly:
 
