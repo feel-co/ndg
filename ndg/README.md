@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD013 MD033 -->
+
 <h1 align="center">
   <br>
   NDG: Not a Docs Generator
@@ -22,8 +24,7 @@ several features such as
 - **Useful Markdown Companions**
   - **Automatic table of contents** generation from document headings
   - **Title Anchors** - Automatically generates anchors for headings
-- **Search functionality** to quickly find content across documents (can be
-  disabled with `--generate-search/-S false`)
+- **Search functionality** to quickly find content across documents
 - **Nix module options support** to generate documentation from `options.json`
 - **Fully customizable templates** to match your project's style fully
 - **Multi-threading support** for fast generation of large documentation sets
@@ -35,7 +36,7 @@ several features such as
 
 ## Usage
 
-ndg has several subcommands to handle different documentation tasks:
+NDG has several subcommands to handle different documentation tasks:
 
 ```console
 $ ndg --help
@@ -64,13 +65,13 @@ a default configuration file:
 
 ```bash
 # Generate a default ndg.toml configuration file
-ndg init
+$ ndg init
 
 # Generate a JSON configuration file instead
-ndg init --format json --output ndg.json
+$ ndg init --format json --output ndg.json
 
 # Generate in a specific location
-ndg init --output configs/ndg.toml
+$ ndg init --output configs/ndg.toml
 ```
 
 This will create a well-documented configuration file with all available options
@@ -87,60 +88,11 @@ option:
 
 ```bash
 # Run with automatically detected config
-ndg html
+$ ndg html
 
 # Run with explicitly specified config
-ndg html --config path/to/ndg.toml
+$ ndg html --config path/to/ndg.toml
 ```
-
-### Template Customization Made Easy
-
-> [!TIP]
-> One of ndg's most powerful features is its fully customizable template system.
-> To make customization easier, ndg provides an `export-templates` command that
-> extracts all default templates to your filesystem.
-
-```bash
-# Export default templates to a 'templates' directory
-ndg export-templates
-
-# Export to a custom directory
-ndg export-templates --output-dir my-custom-templates
-
-# Overwrite existing files if they exist
-ndg export-templates --force
-```
-
-This command exports all template files that ndg uses internally:
-
-- `default.html` - Main template for documentation pages
-- `options.html` - Template for module options pages
-- `search.html` - Template for the search page
-- `options_toc.html` - Template for options table of contents
-- `default.css` - Default stylesheet
-- `search.js` - Search functionality JavaScript
-
-Once exported, you can customize any of these files and use them with the
-`--template-dir` option:
-
-```bash
-# Export templates and customize them
-ndg export-templates --output-dir my-templates
-
-# Edit the templates as needed
-# vim my-templates/default.html
-
-# Use your custom templates
-ndg html --template-dir my-templates --input-dir docs --output-dir build
-```
-
-This workflow is designed to aid developers avoid rebuilds, and to make sure
-users always start with the latest default templates and can easily update them
-when ndg is upgraded. Though, ndg will fall back to internal templates when none
-are provided.
-
-See the [templating documntation](./docs/TEMPLATING.md) for details about the
-templating. If your use-case is not supported, feel free to request a feature!
 
 ## Detailed Usage
 
@@ -151,9 +103,10 @@ file, and the CLI flags. The latter allows for ad-hoc overrides of specific
 behaviour, such as data indexing for search and code highlighting. Two example
 flags accepted by `ndg html` are:
 
-- `--generate-search`: Enables or disables search functionality. If present,
-  search is enabled; if omitted, search is disabled.
-- `--highlight-code`: Enables or disables syntax highlighting for code blocks.
+- `--generate-search`: Enables search functionality (disabled by default if
+  omitted).
+- `--highlight-code`: Enables syntax highlighting for code blocks (disabled by
+  default if omitted).
 
 Example usage:
 
@@ -185,7 +138,7 @@ generate_search = true  # Can be overridden by CLI
   `ndg html --generate-search`, search will be disabled.
 - If neither CLI nor config specifies an option, ndg uses sensible defaults
   (e.g., `generate_search` defaults to `true` in config but `false` via CLI if
-  not set).
+  omitted; CLI flags always override config).
 
 For a full list of options, see the help output with `ndg html --help`.
 
@@ -239,21 +192,22 @@ can all be read from a config file, passed to ndg through the `--config` option.
 For example:
 
 ```bash
-ndg html -i ./ndg-example/docs -o ./ndg-example/html -T "Awesome Nix Project"
+# '-i' is the input directory and '-o' is the output directory
+$ ndg html -i ./ndg-example/docs -o ./ndg-example/html -T "Awesome Nix Project"
 ```
 
-where `./ndg-example/docs` contains markdown files that you would like to
-convert, and `./ndg-example/html` is the result directory. Optionally you may
-pass an `options.json` to also render an `options.html` page for a listing of
-your module options.
+For this example, `./ndg-example/docs` contains markdown files that you would
+like to convert, and `./ndg-example/html` is the result directory after the
+conversion.
 
-```bash
-$ ndg html
-```
+> [!INFO]
+> Optionally you may pass an `options.json` to also render an `options.html`
+> page for a listing of your module options. See the
+> [NixOS Options](#nixos-options) section below for more details.
 
 ### Generating Manpages
 
-NDG allows for Manpages to be generated for your project. While the system is
+NDG allows for Man pages to be generated for your project. While the system is
 not as robust as HTML generation due to the shortcomings of Troff the `manpage`
 subcommand allows generating a manpage from your options:
 
@@ -277,7 +231,7 @@ to tailor the output to your needs, regardless of how immodest they may be.
 By default, HTML output's design uses a small internal template hand-crafted for
 NDG. This is suitable for certain usecases, but you might be looking for
 something more. If this is the case for you, then you are encouraged to export
-the default templates and chage them as you wish.
+the default templates and change them as you wish.
 
 We provide a `export-templates` subcommand that exports the default templates
 into a specified directory which you may modify as you wish, and use them using
@@ -394,6 +348,41 @@ Each template can use these variables as needed. For example, in the
     {{ custom_scripts|safe }}
   </body>
 </html>
+```
+
+Once exported, you can customize any of these files and use them with the
+`--template-dir` option:
+
+```bash
+# Export templates and customize them
+ndg export-templates --output-dir my-templates
+
+# Edit the templates as needed
+# vim my-templates/default.html
+
+# Use your custom templates
+ndg html --template-dir my-templates --input-dir docs --output-dir build
+```
+
+This workflow is designed to aid developers avoid rebuilds, and to make sure
+users always start with the latest default templates and can easily update them
+when ndg is upgraded. Though, ndg will fall back to internal templates when none
+are provided.
+
+See the [templating documntation](./docs/TEMPLATING.md) for details about the
+templating. If your use-case is not supported, feel free to request a feature!
+
+### Template Customization Made Easy
+
+```bash
+# Export default templates to a 'templates' directory
+ndg export-templates
+
+# Export to a custom directory
+ndg export-templates --output-dir my-custom-templates
+
+# Overwrite existing files if they exist
+ndg export-templates --force
 ```
 
 #### Custom Stylesheet
@@ -605,11 +594,16 @@ This approach correctly handles the generation of options documentation using
 - **Selectively disable features** you don't need:
 
   ```bash
-  # Disable search if you don't need it
-  ndg html -i ./docs -o ./html -T "My Project" --generate-search false
+  # Omit flags to disable features (disabled by default if not provided)
+  ndg html -i ./docs -o ./html -T "My Project"  # Search and highlighting disabled
 
-  # Disable syntax highlighting for better performance
-  ndg html -i ./docs -o ./html -T "My Project" --highlight-code false
+  # Enable via CLI flags
+  ndg html -i ./docs -o ./html -T "My Project" --generate-search --highlight-code
+
+  # Or enable in config file (CLI flags override config)
+  # ndg.toml:
+  # generate_search = true
+  # highlight_code = true
   ```
 
 ### Styling Tips
