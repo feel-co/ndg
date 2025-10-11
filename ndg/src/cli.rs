@@ -38,7 +38,7 @@ pub enum Commands {
   },
 
   /// Export default templates to a directory for customization.
-  ExportTemplates {
+  Export {
     /// Output directory for template files.
     #[arg(short, long, default_value = "templates")]
     output_dir: PathBuf,
@@ -46,6 +46,11 @@ pub enum Commands {
     /// Whether to overwrite existing files.
     #[arg(long)]
     force: bool,
+
+    /// Specific templates to export (e.g., html, css, js). If not specified,
+    /// exports all.
+    #[arg(short, long, action = clap::ArgAction::Append)]
+    templates: Vec<String>,
   },
 
   /// Process documentation and generate HTML.

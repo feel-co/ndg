@@ -610,6 +610,7 @@ impl Config {
   pub fn export_templates(
     output_dir: &Path,
     force: bool,
+    templates: Option<Vec<String>>,
   ) -> Result<(), NdgError> {
     // Create output directory if it doesn't exist
     fs::create_dir_all(output_dir).map_err(|e| {
@@ -621,9 +622,25 @@ impl Config {
     })?;
 
     // Get all embedded template sources
-    let templates = Self::get_template_sources();
+    let all_templates = Self::get_template_sources();
+    let templates_to_export = if let Some(specified) = templates {
+      if specified.is_empty() {
+        all_templates
+      } else {
+        all_templates
+          .into_iter()
+          .filter(|(name, _)| {
+            specified
+              .iter()
+              .any(|t| name.ends_with(&format!(".{}", t)) || *t == "all")
+          })
+          .collect()
+      }
+    } else {
+      all_templates
+    };
 
-    for (filename, content) in templates {
+    for (filename, content) in templates_to_export {
       let file_path = output_dir.join(filename);
 
       // Check if file exists and force flag
