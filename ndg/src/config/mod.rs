@@ -632,7 +632,7 @@ impl Config {
           .filter(|(name, _)| {
             specified
               .iter()
-              .any(|t| name.ends_with(&format!(".{}", t)) || *t == "all")
+              .any(|t| name.ends_with(&format!(".{t}")) || *t == "all")
           })
           .collect()
       }

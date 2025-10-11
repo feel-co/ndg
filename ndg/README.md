@@ -39,17 +39,17 @@ several features such as
 NDG has several subcommands to handle different documentation tasks:
 
 ```console
-$ ndg --help
+$ ndg --help 
 NDG: Not a Docs Generator
 
 Usage: ndg [OPTIONS] [COMMAND]
 
 Commands:
-  init              Initialize a new NDG configuration file
-  export-templates  Export default templates to a directory for customization
-  html              Process documentation and generate HTML
-  manpage           Generate manpage from options
-  help              Print this message or the help of the given subcommand(s)
+  init     Initialize a new NDG configuration file
+  export   Export default templates to a directory for customization
+  html     Process documentation and generate HTML
+  manpage  Generate manpage from options
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -v, --verbose               Enable verbose debug logging
@@ -147,7 +147,7 @@ For a full list of options, see the help output with `ndg html --help`.
 The first subcommand in ndg's compartmentalized architecture is for HTML
 generation. The `html` subcommand includes the following options:
 
-```plaintext
+```console
 Options:
   -i, --input-dir <INPUT_DIR>
           Path to the directory containing markdown files
@@ -158,12 +158,11 @@ Options:
   -t, --template <TEMPLATE>
           Path to custom template file
       --template-dir <TEMPLATE_DIR>
-          Path to directory containing template files. Use 'ndg export-templates' to get the default templates for customization. Templates in this directory override built-in templa
-tes (default.html, options.html, search.html, etc.)
+          Path to directory containing template files. Templates override built-in ones (default.html, options.html, etc.)
   -s, --stylesheet <STYLESHEET>
-          Path to custom stylesheet. This can be specified multiple times to include multiple stylesheets in order
+          Path to custom stylesheet (can be specified multiple times)
       --script <SCRIPT>
-          Path to custom Javascript file to include. This can be specified multiple times to create multiple script tags in order
+          Path to custom JavaScript file (can be specified multiple times)
   -T, --title <TITLE>
           Title of the documentation. Will be used in various components via the templating options
   -f, --footer <FOOTER>
@@ -233,13 +232,13 @@ NDG. This is suitable for certain usecases, but you might be looking for
 something more. If this is the case for you, then you are encouraged to export
 the default templates and change them as you wish.
 
-We provide a `export-templates` subcommand that exports the default templates
-into a specified directory which you may modify as you wish, and use them using
-the `--template-dir` flag in `ndg html`.
+We provide an `export` subcommand that exports the default templates into a
+specified directory which you may modify as you wish, and use them using the
+`--template-dir` flag in `ndg html`.
 
 ```bash
 # Export all default templates to a directory
-$ ndg export-templates --output-dir my-templates
+$ ndg export --output-dir my-templates
 
 # Customize the templates as needed
 # Edit my-templates/default.html, my-templates/default.css, etc.
@@ -355,7 +354,7 @@ Once exported, you can customize any of these files and use them with the
 
 ```bash
 # Export templates and customize them
-ndg export-templates --output-dir my-templates
+ndg export --output-dir my-templates
 
 # Edit the templates as needed
 # vim my-templates/default.html
@@ -379,10 +378,10 @@ templating. If your use-case is not supported, feel free to request a feature!
 ndg export-templates
 
 # Export to a custom directory
-ndg export-templates --output-dir my-custom-templates
+  ndg export --output-dir my-custom-templates
 
 # Overwrite existing files if they exist
-ndg export-templates --force
+ndg export --force
 ```
 
 #### Custom Stylesheet
@@ -616,18 +615,20 @@ This approach correctly handles the generation of options documentation using
 
   ```bash
   # Export to get the latest defaults
-  ndg export-templates --output-dir my-custom-templates
   ```
 
+ndg export --output-dir my-custom-templates
+
+````
 - **Customize specific pages**: When using a template directory, you can have
-  different templates for different page types:
+different templates for different page types:
 
-  ```txt
-  templates/
-    default.html    # For regular markdown pages
-    options.html    # For the options page
-    search.html     # For the search page
-  ```
+```txt
+templates/
+  default.html    # For regular markdown pages
+  options.html    # For the options page
+  search.html     # For the search page
+````
 
 ### Content Organization
 

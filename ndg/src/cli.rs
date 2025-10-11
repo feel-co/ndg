@@ -71,15 +71,16 @@ pub enum Commands {
     #[arg(short, long)]
     template: Option<PathBuf>,
 
-     /// Path to directory containing template files. Templates override built-in ones (default.html, options.html, etc.)
+    /// Path to directory containing template files. Templates override
+    /// built-in ones (default.html, options.html, etc.)
     #[arg(long = "template-dir")]
     template_dir: Option<PathBuf>,
 
-     /// Path to custom stylesheet (can be specified multiple times)
+    /// Path to custom stylesheet (can be specified multiple times)
     #[arg(short, long, action = clap::ArgAction::Append)]
     stylesheet: Vec<PathBuf>,
 
-     /// Path to custom JavaScript file (can be specified multiple times)
+    /// Path to custom JavaScript file (can be specified multiple times)
     #[arg(long, action = clap::ArgAction::Append)]
     script: Vec<PathBuf>,
 
