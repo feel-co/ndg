@@ -74,8 +74,13 @@ fn main() -> Result<()> {
         return Ok(());
       },
 
-      Commands::ExportTemplates { output_dir, force } => {
-        Config::export_templates(output_dir, *force).wrap_err_with(|| {
+      Commands::Export {
+        output_dir,
+        force,
+        templates,
+      } => {
+        Config::export_templates(output_dir, *force, Some(templates.clone()))
+          .wrap_err_with(|| {
           format!("Failed to export templates to {}", output_dir.display())
         })?;
         return Ok(());
