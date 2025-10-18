@@ -22,18 +22,20 @@ jobs:
         id: changed-files
         uses: dorny/paths-filter@v3
         with:
-          filters: |
-            files:
-              - '.github/workflows/nix.yml'
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-              - 'ndg/**'
-              - 'ndg-commonmark/**'
-              - 'flake/*'
-              - 'flake.nix'
-              - 'flake.lock'
-              - 'default.nix'
-              - 'shell.nix'
+           filters: |
+             files:
+               - '.github/workflows/nix.yml'
+               - 'Cargo.toml'
+               - 'Cargo.lock'
+               - 'ndg/**'
+               - 'ndg-commonmark/**'
+               - 'xtask/**'
+               - 'flake/*'
+               - 'flake.nix'
+               - 'flake.lock'
+               - 'default.nix'
+               - 'shell.nix'
+               - '**.rs'
   nix:
     name: Build with Nix
     runs-on: ubuntu-latest
