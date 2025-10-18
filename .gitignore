@@ -23,7 +23,7 @@
 !/.editorconfig
 
 # Nix
-!/flake/
+!/nix/
 !/flake.nix
 !/flake.lock
 !/shell.nix
