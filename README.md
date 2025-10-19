@@ -50,6 +50,18 @@ coupled as it could have been. If your usecase is not supported, please let us
 know in an issue and we'll see what we can do. ndg-commonmark has been
 refactored as a library and [published on crates.io] for this reason.
 
+## Usage without flakes
+
+We support usage without flakes via [nix/default.nix](./nix/default.nix).
+Specifically, you can use the following shell commands:
+
+| With flakes | Without flakes |
+| --- | --- |
+| `nix flake check` | `nix-build nix -A checks` |
+| `nix develop` | `nix-shell nix -A shell` |
+| `nix build .#ndg` | `nix-build nix -A packages.ndg` |
+| `nix fmt` | `nix run -f nix formatter` |
+
 ## Contributing
 
 Please understand that our projects are designed with our use-cases in mind.
