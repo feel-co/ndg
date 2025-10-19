@@ -15,10 +15,10 @@
 
     systems = ["x86_64-linux" "aarch64-linux"];
     forEachSystem = lib.genAttrs systems;
-    pkgsFor = system: nixpkgs.legacyPackages."${system}";
+    pkgsFor = system: nixpkgs.legacyPackages.${system};
   in {
     packages = forEachSystem (system: let
-      pkgs = pkgsFor "${system}";
+      pkgs = pkgsFor system;
       inherit (lib.attrsets) recursiveUpdate;
       inherit (lib.filesystem) packagesFromDirectoryRecursive;
       inherit (lib.customisation) callPackageWith;
@@ -54,7 +54,7 @@
     });
 
     devShells = forEachSystem (system: let
-      pkgs = pkgsFor "${system}";
+      pkgs = pkgsFor system;
     in {
       default = pkgs.mkShell {
         name = "ndg";
@@ -76,7 +76,7 @@
         ];
 
         env = {
-          RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
+          RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
           # 'cargo llvm-cov' reads these environment variables to find these
           # binaries, which are needed to run the tests.
           LLVM_COV = "${pkgs.llvm}/bin/llvm-cov";
@@ -86,7 +86,7 @@
     });
 
     formatter = forEachSystem (system: let
-      pkgs = pkgsFor "${system}";
+      pkgs = pkgsFor system;
     in
       pkgs.writeShellApplication {
         name = "nix3-fmt-wrapper";
