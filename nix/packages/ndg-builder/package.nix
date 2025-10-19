@@ -4,7 +4,6 @@
   ndg,
   runCommandLocal,
   nixosOptionsDoc,
-  path, # pkgs.path required for manpage URLs
   # Options
   checkModules ? false,
   rawModules ? [
@@ -65,6 +64,6 @@ in
       + optionalString (stylesheet != null) ''--stylesheet ${toString stylesheet} \''
       + optionalString (inputDir != null) ''--input-dir ${inputDir} \''
       + optionalString (manpageUrls != null) ''--manpage-urls ${manpageUrls} \''
-      + optionalString generateSearch ''--generate-search true \''
+      + optionalString generateSearch ''--generate-search \''
       + "--options-depth ${toString optionsDepth}"
     )
