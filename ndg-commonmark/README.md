@@ -111,7 +111,7 @@ options.highlight_code = true;
 options.highlight_theme = Some("gruvbox-dark".to_string());
 
 // Set manpage URL mappings
-// XXX: this is required for {man} role to function correctly
+// Note: this is required for {man} role to function correctly
 options.manpage_urls_path = Some("manpage-urls.json".to_string());
 
 let processor = MarkdownProcessor::new(options);

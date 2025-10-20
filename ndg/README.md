@@ -19,8 +19,8 @@ outside of Nix projects.
 We would like for ndg to be fast, but also flexible and powerful. It boasts
 several features such as
 
-- **Markdown to HTML and Manpage conversion** with support for all[^1]
-  Nixpkgs-flavored Commonmark features.
+- **Markdown to HTML and Manpage conversion** with support for Nixpkgs-flavored
+  Commonmark features[^1].
 - **Useful Markdown Companions**
   - **Automatic table of contents** generation from document headings
   - **Title Anchors** - Automatically generates anchors for headings
@@ -133,12 +133,14 @@ generate_search = true  # Can be overridden by CLI
 
 #### Interactions Between CLI and Config
 
-- CLI flags always take precedence over config file settings. For instance, if
-  your config file has `generate_search = true`, but you run
-  `ndg html --generate-search`, search will be disabled.
-- If neither CLI nor config specifies an option, ndg uses sensible defaults
-  (e.g., `generate_search` defaults to `true` in config but `false` via CLI if
-  omitted; CLI flags always override config).
+CLI flags always take precedence over config file settings.
+
+For instance, if your config file has `generate_search = false`, but you run
+`ndg html --generate-search`, search will be enabled.
+
+If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
+`generate_search` defaults to `false` if omitted from both; CLI flags override
+config when present).
 
 For a full list of options, see the help output with `ndg html --help`.
 
@@ -375,7 +377,7 @@ templating. If your use-case is not supported, feel free to request a feature!
 
 ```bash
 # Export default templates to a 'templates' directory
-ndg export-templates
+ndg export
 
 # Export to a custom directory
   ndg export --output-dir my-custom-templates
@@ -468,8 +470,8 @@ you write such good docs!) so NDG includes the option to generate
 
 to search across your pages and option references. This _used_ to be enabled by
 default prior to version v2.4 but it now defaults to false to avoid invasive
-behaviour. You may re-enable the search page generating by passing the
-`--generate-search` flag to `ndg html`
+behaviour and keep builds lightweight. You may re-enable the search page
+generating by passing the `--generate-search` flag to `ndg html`
 
 ```bash
 $ ndg html -i ./docs -o ./html -T "My Project"
@@ -615,20 +617,18 @@ This approach correctly handles the generation of options documentation using
 
   ```bash
   # Export to get the latest defaults
+  ndg export --output-dir my-custom-templates
   ```
 
-ndg export --output-dir my-custom-templates
-
-````
 - **Customize specific pages**: When using a template directory, you can have
-different templates for different page types:
+  different templates for different page types:
 
 ```txt
 templates/
   default.html    # For regular markdown pages
   options.html    # For the options page
   search.html     # For the search page
-````
+```
 
 ### Content Organization
 
