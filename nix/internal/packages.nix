@@ -1,15 +1,10 @@
 pkgs: let
-  inherit (pkgs) lib;
-  inherit (lib.attrsets) recursiveUpdate;
-  inherit (lib.filesystem) packagesFromDirectoryRecursive;
-  inherit (lib.customisation) callPackageWith;
+  inherit (pkgs.lib.filesystem) packagesFromDirectoryRecursive;
 
   # Collect and call packages from the `packages` directory.
   packages =
     packagesFromDirectoryRecursive {
-      callPackage = callPackageWith (recursiveUpdate pkgs {
-        inherit (packages) ndg;
-      });
+      callPackage = pkgs.newScope packages;
       directory = ../packages;
     }
     // {
