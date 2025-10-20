@@ -35,7 +35,11 @@ jobs:
           cache-on-failure: true
 
       - name: Build Rust Documentation
-        run: cargo doc --workspace --no-deps
+        run: |
+          # Build documentation for public workspace members.
+          # See:
+          #  <https://doc.rust-lang.org/rustdoc/scraped-examples.html>
+          cargo doc --workspace --no-deps -Zunstable-options -Zrustdoc-scrape-examples
 
       - name: Prepare GitHub Pages Deployment
         run: |
