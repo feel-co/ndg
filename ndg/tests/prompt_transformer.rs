@@ -1,4 +1,4 @@
-use comrak::{Arena, ComrakOptions, parse_document};
+use comrak::{Arena, options::Options, parse_document};
 use ndg_commonmark::processor::{AstTransformer, PromptTransformer};
 
 /// Render AST to HTML after transformation.
@@ -7,13 +7,13 @@ fn render_html_after_transform(
   transformer: &dyn AstTransformer,
 ) -> String {
   let arena = Arena::new();
-  let mut options = ComrakOptions::default();
+  let mut options = Options::default();
   options.extension.table = true;
   options.extension.footnotes = true;
   options.extension.strikethrough = true;
   options.extension.tasklist = true;
   options.extension.header_ids = Some(String::new());
-  options.render.unsafe_ = true;
+  options.render.r#unsafe = true;
 
   let root = parse_document(&arena, markdown, &options);
   transformer.transform(root);

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use comrak::{
   Arena,
-  ComrakOptions,
+  options::Options,
   nodes::{AstNode, NodeHeading, NodeValue},
   parse_document,
 };
@@ -25,13 +25,13 @@ pub fn slugify(text: &str) -> String {
 #[must_use]
 pub fn extract_markdown_title(content: &str) -> Option<String> {
   let arena = Arena::new();
-  let mut options = ComrakOptions::default();
+  let mut options = Options::default();
   options.extension.table = true;
   options.extension.footnotes = true;
   options.extension.strikethrough = true;
   options.extension.tasklist = true;
   options.extension.superscript = true;
-  options.render.unsafe_ = true;
+  options.render.r#unsafe = true;
 
   let root = parse_document(&arena, content, &options);
 
@@ -64,12 +64,12 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 #[must_use]
 pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   let arena = Arena::new();
-  let mut options = ComrakOptions::default();
+  let mut options = Options::default();
   options.extension.table = true;
   options.extension.footnotes = true;
   options.extension.strikethrough = true;
   options.extension.tasklist = true;
-  options.render.unsafe_ = true;
+  options.render.r#unsafe = true;
 
   let root = parse_document(&arena, content, &options);
 
@@ -129,12 +129,12 @@ where
 #[must_use]
 pub fn strip_markdown(content: &str) -> String {
   let arena = Arena::new();
-  let mut options = ComrakOptions::default();
+  let mut options = Options::default();
   options.extension.table = true;
   options.extension.footnotes = true;
   options.extension.strikethrough = true;
   options.extension.tasklist = true;
-  options.render.unsafe_ = true;
+  options.render.r#unsafe = true;
 
   let root = parse_document(&arena, content, &options);
 

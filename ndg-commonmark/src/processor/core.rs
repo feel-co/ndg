@@ -10,7 +10,7 @@ use std::{
 
 use comrak::{
   Arena,
-  ComrakOptions,
+  options::Options,
   nodes::{AstNode, NodeHeading, NodeValue},
   parse_document,
 };
@@ -386,8 +386,8 @@ impl MarkdownProcessor {
   }
 
   /// Build comrak options from `MarkdownOptions` and feature flags.
-  fn comrak_options(&self) -> ComrakOptions<'_> {
-    let mut options = ComrakOptions::default();
+  fn comrak_options(&self) -> Options<'_> {
+    let mut options = Options::default();
     if self.options.gfm {
       options.extension.table = true;
       options.extension.footnotes = true;
@@ -396,7 +396,7 @@ impl MarkdownProcessor {
       options.extension.superscript = true;
       options.extension.autolink = true;
     }
-    options.render.unsafe_ = true;
+    options.render.r#unsafe = true;
     // Enable description lists but keep custom header processing
     options.extension.header_ids = None;
     options.extension.description_lists = true;
