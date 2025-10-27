@@ -91,7 +91,7 @@ jobs:
       # For debugging purposes, the default check is standalone so
       # it can be opened or served with zero overhead.
       - name: Upload doc artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: "ndg-checks-${{ matrix.system }}-default"
           path: result/share/doc/*
