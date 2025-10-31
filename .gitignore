@@ -10,6 +10,7 @@
 # Rust/Cargo
 !/Cargo.lock
 !/Cargo.toml
+!/Cargo.nix
 
 # Configuration files
 !/.cargo/

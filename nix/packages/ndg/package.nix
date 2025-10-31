@@ -1,20 +1,18 @@
 {
   lib,
-  rustPlatform,
+  rustPkgs,
   installShellFiles,
   versionCheckHook,
   stdenv,
 }: let
   fs = lib.fileset;
   s = ../../..;
-
-  cargoTOML = builtins.fromTOML (builtins.readFile (s + /Cargo.toml));
 in
-  rustPlatform.buildRustPackage (finalAttrs: {
-    pname = "ndg";
-    version = cargoTOML.workspace.package.version;
-
-    nativeBuildInputs = [installShellFiles];
+  (rustPkgs.workspace.ndg{}).overrideAttrs (o: {
+    nativeBuildInputs = [
+      installShellFiles
+      (rustPkgs.workspace.xtask{})
+    ];
 
     src = fs.toSource {
       root = s;
@@ -29,7 +27,6 @@ in
       ];
     };
 
-    cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
     enableParallelBuilding = true;
     useNextest = true;
 
@@ -37,30 +34,22 @@ in
     # but nix hooks expect the folder structure from when it's set
     env.CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.cargoShortTarget;
 
-    nativeInstallCheckInputs = [versionCheckHook];
-    versionCheckProgram = "${placeholder "out"}/bin/${finalAttrs.meta.mainProgram}";
-    versionCheckProgramArg = "--version";
-    doInstallCheck = true;
-    cargoBuildFlags = [
-      "-p"
-      "ndg"
-      "-p"
-      "xtask"
-    ];
+    #nativeInstallCheckInputs = [versionCheckHook];
+    #versionCheckProgram = "${placeholder "out"}/bin/ndg";
+    #versionCheckProgramArg = "--version";
+    #doInstallCheck = true;
 
     postInstall =
-      lib.optionalString
+      o.postInstall or ""
+      + lib.optionalString
       (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
         # Install required files with the 'dist' task
-        $out/bin/xtask dist
+        xtask dist
 
         for dir in completions man; do
           mkdir -p "$out/share/$dir"
           cp -rf "dist/$dir" "$out/share/"
         done
-
-        # Avoid populating PATH with an 'xtask' cmd
-        rm $out/bin/xtask
       '';
 
     meta = {

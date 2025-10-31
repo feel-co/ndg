@@ -1,28 +1,34 @@
-pkgs:
-pkgs.mkShell {
+{
+  rustPkgs,
+  taplo,
+  clippy,
+  lldb,
+  llvm,
+  rust-analyzer,
+  rustfmt,
+  cargo-nextest,
+  cargo-machete,
+  cargo-llvm-cov,
+}:
+rustPkgs.workspaceShell {
   name = "ndg-devshell";
   packages = [
-    pkgs.taplo # TOML formatter
+    taplo # TOML formatter
 
-    # Build tool
-    pkgs.cargo
-    pkgs.rustc
+    clippy # lints
+    lldb # debugger
+    rust-analyzer # LSP
+    (rustfmt.override {asNightly = true;}) # formatter
 
-    pkgs.clippy # lints
-    pkgs.lldb # debugger
-    pkgs.rust-analyzer # LSP
-    (pkgs.rustfmt.override {asNightly = true;}) # formatter
-
-    pkgs.cargo-nextest
-    pkgs.cargo-machete
-    pkgs.cargo-llvm-cov
+    cargo-nextest
+    cargo-machete
+    cargo-llvm-cov
   ];
 
   env = {
-    RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
     # 'cargo llvm-cov' reads these environment variables to find these
     # binaries, which are needed to run the tests.
-    LLVM_COV = "${pkgs.llvm}/bin/llvm-cov";
-    LLVM_PROFDATA = "${pkgs.llvm}/bin/llvm-profdata";
+    LLVM_COV = "${llvm}/bin/llvm-cov";
+    LLVM_PROFDATA = "${llvm}/bin/llvm-profdata";
   };
 }
