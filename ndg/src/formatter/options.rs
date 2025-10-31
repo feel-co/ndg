@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs, path::Path};
 
 use color_eyre::eyre::{Context, Result};
+use html_escape;
 use log::debug;
 use serde_json::{self, Value};
 
@@ -227,7 +228,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
       (key.clone(), option_clone)
     })
     .map(|(key, mut opt)| {
-      opt.name = opt.name.replace('<', "&lt;").replace('>', "&gt;");
+      opt.name = html_escape::encode_text(&opt.name).to_string();
       (key, opt)
     })
     .collect();
@@ -292,7 +293,7 @@ fn format_location(
     // Handle object with name and url
     Value::Object(obj) => {
       let display = if let Some(Value::String(name)) = obj.get("name") {
-        Some(name.replace('<', "&lt;").replace('>', "&gt;"))
+        Some(html_escape::encode_text(name).to_string())
       } else {
         None
       };
