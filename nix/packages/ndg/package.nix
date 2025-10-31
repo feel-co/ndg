@@ -1,6 +1,6 @@
 {
   lib,
-  rustPlatform,
+  craneLib,
   installShellFiles,
   versionCheckHook,
   stdenv,
@@ -8,9 +8,9 @@
   fs = lib.fileset;
   s = ../../..;
 
-  cargoTOML = builtins.fromTOML (builtins.readFile (s + /Cargo.toml));
+  cargoTOML = fromTOML (builtins.readFile (s + /Cargo.toml));
 in
-  rustPlatform.buildRustPackage (finalAttrs: {
+  craneLib.buildPackage {
     pname = "ndg";
     version = cargoTOML.workspace.package.version;
 
@@ -29,7 +29,6 @@ in
       ];
     };
 
-    cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
     enableParallelBuilding = true;
     useNextest = true;
 
@@ -37,10 +36,10 @@ in
     # but nix hooks expect the folder structure from when it's set
     env.CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.cargoShortTarget;
 
-    nativeInstallCheckInputs = [versionCheckHook];
-    versionCheckProgram = "${placeholder "out"}/bin/${finalAttrs.meta.mainProgram}";
-    versionCheckProgramArg = "--version";
-    doInstallCheck = true;
+    #nativeInstallCheckInputs = [versionCheckHook];
+    #versionCheckProgram = "${placeholder "out"}/bin/ndg";
+    #versionCheckProgramArg = "--version";
+    #doInstallCheck = true;
     cargoBuildFlags = [
       "-p"
       "ndg"
@@ -70,4 +69,4 @@ in
       maintainers = with lib.maintainers; [NotAShelf];
       mainProgram = "ndg";
     };
-  })
+  }

@@ -1,4 +1,7 @@
-pkgs:
+{
+  craneLib,
+  pkgs,
+}:
 pkgs.mkShell {
   name = "ndg-devshell";
   packages = [

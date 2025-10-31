@@ -3,11 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
+    crane.url = "github:ipetkov/crane";
   };
 
   outputs = {
     self,
     nixpkgs,
+    crane,
   }: let
     inherit (nixpkgs) lib;
 
@@ -15,9 +17,11 @@
     forEachSystem = lib.genAttrs systems;
     pkgsFor = system: nixpkgs.legacyPackages.${system};
   in {
-    packages =
-      forEachSystem (system:
-        import ./nix/internal/packages.nix (pkgsFor system));
+    packages = forEachSystem (system:
+      import ./nix/internal/packages.nix rec {
+        craneLib = crane.mkLib pkgs;
+        pkgs = pkgsFor system;
+      });
 
     checks = forEachSystem (system:
       import ./nix/internal/checks.nix {
@@ -26,7 +30,10 @@
       });
 
     devShells = forEachSystem (system: {
-      default = import ./nix/internal/shell.nix (pkgsFor system);
+      default = import ./nix/internal/shell.nix rec {
+        craneLib = crane.mkLib pkgs;
+        pkgs = pkgsFor system;
+      };
     });
 
     formatter =
