@@ -11,7 +11,7 @@ keywords     = [ "markdown", "nix", "nixpkgs", "nixos", "documentation" ]
 license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/feel-co/ndg"
-rust-version = "1.85.1"
+rust-version = "1.91.0"
 version      = "2.3.2"
 
 [workspace.dependencies]
