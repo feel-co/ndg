@@ -23,7 +23,7 @@ clap = { version = "4.5.48", default-features = false, features = [
   "usage",
   "suggestions",
 ] }
-clap_complete = "4.5.58"
+clap_complete = "4.5.60"
 clap_mangen = "0.2.31"
 color-eyre = "0.6.5"
 comrak = { version = "0.45.0", default-features = false, features = [ "syntect" ] }
