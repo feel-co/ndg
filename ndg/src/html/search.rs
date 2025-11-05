@@ -66,7 +66,7 @@ pub fn generate_search_index(
 
       // Use the existing markdown processor to handle all NDG-specific markup
       let plain_text =
-        crate::utils::html::process_content_to_plain_text(&content, config);
+        crate::utils::html::content_to_plaintext(&content);
 
       let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
         format!(
@@ -103,10 +103,7 @@ pub fn generate_search_index(
 
             // Use the same clean processing as for markdown files
             let plain_description =
-              crate::utils::html::process_content_to_plain_text(
-                raw_description,
-                config,
-              );
+              crate::utils::html::content_to_plaintext(raw_description);
 
             // Create search entry for this option
             documents.push(SearchDocument {
