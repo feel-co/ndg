@@ -29,34 +29,16 @@ pub struct SearchDocument {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchIndex {
   documents: Vec<SearchDocument>,
-  token_map: HashMap<String, Vec<usize>>,
 }
 
 impl SearchIndex {
   fn new() -> Self {
     Self {
       documents: Vec::new(),
-      token_map: HashMap::new(),
     }
   }
 
   fn add_document(&mut self, doc: SearchDocument) {
-    let doc_id = self.documents.len();
-    for token in &doc.tokens {
-      self
-        .token_map
-        .entry(token.clone())
-        .or_default()
-        .push(doc_id);
-    }
-    for token in &doc.title_tokens {
-      self
-        .token_map
-        .entry(token.clone())
-        .or_default()
-        .push(doc_id);
-    }
-
     self.documents.push(doc);
   }
 }
