@@ -1,0 +1,14 @@
+
+deny = [
+    "clippy::pedantic",
+    "clippy::complexity",
+    "clippy::suspicious",
+    "clippy::correctness",
+]
+
+allow = [
+    "clippy::unwrap_used",
+    "clippy::module_name_repetitions",
+    "clippy::too_many_arguments",
+]
+
