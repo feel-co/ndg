@@ -45,7 +45,6 @@ pub fn content_to_plaintext(content: &str) -> String {
 
   // Clean up whitespace while preserving readability
   plain_text
-    .replace('\n', " ")
     .split_whitespace()
     .collect::<Vec<_>>()
     .join(" ")
