@@ -690,6 +690,10 @@ impl Config {
     templates
       .insert("default.css", include_str!("../../templates/default.css"));
     templates.insert("search.js", include_str!("../../templates/search.js"));
+    templates.insert(
+      "search-worker.js",
+      include_str!("../../templates/search-worker.js"),
+    );
     templates.insert("main.js", include_str!("../../templates/main.js"));
 
     templates

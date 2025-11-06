@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use comrak::{
   Arena,
-  options::Options,
   nodes::{AstNode, NodeHeading, NodeValue},
+  options::Options,
   parse_document,
 };
 use regex::Regex;

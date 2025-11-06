@@ -1,5 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
+use ndg_commonmark::utils::strip_markdown;
+
 /// Calculate the relative path prefix needed to reach the root from a given
 /// file path For example: "docs/subdir/file.html" would return "../"
 ///              "docs/subdir/nested/file.html" would return "../../"
@@ -33,23 +35,19 @@ pub fn generate_asset_paths(
   paths
 }
 
-/// Strip markdown to get plain text
-#[must_use]
-pub fn strip_markdown(content: &str) -> String {
-  ndg_commonmark::utils::strip_markdown(content)
-}
-
 /// Process content through the markdown pipeline and extract plain text
 #[must_use]
-pub fn process_content_to_plain_text(
-  content: &str,
-  config: &crate::config::Config,
-) -> String {
-  let processor = crate::utils::create_processor_from_config(config);
-  let result = processor.render(content);
-  strip_markdown(&result.html)
-    .replace('\n', " ")
-    .replace("  ", " ")
+pub fn content_to_plaintext(content: &str) -> String {
+  // For search indexing, we want plain text from markdown, not full HTML with
+  // templates Use the basic strip_markdown function which processes markdown
+  // AST directly
+  let plain_text = strip_markdown(content);
+
+  // Clean up whitespace while preserving readability
+  plain_text
+    .split_whitespace()
+    .collect::<Vec<_>>()
+    .join(" ")
     .trim()
     .to_string()
 }
