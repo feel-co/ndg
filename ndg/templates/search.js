@@ -182,6 +182,22 @@ class SearchEngine {
       return this.fallbackSearch(query, limit);
     }
 
+    // Use Web Worker for large datasets to avoid blocking UI
+    if (this.useWebWorker && this.documents.length > 1000) {
+      return await this.searchWithWorker(query, limit);
+    }
+
+    // For very large datasets, implement lazy loading with candidate docIds
+    if (this.documents.length > 10000) {
+      const candidateDocIds = new Set();
+      searchTerms.forEach(term => {
+        const docIds = this.tokenMap.get(term) || [];
+        docIds.forEach(id => candidateDocIds.add(id));
+      });
+      const docIds = Array.from(candidateDocIds);
+      return await this.lazyLoadDocuments(docIds, limit);
+    }
+
     const docScores = new Map();
 
     searchTerms.forEach(term => {
@@ -218,17 +234,6 @@ class SearchEngine {
     const scoredResults = Array.from(docScores.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit);
-
-    // Use Web Worker for large datasets to avoid blocking UI
-    if (this.useWebWorker && this.documents.length > 1000) {
-      return await this.searchWithWorker(query, limit);
-    }
-
-    // For very large datasets, implement lazy loading
-    if (this.documents.length > 10000) {
-      const docIds = scoredResults.map(([docId]) => docId);
-      return await this.lazyLoadDocuments(docIds, limit);
-    }
 
     return scoredResults
       .map(([docId, score]) => ({
