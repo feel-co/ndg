@@ -1,13 +1,15 @@
 # feel-co/ndg
 
 This repository contains our in-house documentation tooling, designed to
-accommodate our various documentation needs for any and all projects under the
-feel-co organization.
+accommodate our various documentation needs, and the relevant dependencies that
+are needed to make it happen. The most critical component stored here, which you
+might be the most interested in, is [ndg](./ndg); a fast, robust and
+customizable documentation utility to generate a complete documentation website
+for your Nix-adjacent projects on the fly. [ndg-commonmark](./ndg-commonmark) is
+a Rust crate that handles parsing flavored commonmark, which is not very useful
+on its own.
 
-The most critical component stored here, which you might be the most interested
-in, is [ndg](./ndg); a fast, robust and customizable documentation utility to
-generate a complete documentation website for your Nix-adjacent projects on the
-fly. If you plan to make use of NDG or the ndg-commonmark crate, please read the
+If you plan to make use of NDG or the ndg-commonmark crate, please read the
 appropriate sections below.
 
 ## Repository Structure
