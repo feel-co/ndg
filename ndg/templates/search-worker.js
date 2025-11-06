@@ -2,12 +2,14 @@ self.onmessage = function(e) {
   const { type, data } = e.data;
 
   if (type === 'tokenize') {
-    const tokens = data.toLowerCase()
+    const tokens = (typeof data === 'string' ? data : '')
+      .toLowerCase()
       .match(/\b[a-zA-Z0-9_-]+\b/g) || []
-      .filter(word => word.length > 2)
-      .filter((word, index, arr) => arr.indexOf(word) === index);
+      .filter(word => word.length > 2);
+    
+    const uniqueTokens = Array.from(new Set(tokens));
 
-    self.postMessage({ type: 'tokens', data: tokens });
+    self.postMessage({ type: 'tokens', data: uniqueTokens });
   }
 
   if (type === 'search') {
