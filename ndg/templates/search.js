@@ -302,23 +302,41 @@ class SearchEngine {
   // Web Worker search for large datasets
   async searchWithWorker(query, limit) {
     return new Promise((resolve, reject) => {
+      const messageId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const timeout = setTimeout(() => {
+        cleanup();
         reject(new Error('Web Worker search timeout'));
       }, 5000); // 5 second timeout
 
-      searchWorker.onmessage = (e) => {
+      const handleMessage = (e) => {
+        if (e.data.messageId !== messageId) return;
+        
         clearTimeout(timeout);
+        cleanup();
+        
         if (e.data.type === 'results') {
           resolve(e.data.data);
+        } else if (e.data.type === 'error') {
+          reject(new Error(e.data.error || 'Unknown worker error'));
         }
       };
 
-      searchWorker.onerror = (error) => {
+      const handleError = (error) => {
         clearTimeout(timeout);
+        cleanup();
         reject(error);
       };
 
+      const cleanup = () => {
+        searchWorker.removeEventListener('message', handleMessage);
+        searchWorker.removeEventListener('error', handleError);
+      };
+
+      searchWorker.addEventListener('message', handleMessage);
+      searchWorker.addEventListener('error', handleError);
+
       searchWorker.postMessage({
+        messageId,
         type: 'search',
         data: { documents: this.documents, query, limit }
       });
