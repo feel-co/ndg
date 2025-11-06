@@ -289,7 +289,7 @@ class SearchEngine {
     let highlighted = text;
 
     // Sort terms by length (longer first) to avoid overlapping highlights
-    const sortedTerms = terms.sort((a, b) => b.length - a.length);
+    const sortedTerms = [...terms].sort((a, b) => b.length - a.length);
 
     sortedTerms.forEach(term => {
       const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
