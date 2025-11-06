@@ -46,6 +46,7 @@ serde_json = { version = "1.0.145", default-features = false, features = [ "pres
 syntect = "5.3.0"
 tempfile = "3.23.0"
 tendril = "0.4.3"
+minifier = { version = "0.3.6", features = ["html"] }
 tera = { version = "1.20.1", default-features = false }
 thiserror = "2.0.17"
 toml = { version = "0.9.8", default-features = false, features = [ "parse", "serde" ] }
