@@ -10,8 +10,8 @@ use std::{
 
 use comrak::{
   Arena,
-  options::Options,
   nodes::{AstNode, NodeHeading, NodeValue},
+  options::Options,
   parse_document,
 };
 use log::trace;
