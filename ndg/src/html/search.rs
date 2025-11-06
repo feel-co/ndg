@@ -145,22 +145,25 @@ pub fn generate_search_index(
         let tokens = tokenize(&plain_text);
         let title_tokens = tokenize(&title);
 
-        Ok(SearchDocument {
-          id: doc_id.to_string(),
-          title,
-          content: plain_text,
-          path: output_path.to_string_lossy().to_string(),
-          tokens,
-          title_tokens,
-        })
+        Ok((title, plain_text, output_path.to_string_lossy().to_string(), tokens, title_tokens))
       })
       .collect();
 
     let documents = documents?;
-    for doc in documents {
+    let documents_count = documents.len();
+    for (index, (title, content, path, tokens, title_tokens)) in documents.into_iter().enumerate() {
+      let current_doc_id = doc_id + index + 1;
+      let doc = SearchDocument {
+        id: current_doc_id.to_string(),
+        title,
+        content,
+        path,
+        tokens,
+        title_tokens,
+      };
       search_index.add_document(doc);
-      doc_id += 1;
     }
+    doc_id += documents_count;
   }
 
   // Process options if available
