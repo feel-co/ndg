@@ -66,7 +66,7 @@ class SearchEngine {
   }
 
   // Initialize from documents array
-  initializeFromDocuments(documents) {
+  async initializeFromDocuments(documents) {
     if (!Array.isArray(documents)) {
       console.error("Invalid documents format:", typeof documents);
       this.documents = [];
@@ -74,7 +74,11 @@ class SearchEngine {
       this.documents = documents;
       console.log(`Initialized with ${documents.length} documents`);
     }
-    this.buildTokenMap();
+    try {
+      await this.buildTokenMap();
+    } catch (error) {
+      console.error("Error building token map:", error);
+    }
   }
 
   // Initialize from search index structure
@@ -86,48 +90,60 @@ class SearchEngine {
   // Build token map
   // This is helpful for faster searching with progressive loading
   buildTokenMap() {
-    this.tokenMap.clear();
+    return new Promise((resolve, reject) => {
+      this.tokenMap.clear();
 
-    if (!Array.isArray(this.documents)) {
-      console.error("No documents to build token map");
-      return;
-    }
+      if (!Array.isArray(this.documents)) {
+        console.error("No documents to build token map");
+        resolve();
+        return;
+      }
 
-    const totalDocs = this.documents.length;
-    let processedDocs = 0;
+      const totalDocs = this.documents.length;
+      let processedDocs = 0;
 
-    // Process in chunks to avoid blocking UI
-    const processChunk = (startIndex, chunkSize) => {
-      const endIndex = Math.min(startIndex + chunkSize, totalDocs);
+      try {
+        // Process in chunks to avoid blocking UI
+        const processChunk = (startIndex, chunkSize) => {
+          try {
+            const endIndex = Math.min(startIndex + chunkSize, totalDocs);
 
-      for (let i = startIndex; i < endIndex; i++) {
-        const doc = this.documents[i];
-        if (!doc || typeof doc.title !== 'string' || typeof doc.content !== 'string') {
-          console.warn(`Invalid document at index ${i}:`, doc);
-          continue;
-        }
+            for (let i = startIndex; i < endIndex; i++) {
+              const doc = this.documents[i];
+              if (!doc || typeof doc.title !== 'string' || typeof doc.content !== 'string') {
+                console.warn(`Invalid document at index ${i}:`, doc);
+                continue;
+              }
 
-        const tokens = this.tokenize(doc.title + " " + doc.content);
-        tokens.forEach(token => {
-          if (!this.tokenMap.has(token)) {
-            this.tokenMap.set(token, []);
+              const tokens = this.tokenize(doc.title + " " + doc.content);
+              tokens.forEach(token => {
+                if (!this.tokenMap.has(token)) {
+                  this.tokenMap.set(token, []);
+                }
+                this.tokenMap.get(token).push(i);
+              });
+
+              processedDocs++;
+            }
+
+            // Update progress and yield control
+            if (endIndex < totalDocs) {
+              setTimeout(() => processChunk(endIndex, chunkSize), 0);
+            } else {
+              console.log(`Built token map with ${this.tokenMap.size} unique tokens from ${processedDocs} documents`);
+              resolve();
+            }
+          } catch (error) {
+            reject(error);
           }
-          this.tokenMap.get(token).push(i);
-        });
+        };
 
-        processedDocs++;
+        // Start processing with small chunks
+        processChunk(0, 100);
+      } catch (error) {
+        reject(error);
       }
-
-      // Update progress and yield control
-      if (endIndex < totalDocs) {
-        setTimeout(() => processChunk(endIndex, chunkSize), 0);
-      } else {
-        console.log(`Built token map with ${this.tokenMap.size} unique tokens from ${processedDocs} documents`);
-      }
-    };
-
-    // Start processing with small chunks
-    processChunk(0, 100);
+    });
   }
 
   // Tokenize text into searchable terms
