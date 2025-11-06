@@ -13,7 +13,7 @@ class SearchEngine {
   // Load search data from JSON
   async loadData() {
     if (this.isLoaded && !this.loadError) return;
-    
+
     // Clear previous error state on retry
     this.loadError = false;
 
@@ -310,10 +310,10 @@ class SearchEngine {
 
       const handleMessage = (e) => {
         if (e.data.messageId !== messageId) return;
-        
+
         clearTimeout(timeout);
         cleanup();
-        
+
         if (e.data.type === 'results') {
           resolve(e.data.data);
         } else if (e.data.type === 'error') {
@@ -444,6 +444,9 @@ if (typeof Worker !== 'undefined') {
 
 // Global search engine instance
 window.searchNamespace.engine = new SearchEngine();
+
+// Mobile search timeout for debouncing
+let mobileSearchTimeout = null;
 
 // Legacy search for backward compatibility
 // This could be removed, but I'm emotionally attached to it
@@ -639,7 +642,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Mobile search input
   if (mobileSearchInput && mobileSearchResults) {
-    async function handleMobileSearchInput() {
+    function handleMobileSearchInput() {
+      clearTimeout(mobileSearchTimeout);
       const searchTerm = mobileSearchInput.value.trim();
       if (searchTerm.length < 2) {
         mobileSearchResults.innerHTML = "";
@@ -647,40 +651,50 @@ document.addEventListener("DOMContentLoaded", function() {
         return;
       }
 
-      // Show loading state
-      mobileSearchResults.innerHTML = '<div class="search-result-item">Loading...</div>';
-      mobileSearchResults.style.display = "block";
+      mobileSearchTimeout = setTimeout(async () => {
+        // Verify the input still matches before proceeding
+        if (mobileSearchInput.value.trim() !== searchTerm) return;
 
-      try {
-        const results = await window.searchNamespace.engine.search(searchTerm, 8);
-        if (results.length > 0) {
-          mobileSearchResults.innerHTML = results
-            .map(
-              (doc) => {
-                const highlightedTitle = window.searchNamespace.engine.highlightTerms(
-                  doc.title,
-                  window.searchNamespace.engine.tokenize(searchTerm)
-                );
-                return `
-                  <div class="search-result-item">
-                      <a href="${doc.path}">${highlightedTitle}</a>
-                  </div>
-              `;
-              },
-            )
-            .join("");
-          mobileSearchResults.style.display = "block";
-        } else {
+        // Show loading state
+        mobileSearchResults.innerHTML = '<div class="search-result-item">Loading...</div>';
+        mobileSearchResults.style.display = "block";
+
+        try {
+          const results = await window.searchNamespace.engine.search(searchTerm, 8);
+          // Verify again after async operation
+          if (mobileSearchInput.value.trim() !== searchTerm) return;
+
+          if (results.length > 0) {
+            mobileSearchResults.innerHTML = results
+              .map(
+                (doc) => {
+                  const highlightedTitle = window.searchNamespace.engine.highlightTerms(
+                    doc.title,
+                    window.searchNamespace.engine.tokenize(searchTerm)
+                  );
+                  return `
+                    <div class="search-result-item">
+                        <a href="${doc.path}">${highlightedTitle}</a>
+                    </div>
+                `;
+                },
+              )
+              .join("");
+            mobileSearchResults.style.display = "block";
+          } else {
+            mobileSearchResults.innerHTML =
+              '<div class="search-result-item">No results found</div>';
+            mobileSearchResults.style.display = "block";
+          }
+        } catch (error) {
+          console.error("Mobile search error:", error);
+          // Verify once more
+          if (mobileSearchInput.value.trim() !== searchTerm) return;
           mobileSearchResults.innerHTML =
-            '<div class="search-result-item">No results found</div>';
+            '<div class="search-result-item">Search unavailable</div>';
           mobileSearchResults.style.display = "block";
         }
-      } catch (error) {
-        console.error("Mobile search error:", error);
-        mobileSearchResults.innerHTML =
-          '<div class="search-result-item">Search unavailable</div>';
-        mobileSearchResults.style.display = "block";
-      }
+      }, 300);
     }
 
     mobileSearchInput.addEventListener("input", handleMobileSearchInput);
