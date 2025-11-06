@@ -163,7 +163,7 @@ pub fn generate_search_index(
       };
       search_index.add_document(doc);
     }
-    doc_id += documents_count;
+    doc_id += documents_count + 1;
   }
 
   // Process options if available
