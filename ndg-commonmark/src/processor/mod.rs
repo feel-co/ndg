@@ -167,7 +167,7 @@ mod tests {
   fn test_hardtab_handling_none() {
     let options = MarkdownOptions {
       tab_style: TabStyle::None,
-      highlight_code: false, // Disable syntax highlighting to see raw tabs
+      highlight_code: false,
       ..Default::default()
     };
     let processor = MarkdownProcessor::new(options);
@@ -183,7 +183,6 @@ fn main() {
 "#;
 
     let result = processor.render(markdown);
-    // Should preserve hard tabs when handling is None (no syntax highlighting)
     assert!(result.html.contains("\tprintln"));
   }
 
@@ -191,7 +190,7 @@ fn main() {
   fn test_hardtab_handling_warn() {
     let options = MarkdownOptions {
       tab_style: TabStyle::Warn,
-      highlight_code: false, // Disable syntax highlighting to see raw tabs
+      highlight_code: false,
       ..Default::default()
     };
     let processor = MarkdownProcessor::new(options);
@@ -215,7 +214,7 @@ fn main() {
   fn test_hardtab_handling_normalize() {
     let options = MarkdownOptions {
       tab_style: TabStyle::Normalize,
-      highlight_code: false, // Disable syntax highlighting to see raw spaces
+      highlight_code: false,
       ..Default::default()
     };
     let processor = MarkdownProcessor::new(options);
@@ -240,7 +239,7 @@ fn main() {
   fn test_hardtab_handling_no_tabs() {
     let options = MarkdownOptions {
       tab_style: TabStyle::Warn,
-      highlight_code: false, // Disable syntax highlighting to see raw spaces
+      highlight_code: false,
       ..Default::default()
     };
     let processor = MarkdownProcessor::new(options);
@@ -265,7 +264,7 @@ fn main() {
   fn test_hardtab_handling_mixed_content() {
     let options = MarkdownOptions {
       tab_style: TabStyle::Normalize,
-      highlight_code: false, // Disable syntax highlighting to see raw spaces
+      highlight_code: false,
       ..Default::default()
     };
     let processor = MarkdownProcessor::new(options);

@@ -11,7 +11,7 @@ use ndg_commonmark::{
   MarkdownOptionsBuilder,
   MarkdownProcessor,
   collect_markdown_files,
-  processor::types::HardtabHandling,
+  processor::types::TabStyle,
 };
 
 use crate::{config::Config, html::template};
@@ -256,16 +256,16 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
 /// A configured `MarkdownProcessor`.
 #[must_use]
 pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
-  let hardtab_handling = match config.hardtab_handling.as_str() {
-    "warn" => HardtabHandling::Warn,
-    "normalize" => HardtabHandling::Normalize,
-    _ => HardtabHandling::None,
+  let tab_style = match config.tab_style.as_str() {
+    "warn" => TabStyle::Warn,
+    "normalize" => TabStyle::Normalize,
+    _ => TabStyle::None,
   };
 
   let mut builder = MarkdownOptionsBuilder::new()
     .gfm(true)
     .highlight_code(config.highlight_code)
-    .hardtab_handling(hardtab_handling);
+    .tab_style(tab_style);
 
   if let Some(mappings_path) = &config.manpage_urls_path {
     builder = builder

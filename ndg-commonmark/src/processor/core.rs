@@ -113,8 +113,6 @@ impl MarkdownProcessor {
           .and_then(|s| s.strip_prefix("language-"))
           .unwrap_or("text");
         let mut code_text = code_node.text_contents();
-
-        // Handle hard tabs according to configuration
         let processed_code = self.handle_hardtabs(&code_text);
         if processed_code != code_text {
           code_text = processed_code;
@@ -161,23 +159,30 @@ impl MarkdownProcessor {
     }
 
     match self.options.tab_style {
+      // Do nothing
       TabStyle::None => code.to_string(),
+
+      // Warn, but do nothing.
       TabStyle::Warn => {
         log::warn!(
           "Hard tabs detected in code block. Consider using spaces for \
-           consistency."
+           consistency. Tools like editorconfig may help you normalize spaces \
+           in your documents."
         );
         code.to_string()
       },
+
+      // Do not warn, only inform in debug mode. Then return
+      // the updated code.
       TabStyle::Normalize => {
-        // Convert tabs to 2 spaces (common convention for documentation)
+        log::debug!("Replacing hard tabs with spaces");
         code.replace('\t', "  ")
       },
     }
   }
 
   /// Process hard tabs in code blocks within markdown content
-  fn process_hardtabs_in_markdown(&self, markdown: &str) -> String {
+  fn process_hardtabs(&self, markdown: &str) -> String {
     use super::types::TabStyle;
 
     // If no tab handling is needed, return as-is
@@ -298,7 +303,7 @@ impl MarkdownProcessor {
     processed = super::extensions::process_myst_autolinks(&processed);
 
     // Handle hard tabs in code blocks
-    processed = self.process_hardtabs_in_markdown(&processed);
+    processed = self.process_hardtabs(&processed);
 
     if self.options.nixpkgs {
       processed = self.apply_nixpkgs_preprocessing(&processed);
