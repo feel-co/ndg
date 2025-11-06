@@ -114,6 +114,10 @@ pub enum Commands {
     #[arg(long = "highlight-code")]
     highlight_code: bool,
 
+    /// How to handle hard tabs in code blocks.
+    #[arg(long = "hardtabs", default_value = "none", value_parser = ["none", "warn", "normalize"])]
+    hardtabs: String,
+
     /// GitHub revision for linking to source files.
     #[arg(long, default_value = "local")]
     revision: Option<String>,

@@ -49,6 +49,10 @@ fn default_excluded_files() -> std::collections::HashSet<std::path::PathBuf> {
   std::collections::HashSet::new()
 }
 
+fn default_hardtab_handling() -> String {
+  "none".to_string()
+}
+
 /// Configuration for the NDG documentation generator.
 ///
 /// [`Config`] holds all configuration options for controlling documentation
@@ -138,6 +142,10 @@ pub struct Config {
   /// "...", "keywords": "..."})
   #[serde(default)]
   pub meta_tags: Option<std::collections::HashMap<String, String>>,
+
+  /// How to handle hard tabs in code blocks.
+  #[serde(default = "default_hardtab_handling")]
+  pub hardtab_handling: String,
 }
 
 impl Config {
@@ -304,6 +312,7 @@ impl Config {
       manpage_urls,
       generate_search,
       highlight_code,
+      hardtabs,
       revision,
     }) = &cli.command
     {
@@ -362,6 +371,9 @@ impl Config {
 
       // Handle the highlight-code flag, overriding config
       self.highlight_code = *highlight_code;
+
+      // Handle the hardtabs flag, overriding config
+      self.hardtab_handling = hardtabs.clone();
 
       if let Some(revision) = revision {
         self.revision.clone_from(revision);

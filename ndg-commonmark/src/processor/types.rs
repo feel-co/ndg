@@ -46,6 +46,20 @@ pub struct MarkdownOptions {
   /// When `true`, `{option}` roles will be converted to links to options.html.
   /// When `false`, they will be rendered as plain `<code>` elements.
   pub auto_link_options: bool,
+
+  /// How to handle hard tabs in code blocks.
+  pub tab_style: TabStyle,
+}
+
+/// Configuration for handling hard tabs in code blocks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TabStyle {
+  /// Leave hard tabs unchanged
+  None,
+  /// Issue a warning when hard tabs are detected
+  Warn,
+  /// Automatically convert hard tabs to spaces (using 2 spaces per tab)
+  Normalize,
 }
 
 impl MarkdownOptions {
@@ -59,6 +73,7 @@ impl MarkdownOptions {
       highlight_theme:   None,
       manpage_urls_path: None,
       auto_link_options: true,
+      tab_style:         TabStyle::None,
     }
   }
 
@@ -76,6 +91,7 @@ impl MarkdownOptions {
       highlight_theme: None,
       manpage_urls_path: None,
       auto_link_options: true,
+      tab_style: TabStyle::None,
     }
   }
 }
@@ -89,6 +105,7 @@ impl Default for MarkdownOptions {
       manpage_urls_path: None,
       highlight_theme:   None,
       auto_link_options: true,
+      tab_style:         TabStyle::None,
     }
   }
 }
@@ -213,6 +230,13 @@ impl MarkdownOptionsBuilder {
   #[must_use]
   pub const fn auto_link_options(mut self, enabled: bool) -> Self {
     self.options.auto_link_options = enabled;
+    self
+  }
+
+  /// Set how to handle hard tabs in code blocks.
+  #[must_use]
+  pub const fn tab_style(mut self, style: TabStyle) -> Self {
+    self.options.tab_style = style;
     self
   }
 
