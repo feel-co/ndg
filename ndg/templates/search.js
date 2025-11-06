@@ -5,13 +5,17 @@ class SearchEngine {
     this.documents = [];
     this.tokenMap = new Map();
     this.isLoaded = false;
+    this.loadError = false;
     this.useWebWorker = typeof Worker !== 'undefined' && searchWorker !== null;
     this.fullDocuments = null; // for lazy loading
   }
 
   // Load search data from JSON
   async loadData() {
-    if (this.isLoaded) return;
+    if (this.isLoaded && !this.loadError) return;
+    
+    // Clear previous error state on retry
+    this.loadError = false;
 
     try {
       // Load JSON data, try multiple possible paths
@@ -57,7 +61,7 @@ class SearchEngine {
       console.error("Error loading search data:", error);
       this.documents = [];
       this.tokenMap.clear();
-      this.isLoaded = true;
+      this.loadError = true;
     }
   }
 
