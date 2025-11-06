@@ -8,6 +8,7 @@ use crate::config::Config;
 /// Template constants for default assets
 const DEFAULT_CSS: &str = include_str!("../../templates/default.css");
 const SEARCH_JS: &str = include_str!("../../templates/search.js");
+const SEARCH_WORKER_JS: &str = include_str!("../../templates/search-worker.js");
 const MAIN_JS: &str = include_str!("../../templates/main.js");
 
 /// Copies all required assets (CSS, JS, custom assets, scripts) to the output
@@ -44,6 +45,21 @@ pub fn copy_assets(config: &Config) -> Result<()> {
   // Create search.js for search functionality
   if config.generate_search {
     copy_template_asset(config, &assets_dir, "search.js", SEARCH_JS)?;
+
+    // Only copy search-worker.js if using default templates or if custom
+    // template provides it
+    if config.get_template_path().is_none()
+      || config
+        .get_template_file("search-worker.js")
+        .is_some_and(|path| path.exists())
+    {
+      copy_template_asset(
+        config,
+        &assets_dir,
+        "search-worker.js",
+        SEARCH_WORKER_JS,
+      )?;
+    }
   }
 
   Ok(())
