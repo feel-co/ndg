@@ -29,6 +29,7 @@
     },
   # Builder configuration
   title ? "My Option Documentation",
+  description ? "List of my options in JSON format.",
   optionsDocArgs ? {},
   scripts ? [],
   inputDir ? null,
@@ -52,7 +53,10 @@ in
       ))
       .optionsJSON;
   in
-    runCommandLocal "ndg-builder" {nativeBuildInputs = [ndg];} (
+    runCommandLocal "ndg-builder" {
+      nativeBuildInputs = [ndg];
+      meta = {inherit description;};
+    } (
       ''
         mkdir -p $out
 
