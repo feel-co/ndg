@@ -1,6 +1,21 @@
 //! Feature-specific Markdown processing extensions.
+use html_escape;
+
 use super::process::process_safe;
-use crate::utils;
+
+/// Safely select DOM elements with graceful error handling.
+fn safe_select(
+  document: &kuchikikiki::NodeRef,
+  selector: &str,
+) -> Vec<kuchikikiki::NodeRef> {
+  match document.select(selector) {
+    Ok(selections) => selections.map(|sel| sel.as_node().clone()).collect(),
+    Err(e) => {
+      log::warn!("DOM selector '{}' failed: {:?}", selector, e);
+      Vec::new()
+    },
+  }
+}
 
 /// Apply GitHub Flavored Markdown (GFM) extensions to the input markdown.
 ///
@@ -389,7 +404,7 @@ pub fn format_role_markup(
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
   auto_link_options: bool,
 ) -> String {
-  let escaped_content = utils::html_escape(content);
+  let escaped_content = html_escape::encode_text(content);
   match role_type {
     "manpage" => {
       if let Some(urls) = manpage_urls {
@@ -1033,8 +1048,8 @@ pub fn process_manpage_references(
       let mut to_replace = Vec::new();
 
       // Find all spans with class "manpage-reference"
-      for span_node in document.select("span.manpage-reference").unwrap() {
-        let span_el = span_node.as_node();
+      for span_node in safe_select(&document, "span.manpage-reference") {
+        let span_el = span_node;
         let span_text = span_el.text_contents();
 
         if let Some(urls) = manpage_urls {
@@ -1114,8 +1129,8 @@ pub fn process_option_references(html: &str) -> String {
 
       let mut to_replace = vec![];
 
-      for code_node in document.select("code").unwrap() {
-        let code_el = code_node.as_node();
+      for code_node in safe_select(&document, "code") {
+        let code_el = code_node;
         let code_text = code_el.text_contents();
 
         // Skip if this code element already has a role-specific class

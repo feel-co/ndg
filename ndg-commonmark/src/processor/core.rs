@@ -18,6 +18,32 @@ use log::trace;
 use markup5ever::local_name;
 use walkdir::WalkDir;
 
+/// Error type for DOM operations.
+#[derive(Debug, thiserror::Error)]
+pub enum DomError {
+  #[error("CSS selector failed: {0}")]
+  SelectorError(String),
+  #[error("DOM serialization failed: {0}")]
+  SerializationError(String),
+}
+
+/// Result type for DOM operations.
+pub type DomResult<T> = Result<T, DomError>;
+
+/// Safely select DOM elements with graceful error handling.
+fn safe_select(
+  document: &kuchikikiki::NodeRef,
+  selector: &str,
+) -> Vec<kuchikikiki::NodeRef> {
+  match document.select(selector) {
+    Ok(selections) => selections.map(|sel| sel.as_node().clone()).collect(),
+    Err(e) => {
+      log::warn!("DOM selector '{}' failed: {:?}", selector, e);
+      Vec::new()
+    },
+  }
+}
+
 use super::{
   process::process_safe,
   types::{
@@ -100,18 +126,16 @@ impl MarkdownProcessor {
 
     // Collect all code blocks first to avoid DOM modification during iteration
     let mut code_blocks = Vec::new();
-    for pre_node in document.select("pre > code").unwrap() {
-      let code_node = pre_node.as_node();
+    for pre_node in safe_select(&document, "pre > code") {
+      let code_node = pre_node;
       if let Some(element) = code_node.as_element() {
-        let class_attr = element
+        let language = element
           .attributes
           .borrow()
           .get("class")
-          .map(std::string::ToString::to_string);
-        let language = class_attr
-          .as_deref()
-          .and_then(|s| s.strip_prefix("language-"))
-          .unwrap_or("text");
+          .and_then(|class| class.strip_prefix("language-"))
+          .unwrap_or("text")
+          .to_string();
         let code_text = code_node.text_contents();
 
         if let Some(pre_parent) = code_node.parent() {
@@ -119,7 +143,7 @@ impl MarkdownProcessor {
             pre_parent.clone(),
             code_node.clone(),
             code_text,
-            language.to_string(),
+            language,
           ));
         }
       }
@@ -131,7 +155,8 @@ impl MarkdownProcessor {
       {
         // Wrap highlighted HTML in <pre><code> with appropriate classes
         let wrapped_html = format!(
-          r#"<pre class="highlight"><code class="language-{language}">{highlighted}</code></pre>"#
+          r#"<pre class="highlight"><code class="language-{}">{}</code></pre>"#,
+          language, highlighted
         );
         let fragment = parse_html().one(wrapped_html.as_str());
         pre_element.insert_after(fragment);
@@ -141,8 +166,11 @@ impl MarkdownProcessor {
     }
 
     let mut buf = Vec::new();
-    document.serialize(&mut buf).unwrap();
-    String::from_utf8(buf).unwrap_or_default()
+    if let Err(e) = document.serialize(&mut buf) {
+      log::warn!("DOM serialization failed: {:?}", e);
+      return html.to_string(); // Return original HTML if serialization fails
+    }
+    String::from_utf8(buf).unwrap_or_else(|_| html.to_string())
   }
 
   /// Highlight code using the configured syntax highlighter, returns HTML
@@ -540,12 +568,11 @@ impl MarkdownProcessor {
 
   /// Process remaining inline anchors in list items: <li>[]{#id}content</li>
   fn process_list_item_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
-    for li_node in document.select("li").unwrap() {
-      let li_element = li_node.as_node();
+    for li_node in safe_select(document, "li") {
+      let li_element = li_node;
 
       // Check if this list item contains code elements
-      let has_code = li_element.select("code, pre").is_ok()
-        && li_element.select("code, pre").unwrap().next().is_some();
+      let has_code = !safe_select(&li_element, "code, pre").is_empty();
       if has_code {
         continue; // Skip list items with code blocks
       }
@@ -604,12 +631,11 @@ impl MarkdownProcessor {
 
   /// Process inline anchors in paragraphs: <p>[]{#id}content</p>
   fn process_paragraph_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
-    for p_node in document.select("p").unwrap() {
-      let p_element = p_node.as_node();
+    for p_node in safe_select(document, "p") {
+      let p_element = p_node;
 
       // Check if this paragraph contains code elements
-      let has_code = p_element.select("code, pre").is_ok()
-        && p_element.select("code, pre").unwrap().next().is_some();
+      let has_code = !safe_select(&p_element, "code, pre").is_empty();
       if has_code {
         continue; // Skip paragraphs with code blocks
       }
@@ -795,8 +821,8 @@ impl MarkdownProcessor {
 
   /// Process empty auto-links: [](#anchor) -> <a href="#anchor">Anchor</a>
   fn process_empty_auto_links(&self, document: &kuchikikiki::NodeRef) {
-    for link_node in document.select("a").unwrap() {
-      let link_element = link_node.as_node();
+    for link_node in safe_select(document, "a") {
+      let link_element = link_node;
       if let Some(element) = link_element.as_element() {
         let href = element
           .attributes
@@ -827,8 +853,8 @@ impl MarkdownProcessor {
 
   /// Process empty HTML links that have no content
   fn process_empty_html_links(&self, document: &kuchikikiki::NodeRef) {
-    for link_node in document.select("a[href^='#']").unwrap() {
-      let link_element = link_node.as_node();
+    for link_node in safe_select(document, "a[href^='#']") {
+      let link_element = link_node;
       let text_content = link_element.text_contents();
 
       if text_content.trim().is_empty() || text_content.trim() == "{{ANCHOR}}" {
@@ -855,8 +881,8 @@ impl MarkdownProcessor {
     let mut to_modify = Vec::new();
 
     // Collect all option anchor links first
-    for link_node in document.select("a[href^='#opt-']").unwrap() {
-      let link_element = link_node.as_node();
+    for link_node in safe_select(document, "a[href^='#opt-']") {
+      let link_element = link_node;
       if let Some(element) = link_element.as_element() {
         let href = element
           .attributes
