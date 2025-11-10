@@ -38,6 +38,7 @@
   manpageUrls ? null,
   optionsDepth ? 2,
   generateSearch ? true,
+  highlightCode ? true,
 } @ args: let
   inherit (lib.asserts) assertMsg;
 in
@@ -69,5 +70,6 @@ in
       + optionalString (inputDir != null) ''--input-dir ${inputDir} \''
       + optionalString (manpageUrls != null) ''--manpage-urls ${manpageUrls} \''
       + optionalString generateSearch ''--generate-search \''
+      + optionalString highlightCode ''--highlight-code \''
       + "--options-depth ${toString optionsDepth}"
     )
