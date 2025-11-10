@@ -77,6 +77,9 @@ options_toc_depth = 2
 # Whether to enable syntax highlighting for code blocks
 highlight_code = true
 
+# How to handle hard tabs in code blocks (none, warn, normalize)
+tab_style = "none"
+
 # GitHub revision for linking to source files (defaults to 'local')
 revision = "main"
 
@@ -97,6 +100,7 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "generate_search": true,
   "options_toc_depth": 2,
   "highlight_code": true,
+  "tab_style": "none",
   "revision": "main",
   "opengraph": {
     "og:title": "My Project",
