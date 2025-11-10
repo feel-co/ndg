@@ -27,6 +27,40 @@
       modules = rawModules ++ [{_module.check = checkModules;}];
       inherit specialArgs;
     },
+  warningsAreErrors ? true,
+  moduleName ? "myModule",
+  variablelistId ? "${moduleName}-options",
+  basePath ? ./.,
+  repoPath ? "https://github.com/username/repo/blob/main",
+  transformOptions ? opt:
+    opt
+    // {
+      declarations = let
+        inherit (lib) hasPrefix removePrefix pipe;
+        basePathStr = toString basePath;
+      in
+        map
+        (decl: let
+          declStr = toString decl;
+        in
+          if hasPrefix basePathStr declStr
+          then
+            pipe declStr [
+              (removePrefix basePathStr)
+              (removePrefix "/")
+              (x: {
+                url = "${repoPath}/${x}";
+                name = "<${moduleName}/${x}>";
+              })
+            ]
+          else if decl == "lib/modules.nix"
+          then {
+            url = "https://github.com/NixOS/nixpkgs/blob/master/${decl}";
+            name = "<nixpkgs/lib/modules.nix>";
+          }
+          else decl)
+        opt.declarations;
+    },
   # Builder configuration
   title ? "My Option Documentation",
   description ? "List of my options in JSON format.",
@@ -49,7 +83,8 @@ in
 
     configJSON =
       (nixosOptionsDoc (
-        (removeAttrs optionsDocArgs ["options"])
+        {inherit transformOptions warningsAreErrors variablelistId;}
+        // (removeAttrs optionsDocArgs ["options"])
         // {inherit (evaluatedModules) options;}
       ))
       .optionsJSON;
