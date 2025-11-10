@@ -1,4 +1,5 @@
 {
+  pkgs,
   lib,
   # Build Dependencies
   ndg,
@@ -21,10 +22,41 @@
       };
     }
   ],
+  scrubDerivations ? namePrefix: pkgSet: let
+    inherit (builtins) isAttrs;
+    inherit (lib.attrs) mapAttrs optionalAttrs isDerivation;
+  in
+    mapAttrs (
+      name: value: let
+        wholeName = "${namePrefix}.${name}";
+      in
+        if isAttrs value
+        then
+          scrubDerivations wholeName value
+          // optionalAttrs (isDerivation value) {
+            inherit (value) drvPath;
+            outPath = "\${${wholeName}}";
+          }
+        else value
+    )
+    pkgSet,
+  moduleArgs ? {pkgs = lib.modules.mkForce (scrubDerivations "pkgs" pkgs);},
   specialArgs ? {},
   evaluatedModules ?
     lib.evalModules {
-      modules = rawModules ++ [{_module.check = checkModules;}];
+      modules =
+        rawModules
+        ++ [
+          {
+            options._module.args = lib.options.mkOption {
+              internal = true;
+            };
+            config._module = {
+              check = checkModules;
+              args = moduleArgs;
+            };
+          }
+        ];
       inherit specialArgs;
     },
   warningsAreErrors ? true,
