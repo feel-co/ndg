@@ -184,7 +184,9 @@ pub fn process_file_includes(
       continue;
     }
 
-    if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
+      && !trimmed.is_empty()
+    {
       let fence_char = trimmed.chars().next().unwrap();
       let fence_count =
         trimmed.chars().take_while(|&c| c == fence_char).count();
@@ -465,7 +467,9 @@ pub fn process_myst_autolinks(content: &str) -> String {
     let trimmed = line.trim_start();
 
     // Check for code fences
-    if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
+      && !trimmed.is_empty()
+    {
       let fence_char = trimmed.chars().next().unwrap();
       let fence_count =
         trimmed.chars().take_while(|&c| c == fence_char).count();
@@ -584,7 +588,9 @@ pub fn process_inline_anchors(content: &str) -> String {
     let trimmed = line.trim_start();
 
     // Check for code fences
-    if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
+      && !trimmed.is_empty()
+    {
       let fence_char = trimmed.chars().next().unwrap();
       let fence_count =
         trimmed.chars().take_while(|&c| c == fence_char).count();
@@ -780,7 +786,9 @@ pub fn process_block_elements(content: &str) -> String {
   while let Some(line) = lines.next() {
     // Check for code fences
     let trimmed = line.trim_start();
-    if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
+      && !trimmed.is_empty()
+    {
       let fence_char = trimmed.chars().next().unwrap();
       let fence_count =
         trimmed.chars().take_while(|&c| c == fence_char).count();
