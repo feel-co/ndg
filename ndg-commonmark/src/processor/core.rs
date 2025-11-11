@@ -69,7 +69,20 @@ impl MarkdownProcessor {
       .and_then(|path| crate::utils::load_manpage_urls(path).ok());
 
     let syntax_manager = if options.highlight_code {
-      create_default_manager().ok()
+      match create_default_manager() {
+        Ok(manager) => {
+          log::info!("Syntax highlighting initialized successfully");
+          Some(manager)
+        },
+        Err(e) => {
+          log::error!("Failed to initialize syntax highlighting: {}", e);
+          log::warn!(
+            "Continuing without syntax highlighting - code blocks will not be \
+             highlighted"
+          );
+          None
+        },
+      }
     } else {
       None
     };
