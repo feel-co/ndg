@@ -57,7 +57,13 @@ impl SyntectHighlighter {
   fn get_theme(&self, theme_name: Option<&str>) -> &'static Theme {
     let theme_set = Self::theme_set();
     let default_theme_set = Self::default_theme_set();
-    let name = theme_name.unwrap_or(&self.theme_name);
+    let name = if theme_name.is_some() {
+      theme_name.unwrap()
+    } else if !self.theme_name.is_empty() {
+      &self.theme_name
+    } else {
+      "InspiredGitHub" // guaranteed fallback
+    };
 
     // Try to get theme from default syntect themes first
     if let Some(theme) = default_theme_set.themes.get(name) {
