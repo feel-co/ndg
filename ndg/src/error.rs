@@ -38,30 +38,30 @@ pub enum NdgError {
 
 impl From<tera::Error> for NdgError {
   fn from(e: tera::Error) -> Self {
-    NdgError::Template(e.to_string())
+    Self::Template(e.to_string())
   }
 }
 
 impl From<fs_extra::error::Error> for NdgError {
   fn from(e: fs_extra::error::Error) -> Self {
-    NdgError::Io(io::Error::other(e.to_string()))
+    Self::Io(io::Error::other(e.to_string()))
   }
 }
 
 impl From<std::string::FromUtf8Error> for NdgError {
   fn from(e: std::string::FromUtf8Error) -> Self {
-    NdgError::External(e.to_string())
+    Self::External(e.to_string())
   }
 }
 
 impl From<std::num::ParseIntError> for NdgError {
   fn from(e: std::num::ParseIntError) -> Self {
-    NdgError::Config(e.to_string())
+    Self::Config(e.to_string())
   }
 }
 
 impl From<std::fmt::Error> for NdgError {
   fn from(e: fmt::Error) -> Self {
-    NdgError::External(e.to_string())
+    Self::External(e.to_string())
   }
 }

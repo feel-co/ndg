@@ -1,6 +1,6 @@
 condense_wildcard_suffixes   = true
 doc_comment_code_block_width = 80
-edition                      = "2024"             # Keep in sync with Cargo.toml.
+edition                      = "2024"               # Keep in sync with Cargo.toml.
 enum_discrim_align_threshold = 60
 force_explicit_abi           = false
 force_multiline_blocks       = true
@@ -24,5 +24,3 @@ unstable_features            = true
 use_field_init_shorthand     = true
 use_try_shorthand            = true
 wrap_comments                = true
-
-
