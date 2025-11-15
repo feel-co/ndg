@@ -171,6 +171,19 @@ pub struct MarkdownOptions {
     pub highlight_code: bool,                   // Syntax highlighting
     pub manpage_urls_path: Option<String>,      // Manpage URL mappings
     pub highlight_theme: Option<String>,        // Syntax highlighting theme
+    pub tab_style: TabStyle,                    // How to handle hard tabs in code blocks
+}
+```
+
+### `TabStyle`
+
+Configuration for handling hard tabs in code blocks:
+
+```rust
+pub enum TabStyle {
+    None,       // Leave hard tabs unchanged
+    Warn,       // Issue a warning when hard tabs are detected
+    Normalize,  // Automatically convert hard tabs to spaces (2 spaces per tab)
 }
 ```
 

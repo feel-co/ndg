@@ -1,7 +1,7 @@
 //! Main processing functions for Markdown content.
 use log::error;
 
-use super::types::{MarkdownOptions, MarkdownProcessor};
+use super::types::{MarkdownOptions, MarkdownProcessor, TabStyle};
 use crate::types::MarkdownResult;
 
 /// Process markdown content with error recovery.
@@ -149,6 +149,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         highlight_theme:   None,
         manpage_urls_path: None,
         auto_link_options: true,
+        tab_style:         TabStyle::None,
       }
     },
     ProcessorPreset::Ndg => {
@@ -159,6 +160,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         highlight_theme:   Some("github".to_string()),
         manpage_urls_path: None,
         auto_link_options: true,
+        tab_style:         TabStyle::None,
       }
     },
     ProcessorPreset::Nixpkgs => {
@@ -169,6 +171,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         highlight_theme:   Some("github".to_string()),
         manpage_urls_path: None,
         auto_link_options: true,
+        tab_style:         TabStyle::None,
       }
     },
   };

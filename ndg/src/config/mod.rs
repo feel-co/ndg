@@ -49,6 +49,10 @@ fn default_excluded_files() -> std::collections::HashSet<std::path::PathBuf> {
   std::collections::HashSet::new()
 }
 
+fn default_tab_style() -> String {
+  "none".to_string()
+}
+
 /// Configuration for the NDG documentation generator.
 ///
 /// [`Config`] holds all configuration options for controlling documentation
@@ -138,6 +142,10 @@ pub struct Config {
   /// "...", "keywords": "..."})
   #[serde(default)]
   pub meta_tags: Option<std::collections::HashMap<String, String>>,
+
+  /// How to handle hard tabs in code blocks.
+  #[serde(default = "default_tab_style")]
+  pub tab_style: String,
 }
 
 impl Config {
@@ -304,6 +312,7 @@ impl Config {
       manpage_urls,
       generate_search,
       highlight_code,
+
       revision,
     }) = &cli.command
     {

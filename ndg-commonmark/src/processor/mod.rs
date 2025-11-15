@@ -161,4 +161,128 @@ mod tests {
       assert!(result.contains("&lt;bar&gt;"));
     }
   }
+
+  #[test]
+  fn test_hardtab_handling_none() {
+    let options = MarkdownOptions {
+      tab_style: TabStyle::None,
+      highlight_code: false,
+      ..Default::default()
+    };
+    let processor = MarkdownProcessor::new(options);
+
+    let markdown = r#"
+# Test Code
+
+```rust
+fn main() {
+	println!("Hello, world!");
+}
+```
+"#;
+
+    let result = processor.render(markdown);
+    assert!(result.html.contains("\tprintln"));
+  }
+
+  #[test]
+  fn test_hardtab_handling_warn() {
+    let options = MarkdownOptions {
+      tab_style: TabStyle::Warn,
+      highlight_code: false,
+      ..Default::default()
+    };
+    let processor = MarkdownProcessor::new(options);
+
+    let markdown = r#"
+# Test Code
+
+```rust
+fn main() {
+	println!("Hello, world!");
+}
+```
+"#;
+
+    let result = processor.render(markdown);
+    // Should preserve hard tabs but issue warning
+    assert!(result.html.contains("\tprintln"));
+  }
+
+  #[test]
+  fn test_hardtab_handling_normalize() {
+    let options = MarkdownOptions {
+      tab_style: TabStyle::Normalize,
+      highlight_code: false,
+      ..Default::default()
+    };
+    let processor = MarkdownProcessor::new(options);
+
+    let markdown = r#"
+# Test Code
+
+```rust
+fn main() {
+	println!("Hello, world!");
+}
+```
+"#;
+
+    let result = processor.render(markdown);
+    // Should convert hard tabs to 2 spaces
+    assert!(!result.html.contains("\tprintln"));
+    assert!(result.html.contains("  println"));
+  }
+
+  #[test]
+  fn test_hardtab_handling_no_tabs() {
+    let options = MarkdownOptions {
+      tab_style: TabStyle::Warn,
+      highlight_code: false,
+      ..Default::default()
+    };
+    let processor = MarkdownProcessor::new(options);
+
+    let markdown = r#"
+# Test Code
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+"#;
+
+    let result = processor.render(markdown);
+    // Should work fine when no tabs are present
+    assert!(result.html.contains("    println"));
+    assert!(!result.html.contains("\t"));
+  }
+
+  #[test]
+  fn test_hardtab_handling_mixed_content() {
+    let options = MarkdownOptions {
+      tab_style: TabStyle::Normalize,
+      highlight_code: false,
+      ..Default::default()
+    };
+    let processor = MarkdownProcessor::new(options);
+
+    let markdown = r#"
+# Test Code
+
+```rust
+fn main() {
+	println!("Hello");  // tab here
+    println!("World");  // spaces here
+}
+```
+"#;
+
+    let result = processor.render(markdown);
+    // Should convert only tabs, preserve spaces
+    assert!(!result.html.contains("\tprintln"));
+    assert!(result.html.contains("  println"));
+    assert!(result.html.contains("    println"));
+  }
 }

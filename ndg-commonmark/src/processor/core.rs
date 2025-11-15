@@ -186,6 +186,97 @@ impl MarkdownProcessor {
     String::from_utf8(buf).unwrap_or_else(|_| html.to_string())
   }
 
+  /// Handle hard tabs in code blocks according to configuration
+  fn handle_hardtabs(&self, code: &str) -> String {
+    use super::types::TabStyle;
+
+    // Check if there are any hard tabs
+    if !code.contains('\t') {
+      return code.to_string();
+    }
+
+    match self.options.tab_style {
+      // Do nothing
+      TabStyle::None => code.to_string(),
+
+      // Warn, but do nothing.
+      TabStyle::Warn => {
+        log::warn!(
+          "Hard tabs detected in code block. Consider using spaces for \
+           consistency. Tools like editorconfig may help you normalize spaces \
+           in your documents."
+        );
+        code.to_string()
+      },
+
+      // Do not warn, only inform in debug mode. Then return
+      // the updated code.
+      TabStyle::Normalize => {
+        log::debug!("Replacing hard tabs with spaces");
+        code.replace('\t', "  ")
+      },
+    }
+  }
+
+  /// Process hard tabs in code blocks within markdown content
+  fn process_hardtabs(&self, markdown: &str) -> String {
+    use super::types::TabStyle;
+
+    // If no tab handling is needed, return as-is
+    if self.options.tab_style == TabStyle::None {
+      return markdown.to_string();
+    }
+
+    let mut result = String::with_capacity(markdown.len());
+    let mut lines = markdown.lines().peekable();
+    let mut in_code_block = false;
+    let mut code_fence_char = None;
+    let mut code_fence_count = 0;
+
+    while let Some(line) = lines.next() {
+      let trimmed = line.trim_start();
+
+      // Check for code fences
+      if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+        let fence_char = trimmed.chars().next().unwrap();
+        let fence_count =
+          trimmed.chars().take_while(|&c| c == fence_char).count();
+
+        if fence_count >= 3 {
+          if !in_code_block {
+            // Starting a code block
+            in_code_block = true;
+            code_fence_char = Some(fence_char);
+            code_fence_count = fence_count;
+          } else if code_fence_char == Some(fence_char)
+            && fence_count >= code_fence_count
+          {
+            // Ending a code block
+            in_code_block = false;
+            code_fence_char = None;
+            code_fence_count = 0;
+          }
+        }
+      }
+
+      // Process line based on whether we're in a code block
+      let processed_line = if in_code_block && line.contains('\t') {
+        self.handle_hardtabs(line)
+      } else {
+        line.to_string()
+      };
+
+      result.push_str(&processed_line);
+
+      // Add newline unless this is the last line
+      if lines.peek().is_some() {
+        result.push('\n');
+      }
+    }
+
+    result
+  }
+
   /// Highlight code using the configured syntax highlighter, returns HTML
   /// string
   fn highlight_code_html(&self, code: &str, language: &str) -> Option<String> {
@@ -247,6 +338,9 @@ impl MarkdownProcessor {
 
     // Process MyST-style autolinks first
     processed = super::extensions::process_myst_autolinks(&processed);
+
+    // Handle hard tabs in code blocks
+    processed = self.process_hardtabs(&processed);
 
     if self.options.nixpkgs {
       processed = self.apply_nixpkgs_preprocessing(&processed);
