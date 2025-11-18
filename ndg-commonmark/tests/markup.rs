@@ -200,7 +200,7 @@ fn test_option_reference() {
 #[test]
 fn test_myst_role_markup() {
   let md = r"{command}`foo`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[r#"<code class="command">foo</code>"#]);
 }
 
@@ -224,8 +224,12 @@ fn test_manpage_role_with_url() {
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
-  let html =
-    ndg_commonmark::process_role_markup(md, processor.manpage_urls(), true);
+  let html = ndg_commonmark::process_role_markup(
+    md,
+    processor.manpage_urls(),
+    true,
+    None,
+  );
   assert_html_contains(&html, &[
     r#"<a href="https://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html" class="manpage-reference">cat(1)</a>"#,
   ]);
@@ -251,8 +255,12 @@ fn test_manpage_role_without_url() {
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
-  let html =
-    ndg_commonmark::process_role_markup(md, processor.manpage_urls(), true);
+  let html = ndg_commonmark::process_role_markup(
+    md,
+    processor.manpage_urls(),
+    true,
+    None,
+  );
   assert_html_contains(&html, &[
     r#"<span class="manpage-reference">doesnotexist(1)</span>"#,
   ]);
@@ -266,7 +274,7 @@ fn test_role_markup_in_lists() {
 - {option}`services.nginx.enable`
 - {var}`pkgs`
 - {manpage}`nix.conf(5)`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
 
   // Test that all role types are processed correctly
   assert_html_contains(&html, &[
@@ -293,21 +301,21 @@ fn test_role_markup_in_lists() {
 fn test_role_markup_edge_cases() {
   // Test role with special characters
   let md = r"{file}`/path/with-dashes_and.dots`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[
     r#"<code class="file-path">/path/with-dashes_and.dots</code>"#,
   ]);
 
   // Test role with spaces
   let md = r"{command}`ls -la | grep test`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[
     r#"<code class="command">ls -la | grep test</code>"#,
   ]);
 
   // Test unknown role type
   let md = r"{unknown}`content`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[
     r#"<span class="unknown-markup">content</span>"#,
   ]);

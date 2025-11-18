@@ -71,6 +71,7 @@ mod tests {
         "hjem.users.<name>.enable",
         None,
         true,
+        None,
       );
 
       // Should escape < and > characters in content
@@ -102,18 +103,20 @@ mod tests {
     {
       let content = "<script>alert('xss')</script>";
 
-      let command_result =
-        super::extensions::format_role_markup("command", content, None, true);
+      let command_result = super::extensions::format_role_markup(
+        "command", content, None, true, None,
+      );
       assert!(command_result.contains("&lt;script&gt;"));
       assert!(!command_result.contains("<script>alert"));
 
       let env_result =
-        super::extensions::format_role_markup("env", content, None, true);
+        super::extensions::format_role_markup("env", content, None, true, None);
       assert!(env_result.contains("&lt;script&gt;"));
       assert!(!env_result.contains("<script>alert"));
 
-      let file_result =
-        super::extensions::format_role_markup("file", content, None, true);
+      let file_result = super::extensions::format_role_markup(
+        "file", content, None, true, None,
+      );
       assert!(file_result.contains("&lt;script&gt;"));
       assert!(!file_result.contains("<script>alert"));
     }
@@ -129,6 +132,7 @@ mod tests {
         "hjem.users.<name>.enable",
         None,
         true,
+        None,
       );
 
       // Should not produce broken HTML like:
@@ -158,6 +162,7 @@ mod tests {
         "services.foo.<bar>.enable",
         None,
         true,
+        None,
       );
 
       // Option ID should preserve angle brackets

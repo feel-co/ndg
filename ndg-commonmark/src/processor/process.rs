@@ -150,6 +150,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         manpage_urls_path: None,
         auto_link_options: true,
         tab_style:         TabStyle::None,
+        valid_options:     None,
       }
     },
     ProcessorPreset::Ndg => {
@@ -161,6 +162,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         manpage_urls_path: None,
         auto_link_options: true,
         tab_style:         TabStyle::None,
+        valid_options:     None,
       }
     },
     ProcessorPreset::Nixpkgs => {
@@ -172,6 +174,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         manpage_urls_path: None,
         auto_link_options: true,
         tab_style:         TabStyle::None,
+        valid_options:     None,
       }
     },
   };

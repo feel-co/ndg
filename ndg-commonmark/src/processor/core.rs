@@ -313,7 +313,10 @@ impl MarkdownProcessor {
     if cfg!(feature = "ndg-flavored") {
       #[cfg(feature = "ndg-flavored")]
       {
-        html = super::extensions::process_option_references(&html);
+        html = super::extensions::process_option_references(
+          &html,
+          self.options.valid_options.as_ref(),
+        );
       }
     }
 
@@ -353,6 +356,7 @@ impl MarkdownProcessor {
         &processed,
         self.manpage_urls.as_ref(),
         self.options.auto_link_options,
+        self.options.valid_options.as_ref(),
       );
     }
 

@@ -222,6 +222,7 @@ pub fn process_file_includes(
 /// * `content` - The markdown content to process
 /// * `manpage_urls` - Optional mapping of manpage names to URLs
 /// * `auto_link_options` - Whether to convert {option} roles to links
+/// * `valid_options` - Optional set of valid option names for validation
 ///
 /// # Returns
 ///
@@ -232,6 +233,7 @@ pub fn process_role_markup(
   content: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
   auto_link_options: bool,
+  valid_options: Option<&std::collections::HashSet<String>>,
 ) -> String {
   let mut result = String::new();
   let mut chars = content.chars().peekable();
@@ -314,9 +316,12 @@ pub fn process_role_markup(
       let remaining_str: String = remaining.iter().collect();
       let mut temp_chars = remaining_str.chars().peekable();
 
-      if let Some(role_markup) =
-        parse_role_markup(&mut temp_chars, manpage_urls, auto_link_options)
-      {
+      if let Some(role_markup) = parse_role_markup(
+        &mut temp_chars,
+        manpage_urls,
+        auto_link_options,
+        valid_options,
+      ) {
         // Valid role markup found, advance the main iterator
         let remaining_after_parse: String = temp_chars.collect();
         let consumed = remaining_str.len() - remaining_after_parse.len();
@@ -345,6 +350,7 @@ fn parse_role_markup(
   chars: &mut std::iter::Peekable<std::str::Chars>,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
   auto_link_options: bool,
+  valid_options: Option<&std::collections::HashSet<String>>,
 ) -> Option<String> {
   let mut role_name = String::new();
 
@@ -389,6 +395,7 @@ fn parse_role_markup(
         &content,
         manpage_urls,
         auto_link_options,
+        valid_options,
       ));
     }
     content.push(ch);
@@ -405,15 +412,15 @@ pub fn format_role_markup(
   content: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
   auto_link_options: bool,
+  valid_options: Option<&std::collections::HashSet<String>>,
 ) -> String {
   let escaped_content = html_escape::encode_text(content);
   match role_type {
     "manpage" => {
       if let Some(urls) = manpage_urls {
         if let Some(url) = urls.get(content) {
-          let clean_url = extract_url_from_html(url);
           format!(
-            "<a href=\"{clean_url}\" \
+            "<a href=\"{url}\" \
              class=\"manpage-reference\">{escaped_content}</a>"
           )
         } else {
@@ -428,12 +435,21 @@ pub fn format_role_markup(
     "file" => format!("<code class=\"file-path\">{escaped_content}</code>"),
     "option" => {
       if cfg!(feature = "ndg-flavored") && auto_link_options {
-        let option_id = format!("option-{}", content.replace('.', "-"));
-        format!(
-          "<a class=\"option-reference\" \
-           href=\"options.html#{option_id}\"><code \
-           class=\"nixos-option\">{escaped_content}</code></a>"
-        )
+        // Check if validation is enabled and option is valid
+        let should_link = valid_options
+          .map(|opts| opts.contains(content))
+          .unwrap_or(true); // If no validation set, link all options
+
+        if should_link {
+          let option_id = format!("option-{}", content.replace('.', "-"));
+          format!(
+            "<a class=\"option-reference\" \
+             href=\"options.html#{option_id}\"><code \
+             class=\"nixos-option\">{escaped_content}</code></a>"
+          )
+        } else {
+          format!("<code class=\"nixos-option\">{escaped_content}</code>")
+        }
       } else {
         format!("<code class=\"nixos-option\">{escaped_content}</code>")
       }
@@ -1117,13 +1133,17 @@ pub fn process_manpage_references(
 /// # Arguments
 ///
 /// * `html` - The HTML string to process.
+/// * `valid_options` - Optional set of valid option names for validation.
 ///
 /// # Returns
 ///
 /// The HTML string with option references rewritten as links.
 #[cfg(feature = "ndg-flavored")]
 #[must_use]
-pub fn process_option_references(html: &str) -> String {
+pub fn process_option_references(
+  html: &str,
+  valid_options: Option<&std::collections::HashSet<String>>,
+) -> String {
   use kuchikikiki::{Attribute, ExpandedName, NodeRef};
   use markup5ever::{QualName, local_name, ns};
   use tendril::TendrilSink;
@@ -1161,28 +1181,36 @@ pub fn process_option_references(html: &str) -> String {
         }
 
         if !is_already_option_ref {
-          let option_id = format!("option-{}", code_text.replace('.', "-"));
-          let attrs = vec![
-            (ExpandedName::new("", "href"), Attribute {
-              prefix: None,
-              value:  format!("options.html#{option_id}"),
-            }),
-            (ExpandedName::new("", "class"), Attribute {
-              prefix: None,
-              value:  "option-reference".into(),
-            }),
-          ];
-          let a = NodeRef::new_element(
-            QualName::new(None, ns!(html), local_name!("a")),
-            attrs,
-          );
-          let code = NodeRef::new_element(
-            QualName::new(None, ns!(html), local_name!("code")),
-            vec![],
-          );
-          code.append(NodeRef::new_text(code_text.clone()));
-          a.append(code);
-          to_replace.push((code_el.clone(), a));
+          // Check if validation is enabled and option is valid
+          let should_link = valid_options
+            .map(|opts| opts.contains(code_text.as_str()))
+            .unwrap_or(true); // If no validation set, link all options
+
+          if should_link {
+            let option_id = format!("option-{}", code_text.replace('.', "-"));
+            let attrs = vec![
+              (ExpandedName::new("", "href"), Attribute {
+                prefix: None,
+                value:  format!("options.html#{option_id}"),
+              }),
+              (ExpandedName::new("", "class"), Attribute {
+                prefix: None,
+                value:  "option-reference".into(),
+              }),
+            ];
+            let a = NodeRef::new_element(
+              QualName::new(None, ns!(html), local_name!("a")),
+              attrs,
+            );
+            let code = NodeRef::new_element(
+              QualName::new(None, ns!(html), local_name!("code")),
+              vec![],
+            );
+            code.append(NodeRef::new_text(code_text.clone()));
+            a.append(code);
+            to_replace.push((code_el.clone(), a));
+          }
+          // If should_link is false, leave the code element as-is (no wrapping)
         }
       }
 
