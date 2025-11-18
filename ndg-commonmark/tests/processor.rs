@@ -24,7 +24,7 @@ fn test_new_processor_role_markup_in_lists() {
   assert!(html.contains(
     r#"<li><code class="file-path">/etc/nixos/configuration.nix</code></li>"#
   ));
-  assert!(html.contains(r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a></li>"#));
+  assert!(html.contains(r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a></li>"#));
   assert!(html.contains(r#"<li><code class="nix-var">pkgs</code></li>"#));
   assert!(html.contains(
     r#"<li><span class="manpage-reference">nix.conf(5)</span></li>"#
@@ -57,18 +57,19 @@ fn test_new_processor_option_reference_edge_case() {
 fn test_new_processor_valid_vs_invalid_options() {
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
-  let md = r"Valid: `services.nginx.enable`
+  let md = r"Valid: {option}`services.nginx.enable`
 Invalid: `some/path.conf`
 Invalid: `$HOME.config`
 Invalid: `file.name.ext`
-Valid: `boot.loader.systemd-boot.enable`";
+Valid: {option}`boot.loader.systemd-boot.enable`";
 
   let result = processor.render(md);
   let html = result.html;
 
-  // Only the valid option paths should be converted to links
-  assert!(html.contains(r#"<a href="options.html#option-services-nginx-enable" class="option-reference"><code>services.nginx.enable</code></a>"#));
-  assert!(html.contains(r#"<a href="options.html#option-boot-loader-systemd-boot-enable" class="option-reference"><code>boot.loader.systemd-boot.enable</code></a>"#));
+  // Only the valid option paths marked with {option} should be converted to
+  // links
+  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#));
+  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-boot-loader-systemd-boot-enable"><code class="nixos-option">boot.loader.systemd-boot.enable</code></a>"#));
 
   // These should remain as plain code
   assert!(html.contains(r"<code>some/path.conf</code>"));

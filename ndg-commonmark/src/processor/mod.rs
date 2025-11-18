@@ -59,6 +59,8 @@ pub use types::{
 mod tests {
   use html_escape;
 
+  use super::{MarkdownOptions, MarkdownProcessor, types::TabStyle};
+
   #[test]
   fn test_html_escaped_roles() {
     // Test that HTML characters in role content are properly escaped
@@ -75,8 +77,10 @@ mod tests {
       assert!(result.contains("&lt;name&gt;"));
       // Should not contain unescaped HTML in code content
       assert!(!result.contains("<code>hjem.users.<name>.enable</code>"));
-      // Should contain escaped content in code
-      assert!(result.contains("<code>hjem.users.&lt;name&gt;.enable</code>"));
+      // Should contain escaped content in code with proper class
+      assert!(result.contains(
+        "<code class=\"nixos-option\">hjem.users.&lt;name&gt;.enable</code>"
+      ));
       // Should have properly formatted option ID in href with preserved special
       // chars
       assert!(result.contains("option-hjem-users-<name>-enable"));
@@ -134,8 +138,10 @@ mod tests {
       // Should properly escape the angle brackets in display text
       assert!(result.contains("&lt;name&gt;"));
 
-      // Should produce valid HTML structure
-      assert!(result.contains("<code>hjem.users.&lt;name&gt;.enable</code>"));
+      // Should produce valid HTML structure with proper class
+      assert!(result.contains(
+        "<code class=\"nixos-option\">hjem.users.&lt;name&gt;.enable</code>"
+      ));
 
       // Should preserve special characters in the option ID (the actual anchor)
       assert!(result.contains("options.html#option-hjem-users-<name>-enable"));
