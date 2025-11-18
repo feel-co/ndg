@@ -1,4 +1,11 @@
-use ndg_commonmark::{MarkdownOptions, MarkdownProcessor, processor};
+use std::collections::HashSet;
+
+use ndg_commonmark::{
+  MarkdownOptions,
+  MarkdownOptionsBuilder,
+  MarkdownProcessor,
+  processor,
+};
 
 #[test]
 fn parses_basic_markdown_ast() {
@@ -187,4 +194,74 @@ fn test_html_entities() {
   let result = processor.render(md);
   assert!(result.html.contains("&lt;script&gt;"));
   assert!(result.html.contains("&amp;"));
+}
+
+#[test]
+fn test_option_validation_with_valid_options() {
+  let mut valid_options = HashSet::new();
+  valid_options.insert("services.nginx.enable".to_string());
+  valid_options.insert("services.nginx.package".to_string());
+
+  let options = MarkdownOptionsBuilder::new()
+    .valid_options(Some(valid_options))
+    .build();
+  let processor = MarkdownProcessor::new(options);
+
+  let md = "Use {option}`services.nginx.enable` to enable nginx.";
+  let result = processor.render(md);
+
+  // Valid option should be linked
+  assert!(
+    result.html.contains("nixos-option"),
+    "Should contain nixos-option class"
+  );
+  assert!(
+    result.html.contains("services.nginx.enable"),
+    "Should contain the option name"
+  );
+}
+
+#[test]
+fn test_option_validation_with_invalid_options() {
+  let mut valid_options = HashSet::new();
+  valid_options.insert("services.nginx.enable".to_string());
+
+  let options = MarkdownOptionsBuilder::new()
+    .valid_options(Some(valid_options.clone()))
+    .build();
+
+  let processor = MarkdownProcessor::new(options);
+
+  let md = "Use {option}`services.invalid.option` to configure something.";
+  let result = processor.render(md);
+
+  // Invalid option should still be rendered as code but not linked
+  assert!(
+    result.html.contains("services.invalid.option"),
+    "Should contain the option name"
+  );
+  // Invalid options should NOT be linked, so no href should be present
+  assert!(
+    !result.html.contains("href="),
+    "Invalid option should not be linked"
+  );
+}
+
+#[test]
+fn test_option_validation_disabled_links_all() {
+  let options = MarkdownOptionsBuilder::new().build();
+  let processor = MarkdownProcessor::new(options);
+
+  let md = "Use {option}`services.any.option` to configure something.";
+  let result = processor.render(md);
+
+  // Without validation set, any option should be rendered
+  assert!(
+    result.html.contains("services.any.option"),
+    "Should contain the option name"
+  );
+  assert!(
+    result.html.contains("nixos-option"),
+    "Should contain nixos-option class"
+  );
 }

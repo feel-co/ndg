@@ -256,6 +256,26 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
 /// A configured `MarkdownProcessor`.
 #[must_use]
 pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
+  create_processor_from_config_with_options(config, None)
+}
+
+/// Creates a markdown processor from the NDG configuration with optional option
+/// validation.
+///
+/// This configures the processor with GFM, code highlighting, manpage URL
+/// mappings, and optionally a set of valid option names for validation.
+///
+/// # Arguments
+/// * `config` - The loaded configuration for documentation generation.
+/// * `valid_options` - Optional set of valid option names for validation.
+///
+/// # Returns
+/// A configured `MarkdownProcessor`.
+#[must_use]
+pub fn create_processor_from_config_with_options(
+  config: &Config,
+  valid_options: Option<HashSet<String>>,
+) -> MarkdownProcessor {
   let tab_style = match config.tab_style.as_str() {
     "warn" => TabStyle::Warn,
     "normalize" => TabStyle::Normalize,
@@ -270,6 +290,10 @@ pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
   if let Some(mappings_path) = &config.manpage_urls_path {
     builder = builder
       .manpage_urls_path(Some(mappings_path.to_string_lossy().to_string()));
+  }
+
+  if let Some(options) = valid_options {
+    builder = builder.valid_options(Some(options));
   }
 
   MarkdownProcessor::new(builder.build())

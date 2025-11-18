@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{
+  collections::{HashMap, HashSet},
+  fs,
+  path::Path,
+};
 
 use color_eyre::eyre::{Context, Result};
 use html_escape;
@@ -8,7 +12,7 @@ use serde_json::{self, Value};
 use crate::{
   config::Config,
   html::template,
-  utils::{create_processor_from_config, json::extract_value},
+  utils::{create_processor_from_config_with_options, json::extract_value},
 };
 
 /// Represents a `NixOS` configuration option.
@@ -77,6 +81,18 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   let options_data: Value = serde_json::from_str(&json_content)
     .wrap_err("Failed to parse options JSON")?;
 
+  // First pass: collect all option names for validation
+  let mut valid_options = HashSet::new();
+  if let Value::Object(ref map) = options_data {
+    for key in map.keys() {
+      valid_options.insert(key.clone());
+    }
+  }
+
+  // Create processor once with validation enabled
+  let processor =
+    create_processor_from_config_with_options(config, Some(valid_options));
+
   // Extract options
   let mut options = HashMap::new();
 
@@ -104,7 +120,6 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
         if let Some(Value::String(desc)) = option_data.get("description") {
           let processed_desc = escape_html_in_markdown(desc);
-          let processor = create_processor_from_config(config);
           let result = processor.render(&processed_desc);
           option.description = result.html;
         }
