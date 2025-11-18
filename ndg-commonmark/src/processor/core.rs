@@ -38,7 +38,7 @@ fn safe_select(
   match document.select(selector) {
     Ok(selections) => selections.map(|sel| sel.as_node().clone()).collect(),
     Err(e) => {
-      log::warn!("DOM selector '{}' failed: {:?}", selector, e);
+      log::warn!("DOM selector '{selector}' failed: {e:?}");
       Vec::new()
     },
   }
@@ -75,7 +75,7 @@ impl MarkdownProcessor {
           Some(manager)
         },
         Err(e) => {
-          log::error!("Failed to initialize syntax highlighting: {}", e);
+          log::error!("Failed to initialize syntax highlighting: {e}");
           log::warn!(
             "Continuing without syntax highlighting - code blocks will not be \
              highlighted"
@@ -102,6 +102,7 @@ impl MarkdownProcessor {
   }
 
   /// Set the base directory for resolving relative file paths.
+  #[must_use]
   pub fn with_base_dir(mut self, base_dir: &std::path::Path) -> Self {
     self.base_dir = base_dir.to_path_buf();
     self
@@ -127,12 +128,12 @@ impl MarkdownProcessor {
   /// Highlight all code blocks in HTML using the configured syntax highlighter
   #[must_use]
   pub fn highlight_codeblocks(&self, html: &str) -> String {
+    use kuchikikiki::parse_html;
+    use tendril::TendrilSink;
+
     if !self.options.highlight_code || self.syntax_manager.is_none() {
       return html.to_string();
     }
-
-    use kuchikikiki::parse_html;
-    use tendril::TendrilSink;
 
     let document = parse_html().one(html);
 
@@ -167,8 +168,7 @@ impl MarkdownProcessor {
       {
         // Wrap highlighted HTML in <pre><code> with appropriate classes
         let wrapped_html = format!(
-          r#"<pre class="highlight"><code class="language-{}">{}</code></pre>"#,
-          language, highlighted
+          r#"<pre class="highlight"><code class="language-{language}">{highlighted}</code></pre>"#
         );
         let fragment = parse_html().one(wrapped_html.as_str());
         pre_element.insert_after(fragment);
@@ -179,7 +179,7 @@ impl MarkdownProcessor {
 
     let mut buf = Vec::new();
     if let Err(e) = document.serialize(&mut buf) {
-      log::warn!("DOM serialization failed: {:?}", e);
+      log::warn!("DOM serialization failed: {e:?}");
       return html.to_string(); // Return original HTML if serialization fails
     }
     String::from_utf8(buf).unwrap_or_else(|_| html.to_string())
@@ -391,6 +391,8 @@ impl MarkdownProcessor {
     &self,
     content: &str,
   ) -> (Vec<Header>, Option<String>) {
+    use std::fmt::Write;
+
     let arena = Arena::new();
     let options = self.comrak_options();
 
@@ -403,7 +405,7 @@ impl MarkdownProcessor {
           if let Some(anchor_end) = trimmed[anchor_start..].find('}') {
             let text = trimmed[..anchor_start].trim_end();
             let id = &trimmed[anchor_start + 2..anchor_start + anchor_end];
-            normalized.push_str(&format!("## {text} {{#{id}}}\n"));
+            let _ = writeln!(normalized, "## {text} {{#{id}}}");
             continue;
           }
         }
@@ -428,17 +430,13 @@ impl MarkdownProcessor {
           match &child.data.borrow().value {
             NodeValue::Text(t) => text.push_str(t),
             NodeValue::Code(t) => text.push_str(&t.literal),
-            NodeValue::Link(..) => text.push_str(&extract_inline_text(child)),
-            NodeValue::Emph => text.push_str(&extract_inline_text(child)),
-            NodeValue::Strong => text.push_str(&extract_inline_text(child)),
-            NodeValue::Strikethrough => {
-              text.push_str(&extract_inline_text(child));
-            },
-            NodeValue::Superscript => {
-              text.push_str(&extract_inline_text(child));
-            },
-            NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
-            NodeValue::FootnoteReference(..) => {
+            NodeValue::Link(..)
+            | NodeValue::Emph
+            | NodeValue::Strong
+            | NodeValue::Subscript
+            | NodeValue::Strikethrough
+            | NodeValue::Superscript
+            | NodeValue::FootnoteReference(..) => {
               text.push_str(&extract_inline_text(child));
             },
             NodeValue::HtmlInline(html) => {
@@ -451,6 +449,7 @@ impl MarkdownProcessor {
                 }
               }
             },
+            #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
             NodeValue::Image(..) => {},
             _ => {},
           }
@@ -458,6 +457,8 @@ impl MarkdownProcessor {
 
         // Check for trailing {#id} in heading text
         let trimmed = text.trim_end();
+        #[allow(clippy::option_if_let_else)]
+        // Nested options clearer with if-let
         let (final_text, id) = if let Some(start) = trimmed.rfind("{#") {
           if let Some(end) = trimmed[start..].find('}') {
             let anchor = &trimmed[start + 2..start + end];
@@ -503,12 +504,12 @@ impl MarkdownProcessor {
     comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
 
     // Post-process HTML to handle header anchors
-    self.process_header_anchors_html(&html_output)
+    Self::process_header_anchors_html(&html_output)
   }
 
   /// Process header anchors in HTML by finding {#id} syntax and converting to
   /// proper id attributes
-  fn process_header_anchors_html(&self, html: &str) -> String {
+  fn process_header_anchors_html(html: &str) -> String {
     use std::sync::LazyLock;
 
     use regex::Regex;
@@ -567,27 +568,31 @@ impl MarkdownProcessor {
   }
 
   /// HTML post-processing using kuchiki DOM manipulation.
+  #[allow(
+    clippy::unused_self,
+    reason = "Method signature matches processor pattern"
+  )]
   fn kuchiki_postprocess(&self, html: &str) -> String {
     // Use a standalone function to avoid borrowing issues
     kuchiki_postprocess_html(html, |document| {
-      self.apply_dom_transformations(document);
+      Self::apply_dom_transformations(document);
     })
   }
 
   /// Apply all DOM transformations to the parsed HTML document.
-  fn apply_dom_transformations(&self, document: &kuchikikiki::NodeRef) {
-    self.process_list_item_id_markers(document);
-    self.process_header_anchor_comments(document);
-    self.process_list_item_inline_anchors(document);
-    self.process_paragraph_inline_anchors(document);
-    self.process_remaining_inline_anchors(document);
-    self.process_option_anchor_links(document);
-    self.process_empty_auto_links(document);
-    self.process_empty_html_links(document);
+  fn apply_dom_transformations(document: &kuchikikiki::NodeRef) {
+    Self::process_list_item_id_markers(document);
+    Self::process_header_anchor_comments(document);
+    Self::process_list_item_inline_anchors(document);
+    Self::process_paragraph_inline_anchors(document);
+    Self::process_remaining_inline_anchors(document);
+    Self::process_option_anchor_links(document);
+    Self::process_empty_auto_links(document);
+    Self::process_empty_html_links(document);
   }
 
   /// Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
-  fn process_list_item_id_markers(&self, document: &kuchikikiki::NodeRef) {
+  fn process_list_item_id_markers(document: &kuchikikiki::NodeRef) {
     let mut to_modify = Vec::new();
 
     for comment in document.inclusive_descendants() {
@@ -643,7 +648,7 @@ impl MarkdownProcessor {
   }
 
   /// Process header anchors with comments: <h1>text<!-- anchor: id --></h1>
-  fn process_header_anchor_comments(&self, document: &kuchikikiki::NodeRef) {
+  fn process_header_anchor_comments(document: &kuchikikiki::NodeRef) {
     let mut to_modify = Vec::new();
 
     for comment in document.inclusive_descendants() {
@@ -686,7 +691,7 @@ impl MarkdownProcessor {
   }
 
   /// Process remaining inline anchors in list items: <li>[]{#id}content</li>
-  fn process_list_item_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
+  fn process_list_item_inline_anchors(document: &kuchikikiki::NodeRef) {
     for li_node in safe_select(document, "li") {
       let li_element = li_node;
 
@@ -749,7 +754,7 @@ impl MarkdownProcessor {
   }
 
   /// Process inline anchors in paragraphs: <p>[]{#id}content</p>
-  fn process_paragraph_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
+  fn process_paragraph_inline_anchors(document: &kuchikikiki::NodeRef) {
     for p_node in safe_select(document, "p") {
       let p_element = p_node;
 
@@ -812,7 +817,7 @@ impl MarkdownProcessor {
   }
 
   /// Process remaining standalone inline anchors throughout the document
-  fn process_remaining_inline_anchors(&self, document: &kuchikikiki::NodeRef) {
+  fn process_remaining_inline_anchors(document: &kuchikikiki::NodeRef) {
     let mut text_nodes_to_process = Vec::new();
 
     for node in document.inclusive_descendants() {
@@ -939,7 +944,7 @@ impl MarkdownProcessor {
   }
 
   /// Process empty auto-links: [](#anchor) -> <a href="#anchor">Anchor</a>
-  fn process_empty_auto_links(&self, document: &kuchikikiki::NodeRef) {
+  fn process_empty_auto_links(document: &kuchikikiki::NodeRef) {
     for link_node in safe_select(document, "a") {
       let link_element = link_node;
       if let Some(element) = link_element.as_element() {
@@ -962,7 +967,7 @@ impl MarkdownProcessor {
               }
             }
             // Empty link with anchor - add humanized text
-            let display_text = self.humanize_anchor_id(&href_value);
+            let display_text = Self::humanize_anchor_id(&href_value);
             link_element.append(kuchikikiki::NodeRef::new_text(display_text));
           }
         }
@@ -971,7 +976,7 @@ impl MarkdownProcessor {
   }
 
   /// Process empty HTML links that have no content
-  fn process_empty_html_links(&self, document: &kuchikikiki::NodeRef) {
+  fn process_empty_html_links(document: &kuchikikiki::NodeRef) {
     for link_node in safe_select(document, "a[href^='#']") {
       let link_element = link_node;
       let text_content = link_element.text_contents();
@@ -987,7 +992,7 @@ impl MarkdownProcessor {
           if let Some(href) =
             element.attributes.borrow().get(local_name!("href"))
           {
-            let display_text = self.humanize_anchor_id(href);
+            let display_text = Self::humanize_anchor_id(href);
             link_element.append(kuchikikiki::NodeRef::new_text(display_text));
           }
         }
@@ -996,7 +1001,7 @@ impl MarkdownProcessor {
   }
 
   /// Process option anchor links: [](#opt-option.path) -> link to options.html
-  fn process_option_anchor_links(&self, document: &kuchikikiki::NodeRef) {
+  fn process_option_anchor_links(document: &kuchikikiki::NodeRef) {
     let mut to_modify = Vec::new();
 
     // Collect all option anchor links first
@@ -1052,7 +1057,7 @@ impl MarkdownProcessor {
   }
 
   /// Convert an anchor ID to human-readable text
-  fn humanize_anchor_id(&self, anchor: &str) -> String {
+  fn humanize_anchor_id(anchor: &str) -> String {
     // Strip the leading #
     let cleaned = anchor.trim_start_matches('#');
 
@@ -1086,17 +1091,17 @@ pub fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
     match &child.data.borrow().value {
       NodeValue::Text(t) => text.push_str(t),
       NodeValue::Code(t) => text.push_str(&t.literal),
-      NodeValue::Link(..) => text.push_str(&extract_inline_text(child)),
-      NodeValue::Emph => text.push_str(&extract_inline_text(child)),
-      NodeValue::Strong => text.push_str(&extract_inline_text(child)),
-      NodeValue::Strikethrough => text.push_str(&extract_inline_text(child)),
-      NodeValue::Superscript => text.push_str(&extract_inline_text(child)),
-      NodeValue::Subscript => text.push_str(&extract_inline_text(child)),
-      NodeValue::FootnoteReference(..) => {
+      NodeValue::Link(..)
+      | NodeValue::Emph
+      | NodeValue::Strong
+      | NodeValue::Strikethrough
+      | NodeValue::Superscript
+      | NodeValue::Subscript
+      | NodeValue::FootnoteReference(..) => {
         text.push_str(&extract_inline_text(child));
       },
-      NodeValue::HtmlInline(_) => {},
-      NodeValue::Image(..) => {},
+      #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
+      NodeValue::HtmlInline(_) | NodeValue::Image(..) => {},
       _ => {},
     }
   }

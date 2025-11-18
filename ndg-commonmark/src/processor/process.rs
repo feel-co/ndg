@@ -226,6 +226,10 @@ pub fn process_markdown_string(
 ///
 /// # Returns
 /// A `Result` containing the `MarkdownResult` or an error message
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read.
 pub fn process_markdown_file(
   file_path: &std::path::Path,
   preset: ProcessorPreset,
@@ -234,7 +238,9 @@ pub fn process_markdown_file(
     format!("Failed to read file {}: {}", file_path.display(), e)
   })?;
 
-  let base_dir = file_path.parent().unwrap_or(std::path::Path::new("."));
+  let base_dir = file_path
+    .parent()
+    .unwrap_or_else(|| std::path::Path::new("."));
   let processor = create_processor(preset).with_base_dir(base_dir);
   Ok(process_with_recovery(&processor, &content))
 }
@@ -253,6 +259,10 @@ pub fn process_markdown_file(
 /// # Returns
 ///
 /// A `Result` containing the `MarkdownResult` or an error message
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read.
 pub fn process_markdown_file_with_basedir(
   file_path: &std::path::Path,
   base_dir: &std::path::Path,

@@ -1,4 +1,6 @@
 //! Feature-specific Markdown processing extensions.
+use std::fmt::Write;
+
 use html_escape;
 
 use super::process::process_safe;
@@ -60,6 +62,11 @@ pub fn apply_gfm_extensions(markdown: &str) -> String {
 /// # Safety
 ///
 /// Only relative paths without ".." are allowed for security.
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_file_includes(
@@ -84,6 +91,10 @@ pub fn process_file_includes(
     true
   }
 
+  #[allow(
+    clippy::option_if_let_else,
+    reason = "Nested options are clearer with if-let"
+  )]
   fn parse_include_directive(line: &str) -> Option<String> {
     if let Some(start) = line.find("html:into-file=") {
       let start = start + "html:into-file=".len();
@@ -97,6 +108,10 @@ pub fn process_file_includes(
     }
   }
 
+  #[allow(
+    clippy::needless_pass_by_value,
+    reason = "Owned value needed for cloning in loop"
+  )]
   fn read_includes(
     listing: &str,
     base_dir: &Path,
@@ -142,10 +157,11 @@ pub fn process_file_includes(
           }
         },
         Err(_) => {
-          result.push_str(&format!(
-            "<!-- ndg: could not include file: {} -->\n",
+          let _ = writeln!(
+            result,
+            "<!-- ndg: could not include file: {} -->",
             full_path.display()
-          ));
+          );
         },
       }
     }
@@ -153,7 +169,7 @@ pub fn process_file_includes(
   }
 
   let mut output = String::new();
-  let mut lines = markdown.lines().peekable();
+  let mut lines = markdown.lines();
   let mut in_code_block = false;
   let mut code_fence_char = None;
   let mut code_fence_count = 0;
@@ -215,7 +231,7 @@ pub fn process_file_includes(
 
 /// Process role markup in markdown content.
 ///
-/// This function processes role syntax like `{command}`ls -la``
+/// This function processes role syntax like `{command}ls -la`
 ///
 /// # Arguments
 ///
@@ -229,6 +245,10 @@ pub fn process_file_includes(
 /// The processed markdown with role markup converted to HTML
 #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
 #[must_use]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap/HashSet sufficient for this use case"
+)]
 pub fn process_role_markup(
   content: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
@@ -407,6 +427,14 @@ fn parse_role_markup(
 
 /// Format the role markup as HTML based on the role type and content.
 #[must_use]
+#[allow(
+  clippy::option_if_let_else,
+  reason = "Nested options clearer with if-let"
+)]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap/HashSet sufficient for this use case"
+)]
 pub fn format_role_markup(
   role_type: &str,
   content: &str,
@@ -436,9 +464,8 @@ pub fn format_role_markup(
     "option" => {
       if cfg!(feature = "ndg-flavored") && auto_link_options {
         // Check if validation is enabled and option is valid
-        let should_link = valid_options
-          .map(|opts| opts.contains(content))
-          .unwrap_or(true); // If no validation set, link all options
+        let should_link =
+          valid_options.is_none_or(|opts| opts.contains(content)); // If no validation set, link all options
 
         if should_link {
           let option_id = format!("option-{}", content.replace('.', "-"));
@@ -472,6 +499,11 @@ pub fn format_role_markup(
 /// # Returns
 ///
 /// The processed markdown with `MyST` autolinks converted as a [`String`]
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[must_use]
 pub fn process_myst_autolinks(content: &str) -> String {
   let mut result = String::with_capacity(content.len());
@@ -508,11 +540,10 @@ pub fn process_myst_autolinks(content: &str) -> String {
     // Only process MyST autolinks if we're not in a code block
     if in_code_block {
       result.push_str(line);
-      result.push('\n');
     } else {
       result.push_str(&process_line_myst_autolinks(line));
-      result.push('\n');
     }
+    result.push('\n');
   }
 
   result
@@ -555,13 +586,13 @@ fn process_line_myst_autolinks(line: &str) -> String {
           // Check if it's an anchor link (starts with #) or a URL
           if url.starts_with('#') {
             // Add placeholder text for comrak to parse it as a link
-            result.push_str(&format!("[{{{{ANCHOR}}}}]({url})"));
+            let _ = write!(result, "[{{{{ANCHOR}}}}]({url})");
           } else if url.starts_with("http://") || url.starts_with("https://") {
             // Convert URL autolinks to standard <url> format
-            result.push_str(&format!("<{url}>"));
+            let _ = write!(result, "<{url}>");
           } else {
             // Keep other patterns as-is
-            result.push_str(&format!("[]({url})"));
+            let _ = write!(result, "[]({url})");
           }
         } else {
           // Malformed, put back what we consumed
@@ -592,6 +623,11 @@ fn process_line_myst_autolinks(line: &str) -> String {
 /// # Returns
 ///
 /// The processed markdown with inline anchors converted to HTML spans
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_inline_anchors(content: &str) -> String {
@@ -648,8 +684,8 @@ pub fn process_inline_anchors(content: &str) -> String {
 
       // Process regular inline anchors in the line
       result.push_str(&process_line_anchors(line));
-      result.push('\n');
     }
+    result.push('\n');
   }
 
   result
@@ -743,12 +779,13 @@ fn process_line_anchors(line: &str) -> String {
                   .chars()
                   .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
               {
-                result.push_str(&format!(
+                let _ = write!(
+                  result,
                   "<span id=\"{id}\" class=\"nixos-anchor\"></span>"
-                ));
+                );
               } else {
                 // Invalid ID, put back original text
-                result.push_str(&format!("[]{{{{#{id}}}}}"));
+                let _ = write!(result, "[]{{{{#{id}}}}}");
               }
               break;
             } else if next_ch.is_ascii_alphanumeric()
@@ -759,7 +796,7 @@ fn process_line_anchors(line: &str) -> String {
               chars.next();
             } else {
               // Invalid character, put back original text
-              result.push_str(&format!("[]{{{{#{id}"));
+              let _ = write!(result, "[]{{{{#{id}");
               break;
             }
           }
@@ -790,6 +827,11 @@ fn process_line_anchors(line: &str) -> String {
 ///
 /// # Returns
 /// The processed markdown with block elements converted to HTML
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_block_elements(content: &str) -> String {
@@ -832,7 +874,7 @@ pub fn process_block_elements(content: &str) -> String {
       if let Some((callout_type, initial_content)) = parse_github_callout(line)
       {
         let content =
-          collect_github_callout_content(&mut lines, initial_content);
+          collect_github_callout_content(&mut lines, &initial_content);
         let admonition = render_admonition(&callout_type, None, &content);
         result.push(admonition);
         continue;
@@ -890,12 +932,12 @@ fn parse_github_callout(line: &str) -> Option<(String, String)> {
 /// Collect content for GitHub-style callouts
 fn collect_github_callout_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
-  initial_content: String,
+  initial_content: &str,
 ) -> String {
   let mut content = String::new();
 
   if !initial_content.is_empty() {
-    content.push_str(&initial_content);
+    content.push_str(initial_content);
     content.push('\n');
   }
 
@@ -965,6 +1007,10 @@ fn collect_fenced_content(
 }
 
 /// Parse figure block: ::: {.figure #id}
+#[allow(
+  clippy::option_if_let_else,
+  reason = "Nested options clearer with if-let"
+)]
 fn parse_figure_block(
   line: &str,
   lines: &mut std::iter::Peekable<std::str::Lines>,
@@ -1058,6 +1104,10 @@ fn render_figure(id: Option<&str>, title: &str, content: &str) -> String {
 /// The processed HTML with manpage references converted to links
 #[cfg(feature = "nixpkgs")]
 #[must_use]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap sufficient for this use case"
+)]
 pub fn process_manpage_references(
   html: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
@@ -1140,6 +1190,10 @@ pub fn process_manpage_references(
 /// The HTML string with option references rewritten as links.
 #[cfg(feature = "ndg-flavored")]
 #[must_use]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashSet sufficient for this use case"
+)]
 pub fn process_option_references(
   html: &str,
   valid_options: Option<&std::collections::HashSet<String>>,
@@ -1182,9 +1236,8 @@ pub fn process_option_references(
 
         if !is_already_option_ref {
           // Check if validation is enabled and option is valid
-          let should_link = valid_options
-            .map(|opts| opts.contains(code_text.as_str()))
-            .unwrap_or(true); // If no validation set, link all options
+          let should_link =
+            valid_options.is_none_or(|opts| opts.contains(code_text.as_str())); // If no validation set, link all options
 
           if should_link {
             let option_id = format!("option-{}", code_text.replace('.', "-"));

@@ -26,6 +26,10 @@ use comrak::nodes::AstNode;
 
 /// Options for configuring the Markdown processor.
 #[derive(Debug, Clone)]
+#[allow(
+  clippy::struct_excessive_bools,
+  reason = "Config struct with related boolean flags"
+)]
 pub struct MarkdownOptions {
   /// Enable GitHub Flavored Markdown (GFM) extensions.
   pub gfm: bool,
