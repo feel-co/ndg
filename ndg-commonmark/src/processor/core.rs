@@ -91,7 +91,6 @@ impl MarkdownProcessor {
       options,
       manpage_urls,
       syntax_manager,
-      included_files: std::cell::RefCell::new(Vec::new()),
       base_dir: std::path::PathBuf::from("."),
     }
   }
@@ -294,10 +293,7 @@ impl MarkdownProcessor {
   /// Render Markdown to HTML, extracting headers and title.
   #[must_use]
   pub fn render(&self, markdown: &str) -> MarkdownResult {
-    // Clear previous includes
-    self.included_files.borrow_mut().clear();
-
-    let preprocessed = self.preprocess(markdown);
+    let (preprocessed, included_files) = self.preprocess(markdown);
     let (headers, title) = self.extract_headers(&preprocessed);
     let html = self.process_html_pipeline(&preprocessed);
 
@@ -305,7 +301,7 @@ impl MarkdownProcessor {
       html,
       headers,
       title,
-      included_files: self.included_files.borrow().clone(),
+      included_files,
     }
   }
 
@@ -333,8 +329,12 @@ impl MarkdownProcessor {
   }
 
   /// Preprocess the markdown content with all enabled transformations.
-  fn preprocess(&self, content: &str) -> String {
+  fn preprocess(
+    &self,
+    content: &str,
+  ) -> (String, Vec<crate::types::IncludedFile>) {
     let mut processed = content.to_string();
+    let mut included_files = Vec::new();
 
     // Process MyST-style autolinks first
     processed = super::extensions::process_myst_autolinks(&processed);
@@ -343,7 +343,9 @@ impl MarkdownProcessor {
     processed = self.process_hardtabs(&processed);
 
     if self.options.nixpkgs {
-      processed = self.apply_nixpkgs_preprocessing(&processed);
+      let (content, files) = self.apply_nixpkgs_preprocessing(&processed);
+      processed = content;
+      included_files = files;
     }
 
     if self.options.nixpkgs || cfg!(feature = "ndg-flavored") {
@@ -354,23 +356,29 @@ impl MarkdownProcessor {
       );
     }
 
-    processed
+    (processed, included_files)
   }
 
   /// Apply Nixpkgs-specific preprocessing steps.
   #[cfg(feature = "nixpkgs")]
-  fn apply_nixpkgs_preprocessing(&self, content: &str) -> String {
+  fn apply_nixpkgs_preprocessing(
+    &self,
+    content: &str,
+  ) -> (String, Vec<crate::types::IncludedFile>) {
     let (with_includes, included_files) =
       super::extensions::process_file_includes(content, &self.base_dir);
-    self.included_files.borrow_mut().extend(included_files);
     let with_blocks = super::extensions::process_block_elements(&with_includes);
-    super::extensions::process_inline_anchors(&with_blocks)
+    let processed = super::extensions::process_inline_anchors(&with_blocks);
+    (processed, included_files)
   }
 
   /// Apply Nixpkgs-specific preprocessing steps (no-op when feature disabled).
   #[cfg(not(feature = "nixpkgs"))]
-  fn apply_nixpkgs_preprocessing(&self, content: &str) -> String {
-    content.to_string()
+  fn apply_nixpkgs_preprocessing(
+    &self,
+    content: &str,
+  ) -> (String, Vec<crate::types::IncludedFile>) {
+    (content.to_string(), Vec::new())
   }
 
   /// Extract headers and title from the markdown content.
