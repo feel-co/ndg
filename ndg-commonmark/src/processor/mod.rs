@@ -57,8 +57,7 @@ pub use types::{
 
 #[cfg(test)]
 mod tests {
-  use super::types::{MarkdownOptions, MarkdownProcessor, TabStyle};
-  use crate::utils;
+  use html_escape;
 
   #[test]
   fn test_html_escaped_roles() {
@@ -87,7 +86,7 @@ mod tests {
   #[test]
   fn test_html_escape_util() {
     let input = "test<>&\"'";
-    let escaped = utils::html_escape(input);
+    let escaped = html_escape::encode_text(input);
 
     // html-escape crate doesn't escape single quotes by default
     assert_eq!(escaped, "test&lt;&gt;&amp;\"'");

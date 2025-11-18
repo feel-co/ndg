@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::OnceLock};
 
 use comrak::{
   Arena,
@@ -7,6 +7,16 @@ use comrak::{
   parse_document,
 };
 use regex::Regex;
+
+/// Error type for utility operations.
+#[derive(Debug, thiserror::Error)]
+pub enum UtilError {
+  #[error("Regex compilation failed: {0}")]
+  RegexError(#[from] regex::Error),
+}
+
+/// Result type for utility operations.
+pub type UtilResult<T> = Result<T, UtilError>;
 
 /// Slugify a string for use as an anchor ID.
 /// Converts to lowercase, replaces non-alphanumeric characters with dashes,
@@ -73,8 +83,12 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
 
   let root = parse_document(&arena, content, &options);
 
-  // Regex to match {#id} and []{#id} anchors
-  let anchor_re = Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})").unwrap();
+  // Use a static regex to avoid compilation failures at runtime
+  static ANCHOR_RE: OnceLock<Regex> = OnceLock::new();
+  let anchor_re = ANCHOR_RE.get_or_init(|| {
+    Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})")
+      .unwrap_or_else(|_| never_matching_regex())
+  });
 
   for node in root.descendants() {
     if let NodeValue::Heading(NodeHeading { level, .. }) =
@@ -102,7 +116,11 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
 /// This is useful for cleaning titles and navigation text.
 #[must_use]
 pub fn clean_anchor_patterns(text: &str) -> String {
-  let anchor_pattern = Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$").unwrap();
+  static ANCHOR_PATTERN: OnceLock<Regex> = OnceLock::new();
+  let anchor_pattern = ANCHOR_PATTERN.get_or_init(|| {
+    Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$")
+      .unwrap_or_else(|_| never_matching_regex())
+  });
   anchor_pattern.replace_all(text.trim(), "").to_string()
 }
 
@@ -205,17 +223,9 @@ pub fn load_manpage_urls(
 #[must_use]
 pub fn never_matching_regex() -> regex::Regex {
   // Use a pattern that will never match anything because it asserts something
-  // impossible
-  regex::Regex::new(r"[^\s\S]").expect("Failed to compile never-matching regex")
-}
-
-/// Escape HTML special characters in text content.
-///
-/// This function escapes HTML entities using the html-escape crate.
-#[must_use]
-pub fn html_escape(text: &str) -> String {
-  // XXX: I actually don't like the idea of a wrapper this simple, but we
-  // previously used this function in many places, so keeping it for now
-  // in the name of backwards compatibility.
-  html_escape::encode_text(text).to_string()
+  // impossible - this pattern is guaranteed to be valid
+  regex::Regex::new(r"[^\s\S]").unwrap_or_else(|_| {
+    // As an ultimate fallback, use an empty pattern that matches nothing
+    regex::Regex::new(r"^\b$").unwrap()
+  })
 }

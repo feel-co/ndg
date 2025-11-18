@@ -136,10 +136,14 @@ impl AstTransformer for PromptTransformer {
     use comrak::nodes::NodeValue;
     use regex::Regex;
 
-    static COMMAND_PROMPT_RE: LazyLock<Regex> =
-      LazyLock::new(|| Regex::new(r"^\s*\$\s+(.+)$").unwrap());
-    static REPL_PROMPT_RE: LazyLock<Regex> =
-      LazyLock::new(|| Regex::new(r"^nix-repl>\s*(.*)$").unwrap());
+    static COMMAND_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
+      Regex::new(r"^\s*\$\s+(.+)$")
+        .unwrap_or_else(|_| crate::utils::never_matching_regex())
+    });
+    static REPL_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
+      Regex::new(r"^nix-repl>\s*(.*)$")
+        .unwrap_or_else(|_| crate::utils::never_matching_regex())
+    });
 
     for child in node.children() {
       {
