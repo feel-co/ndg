@@ -32,9 +32,11 @@ More content.
   fs::write(input_dir.join("test.md"), md_content).unwrap();
 
   // Create a basic config
-  let mut config = Config::default();
-  config.input_dir = Some(input_dir.clone());
-  config.output_dir = output_dir.clone();
+  let config = Config {
+    input_dir: Some(input_dir.clone()),
+    output_dir: output_dir.clone(),
+    ..Default::default()
+  };
 
   // Test config loading
   assert_eq!(config.input_dir, Some(input_dir));
@@ -45,8 +47,10 @@ More content.
 fn test_error_handling_on_invalid_input() {
   let temp_dir = tempdir().unwrap();
   let invalid_input = temp_dir.path().join("nonexistent");
-  let mut config = Config::default();
-  config.input_dir = Some(invalid_input.clone());
+  let config = Config {
+    input_dir: Some(invalid_input.clone()),
+    ..Default::default()
+  };
 
   // Test that config handles missing directory gracefully
   assert_eq!(config.input_dir, Some(invalid_input));
@@ -69,7 +73,7 @@ fn test_large_file_processing() {
 
 #[test]
 fn test_malformed_markdown_recovery() {
-  let malformed_md = r#"# Unclosed [link
+  let malformed_md = r"# Unclosed [link
 
 Some text.
 
@@ -79,7 +83,7 @@ Some text.
 ```unclosed code block
 
 End.
-"#;
+";
 
   let result = process_markdown_string(malformed_md, ProcessorPreset::Basic);
   assert!(!result.html.is_empty());

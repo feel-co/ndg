@@ -317,7 +317,7 @@ fn render_page_with_custom_template_dir() {
     .expect("Failed to write footer template");
 
   // Create a custom default template that uses the navbar and footer
-  let default_content = r#"<!doctype html>
+  let default_content = r"<!doctype html>
 <html>
 <head><title>{{ title }}</title></head>
 <body>
@@ -325,7 +325,7 @@ fn render_page_with_custom_template_dir() {
 <main>{{ content|safe }}</main>
 {{ footer_html|safe }}
 </body>
-</html>"#;
+</html>";
   fs::write(template_dir.join("default.html"), default_content)
     .expect("Failed to write default template");
 

@@ -3,8 +3,8 @@ use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
 /// Extract headers from markdown using the actual code.
 fn extract_headers_from_markdown(md: &str) -> Vec<Header> {
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
-  let (_headers, _title) = processor.extract_headers(md);
-  _headers
+  let (headers, _title) = processor.extract_headers(md);
+  headers
 }
 
 #[test]

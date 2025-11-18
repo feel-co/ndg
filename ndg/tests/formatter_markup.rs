@@ -110,13 +110,13 @@ fn test_markdown_with_only_whitespace() {
 
 #[test]
 fn test_complex_nested_lists() {
-  let md = r#"- Item 1
+  let md = r"- Item 1
   - Nested 1.1
   - Nested 1.2
     - Deep nested
 - Item 2
   1. Numbered 2.1
-  2. Numbered 2.2"#;
+  2. Numbered 2.2";
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
   let result = processor.render(md);
   assert!(result.html.contains("<ul>") && result.html.contains("<ol>"));
@@ -144,10 +144,10 @@ fn main() {
 
 #[test]
 fn test_tables() {
-  let md = r#"| Header 1 | Header 2 |
+  let md = r"| Header 1 | Header 2 |
 |----------|----------|
 | Cell 1   | Cell 2   |
-| Cell 3   | Cell 4   |"#;
+| Cell 3   | Cell 4   |";
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
   let result = processor.render(md);
   assert!(result.html.contains("<table>"));
@@ -157,10 +157,10 @@ fn test_tables() {
 
 #[test]
 fn test_blockquotes() {
-  let md = r#"> This is a blockquote
+  let md = r"> This is a blockquote
 > with multiple lines
 >
-> > Nested blockquote"#;
+> > Nested blockquote";
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
   let result = processor.render(md);
   assert!(result.html.contains("<blockquote>"));
@@ -169,8 +169,8 @@ fn test_blockquotes() {
 
 #[test]
 fn test_links_and_images() {
-  let md = r#"[Link text](https://example.com)
-![Alt text](https://example.com/image.png)"#;
+  let md = r"[Link text](https://example.com)
+![Alt text](https://example.com/image.png)";
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
   let result = processor.render(md);
   assert!(result.html.contains(r#"href="https://example.com""#));
@@ -179,7 +179,7 @@ fn test_links_and_images() {
 
 #[test]
 fn test_emphasis_edge_cases() {
-  let md = r#"*italic* **bold** ***bold italic*** ~~strikethrough~~"#;
+  let md = r"*italic* **bold** ***bold italic*** ~~strikethrough~~";
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
   let result = processor.render(md);
   assert!(result.html.contains("<em>italic</em>"));
@@ -189,7 +189,7 @@ fn test_emphasis_edge_cases() {
 
 #[test]
 fn test_html_entities() {
-  let md = r#"&lt;script&gt; &amp; &quot;hello&quot;"#;
+  let md = r"&lt;script&gt; &amp; &quot;hello&quot;";
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
   let result = processor.render(md);
   assert!(result.html.contains("&lt;script&gt;"));
