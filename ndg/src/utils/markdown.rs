@@ -47,9 +47,13 @@ pub fn collect_included_files(config: &Config) -> Result<HashSet<PathBuf>> {
       })?;
       let processor = create_processor_from_config(config);
       let base_dir = file_path.parent().unwrap_or_else(|| {
-        config.input_dir.as_deref().unwrap_or(Path::new("."))
+        config
+          .input_dir
+          .as_deref()
+          .unwrap_or_else(|| Path::new("."))
       });
       let processor = processor.with_base_dir(base_dir);
+
       let result = processor.render(&content);
 
       for inc in &result.included_files {
@@ -116,7 +120,10 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
       let processor = create_processor_from_config(config);
 
       let base_dir = file_path.parent().unwrap_or_else(|| {
-        config.input_dir.as_deref().unwrap_or(Path::new("."))
+        config
+          .input_dir
+          .as_deref()
+          .unwrap_or_else(|| Path::new("."))
       });
       let processor = processor.with_base_dir(base_dir);
 
@@ -144,7 +151,10 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
 
       // Set base directory to file's parent directory for relative includes
       let base_dir = file_path.parent().unwrap_or_else(|| {
-        config.input_dir.as_deref().unwrap_or(Path::new("."))
+        config
+          .input_dir
+          .as_deref()
+          .unwrap_or_else(|| Path::new("."))
       });
       let processor = processor.with_base_dir(base_dir);
 
@@ -272,6 +282,10 @@ pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
 /// # Returns
 /// A configured `MarkdownProcessor`.
 #[must_use]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashSet sufficient for this use case"
+)]
 pub fn create_processor_from_config_with_options(
   config: &Config,
   valid_options: Option<HashSet<String>>,

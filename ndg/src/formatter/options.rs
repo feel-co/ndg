@@ -72,6 +72,10 @@ pub struct NixOption {
 /// # Errors
 ///
 /// Returns an error if the file cannot be read, parsed, or written.
+#[allow(
+  clippy::cognitive_complexity,
+  reason = "Main processing logic with multiple steps"
+)]
 pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   // Read options JSON
   let json_content = fs::read_to_string(options_path).wrap_err_with(|| {

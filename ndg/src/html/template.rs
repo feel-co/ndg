@@ -84,17 +84,23 @@ pub fn render(
   let asset_paths = crate::utils::html::generate_asset_paths(rel_path);
 
   // Prepare meta tags HTML
-  let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
-    meta_tags
-      .iter()
-      .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  } else {
-    String::new()
-  };
+  let meta_tags_html =
+    config
+      .meta_tags
+      .as_ref()
+      .map_or_else(String::new, |meta_tags| {
+        meta_tags
+          .iter()
+          .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+          .collect::<Vec<_>>()
+          .join("\n    ")
+      });
 
   // Prepare OpenGraph tags HTML, handling og:image as local path or URL
+  #[allow(
+    clippy::option_if_let_else,
+    reason = " Complex image handling logic clearer with if-let"
+  )]
   let opengraph_html = if let Some(opengraph) = &config.opengraph {
     opengraph
       .iter()
@@ -225,6 +231,10 @@ pub fn render(
 ///
 /// Returns an error if the options template or any required template cannot be
 /// rendered or written.
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap sufficient for this use case"
+)]
 pub fn render_options(
   config: &Config,
   options: &HashMap<String, NixOption>,
@@ -308,25 +318,29 @@ pub fn render_options(
   tera_context.insert("generate_search", &config.generate_search);
 
   // Add meta and opengraph tags
-  let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
-    meta_tags
-      .iter()
-      .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  } else {
-    String::new()
-  };
+  let meta_tags_html =
+    config
+      .meta_tags
+      .as_ref()
+      .map_or_else(String::new, |meta_tags| {
+        meta_tags
+          .iter()
+          .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+          .collect::<Vec<_>>()
+          .join("\n    ")
+      });
 
-  let opengraph_html = if let Some(opengraph) = &config.opengraph {
-    opengraph
-      .iter()
-      .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  } else {
-    String::new()
-  };
+  let opengraph_html =
+    config
+      .opengraph
+      .as_ref()
+      .map_or_else(String::new, |opengraph| {
+        opengraph
+          .iter()
+          .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
+          .collect::<Vec<_>>()
+          .join("\n    ")
+      });
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -534,6 +548,10 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 ///
 /// Returns an error if the search template or any required template cannot be
 /// rendered or written.
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap sufficient for this use case"
+)]
 pub fn render_search(
   config: &Config,
   context: &HashMap<&str, String>,
@@ -621,25 +639,29 @@ pub fn render_search(
   tera_context.insert("generate_search", &true); // always true for search page
 
   // Add meta and opengraph tags
-  let meta_tags_html = if let Some(meta_tags) = &config.meta_tags {
-    meta_tags
-      .iter()
-      .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  } else {
-    String::new()
-  };
+  let meta_tags_html =
+    config
+      .meta_tags
+      .as_ref()
+      .map_or_else(String::new, |meta_tags| {
+        meta_tags
+          .iter()
+          .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+          .collect::<Vec<_>>()
+          .join("\n    ")
+      });
 
-  let opengraph_html = if let Some(opengraph) = &config.opengraph {
-    opengraph
-      .iter()
-      .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  } else {
-    String::new()
-  };
+  let opengraph_html =
+    config
+      .opengraph
+      .as_ref()
+      .map_or_else(String::new, |opengraph| {
+        opengraph
+          .iter()
+          .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
+          .collect::<Vec<_>>()
+          .join("\n    ")
+      });
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -727,6 +749,10 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let root_prefix =
     crate::utils::html::calculate_root_relative_path(current_file_rel_path);
 
+  #[allow(
+    clippy::items_after_statements,
+    reason = "Helper function scoped for clarity"
+  )]
   fn render_nav_entry(
     doc_nav: &mut String,
     root_prefix: &str,
@@ -795,11 +821,9 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         }
 
         // Filter out excluded files (included files)
-        if let Ok(rel_path) = e.path().strip_prefix(input_dir) {
-          !config.excluded_files.contains(rel_path)
-        } else {
-          false
-        }
+        e.path()
+          .strip_prefix(input_dir)
+          .is_ok_and(|rel_path| !config.excluded_files.contains(rel_path))
       })
       .collect();
 
