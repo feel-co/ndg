@@ -8,7 +8,7 @@ use serde_json::{self, Value};
 use crate::{
   config::Config,
   html::template,
-  utils::create_processor_from_config,
+  utils::{create_processor_from_config, json::extract_value},
 };
 
 /// Represents a `NixOS` configuration option.
@@ -111,7 +111,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
         // Handle default values
         if let Some(default_val) = option_data.get("default") {
-          if let Some(extracted_value) = value_from_json(default_val) {
+          if let Some(extracted_value) = extract_value(default_val, true) {
             option.default_text = Some(extracted_value);
           } else {
             option.default = Some(default_val.clone());
@@ -124,7 +124,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
         // Handle example values
         if let Some(example_val) = option_data.get("example") {
-          if let Some(extracted_value) = value_from_json(example_val) {
+          if let Some(extracted_value) = extract_value(example_val, true) {
             option.example_text = Some(extracted_value);
           } else {
             option.example = Some(example_val.clone());
@@ -372,49 +372,4 @@ fn escape_html_in_markdown(text: &str) -> String {
   }
 
   result
-}
-
-/// Extract the value from special JSON structures like literalExpression.
-///
-/// # Arguments
-///
-/// * `value` - The JSON value to extract.
-///
-/// # Returns
-///
-/// An extracted string value, or None if not extractable.
-fn value_from_json(value: &Value) -> Option<String> {
-  if let Value::Object(obj) = value {
-    // literalExpression and similar structured values
-    if let Some(Value::String(type_name)) = obj.get("_type") {
-      match type_name.as_str() {
-        // XXX: `literalDocBook` and `literalMD` have been deprecated as of
-        // 24.11 (I think) and they're supported here only for backwards compat.
-        // Those *will* be removed, at a later date.
-        "literalExpression" | "literalDocBook" | "literalMD" => {
-          if let Some(Value::String(text)) = obj.get("text") {
-            // For literalExpression, we should parse it as Nix code that may
-            // contain special characters. Use code formatting
-            // markers (backticks) to indicate this is code. The
-            // backticks will be used by the renderer to understand
-            // this needs special handling
-            if type_name.as_str() == "literalExpression" {
-              return Some(format!("`{}`", text.clone()));
-            }
-            return Some(text.to_string());
-          }
-        },
-        _ => {},
-      }
-    }
-  }
-
-  // For simple scalar values, just convert them to string
-  match value {
-    Value::String(s) => Some(s.clone()),
-    Value::Number(n) => Some(n.to_string()),
-    Value::Bool(b) => Some(b.to_string()),
-    Value::Null => Some("null".to_string()),
-    _ => None,
-  }
 }
