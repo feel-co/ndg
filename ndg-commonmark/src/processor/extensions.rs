@@ -11,7 +11,7 @@ fn safe_select(
   match document.select(selector) {
     Ok(selections) => selections.map(|sel| sel.as_node().clone()).collect(),
     Err(e) => {
-      log::warn!("DOM selector '{}' failed: {:?}", selector, e);
+      log::warn!("DOM selector '{selector}' failed: {e:?}");
       Vec::new()
     },
   }
@@ -431,11 +431,11 @@ pub fn format_role_markup(
         let option_id = format!("option-{}", content.replace('.', "-"));
         format!(
           "<a class=\"option-reference\" \
-           href=\"options.html#{option_id}\"><code>{escaped_content}</code></\
-           a>"
+           href=\"options.html#{option_id}\"><code \
+           class=\"nixos-option\">{escaped_content}</code></a>"
         )
       } else {
-        format!("<code>{escaped_content}</code>")
+        format!("<code class=\"nixos-option\">{escaped_content}</code>")
       }
     },
     "var" => format!("<code class=\"nix-var\">{escaped_content}</code>"),
@@ -1109,12 +1109,10 @@ pub fn process_manpage_references(
 }
 
 /// Process option references
-/// Rewrites NixOS/Nix option references in HTML output.
+/// Converts {option} role markup into links to the options page.
 ///
-/// This scans the HTML for `<code>option.path</code>` elements that look like
-/// NixOS/Nix option references and replaces them with option reference links.
-/// Only processes plain `<code>` elements that don't already have specific role
-/// classes.
+/// This processes `<code>` elements that have the `nixos-option` class, i.e.,
+/// {option} role markup and convert them into links to the options page.
 ///
 /// # Arguments
 ///
@@ -1137,27 +1135,13 @@ pub fn process_option_references(html: &str) -> String {
 
       let mut to_replace = vec![];
 
-      for code_node in safe_select(&document, "code") {
+      // Only process code elements that already have the nixos-option class
+      // from {option} role syntax
+      for code_node in safe_select(&document, "code.nixos-option") {
         let code_el = code_node;
         let code_text = code_el.text_contents();
 
-        // Skip if this code element already has a role-specific class
-        if let Some(element) = code_el.as_element() {
-          if let Some(class_attr) =
-            element.attributes.borrow().get(local_name!("class"))
-          {
-            if class_attr.contains("command")
-              || class_attr.contains("env-var")
-              || class_attr.contains("file-path")
-              || class_attr.contains("nixos-option")
-              || class_attr.contains("nix-var")
-            {
-              continue;
-            }
-          }
-        }
-
-        // Skip if this code element is already inside an option-reference link
+        // Skip if already wrapped in an option-reference link
         let mut is_already_option_ref = false;
         let mut current = code_el.parent();
         while let Some(parent) = current {
@@ -1176,7 +1160,7 @@ pub fn process_option_references(html: &str) -> String {
           current = parent.parent();
         }
 
-        if !is_already_option_ref && is_nixos_option_reference(&code_text) {
+        if !is_already_option_ref {
           let option_id = format!("option-{}", code_text.replace('.', "-"));
           let attrs = vec![
             (ExpandedName::new("", "href"), Attribute {
@@ -1214,36 +1198,6 @@ pub fn process_option_references(html: &str) -> String {
     // Return original HTML on error
     "",
   )
-}
-
-/// Check if a string looks like a `NixOS` option reference
-fn is_nixos_option_reference(text: &str) -> bool {
-  // Must have at least 2 dots and no whitespace
-  let dot_count = text.chars().filter(|&c| c == '.').count();
-  if dot_count < 2 || text.chars().any(char::is_whitespace) {
-    return false;
-  }
-
-  // Must not contain special characters that indicate it's not an option
-  if text.contains('<')
-    || text.contains('>')
-    || text.contains('$')
-    || text.contains('/')
-  {
-    return false;
-  }
-
-  // Must start with a letter (options don't start with numbers or special
-  // chars)
-  if !text.chars().next().is_some_and(char::is_alphabetic) {
-    return false;
-  }
-
-  // Must look like a structured option path (letters, numbers, dots, dashes,
-  // underscores)
-  text
-    .chars()
-    .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_')
 }
 
 /// Extract URL from HTML anchor tag or return the string as-is if it's a plain
