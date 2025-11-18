@@ -84,6 +84,10 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   let root = parse_document(&arena, content, &options);
 
   // Use a static regex to avoid compilation failures at runtime
+  #[allow(
+    clippy::items_after_statements,
+    reason = "Static is Scoped to function for clarity"
+  )]
   static ANCHOR_RE: OnceLock<Regex> = OnceLock::new();
   let anchor_re = ANCHOR_RE.get_or_init(|| {
     Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})")
@@ -157,6 +161,7 @@ pub fn strip_markdown(content: &str) -> String {
   let root = parse_document(&arena, content, &options);
 
   let mut plain_text = String::new();
+  #[allow(clippy::items_after_statements, reason = "Helper scoped for clarity")]
   fn extract_text<'a>(
     node: &'a AstNode<'a>,
     plain_text: &mut String,
@@ -207,6 +212,10 @@ pub fn is_markdown_header(line: &str) -> bool {
 }
 
 /// Load manpage URL mappings from a JSON file.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read or if the JSON is invalid.
 pub fn load_manpage_urls(
   path: &str,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
@@ -220,6 +229,11 @@ pub fn load_manpage_urls(
 /// This is used as a fallback pattern when a regex fails to compile.
 /// It will never match any input, which is safer than using a trivial regex
 /// like `^$` which would match empty strings.
+///
+/// # Panics
+///
+/// Panics if the fallback regex pattern `r"^\b$"` fails to compile, which
+/// should never happen.
 #[must_use]
 pub fn never_matching_regex() -> regex::Regex {
   // Use a pattern that will never match anything because it asserts something
