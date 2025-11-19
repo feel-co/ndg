@@ -32,7 +32,7 @@ pub fn slugify(text: &str) -> String {
 }
 
 /// Extract the first heading from markdown content as the page title.
-/// Returns None if no heading is found.
+/// Returns [`None`] if no heading is found.
 #[must_use]
 pub fn extract_markdown_title(content: &str) -> Option<String> {
   let arena = Arena::new();
@@ -71,7 +71,7 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 ///
 /// # Returns
 ///
-/// `None` if no H1 heading is found.
+/// [`None`] if no H1 heading is found.
 #[must_use]
 pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   let arena = Arena::new();
@@ -91,8 +91,13 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   )]
   static ANCHOR_RE: OnceLock<Regex> = OnceLock::new();
   let anchor_re = ANCHOR_RE.get_or_init(|| {
-    Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})")
-      .unwrap_or_else(|_| never_matching_regex())
+    Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})").unwrap_or_else(|e| {
+      log::error!(
+        "Failed to compile ANCHOR_RE regex in extract_h1_title: {e}\n Falling \
+         back to never matching regex."
+      );
+      never_matching_regex()
+    })
   });
 
   for node in root.descendants() {
@@ -117,14 +122,19 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   None
 }
 
-/// Clean anchor patterns from text (removes {#anchor-id} patterns).
+/// Clean anchor patterns from text (removes `{#anchor-id}` patterns).
 /// This is useful for cleaning titles and navigation text.
 #[must_use]
 pub fn clean_anchor_patterns(text: &str) -> String {
   static ANCHOR_PATTERN: OnceLock<Regex> = OnceLock::new();
   let anchor_pattern = ANCHOR_PATTERN.get_or_init(|| {
-    Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$")
-      .unwrap_or_else(|_| never_matching_regex())
+    Regex::new(r"\s*\{#[a-zA-Z0-9_-]+\}\s*$").unwrap_or_else(|e| {
+      log::error!(
+        "Failed to compile ANCHOR_PATTERN regex in clean_anchor_patterns: \
+         {e}\n Falling back to never matching regex."
+      );
+      never_matching_regex()
+    })
   });
   anchor_pattern.replace_all(text.trim(), "").to_string()
 }
@@ -241,6 +251,7 @@ pub fn never_matching_regex() -> regex::Regex {
   // impossible - this pattern is guaranteed to be valid
   regex::Regex::new(r"[^\s\S]").unwrap_or_else(|_| {
     // As an ultimate fallback, use an empty pattern that matches nothing
+    // This SHOULD NOT happen.
     regex::Regex::new(r"^\b$").unwrap()
   })
 }
