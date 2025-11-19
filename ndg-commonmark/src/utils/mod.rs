@@ -72,6 +72,11 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 /// # Returns
 ///
 /// [`None`] if no H1 heading is found.
+///
+/// # Panics
+///
+/// Panics if the fallback regex pattern fails to compile, which should never happen
+/// with the hardcoded pattern.
 #[must_use]
 pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   let arena = Arena::new();
@@ -96,7 +101,11 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
         "Failed to compile ANCHOR_RE regex in extract_h1_title: {e}\n Falling \
          back to never matching regex."
       );
-      never_matching_regex()
+      never_matching_regex().unwrap_or_else(|_| {
+        // As a last resort, create a regex that matches nothing
+        #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
+        Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      })
     })
   });
 
@@ -124,6 +133,11 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
 
 /// Clean anchor patterns from text (removes `{#anchor-id}` patterns).
 /// This is useful for cleaning titles and navigation text.
+///
+/// # Panics
+///
+/// Panics if fallback regex pattern fails to compile, which should never happen
+/// with hardcoded pattern.
 #[must_use]
 pub fn clean_anchor_patterns(text: &str) -> String {
   static ANCHOR_PATTERN: OnceLock<Regex> = OnceLock::new();
@@ -133,7 +147,11 @@ pub fn clean_anchor_patterns(text: &str) -> String {
         "Failed to compile ANCHOR_PATTERN regex in clean_anchor_patterns: \
          {e}\n Falling back to never matching regex."
       );
-      never_matching_regex()
+      never_matching_regex().unwrap_or_else(|_| {
+        // As a last resort, create a regex that matches nothing
+        #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
+        Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      })
     })
   });
   anchor_pattern.replace_all(text.trim(), "").to_string()
@@ -241,17 +259,16 @@ pub fn load_manpage_urls(
 /// It will never match any input, which is safer than using a trivial regex
 /// like `^$` which would match empty strings.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if the fallback regex pattern `r"^\b$"` fails to compile, which
-/// should never happen.
-#[must_use]
-pub fn never_matching_regex() -> regex::Regex {
+/// Returns an error if both primary and fallback regex patterns fail to compile,
+/// which should never happen with hardcoded patterns.
+pub fn never_matching_regex() -> Result<regex::Regex, regex::Error> {
   // Use a pattern that will never match anything because it asserts something
   // impossible - this pattern is guaranteed to be valid
-  regex::Regex::new(r"[^\s\S]").unwrap_or_else(|_| {
+  regex::Regex::new(r"[^\s\S]").or_else(|_| {
     // As an ultimate fallback, use an empty pattern that matches nothing
     // This SHOULD NOT happen.
-    regex::Regex::new(r"^\b$").unwrap()
+    regex::Regex::new(r"^\b$")
   })
 }
