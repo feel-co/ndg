@@ -1,5 +1,5 @@
 //! Feature-specific Markdown processing extensions.
-use std::fmt::Write;
+use std::{fmt::Write, fs, path::Path};
 
 use html_escape;
 
@@ -39,6 +39,109 @@ pub fn apply_gfm_extensions(markdown: &str) -> String {
   markdown.to_owned()
 }
 
+/// Maximum recursion depth for file includes to prevent infinite recursion.
+const MAX_INCLUDE_DEPTH: usize = 8;
+
+/// Check if a path is safe for file inclusion (no absolute paths, no parent
+/// directory traversal).
+#[cfg(feature = "nixpkgs")]
+fn is_safe_path(path: &str, _base_dir: &Path) -> bool {
+  let p = Path::new(path);
+  if p.is_absolute() || path.contains('\\') {
+    return false;
+  }
+
+  // Reject any path containing parent directory components
+  for component in p.components() {
+    if matches!(component, std::path::Component::ParentDir) {
+      return false;
+    }
+  }
+
+  true
+}
+
+/// Parse the custom output directive from an include block.
+#[cfg(feature = "nixpkgs")]
+#[allow(
+  clippy::option_if_let_else,
+  reason = "Nested options are clearer with if-let"
+)]
+fn parse_include_directive(line: &str) -> Option<String> {
+  if let Some(start) = line.find("html:into-file=") {
+    let start = start + "html:into-file=".len();
+    if let Some(end) = line[start..].find(' ') {
+      Some(line[start..start + end].to_string())
+    } else {
+      Some(line[start..].trim().to_string())
+    }
+  } else {
+    None
+  }
+}
+
+/// Read and process files listed in an include block.
+#[cfg(feature = "nixpkgs")]
+#[allow(
+  clippy::needless_pass_by_value,
+  reason = "Owned value needed for cloning in loop"
+)]
+fn read_includes(
+  listing: &str,
+  base_dir: &Path,
+  custom_output: Option<String>,
+  included_files: &mut Vec<crate::types::IncludedFile>,
+  depth: usize,
+) -> Result<String, String> {
+  let mut result = String::new();
+
+  for line in listing.lines() {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || !is_safe_path(trimmed, base_dir) {
+      continue;
+    }
+    let full_path = base_dir.join(trimmed);
+    log::info!("Including file: {}", full_path.display());
+
+    match fs::read_to_string(&full_path) {
+      Ok(content) => {
+        let file_dir = full_path.parent().unwrap_or(base_dir);
+        let (processed_content, nested_includes) =
+          process_file_includes(&content, file_dir, depth + 1)?;
+
+        result.push_str(&processed_content);
+        if !processed_content.ends_with('\n') {
+          result.push('\n');
+        }
+
+        included_files.push(crate::types::IncludedFile {
+          path:          trimmed.to_string(),
+          custom_output: custom_output.clone(),
+        });
+
+        // Normalize nested include paths relative to original base_dir
+        for nested in nested_includes {
+          let nested_full_path = file_dir.join(&nested.path);
+          if let Ok(normalized_path) = nested_full_path.strip_prefix(base_dir) {
+            included_files.push(crate::types::IncludedFile {
+              path:          normalized_path.to_string_lossy().to_string(),
+              custom_output: nested.custom_output,
+            });
+          }
+        }
+      },
+      Err(_) => {
+        let _ = writeln!(
+          result,
+          "<!-- ndg: could not include file: {} -->",
+          full_path.display()
+        );
+      },
+    }
+  }
+  Ok(result)
+}
+
 /// Process file includes in Nixpkgs/NixOS documentation.
 ///
 /// This function processes file include syntax:
@@ -54,118 +157,33 @@ pub fn apply_gfm_extensions(markdown: &str) -> String {
 ///
 /// * `markdown` - The input markdown text
 /// * `base_dir` - The base directory for resolving relative file paths
+/// * `depth` - Current recursion depth (use 0 for initial call)
 ///
 /// # Returns
 ///
-/// The processed markdown text with included files expanded
+/// Returns `Ok((processed_markdown, included_files))` where `included_files` is
+/// a list of all successfully included files.
+///
+/// # Errors
+///
+/// Returns `Err(message)` if recursion depth exceeds [`MAX_INCLUDE_DEPTH`],
+/// which likely indicates a circular include cycle.
 ///
 /// # Safety
 ///
 /// Only relative paths without ".." are allowed for security.
-///
-/// # Panics
-///
-/// Panics if a code fence marker line is empty (which should not occur in valid
-/// markdown).
 #[cfg(feature = "nixpkgs")]
-#[must_use]
 pub fn process_file_includes(
   markdown: &str,
   base_dir: &std::path::Path,
-) -> (String, Vec<crate::types::IncludedFile>) {
-  use std::{fs, path::Path};
-
-  fn is_safe_path(path: &str, _base_dir: &Path) -> bool {
-    let p = Path::new(path);
-    if p.is_absolute() || path.contains('\\') {
-      return false;
-    }
-
-    // Reject any path containing parent directory components
-    for component in p.components() {
-      if matches!(component, std::path::Component::ParentDir) {
-        return false;
-      }
-    }
-
-    true
-  }
-
-  #[allow(
-    clippy::option_if_let_else,
-    reason = "Nested options are clearer with if-let"
-  )]
-  fn parse_include_directive(line: &str) -> Option<String> {
-    if let Some(start) = line.find("html:into-file=") {
-      let start = start + "html:into-file=".len();
-      if let Some(end) = line[start..].find(' ') {
-        Some(line[start..start + end].to_string())
-      } else {
-        Some(line[start..].trim().to_string())
-      }
-    } else {
-      None
-    }
-  }
-
-  #[allow(
-    clippy::needless_pass_by_value,
-    reason = "Owned value needed for cloning in loop"
-  )]
-  fn read_includes(
-    listing: &str,
-    base_dir: &Path,
-    custom_output: Option<String>,
-    included_files: &mut Vec<crate::types::IncludedFile>,
-  ) -> String {
-    let mut result = String::new();
-
-    for line in listing.lines() {
-      let trimmed = line.trim();
-      if trimmed.is_empty() || !is_safe_path(trimmed, base_dir) {
-        continue;
-      }
-      let full_path = base_dir.join(trimmed);
-      log::info!("Including file: {}", full_path.display());
-
-      match fs::read_to_string(&full_path) {
-        Ok(content) => {
-          let file_dir = full_path.parent().unwrap_or(base_dir);
-          let (processed_content, nested_includes) =
-            process_file_includes(&content, file_dir);
-
-          result.push_str(&processed_content);
-          if !processed_content.ends_with('\n') {
-            result.push('\n');
-          }
-
-          included_files.push(crate::types::IncludedFile {
-            path:          trimmed.to_string(),
-            custom_output: custom_output.clone(),
-          });
-
-          // Normalize nested include paths relative to original base_dir
-          for nested in nested_includes {
-            let nested_full_path = file_dir.join(&nested.path);
-            if let Ok(normalized_path) = nested_full_path.strip_prefix(base_dir)
-            {
-              included_files.push(crate::types::IncludedFile {
-                path:          normalized_path.to_string_lossy().to_string(),
-                custom_output: nested.custom_output,
-              });
-            }
-          }
-        },
-        Err(_) => {
-          let _ = writeln!(
-            result,
-            "<!-- ndg: could not include file: {} -->",
-            full_path.display()
-          );
-        },
-      }
-    }
-    result
+  depth: usize,
+) -> Result<(String, Vec<crate::types::IncludedFile>), String> {
+  // Check recursion depth limit
+  if depth >= MAX_INCLUDE_DEPTH {
+    return Err(format!(
+      "Maximum include recursion depth ({MAX_INCLUDE_DEPTH}) exceeded. This \
+       likely indicates a cycle in file includes."
+    ));
   }
 
   let mut output = String::new();
@@ -193,7 +211,8 @@ pub fn process_file_includes(
         base_dir,
         custom_output,
         &mut all_included_files,
-      );
+        depth,
+      )?;
       output.push_str(&included);
       continue;
     }
@@ -205,7 +224,7 @@ pub fn process_file_includes(
     output.push('\n');
   }
 
-  (output, all_included_files)
+  Ok((output, all_included_files))
 }
 
 /// Process role markup in markdown content.

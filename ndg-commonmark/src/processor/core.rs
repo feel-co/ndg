@@ -370,7 +370,8 @@ impl MarkdownProcessor {
     content: &str,
   ) -> (String, Vec<crate::types::IncludedFile>) {
     let (with_includes, included_files) =
-      super::extensions::process_file_includes(content, &self.base_dir);
+      super::extensions::process_file_includes(content, &self.base_dir, 0)
+        .expect("File include processing failed");
     let with_blocks = super::extensions::process_block_elements(&with_includes);
     let processed = super::extensions::process_inline_anchors(&with_blocks);
     (processed, included_files)
