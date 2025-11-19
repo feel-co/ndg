@@ -12,7 +12,7 @@ use serde_json::{self, Value};
 use crate::{
   config::Config,
   html::template,
-  utils::{create_processor_from_config_with_options, json::extract_value},
+  utils::{create_processor, json::extract_value},
 };
 
 /// Represents a `NixOS` configuration option.
@@ -94,8 +94,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   }
 
   // Create processor once with validation enabled
-  let processor =
-    create_processor_from_config_with_options(config, Some(valid_options));
+  let processor = create_processor(config, Some(valid_options));
 
   // Extract options
   let mut options = HashMap::new();

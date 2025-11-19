@@ -27,6 +27,8 @@ type OutputEntry = (String, Vec<Header>, Option<String>, PathBuf, bool);
 /// # Arguments
 ///
 /// * `config` - The loaded configuration for documentation generation.
+/// * `processor` - Optional pre-created processor to reuse. If None, creates a
+///   new one.
 ///
 /// # Returns
 ///
@@ -35,24 +37,33 @@ type OutputEntry = (String, Vec<Header>, Option<String>, PathBuf, bool);
 /// # Errors
 ///
 /// Returns an error if any markdown file cannot be read.
-pub fn collect_included_files(config: &Config) -> Result<HashSet<PathBuf>> {
+pub fn collect_included_files(
+  config: &Config,
+  processor: Option<&MarkdownProcessor>,
+) -> Result<HashSet<PathBuf>> {
   let mut all_included_files: HashSet<PathBuf> = HashSet::new();
 
   if let Some(ref input_dir) = config.input_dir {
     let files = collect_markdown_files(input_dir);
 
+    // Use provided processor or create a new one
+    let base_processor = processor.map_or_else(
+      || create_processor(config, None),
+      std::clone::Clone::clone,
+    );
+
     for file_path in &files {
       let content = fs::read_to_string(file_path).wrap_err_with(|| {
         format!("Failed to read markdown file: {}", file_path.display())
       })?;
-      let processor = create_processor_from_config(config);
+
       let base_dir = file_path.parent().unwrap_or_else(|| {
         config
           .input_dir
           .as_deref()
           .unwrap_or_else(|| Path::new("."))
       });
-      let processor = processor.with_base_dir(base_dir);
+      let processor = base_processor.clone().with_base_dir(base_dir);
 
       let result = processor.render(&content);
 
@@ -78,19 +89,12 @@ pub fn collect_included_files(config: &Config) -> Result<HashSet<PathBuf>> {
 /// # Arguments
 ///
 /// * `config` - The loaded configuration for documentation generation.
+/// * `processor` - Optional pre-created processor to reuse. If None, creates a
+///   new one.
 ///
-/// # Returns,
+/// # Returns
 ///
 /// A vector of all processed markdown file paths.
-///
-/// # Errors
-///
-/// Returns an error if any file cannot be read, rendered, or written.
-/// Processes all markdown files in the input directory and writes HTML output.
-///
-/// This function renders all markdown files, handles custom output paths,
-/// and writes the resulting HTML files to the output directory. Files that are
-/// included in other files are skipped unless they have custom output paths.
 ///
 /// # Errors
 ///
@@ -99,7 +103,10 @@ pub fn collect_included_files(config: &Config) -> Result<HashSet<PathBuf>> {
 /// # Panics
 ///
 /// Panics if `config.input_dir` is `None` when processing markdown files.
-pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
+pub fn process_markdown_files(
+  config: &Config,
+  processor: Option<&MarkdownProcessor>,
+) -> Result<Vec<PathBuf>> {
   if let Some(ref input_dir) = config.input_dir {
     info!("Input directory: {}", input_dir.display());
     let files = collect_markdown_files(input_dir);
@@ -113,11 +120,16 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
       HashMap::new();
 
     // First pass: collect all custom outputs for included files
+    // Use provided processor or create a new one
+    let base_processor = processor.map_or_else(
+      || create_processor(config, None),
+      std::clone::Clone::clone,
+    );
+
     for file_path in &files {
       let content = fs::read_to_string(file_path).wrap_err_with(|| {
         format!("Failed to read markdown file: {}", file_path.display())
       })?;
-      let processor = create_processor_from_config(config);
 
       let base_dir = file_path.parent().unwrap_or_else(|| {
         config
@@ -125,7 +137,7 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
           .as_deref()
           .unwrap_or_else(|| Path::new("."))
       });
-      let processor = processor.with_base_dir(base_dir);
+      let processor = base_processor.clone().with_base_dir(base_dir);
 
       let result = processor.render(&content);
 
@@ -143,11 +155,12 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
       }
     }
 
+    // Second pass: render all files
+    // Use the same processor from first pass
     for file_path in &files {
       let content = fs::read_to_string(file_path).wrap_err_with(|| {
         format!("Failed to read markdown file: {}", file_path.display())
       })?;
-      let processor = create_processor_from_config(config);
 
       // Set base directory to file's parent directory for relative includes
       let base_dir = file_path.parent().unwrap_or_else(|| {
@@ -156,7 +169,7 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
           .as_deref()
           .unwrap_or_else(|| Path::new("."))
       });
-      let processor = processor.with_base_dir(base_dir);
+      let processor = base_processor.clone().with_base_dir(base_dir);
 
       let result = processor.render(&content);
 
@@ -256,37 +269,15 @@ pub fn process_markdown_files(config: &Config) -> Result<Vec<PathBuf>> {
 
 /// Creates a markdown processor from the NDG configuration.
 ///
-/// This configures the processor with GFM, code highlighting, and manpage URL
-/// mappings as specified in the configuration.
-///
-/// # Arguments
-/// * `config` - The loaded configuration for documentation generation.
-///
-/// # Returns
-/// A configured `MarkdownProcessor`.
-#[must_use]
-pub fn create_processor_from_config(config: &Config) -> MarkdownProcessor {
-  create_processor_from_config_with_options(config, None)
-}
-
-/// Creates a markdown processor from the NDG configuration with optional option
-/// validation.
-///
-/// This configures the processor with GFM, code highlighting, manpage URL
-/// mappings, and optionally a set of valid option names for validation.
-///
 /// # Arguments
 /// * `config` - The loaded configuration for documentation generation.
 /// * `valid_options` - Optional set of valid option names for validation.
-///
-/// # Returns
-/// A configured `MarkdownProcessor`.
 #[must_use]
 #[allow(
   clippy::implicit_hasher,
   reason = "Standard HashSet sufficient for this use case"
 )]
-pub fn create_processor_from_config_with_options(
+pub fn create_processor(
   config: &Config,
   valid_options: Option<HashSet<String>>,
 ) -> MarkdownProcessor {

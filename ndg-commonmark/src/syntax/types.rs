@@ -1,6 +1,6 @@
 //! Core types and traits for syntax highlighting.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use super::error::{SyntaxError, SyntaxResult};
 
@@ -109,8 +109,12 @@ impl Default for SyntaxConfig {
 ///
 /// Manages a syntax highlighting backend and provides a convenient
 /// interface for highlighting code with configuration options.
+///
+/// Uses `Arc` internally to allow cheap cloning, which is useful for
+/// sharing the expensive highlighter across multiple processor instances.
+#[derive(Clone)]
 pub struct SyntaxManager {
-  highlighter: Box<dyn SyntaxHighlighter>,
+  highlighter: Arc<dyn SyntaxHighlighter>,
   config:      SyntaxConfig,
 }
 
@@ -122,7 +126,7 @@ impl SyntaxManager {
     config: SyntaxConfig,
   ) -> Self {
     Self {
-      highlighter,
+      highlighter: Arc::from(highlighter),
       config,
     }
   }

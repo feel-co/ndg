@@ -123,6 +123,9 @@ impl Default for MarkdownOptions {
 }
 
 /// Main Markdown processor.
+///
+/// Can be cheaply cloned since it uses `Arc` internally for the syntax manager.
+#[derive(Clone)]
 pub struct MarkdownProcessor {
   pub(crate) options:        MarkdownOptions,
   pub(crate) manpage_urls:   Option<HashMap<String, String>>,

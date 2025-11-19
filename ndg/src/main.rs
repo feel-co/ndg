@@ -131,12 +131,22 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     .build_global()?;
 
   // Process markdown files if input directory is provided
+  //
+  // Create processor once and reuse for all markdown operations
+  let processor = if config.input_dir.is_some() {
+    Some(utils::create_processor(config, None))
+  } else {
+    None
+  };
+
   // Collect all included files first
-  let excluded_files = utils::collect_included_files(config)?;
+  let excluded_files =
+    utils::collect_included_files(config, processor.as_ref())?;
   config.excluded_files = excluded_files;
 
   // Process markdown files
-  let markdown_files = utils::process_markdown_files(config)?;
+  let markdown_files =
+    utils::process_markdown_files(config, processor.as_ref())?;
 
   // Process options if provided
   let options_processed = utils::process_module_options(config)?;
