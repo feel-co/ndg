@@ -78,8 +78,8 @@ unused_trait_names             = "allow"
 
 # In the honor of a recent Cloudflare regression
 # Let's get rid of them, what the hell
-panic         = "deny"
-unwrap_used   = "deny"
+panic       = "deny"
+unwrap_used = "deny"
 
 # Less dangerous, but we'd like to know
 expect_used   = "warn"
