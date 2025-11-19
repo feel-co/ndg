@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod html;
+pub mod json;
 pub mod markdown;
 pub mod output;
 
@@ -12,7 +13,7 @@ pub use crate::utils::{
   assets::copy_assets,
   markdown::{
     collect_included_files,
-    create_processor_from_config,
+    create_processor,
     process_markdown_files,
   },
   output::{create_fallback_index, process_module_options},

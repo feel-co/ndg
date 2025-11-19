@@ -1,4 +1,6 @@
 //! Feature-specific Markdown processing extensions.
+use std::fmt::Write;
+
 use html_escape;
 
 use super::process::process_safe;
@@ -11,7 +13,7 @@ fn safe_select(
   match document.select(selector) {
     Ok(selections) => selections.map(|sel| sel.as_node().clone()).collect(),
     Err(e) => {
-      log::warn!("DOM selector '{}' failed: {:?}", selector, e);
+      log::warn!("DOM selector '{selector}' failed: {e:?}");
       Vec::new()
     },
   }
@@ -60,6 +62,11 @@ pub fn apply_gfm_extensions(markdown: &str) -> String {
 /// # Safety
 ///
 /// Only relative paths without ".." are allowed for security.
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_file_includes(
@@ -84,6 +91,10 @@ pub fn process_file_includes(
     true
   }
 
+  #[allow(
+    clippy::option_if_let_else,
+    reason = "Nested options are clearer with if-let"
+  )]
   fn parse_include_directive(line: &str) -> Option<String> {
     if let Some(start) = line.find("html:into-file=") {
       let start = start + "html:into-file=".len();
@@ -97,6 +108,10 @@ pub fn process_file_includes(
     }
   }
 
+  #[allow(
+    clippy::needless_pass_by_value,
+    reason = "Owned value needed for cloning in loop"
+  )]
   fn read_includes(
     listing: &str,
     base_dir: &Path,
@@ -142,10 +157,11 @@ pub fn process_file_includes(
           }
         },
         Err(_) => {
-          result.push_str(&format!(
-            "<!-- ndg: could not include file: {} -->\n",
+          let _ = writeln!(
+            result,
+            "<!-- ndg: could not include file: {} -->",
             full_path.display()
-          ));
+          );
         },
       }
     }
@@ -153,7 +169,7 @@ pub fn process_file_includes(
   }
 
   let mut output = String::new();
-  let mut lines = markdown.lines().peekable();
+  let mut lines = markdown.lines();
   let mut in_code_block = false;
   let mut code_fence_char = None;
   let mut code_fence_count = 0;
@@ -215,23 +231,29 @@ pub fn process_file_includes(
 
 /// Process role markup in markdown content.
 ///
-/// This function processes role syntax like `{command}`ls -la``
+/// This function processes role syntax like `{command}ls -la`
 ///
 /// # Arguments
 ///
 /// * `content` - The markdown content to process
 /// * `manpage_urls` - Optional mapping of manpage names to URLs
 /// * `auto_link_options` - Whether to convert {option} roles to links
+/// * `valid_options` - Optional set of valid option names for validation
 ///
 /// # Returns
 ///
 /// The processed markdown with role markup converted to HTML
 #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
 #[must_use]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap/HashSet sufficient for this use case"
+)]
 pub fn process_role_markup(
   content: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
   auto_link_options: bool,
+  valid_options: Option<&std::collections::HashSet<String>>,
 ) -> String {
   let mut result = String::new();
   let mut chars = content.chars().peekable();
@@ -314,9 +336,12 @@ pub fn process_role_markup(
       let remaining_str: String = remaining.iter().collect();
       let mut temp_chars = remaining_str.chars().peekable();
 
-      if let Some(role_markup) =
-        parse_role_markup(&mut temp_chars, manpage_urls, auto_link_options)
-      {
+      if let Some(role_markup) = parse_role_markup(
+        &mut temp_chars,
+        manpage_urls,
+        auto_link_options,
+        valid_options,
+      ) {
         // Valid role markup found, advance the main iterator
         let remaining_after_parse: String = temp_chars.collect();
         let consumed = remaining_str.len() - remaining_after_parse.len();
@@ -345,6 +370,7 @@ fn parse_role_markup(
   chars: &mut std::iter::Peekable<std::str::Chars>,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
   auto_link_options: bool,
+  valid_options: Option<&std::collections::HashSet<String>>,
 ) -> Option<String> {
   let mut role_name = String::new();
 
@@ -389,6 +415,7 @@ fn parse_role_markup(
         &content,
         manpage_urls,
         auto_link_options,
+        valid_options,
       ));
     }
     content.push(ch);
@@ -400,20 +427,28 @@ fn parse_role_markup(
 
 /// Format the role markup as HTML based on the role type and content.
 #[must_use]
+#[allow(
+  clippy::option_if_let_else,
+  reason = "Nested options clearer with if-let"
+)]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap/HashSet sufficient for this use case"
+)]
 pub fn format_role_markup(
   role_type: &str,
   content: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
   auto_link_options: bool,
+  valid_options: Option<&std::collections::HashSet<String>>,
 ) -> String {
   let escaped_content = html_escape::encode_text(content);
   match role_type {
     "manpage" => {
       if let Some(urls) = manpage_urls {
         if let Some(url) = urls.get(content) {
-          let clean_url = extract_url_from_html(url);
           format!(
-            "<a href=\"{clean_url}\" \
+            "<a href=\"{url}\" \
              class=\"manpage-reference\">{escaped_content}</a>"
           )
         } else {
@@ -428,14 +463,22 @@ pub fn format_role_markup(
     "file" => format!("<code class=\"file-path\">{escaped_content}</code>"),
     "option" => {
       if cfg!(feature = "ndg-flavored") && auto_link_options {
-        let option_id = format!("option-{}", content.replace('.', "-"));
-        format!(
-          "<a class=\"option-reference\" \
-           href=\"options.html#{option_id}\"><code>{escaped_content}</code></\
-           a>"
-        )
+        // Check if validation is enabled and option is valid
+        let should_link =
+          valid_options.is_none_or(|opts| opts.contains(content)); // If no validation set, link all options
+
+        if should_link {
+          let option_id = format!("option-{}", content.replace('.', "-"));
+          format!(
+            "<a class=\"option-reference\" \
+             href=\"options.html#{option_id}\"><code \
+             class=\"nixos-option\">{escaped_content}</code></a>"
+          )
+        } else {
+          format!("<code class=\"nixos-option\">{escaped_content}</code>")
+        }
       } else {
-        format!("<code>{escaped_content}</code>")
+        format!("<code class=\"nixos-option\">{escaped_content}</code>")
       }
     },
     "var" => format!("<code class=\"nix-var\">{escaped_content}</code>"),
@@ -456,6 +499,11 @@ pub fn format_role_markup(
 /// # Returns
 ///
 /// The processed markdown with `MyST` autolinks converted as a [`String`]
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[must_use]
 pub fn process_myst_autolinks(content: &str) -> String {
   let mut result = String::with_capacity(content.len());
@@ -492,11 +540,10 @@ pub fn process_myst_autolinks(content: &str) -> String {
     // Only process MyST autolinks if we're not in a code block
     if in_code_block {
       result.push_str(line);
-      result.push('\n');
     } else {
       result.push_str(&process_line_myst_autolinks(line));
-      result.push('\n');
     }
+    result.push('\n');
   }
 
   result
@@ -539,13 +586,13 @@ fn process_line_myst_autolinks(line: &str) -> String {
           // Check if it's an anchor link (starts with #) or a URL
           if url.starts_with('#') {
             // Add placeholder text for comrak to parse it as a link
-            result.push_str(&format!("[{{{{ANCHOR}}}}]({url})"));
+            let _ = write!(result, "[{{{{ANCHOR}}}}]({url})");
           } else if url.starts_with("http://") || url.starts_with("https://") {
             // Convert URL autolinks to standard <url> format
-            result.push_str(&format!("<{url}>"));
+            let _ = write!(result, "<{url}>");
           } else {
             // Keep other patterns as-is
-            result.push_str(&format!("[]({url})"));
+            let _ = write!(result, "[]({url})");
           }
         } else {
           // Malformed, put back what we consumed
@@ -576,6 +623,11 @@ fn process_line_myst_autolinks(line: &str) -> String {
 /// # Returns
 ///
 /// The processed markdown with inline anchors converted to HTML spans
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_inline_anchors(content: &str) -> String {
@@ -616,7 +668,6 @@ pub fn process_inline_anchors(content: &str) -> String {
     if in_code_block {
       // In code block, keep line as-is
       result.push_str(line);
-      result.push('\n');
     } else {
       // Check for list items with anchors:
       // "- []{#id} content" or "1. []{#id} content"
@@ -632,8 +683,8 @@ pub fn process_inline_anchors(content: &str) -> String {
 
       // Process regular inline anchors in the line
       result.push_str(&process_line_anchors(line));
-      result.push('\n');
     }
+    result.push('\n');
   }
 
   result
@@ -727,12 +778,13 @@ fn process_line_anchors(line: &str) -> String {
                   .chars()
                   .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
               {
-                result.push_str(&format!(
+                let _ = write!(
+                  result,
                   "<span id=\"{id}\" class=\"nixos-anchor\"></span>"
-                ));
+                );
               } else {
                 // Invalid ID, put back original text
-                result.push_str(&format!("[]{{{{#{id}}}}}"));
+                let _ = write!(result, "[]{{{{#{id}}}}}");
               }
               break;
             } else if next_ch.is_ascii_alphanumeric()
@@ -743,7 +795,7 @@ fn process_line_anchors(line: &str) -> String {
               chars.next();
             } else {
               // Invalid character, put back original text
-              result.push_str(&format!("[]{{{{#{id}"));
+              let _ = write!(result, "[]{{{{#{id}");
               break;
             }
           }
@@ -774,6 +826,11 @@ fn process_line_anchors(line: &str) -> String {
 ///
 /// # Returns
 /// The processed markdown with block elements converted to HTML
+///
+/// # Panics
+///
+/// Panics if a code fence marker line is empty (which should not occur in valid
+/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_block_elements(content: &str) -> String {
@@ -816,7 +873,7 @@ pub fn process_block_elements(content: &str) -> String {
       if let Some((callout_type, initial_content)) = parse_github_callout(line)
       {
         let content =
-          collect_github_callout_content(&mut lines, initial_content);
+          collect_github_callout_content(&mut lines, &initial_content);
         let admonition = render_admonition(&callout_type, None, &content);
         result.push(admonition);
         continue;
@@ -874,12 +931,12 @@ fn parse_github_callout(line: &str) -> Option<(String, String)> {
 /// Collect content for GitHub-style callouts
 fn collect_github_callout_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
-  initial_content: String,
+  initial_content: &str,
 ) -> String {
   let mut content = String::new();
 
   if !initial_content.is_empty() {
-    content.push_str(&initial_content);
+    content.push_str(initial_content);
     content.push('\n');
   }
 
@@ -949,6 +1006,10 @@ fn collect_fenced_content(
 }
 
 /// Parse figure block: ::: {.figure #id}
+#[allow(
+  clippy::option_if_let_else,
+  reason = "Nested options clearer with if-let"
+)]
 fn parse_figure_block(
   line: &str,
   lines: &mut std::iter::Peekable<std::str::Lines>,
@@ -1042,6 +1103,10 @@ fn render_figure(id: Option<&str>, title: &str, content: &str) -> String {
 /// The processed HTML with manpage references converted to links
 #[cfg(feature = "nixpkgs")]
 #[must_use]
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap sufficient for this use case"
+)]
 pub fn process_manpage_references(
   html: &str,
   manpage_urls: Option<&std::collections::HashMap<String, String>>,
@@ -1109,23 +1174,29 @@ pub fn process_manpage_references(
 }
 
 /// Process option references
-/// Rewrites NixOS/Nix option references in HTML output.
+/// Converts {option} role markup into links to the options page.
 ///
-/// This scans the HTML for `<code>option.path</code>` elements that look like
-/// NixOS/Nix option references and replaces them with option reference links.
-/// Only processes plain `<code>` elements that don't already have specific role
-/// classes.
+/// This processes `<code>` elements that have the `nixos-option` class, i.e.,
+/// {option} role markup and convert them into links to the options page.
 ///
 /// # Arguments
 ///
 /// * `html` - The HTML string to process.
+/// * `valid_options` - Optional set of valid option names for validation.
 ///
 /// # Returns
 ///
 /// The HTML string with option references rewritten as links.
 #[cfg(feature = "ndg-flavored")]
 #[must_use]
-pub fn process_option_references(html: &str) -> String {
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashSet sufficient for this use case"
+)]
+pub fn process_option_references(
+  html: &str,
+  valid_options: Option<&std::collections::HashSet<String>>,
+) -> String {
   use kuchikikiki::{Attribute, ExpandedName, NodeRef};
   use markup5ever::{QualName, local_name, ns};
   use tendril::TendrilSink;
@@ -1137,27 +1208,13 @@ pub fn process_option_references(html: &str) -> String {
 
       let mut to_replace = vec![];
 
-      for code_node in safe_select(&document, "code") {
+      // Only process code elements that already have the nixos-option class
+      // from {option} role syntax
+      for code_node in safe_select(&document, "code.nixos-option") {
         let code_el = code_node;
         let code_text = code_el.text_contents();
 
-        // Skip if this code element already has a role-specific class
-        if let Some(element) = code_el.as_element() {
-          if let Some(class_attr) =
-            element.attributes.borrow().get(local_name!("class"))
-          {
-            if class_attr.contains("command")
-              || class_attr.contains("env-var")
-              || class_attr.contains("file-path")
-              || class_attr.contains("nixos-option")
-              || class_attr.contains("nix-var")
-            {
-              continue;
-            }
-          }
-        }
-
-        // Skip if this code element is already inside an option-reference link
+        // Skip if already wrapped in an option-reference link
         let mut is_already_option_ref = false;
         let mut current = code_el.parent();
         while let Some(parent) = current {
@@ -1176,29 +1233,36 @@ pub fn process_option_references(html: &str) -> String {
           current = parent.parent();
         }
 
-        if !is_already_option_ref && is_nixos_option_reference(&code_text) {
-          let option_id = format!("option-{}", code_text.replace('.', "-"));
-          let attrs = vec![
-            (ExpandedName::new("", "href"), Attribute {
-              prefix: None,
-              value:  format!("options.html#{option_id}"),
-            }),
-            (ExpandedName::new("", "class"), Attribute {
-              prefix: None,
-              value:  "option-reference".into(),
-            }),
-          ];
-          let a = NodeRef::new_element(
-            QualName::new(None, ns!(html), local_name!("a")),
-            attrs,
-          );
-          let code = NodeRef::new_element(
-            QualName::new(None, ns!(html), local_name!("code")),
-            vec![],
-          );
-          code.append(NodeRef::new_text(code_text.clone()));
-          a.append(code);
-          to_replace.push((code_el.clone(), a));
+        if !is_already_option_ref {
+          // Check if validation is enabled and option is valid
+          let should_link =
+            valid_options.is_none_or(|opts| opts.contains(code_text.as_str())); // If no validation set, link all options
+
+          if should_link {
+            let option_id = format!("option-{}", code_text.replace('.', "-"));
+            let attrs = vec![
+              (ExpandedName::new("", "href"), Attribute {
+                prefix: None,
+                value:  format!("options.html#{option_id}"),
+              }),
+              (ExpandedName::new("", "class"), Attribute {
+                prefix: None,
+                value:  "option-reference".into(),
+              }),
+            ];
+            let a = NodeRef::new_element(
+              QualName::new(None, ns!(html), local_name!("a")),
+              attrs,
+            );
+            let code = NodeRef::new_element(
+              QualName::new(None, ns!(html), local_name!("code")),
+              vec![],
+            );
+            code.append(NodeRef::new_text(code_text.clone()));
+            a.append(code);
+            to_replace.push((code_el.clone(), a));
+          }
+          // If should_link is false, leave the code element as-is (no wrapping)
         }
       }
 
@@ -1214,36 +1278,6 @@ pub fn process_option_references(html: &str) -> String {
     // Return original HTML on error
     "",
   )
-}
-
-/// Check if a string looks like a `NixOS` option reference
-fn is_nixos_option_reference(text: &str) -> bool {
-  // Must have at least 2 dots and no whitespace
-  let dot_count = text.chars().filter(|&c| c == '.').count();
-  if dot_count < 2 || text.chars().any(char::is_whitespace) {
-    return false;
-  }
-
-  // Must not contain special characters that indicate it's not an option
-  if text.contains('<')
-    || text.contains('>')
-    || text.contains('$')
-    || text.contains('/')
-  {
-    return false;
-  }
-
-  // Must start with a letter (options don't start with numbers or special
-  // chars)
-  if !text.chars().next().is_some_and(char::is_alphabetic) {
-    return false;
-  }
-
-  // Must look like a structured option path (letters, numbers, dots, dashes,
-  // underscores)
-  text
-    .chars()
-    .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_')
 }
 
 /// Extract URL from HTML anchor tag or return the string as-is if it's a plain

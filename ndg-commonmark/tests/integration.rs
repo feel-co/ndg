@@ -118,7 +118,7 @@ Visit the [](#getting-started) guide.
   assert!(result.html.contains(
     r#"<code class="file-path">/etc/nixos/configuration.nix</code>"#
   ));
-  assert!(result.html.contains(r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#));
+  assert!(result.html.contains(r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#));
   assert!(result.html.contains(r#"<code class="nix-var">pkgs</code>"#));
   assert!(
     result
@@ -226,7 +226,7 @@ Code with prompt: `$ echo "test"`
 
 Option-like but invalid: `$HOME/config` and `some.file.ext`
 
-Valid option: `boot.loader.grub.enable`
+Valid option: {option}`boot.loader.grub.enable`
 "#;
 
   let result = processor.render(edge_case_markdown);
@@ -256,15 +256,17 @@ Valid option: `boot.loader.grub.enable`
     r#"<a href="https://example.com"><a href="https://example.com">"#
   ));
 
-  // Should process valid options but not invalid ones
+  // Should process valid options only when explicitly marked
   assert!(result.html.contains(
-        r#"<a href="options.html#option-boot-loader-grub-enable" class="option-reference""#
+        r#"<a class="option-reference" href="options.html#option-boot-loader-grub-enable""#
     ));
   assert!(result.html.contains("boot-loader-grub-enable"));
-  assert!(result.html.contains(r"<code>$HOME/config</code>"));
 
-  assert!(result.html.contains(
-    r#"<a href="options.html#option-some-file-ext" class="option-reference""#
+  // Should not auto-link things that look like filenames
+  assert!(result.html.contains(r"<code>$HOME/config</code>"));
+  assert!(result.html.contains(r"<code>some.file.ext</code>"));
+  assert!(!result.html.contains(
+    r#"<a class="option-reference" href="options.html#option-some-file-ext""#
   ));
 
   // Should handle prompt transformation
@@ -285,7 +287,7 @@ fn test_options_integration() {
 
 Standard option: {option}`services.nginx.enable`
 
-Code option: `boot.initrd.luks.devices`
+Explicit option in code: {option}`boot.initrd.luks.devices`
 
 Not an option: `file.name.txt`
 
@@ -293,8 +295,8 @@ Table with options:
 
 | Option | Description |
 |--------|-------------|
-| `services.openssh.enable` | SSH service |
-| `networking.hostName` | System hostname |
+| {option}`services.openssh.enable` | SSH service |
+| {option}`networking.hostName` | System hostname |
 ";
 
   let result = processor.render(markdown);
@@ -304,16 +306,19 @@ Table with options:
         r#"<a class="option-reference" href="options.html#option-services-nginx-enable">"#
     ));
 
-  // Should process code-based options
+  // Should process explicitly marked options
   assert!(result.html.contains(
-        r#"<a href="options.html#option-boot-initrd-luks-devices" class="option-reference">"#
+        r#"<a class="option-reference" href="options.html#option-boot-initrd-luks-devices">"#
     ));
 
-  // Should not process non-options
-  assert!(result.html.contains(
-    r#"<a href="options.html#option-file-name-txt" class="option-reference""#
+  // Should not process plain code that looks like a filename
+  assert!(!result.html.contains(
+    r#"<a class="option-reference" href="options.html#option-file-name-txt""#
   ));
+  // Instead, file.name.txt should remain as plain code
+  assert!(result.html.contains(r"<code>file.name.txt</code>"));
 
-  // Should process options in tables
+  // Should process options in tables when explicitly marked with {option} role
   assert!(result.html.contains("option-services-openssh-enable"));
+  assert!(result.html.contains("option-networking-hostName"));
 }

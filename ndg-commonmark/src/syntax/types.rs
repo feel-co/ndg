@@ -1,6 +1,6 @@
 //! Core types and traits for syntax highlighting.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use super::error::{SyntaxError, SyntaxResult};
 
@@ -46,6 +46,10 @@ pub trait SyntaxHighlighter: Send + Sync {
   /// # Returns
   ///
   /// Highlighted HTML string on success
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the language or theme is unsupported.
   fn highlight(
     &self,
     code: &str,
@@ -105,8 +109,12 @@ impl Default for SyntaxConfig {
 ///
 /// Manages a syntax highlighting backend and provides a convenient
 /// interface for highlighting code with configuration options.
+///
+/// Uses `Arc` internally to allow cheap cloning, which is useful for
+/// sharing the expensive highlighter across multiple processor instances.
+#[derive(Clone)]
 pub struct SyntaxManager {
-  highlighter: Box<dyn SyntaxHighlighter>,
+  highlighter: Arc<dyn SyntaxHighlighter>,
   config:      SyntaxConfig,
 }
 
@@ -118,7 +126,7 @@ impl SyntaxManager {
     config: SyntaxConfig,
   ) -> Self {
     Self {
-      highlighter,
+      highlighter: Arc::from(highlighter),
       config,
     }
   }
@@ -158,6 +166,10 @@ impl SyntaxManager {
   }
 
   /// Highlight code with automatic language resolution and fallback
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the language is unsupported and fallback is disabled.
   pub fn highlight_code(
     &self,
     code: &str,
@@ -186,6 +198,15 @@ impl SyntaxManager {
   }
 
   /// Highlight code from a filename
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the language cannot be determined from the filename
+  /// and fallback is disabled.
+  #[allow(
+    clippy::option_if_let_else,
+    reason = "Clearer with explicit fallback logic"
+  )]
   pub fn highlight_from_filename(
     &self,
     code: &str,

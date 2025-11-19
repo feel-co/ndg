@@ -32,7 +32,7 @@ pub struct SearchIndex {
 }
 
 impl SearchIndex {
-  fn new() -> Self {
+  const fn new() -> Self {
     Self {
       documents: Vec::new(),
     }

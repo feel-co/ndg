@@ -159,6 +159,10 @@ impl Config {
   ///
   /// Returns an error if the file cannot be read or parsed, or if the format is
   /// unsupported.
+  #[allow(
+    clippy::option_if_let_else,
+    reason = "Clearer with explicit match on extension"
+  )]
   pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, NdgError> {
     let path = path.as_ref();
     let content = fs::read_to_string(path).map_err(|e| {

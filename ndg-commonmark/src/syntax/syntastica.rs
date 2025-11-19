@@ -34,6 +34,11 @@ pub struct SyntasticaHighlighter {
 
 impl SyntasticaHighlighter {
   /// Create a new Syntastica highlighter with all available themes.
+  ///
+  /// # Errors
+  ///
+  /// Currently never returns an error, but returns a Result for API
+  /// consistency.
   pub fn new() -> SyntaxResult<Self> {
     let language_set = Arc::new(LanguageSetImpl::new());
 
@@ -66,7 +71,7 @@ impl SyntasticaHighlighter {
   }
 
   /// Convert a language string to a Lang enum
-  fn parse_language(&self, language: &str) -> Option<Lang> {
+  fn parse_language(language: &str) -> Option<Lang> {
     match language.to_lowercase().as_str() {
       "rust" | "rs" => Some(Lang::Rust),
       "python" | "py" => Some(Lang::Python),
@@ -93,6 +98,7 @@ impl SyntasticaHighlighter {
       "swift" => Some(Lang::Swift),
       "makefile" | "make" => Some(Lang::Make),
       "cmake" => Some(Lang::Cmake),
+      #[allow(clippy::match_same_arms, reason = "Explicit for documentation")]
       "text" | "txt" | "plain" => None, // use fallback for plain text
       _ => None,
     }
@@ -179,8 +185,7 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
     language: &str,
     theme: Option<&str>,
   ) -> SyntaxResult<String> {
-    let lang = self
-      .parse_language(language)
+    let lang = Self::parse_language(language)
       .ok_or_else(|| SyntaxError::UnsupportedLanguage(language.to_string()))?;
 
     let theme = self.get_theme(theme);
@@ -235,6 +240,10 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
 ///
 /// Syntastica provides modern tree-sitter based syntax highlighting with
 /// excellent language support including native Nix highlighting.
+///
+/// # Errors
+///
+/// Returns an error if the Syntastica highlighter fails to initialize.
 pub fn create_syntastica_manager() -> SyntaxResult<SyntaxManager> {
   let highlighter = Box::new(SyntasticaHighlighter::new()?);
   let config = SyntaxConfig {

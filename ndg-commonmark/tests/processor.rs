@@ -1,6 +1,37 @@
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 #[test]
+fn test_codeblock_no_extra_newlines() {
+  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+  let md = r#"# Test
+
+```rust
+fn main() {
+    println!("line1");
+    println!("line2");
+    println!("line3");
+}
+```
+"#;
+
+  let result = processor.render(md);
+  let html = result.html;
+
+  // Count the number of <br> tags in the codeblock
+  // Should be 4 lines of code = 4 <br> tags (one after each line including last)
+  // NOT 8 <br> tags (which would indicate double newlines)
+  let br_count = html.matches("<br>").count();
+  
+  // There should be exactly 4 <br> tags in the code (one per line)
+  // If there were double newlines, we'd see 8
+  assert!(br_count <= 5, "Found {} <br> tags, expected around 4-5. Double newlines may be present!", br_count);
+  
+  // Also verify no double <br><br> patterns
+  assert!(!html.contains("<br><br>"), "Found double <br><br> which indicates double newlines in codeblock");
+}
+
+#[test]
 fn test_new_processor_role_markup_in_lists() {
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
@@ -24,7 +55,7 @@ fn test_new_processor_role_markup_in_lists() {
   assert!(html.contains(
     r#"<li><code class="file-path">/etc/nixos/configuration.nix</code></li>"#
   ));
-  assert!(html.contains(r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a></li>"#));
+  assert!(html.contains(r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a></li>"#));
   assert!(html.contains(r#"<li><code class="nix-var">pkgs</code></li>"#));
   assert!(html.contains(
     r#"<li><span class="manpage-reference">nix.conf(5)</span></li>"#
@@ -57,18 +88,19 @@ fn test_new_processor_option_reference_edge_case() {
 fn test_new_processor_valid_vs_invalid_options() {
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
-  let md = r"Valid: `services.nginx.enable`
+  let md = r"Valid: {option}`services.nginx.enable`
 Invalid: `some/path.conf`
 Invalid: `$HOME.config`
 Invalid: `file.name.ext`
-Valid: `boot.loader.systemd-boot.enable`";
+Valid: {option}`boot.loader.systemd-boot.enable`";
 
   let result = processor.render(md);
   let html = result.html;
 
-  // Only the valid option paths should be converted to links
-  assert!(html.contains(r#"<a href="options.html#option-services-nginx-enable" class="option-reference"><code>services.nginx.enable</code></a>"#));
-  assert!(html.contains(r#"<a href="options.html#option-boot-loader-systemd-boot-enable" class="option-reference"><code>boot.loader.systemd-boot.enable</code></a>"#));
+  // Only the valid option paths marked with {option} should be converted to
+  // links
+  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#));
+  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-boot-loader-systemd-boot-enable"><code class="nixos-option">boot.loader.systemd-boot.enable</code></a>"#));
 
   // These should remain as plain code
   assert!(html.contains(r"<code>some/path.conf</code>"));

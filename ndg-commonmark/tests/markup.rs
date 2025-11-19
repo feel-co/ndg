@@ -63,7 +63,7 @@ fn test_role_option() {
   let md = "{option}`services.nginx.enable`";
   let html = ndg_html(md);
   assert_html_exact(&html, &[
-    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#,
+    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
   ]);
 }
 
@@ -200,7 +200,7 @@ fn test_option_reference() {
 #[test]
 fn test_myst_role_markup() {
   let md = r"{command}`foo`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[r#"<code class="command">foo</code>"#]);
 }
 
@@ -224,8 +224,12 @@ fn test_manpage_role_with_url() {
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
-  let html =
-    ndg_commonmark::process_role_markup(md, processor.manpage_urls(), true);
+  let html = ndg_commonmark::process_role_markup(
+    md,
+    processor.manpage_urls(),
+    true,
+    None,
+  );
   assert_html_contains(&html, &[
     r#"<a href="https://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html" class="manpage-reference">cat(1)</a>"#,
   ]);
@@ -251,8 +255,12 @@ fn test_manpage_role_without_url() {
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
-  let html =
-    ndg_commonmark::process_role_markup(md, processor.manpage_urls(), true);
+  let html = ndg_commonmark::process_role_markup(
+    md,
+    processor.manpage_urls(),
+    true,
+    None,
+  );
   assert_html_contains(&html, &[
     r#"<span class="manpage-reference">doesnotexist(1)</span>"#,
   ]);
@@ -266,23 +274,19 @@ fn test_role_markup_in_lists() {
 - {option}`services.nginx.enable`
 - {var}`pkgs`
 - {manpage}`nix.conf(5)`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
 
   // Test that all role types are processed correctly
   assert_html_contains(&html, &[
     r#"<code class="command">nixos-rebuild switch</code>"#,
     r#"<code class="env-var">HOME</code>"#,
     r#"<code class="file-path">/etc/nixos/configuration.nix</code>"#,
-    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#,
+    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
     r#"<code class="nix-var">pkgs</code>"#,
     r#"<span class="manpage-reference">nix.conf(5)</span>"#,
   ]);
 
   // Test that no double-processing occurs
-  assert!(
-    !html.contains(r#"<code class="nixos-option">"#),
-    "Option should not be processed as nixos-option class"
-  );
   assert!(
     !html.contains("&lt;a href"),
     "No nested anchor tags should be present"
@@ -297,21 +301,21 @@ fn test_role_markup_in_lists() {
 fn test_role_markup_edge_cases() {
   // Test role with special characters
   let md = r"{file}`/path/with-dashes_and.dots`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[
     r#"<code class="file-path">/path/with-dashes_and.dots</code>"#,
   ]);
 
   // Test role with spaces
   let md = r"{command}`ls -la | grep test`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[
     r#"<code class="command">ls -la | grep test</code>"#,
   ]);
 
   // Test unknown role type
   let md = r"{unknown}`content`";
-  let html = ndg_commonmark::process_role_markup(md, None, true);
+  let html = ndg_commonmark::process_role_markup(md, None, true, None);
   assert_html_contains(&html, &[
     r#"<span class="unknown-markup">content</span>"#,
   ]);
@@ -333,7 +337,7 @@ fn test_reported_issue_regression() {
     r#"<li><code class="command">nixos-rebuild switch</code></li>"#,
     r#"<li><code class="env-var">HOME</code></li>"#,
     r#"<li><code class="file-path">/etc/nixos/configuration.nix</code></li>"#,
-    r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a></li>"#,
+    r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a></li>"#,
     r#"<li><code class="nix-var">pkgs</code></li>"#,
     r#"<li><span class="manpage-reference">nix.conf(5)</span></li>"#,
   ]);
@@ -383,7 +387,7 @@ fn test_auto_link_options_enabled() {
   let html = processor.render(md).html;
 
   assert_html_contains(&html, &[
-    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code>services.nginx.enable</code></a>"#,
+    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
   ]);
 }
 

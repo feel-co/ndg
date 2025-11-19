@@ -37,6 +37,11 @@ compile_error!(
 ///
 /// **Note**: While the `Syntect` feature is enabled, the two-face crate
 /// will also be pulled to provide additional Syntax highlighting.
+///
+/// # Errors
+///
+/// Returns an error if both syntastica and syntect features are enabled,
+/// or if neither feature is enabled, or if backend initialization fails.
 pub fn create_default_manager() -> SyntaxResult<SyntaxManager> {
   // Runtime check for mutual exclusivity (backup to compile-time check)
   #[cfg(all(feature = "syntastica", feature = "syntect"))]

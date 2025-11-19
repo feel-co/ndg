@@ -16,6 +16,7 @@ use crate::{
     get_roff_escapes,
     man_escape,
   },
+  utils::json::extract_value,
 };
 
 // Define regex patterns for processing markdown in options
@@ -337,7 +338,7 @@ fn parse_option(
 
   // Handle default values
   if let Some(default_val) = option_data.get("default") {
-    if let Some(extracted_value) = extract_value_from_json(default_val) {
+    if let Some(extracted_value) = extract_value(default_val, false) {
       option.default_text = Some(extracted_value);
     } else {
       option.default = Some(default_val.clone());
@@ -350,7 +351,7 @@ fn parse_option(
 
   // Handle example values
   if let Some(example_val) = option_data.get("example") {
-    if let Some(extracted_value) = extract_value_from_json(example_val) {
+    if let Some(extracted_value) = extract_value(example_val, false) {
       option.example_text = Some(extracted_value);
     } else {
       option.example = Some(example_val.clone());
@@ -579,7 +580,7 @@ fn process_roles(text: &str) -> String {
 
   let options = MarkdownOptions::default();
   let processor = MarkdownProcessor::new(options);
-  process_role_markup(text, processor.manpage_urls(), true)
+  process_role_markup(text, processor.manpage_urls(), true, None)
 }
 
 /// Process command prompts ($ command)
@@ -742,30 +743,4 @@ fn escape_leading_dots(text: &str) -> String {
     .map(escape_leading_dot)
     .collect::<Vec<_>>()
     .join("\n")
-}
-
-/// Extract the value from special JSON structures like literalExpression
-fn extract_value_from_json(value: &Value) -> Option<String> {
-  if let Value::Object(obj) = value {
-    // literalExpression and similar structured values
-    if let Some(Value::String(type_name)) = obj.get("_type") {
-      match type_name.as_str() {
-        "literalExpression" | "literalDocBook" | "literalMD" => {
-          if let Some(Value::String(text)) = obj.get("text") {
-            return Some(text.clone());
-          }
-        },
-        _ => {},
-      }
-    }
-  }
-
-  // For simple scalar values, just convert them to string
-  match value {
-    Value::String(s) => Some(s.clone()),
-    Value::Number(n) => Some(n.to_string()),
-    Value::Bool(b) => Some(b.to_string()),
-    Value::Null => Some("null".to_string()),
-    _ => None,
-  }
 }
