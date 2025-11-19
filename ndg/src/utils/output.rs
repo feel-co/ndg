@@ -58,7 +58,7 @@ pub fn create_fallback_index(
             html_path.to_string_lossy(),
             page_title
           )
-          .unwrap();
+          .expect("failed to write file list entry");
         }
       }
 

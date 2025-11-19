@@ -47,7 +47,7 @@ impl SearchIndex {
 fn tokenize(text: &str) -> Vec<String> {
   static WORD_REGEX: OnceLock<Regex> = OnceLock::new();
   let word_regex =
-    WORD_REGEX.get_or_init(|| Regex::new(r"\b[a-zA-Z0-9_-]+\b").unwrap());
+    WORD_REGEX.get_or_init(|| Regex::new(r"\b[a-zA-Z0-9_-]+\b").expect("word regex should be valid"));
 
   let mut tokens = HashSet::new();
 
@@ -91,7 +91,7 @@ pub fn generate_search_index(
 
   // Process markdown files in parallel if available and input_dir is provided
   if !markdown_files.is_empty() && config.input_dir.is_some() {
-    let input_dir = config.input_dir.as_ref().unwrap();
+    let input_dir = config.input_dir.as_ref().expect("input_dir should be some when processing markdown files");
 
     let documents: Result<Vec<_>> = markdown_files
       .par_iter()
