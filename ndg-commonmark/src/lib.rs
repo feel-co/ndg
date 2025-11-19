@@ -1,7 +1,7 @@
 //! # NDG-Commonmark
 //!
 //! NDG-Commonmark is a high-performance, extensible Markdown processor for Nix,
-//! NixOS, and Nixpkgs projects. It is the AST-based Markdown parser and
+//! `NixOS`, and Nixpkgs projects. It is the AST-based Markdown parser and
 //! converter component that is capable of processing Nixpkgs-flavored
 //! Commonmark, optionally with additional flavors such as Github Flavored
 //! Markdown (GFM).
