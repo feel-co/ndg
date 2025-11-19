@@ -361,7 +361,7 @@ mod tests {
             assert!(markdown_result.html.contains("Test 2"));
           }
         },
-        Err(_) => panic!("Unexpected error for path: {}", path),
+        Err(e) => assert!(false, "Unexpected error for path {}: {}", path, e),
       }
     }
   }

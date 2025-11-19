@@ -237,7 +237,13 @@ impl MarkdownProcessor {
 
       // Check for code fences
       if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-        let fence_char = trimmed.chars().next().unwrap();
+        let Some(fence_char) = trimmed.chars().next() else {
+          // If the line is empty after trimming, it can't be a valid code fence
+          // Just continue processing the line normally
+          result.push_str(line);
+          result.push('\n');
+          continue;
+        };
         let fence_count =
           trimmed.chars().take_while(|&c| c == fence_char).count();
 
@@ -369,9 +375,15 @@ impl MarkdownProcessor {
     &self,
     content: &str,
   ) -> (String, Vec<crate::types::IncludedFile>) {
-    let (with_includes, included_files) =
+    let (with_includes, included_files) = match
       super::extensions::process_file_includes(content, &self.base_dir, 0)
-        .expect("File include processing failed");
+    {
+      Ok(result) => result,
+      Err(e) => {
+        log::warn!("File include processing failed: {e}. Continuing without includes.");
+        (content.to_string(), Vec::new())
+      },
+    };
     let with_blocks = super::extensions::process_block_elements(&with_includes);
     let processed = super::extensions::process_inline_anchors(&with_blocks);
     (processed, included_files)
@@ -519,7 +531,11 @@ impl MarkdownProcessor {
       Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h[1-6]>")
         .unwrap_or_else(|e| {
           log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
-          utils::never_matching_regex()
+          utils::never_matching_regex().unwrap_or_else(|_| {
+            // As a last resort, create a regex that matches nothing
+            #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
+            Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+          })
         })
     });
 
