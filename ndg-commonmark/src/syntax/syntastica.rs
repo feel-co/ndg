@@ -112,11 +112,7 @@ impl SyntasticaHighlighter {
   }
 }
 
-impl Default for SyntasticaHighlighter {
-  fn default() -> Self {
-    Self::new().expect("Failed to create Syntastica highlighter")
-  }
-}
+
 
 impl SyntaxHighlighter for SyntasticaHighlighter {
   fn name(&self) -> &'static str {
