@@ -150,12 +150,22 @@ impl AstTransformer for PromptTransformer {
     use regex::Regex;
 
     static COMMAND_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
-      Regex::new(r"^\s*\$\s+(.+)$")
-        .unwrap_or_else(|_| crate::utils::never_matching_regex())
+      Regex::new(r"^\s*\$\s+(.+)$").unwrap_or_else(|e| {
+        log::error!(
+          "Failed to compile COMMAND_PROMPT_RE regex: {e}\n Falling back to \
+           never matching regex."
+        );
+        crate::utils::never_matching_regex()
+      })
     });
     static REPL_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
-      Regex::new(r"^nix-repl>\s*(.*)$")
-        .unwrap_or_else(|_| crate::utils::never_matching_regex())
+      Regex::new(r"^nix-repl>\s*(.*)$").unwrap_or_else(|e| {
+        log::error!(
+          "Failed to compile REPL_PROMPT_RE regex: {e}\n Falling back to \
+           never matching regex."
+        );
+        crate::utils::never_matching_regex()
+      })
     });
 
     for child in node.children() {

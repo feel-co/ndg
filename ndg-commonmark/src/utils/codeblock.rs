@@ -116,7 +116,7 @@ impl InlineTracker {
 
   /// Process backticks and update state.
   ///
-  /// Returns (new_state, number_of_backticks_consumed).
+  /// Returns (`new_state`, `number_of_backticks_consumed`).
   #[must_use]
   pub fn process_backticks<I>(&self, chars: &mut I) -> (Self, usize)
   where
@@ -180,7 +180,7 @@ impl InlineTracker {
 
   /// Process tildes and update state.
   ///
-  /// Returns (new_state, number_of_tildes_consumed).
+  /// Returns (`new_state`, `number_of_tildes_consumed`).
   #[must_use]
   pub fn process_tildes<I>(&self, chars: &mut I) -> (Self, usize)
   where

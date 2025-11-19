@@ -1103,7 +1103,8 @@ End of document.",
     );
 
     let (result, _included_files) =
-      ndg_commonmark::process_file_includes(&md, dir.path());
+      ndg_commonmark::process_file_includes(&md, dir.path(), 0)
+        .expect("File include processing failed");
 
     // Should include both files
     assert!(result.contains("# Included File 1"));
@@ -1124,7 +1125,8 @@ some/file.md
 ````";
 
     let (result, _included_files) =
-      ndg_commonmark::process_file_includes(md, std::path::Path::new("."));
+      ndg_commonmark::process_file_includes(md, std::path::Path::new("."), 0)
+        .expect("file inclusion failed");
 
     // Should NOT process includes inside code blocks
     assert!(result.contains("```{=include=}"));
@@ -1216,4 +1218,28 @@ Also check https://example.com/test
       && html.contains("https://example.com/test"),
     "Literal URLs should be preserved in code blocks. Got:\n{html}"
   );
+}
+
+#[test]
+#[should_panic(expected = "Maximum include recursion depth")]
+fn test_file_include_recursion_depth_limit() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().unwrap();
+
+  // Create files that include each other in a cycle
+  let file_a = dir.path().join("a.md");
+  let file_b = dir.path().join("b.md");
+
+  fs::write(&file_a, "File A\n```{=include=}\nb.md\n```").unwrap();
+  fs::write(&file_b, "File B\n```{=include=}\na.md\n```").unwrap();
+
+  let md = "Start\n```{=include=}\na.md\n```";
+
+  // This should panic due to recursion depth limit
+  let (_result, _files) =
+    ndg_commonmark::process_file_includes(md, dir.path(), 0)
+      .expect("file inclusion failed");
 }
