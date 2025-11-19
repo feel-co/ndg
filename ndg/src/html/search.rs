@@ -168,7 +168,7 @@ pub fn generate_search_index(
             let plain_description =
               crate::utils::html::content_to_plaintext(raw_description);
 
-            let title = format!("Option: {key}");
+            let title = format!("Option: {}", html_escape::encode_text(key));
             let tokens = tokenize(&plain_description);
             let title_tokens = tokenize(&title);
 
