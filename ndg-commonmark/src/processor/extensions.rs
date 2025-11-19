@@ -454,11 +454,6 @@ pub fn format_role_markup(
 /// # Returns
 ///
 /// The processed markdown with `MyST` autolinks converted as a [`String`]
-///
-/// # Panics
-///
-/// Panics if a code fence marker line is empty (which should not occur in valid
-/// markdown).
 #[must_use]
 pub fn process_myst_autolinks(content: &str) -> String {
   let mut result = String::with_capacity(content.len());
