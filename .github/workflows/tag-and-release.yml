@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ndg_version: ${{ steps.read_version.outputs.ndg_version }}
+      tag_exists: ${{ steps.tag.outputs.tag_exists }}
     steps:
       - uses: cachix/install-nix-action@master
         with:
@@ -27,26 +28,33 @@ jobs:
         run: |
           echo "ndg_version=v$(nix run nixpkgs#fq -- -r '.workspace.package.version' Cargo.toml)" >> "$GITHUB_OUTPUT"
       - name: Tag
+        id: tag
         run: |
           set -ex
+
+          VERSION="${{ steps.read_version.outputs.ndg_version }}"
           echo "Tags before:"
           git tag -l
-          echo "Checking if tag ${{ steps.read_version.outputs.ndg_version }} exists on remote..."
-          if git ls-remote --tags origin | grep -q "refs/tags/${{ steps.read_version.outputs.ndg_version }}$"; then
-            echo "Tag ${{ steps.read_version.outputs.ndg_version }} already exists on remote. Skipping tag creation and push."
-            exit 0
-          fi
-          git tag ${{ steps.read_version.outputs.ndg_version }}
-          echo "Tags after:"
-          git tag -l
-          git push --tags
-          echo "Verifying tag on remote:"
-          git fetch --tags
-          if git ls-remote --tags origin | grep -q "refs/tags/${{ steps.read_version.outputs.ndg_version }}$"; then
-            echo "Tag ${{ steps.read_version.outputs.ndg_version }} successfully pushed to remote."
+
+          echo "Checking if tag $VERSION exists on remote..."
+          if git ls-remote --tags origin | grep -q "refs/tags/${VERSION}$"; then
+            echo "Tag $VERSION already exists on remote. Skipping tag creation and push."
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error:: Tag ${{ steps.read_version.outputs.ndg_version }} not found on remote after push." >&2
-            exit 1
+            echo "Tag $VERSION does not exist. Creating and pushing..."
+            git tag $VERSION
+            echo "Tags after:"
+            git tag -l
+            git push --tags
+            echo "Verifying tag on remote:"
+            git fetch --tags
+            if git ls-remote --tags origin | grep -q "refs/tags/${VERSION}$"; then
+              echo "Tag $VERSION successfully pushed to remote."
+              echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "::error:: Tag $VERSION not found on remote after push." >&2
+              exit 1
+            fi
           fi
 
   create-release:
@@ -55,6 +63,7 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       release_id: ${{ steps.create_release.outputs.id }}
+      tag_name: ${{ needs.tag.outputs.ndg_version }}
     steps:
       - name: Create Release
         id: create_release
@@ -63,7 +72,14 @@ jobs:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
+          name: Release ${{ needs.tag.outputs.ndg_version }}
+          body: |
+            ## Release ${{ needs.tag.outputs.ndg_version }}
+
+            **Note**: Assets will be uploaded once builds complete successfully.
+
+            <!-- Changelog will be generated after successful asset uploads -->
 
   build-release:
     needs: create-release
@@ -122,11 +138,29 @@ jobs:
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.create-release.outputs.tag_name || needs.tag.outputs.ndg_version }}
+          tag_name: ${{ needs.tag.outputs.ndg_version }}
           files: ${{ matrix.name }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+
+  update-release-notes:
+    needs: [create-release, build-release]
+    if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Release with Changelog
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag_name }}
+          generate_release_notes: true
+          name: Release ${{ needs.create-release.outputs.tag_name }}
+          draft: false
+          prerelease: false
+          files: ""
 
   generate-checksums:
     needs: [create-release, build-release]
+    if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
