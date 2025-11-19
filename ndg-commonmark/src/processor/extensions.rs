@@ -668,7 +668,6 @@ pub fn process_inline_anchors(content: &str) -> String {
     if in_code_block {
       // In code block, keep line as-is
       result.push_str(line);
-      result.push('\n');
     } else {
       // Check for list items with anchors:
       // "- []{#id} content" or "1. []{#id} content"
