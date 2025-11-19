@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_search_page","generate_search_index"],"struct":["SearchDocument"]};
+window.SIDEBAR_ITEMS = {"fn":["create_search_page","extract_title","generate_search_index","tokenize"],"struct":["SearchDocument","SearchIndex"]};
