@@ -1,6 +1,37 @@
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 #[test]
+fn test_codeblock_no_extra_newlines() {
+  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+
+  let md = r#"# Test
+
+```rust
+fn main() {
+    println!("line1");
+    println!("line2");
+    println!("line3");
+}
+```
+"#;
+
+  let result = processor.render(md);
+  let html = result.html;
+
+  // Count the number of <br> tags in the codeblock
+  // Should be 4 lines of code = 4 <br> tags (one after each line including last)
+  // NOT 8 <br> tags (which would indicate double newlines)
+  let br_count = html.matches("<br>").count();
+  
+  // There should be exactly 4 <br> tags in the code (one per line)
+  // If there were double newlines, we'd see 8
+  assert!(br_count <= 5, "Found {} <br> tags, expected around 4-5. Double newlines may be present!", br_count);
+  
+  // Also verify no double <br><br> patterns
+  assert!(!html.contains("<br><br>"), "Found double <br><br> which indicates double newlines in codeblock");
+}
+
+#[test]
 fn test_new_processor_role_markup_in_lists() {
   let processor = MarkdownProcessor::new(MarkdownOptions::default());
 
