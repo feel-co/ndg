@@ -1,4 +1,5 @@
 use std::{collections::HashMap, sync::OnceLock};
+pub mod codeblock;
 
 use comrak::{
   Arena,

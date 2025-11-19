@@ -170,15 +170,13 @@ pub fn process_file_includes(
 
   let mut output = String::new();
   let mut lines = markdown.lines();
-  let mut in_code_block = false;
-  let mut code_fence_char = None;
-  let mut code_fence_count = 0;
+  let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
   let mut all_included_files: Vec<crate::types::IncludedFile> = Vec::new();
 
   while let Some(line) = lines.next() {
     let trimmed = line.trim_start();
 
-    if !in_code_block && trimmed.starts_with("```{=include=}") {
+    if !fence_tracker.in_code_block() && trimmed.starts_with("```{=include=}") {
       let custom_output = parse_include_directive(trimmed);
 
       let mut include_listing = String::new();
@@ -200,27 +198,8 @@ pub fn process_file_includes(
       continue;
     }
 
-    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
-      && !trimmed.is_empty()
-    {
-      let fence_char = trimmed.chars().next().unwrap();
-      let fence_count =
-        trimmed.chars().take_while(|&c| c == fence_char).count();
-
-      if fence_count >= 3 {
-        if !in_code_block {
-          in_code_block = true;
-          code_fence_char = Some(fence_char);
-          code_fence_count = fence_count;
-        } else if code_fence_char == Some(fence_char)
-          && fence_count >= code_fence_count
-        {
-          in_code_block = false;
-          code_fence_char = None;
-          code_fence_count = 0;
-        }
-      }
-    }
+    // Update fence tracking state
+    fence_tracker = fence_tracker.process_line(line);
 
     output.push_str(line);
     output.push('\n');
@@ -257,38 +236,13 @@ pub fn process_role_markup(
 ) -> String {
   let mut result = String::new();
   let mut chars = content.chars().peekable();
-  let mut in_code_block = false;
-  let mut in_inline_code = false;
-  let mut code_fence_char = None;
-  let mut code_fence_count = 0;
+  let mut tracker = crate::utils::codeblock::InlineTracker::new();
 
   while let Some(ch) = chars.next() {
-    // Handle code fences (```)
+    // Handle backticks (code fences and inline code)
     if ch == '`' {
-      let mut tick_count = 1;
-      while chars.peek() == Some(&'`') {
-        chars.next();
-        tick_count += 1;
-      }
-
-      if tick_count >= 3 {
-        // This is a code fence
-        if !in_code_block {
-          // Starting a code block
-          in_code_block = true;
-          code_fence_char = Some('`');
-          code_fence_count = tick_count;
-        } else if code_fence_char == Some('`') && tick_count >= code_fence_count
-        {
-          // Ending a code block
-          in_code_block = false;
-          code_fence_char = None;
-          code_fence_count = 0;
-        }
-      } else if tick_count == 1 && !in_code_block {
-        // Single backtick - inline code
-        in_inline_code = !in_inline_code;
-      }
+      let (new_tracker, tick_count) = tracker.process_backticks(&mut chars);
+      tracker = new_tracker;
 
       // Add all the backticks
       result.push_str(&"`".repeat(tick_count));
@@ -297,40 +251,22 @@ pub fn process_role_markup(
 
     // Handle tilde code fences (~~~)
     if ch == '~' && chars.peek() == Some(&'~') {
-      let mut tilde_count = 1;
-      while chars.peek() == Some(&'~') {
-        chars.next();
-        tilde_count += 1;
-      }
-
-      if tilde_count >= 3 {
-        if !in_code_block {
-          in_code_block = true;
-          code_fence_char = Some('~');
-          code_fence_count = tilde_count;
-        } else if code_fence_char == Some('~')
-          && tilde_count >= code_fence_count
-        {
-          in_code_block = false;
-          code_fence_char = None;
-          code_fence_count = 0;
-        }
-      }
+      let (new_tracker, tilde_count) = tracker.process_tildes(&mut chars);
+      tracker = new_tracker;
 
       result.push_str(&"~".repeat(tilde_count));
       continue;
     }
 
     // Handle newlines
-    // They can end inline code if not properly closed
     if ch == '\n' {
-      in_inline_code = false;
+      tracker = tracker.process_newline();
       result.push(ch);
       continue;
     }
 
     // Process role markup only if we're not in any kind of code
-    if ch == '{' && !in_code_block && !in_inline_code {
+    if ch == '{' && !tracker.in_any_code() {
       // Collect remaining characters to test parsing
       let remaining: Vec<char> = chars.clone().collect();
       let remaining_str: String = remaining.iter().collect();
@@ -507,38 +443,14 @@ pub fn format_role_markup(
 #[must_use]
 pub fn process_myst_autolinks(content: &str) -> String {
   let mut result = String::with_capacity(content.len());
-  let mut in_code_block = false;
-  let mut code_fence_char = None;
-  let mut code_fence_count = 0;
+  let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
 
   for line in content.lines() {
-    let trimmed = line.trim_start();
-
-    // Check for code fences
-    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
-      && !trimmed.is_empty()
-    {
-      let fence_char = trimmed.chars().next().unwrap();
-      let fence_count =
-        trimmed.chars().take_while(|&c| c == fence_char).count();
-
-      if fence_count >= 3 {
-        if !in_code_block {
-          in_code_block = true;
-          code_fence_char = Some(fence_char);
-          code_fence_count = fence_count;
-        } else if code_fence_char == Some(fence_char)
-          && fence_count >= code_fence_count
-        {
-          in_code_block = false;
-          code_fence_char = None;
-          code_fence_count = 0;
-        }
-      }
-    }
+    // Update fence tracking state
+    fence_tracker = fence_tracker.process_line(line);
 
     // Only process MyST autolinks if we're not in a code block
-    if in_code_block {
+    if fence_tracker.in_code_block() {
       result.push_str(line);
     } else {
       result.push_str(&process_line_myst_autolinks(line));
@@ -632,40 +544,16 @@ fn process_line_myst_autolinks(line: &str) -> String {
 #[must_use]
 pub fn process_inline_anchors(content: &str) -> String {
   let mut result = String::with_capacity(content.len() + 100);
-  let mut in_code_block = false;
-  let mut code_fence_char = None;
-  let mut code_fence_count = 0;
+  let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
 
   for line in content.lines() {
     let trimmed = line.trim_start();
 
-    // Check for code fences
-    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
-      && !trimmed.is_empty()
-    {
-      let fence_char = trimmed.chars().next().unwrap();
-      let fence_count =
-        trimmed.chars().take_while(|&c| c == fence_char).count();
-
-      if fence_count >= 3 {
-        if !in_code_block {
-          // Starting a code block
-          in_code_block = true;
-          code_fence_char = Some(fence_char);
-          code_fence_count = fence_count;
-        } else if code_fence_char == Some(fence_char)
-          && fence_count >= code_fence_count
-        {
-          // Ending a code block
-          in_code_block = false;
-          code_fence_char = None;
-          code_fence_count = 0;
-        }
-      }
-    }
+    // Update fence tracking state
+    fence_tracker = fence_tracker.process_line(line);
 
     // Only process inline anchors if we're not in a code block
-    if in_code_block {
+    if fence_tracker.in_code_block() {
       // In code block, keep line as-is
       result.push_str(line);
     } else {
@@ -836,39 +724,14 @@ fn process_line_anchors(line: &str) -> String {
 pub fn process_block_elements(content: &str) -> String {
   let mut result = Vec::new();
   let mut lines = content.lines().peekable();
-  let mut in_code_block = false;
-  let mut code_fence_char = None;
-  let mut code_fence_count = 0;
+  let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
 
   while let Some(line) = lines.next() {
-    // Check for code fences
-    let trimmed = line.trim_start();
-    if (trimmed.starts_with("```") || trimmed.starts_with("~~~"))
-      && !trimmed.is_empty()
-    {
-      let fence_char = trimmed.chars().next().unwrap();
-      let fence_count =
-        trimmed.chars().take_while(|&c| c == fence_char).count();
-
-      if fence_count >= 3 {
-        if !in_code_block {
-          // Starting a code block
-          in_code_block = true;
-          code_fence_char = Some(fence_char);
-          code_fence_count = fence_count;
-        } else if code_fence_char == Some(fence_char)
-          && fence_count >= code_fence_count
-        {
-          // Ending a code block
-          in_code_block = false;
-          code_fence_char = None;
-          code_fence_count = 0;
-        }
-      }
-    }
+    // Update fence tracking state
+    fence_tracker = fence_tracker.process_line(line);
 
     // Only process block elements if we're not in a code block
-    if !in_code_block {
+    if !fence_tracker.in_code_block() {
       // Check for GitHub-style callouts: > [!TYPE]
       if let Some((callout_type, initial_content)) = parse_github_callout(line)
       {
