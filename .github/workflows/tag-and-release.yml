@@ -82,7 +82,7 @@ jobs:
             <!-- Changelog will be generated after successful asset uploads -->
 
   build-release:
-    needs: create-release
+    needs: [tag, create-release]
     strategy:
       matrix:
         include:
@@ -144,7 +144,7 @@ jobs:
           fail_on_unmatched_files: true
 
   update-release-notes:
-    needs: [create-release, build-release]
+    needs: [tag, create-release, build-release]
     if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
@@ -159,7 +159,7 @@ jobs:
           files: ""
 
   generate-checksums:
-    needs: [create-release, build-release]
+    needs: [tag, create-release, build-release]
     if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
