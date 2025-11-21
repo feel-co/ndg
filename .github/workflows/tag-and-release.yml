@@ -157,6 +157,10 @@ jobs:
           draft: false
           prerelease: false
           files: ""
+          body: |
+            ## Release ${{ needs.create-release.outputs.tag_name }}
+
+
 
   generate-checksums:
     needs: [tag, create-release, build-release]
@@ -172,9 +176,20 @@ jobs:
           fileName: "ndg-*"
           out-file-path: "."
 
-      - name: Generate checksums
+      # Github provides checksums for uploaded assets, and this will be our single
+      # source of truth that verifies whether the provided checksums are the same
+      # as the ones we've calculated.
+      - name: Generate SHA256SUMS
+        shell: bash
         run: |
-          sha256sum ndg-* > SHA256SUMS
+          mapfile -d '' files < <(find . -maxdepth 1 -type f -name 'ndg-*' -print0)
+          if [ "${#files[@]}" -eq 0 ]; then
+            : > SHA256SUMS
+          else
+            for f in "${files[@]}"; do
+            sha256sum "$f"
+            done | sed 's|^\./||' > SHA256SUMS
+          fi
 
       - name: Upload Checksums
         uses: softprops/action-gh-release@v2
