@@ -13,7 +13,7 @@ be put in the "Changed" section or, if it's just to remove code or
 functionality, under the "Removed" section.
 -->
 
-[Keep a Changelog]: https://keepachangelog.com/en/1.0.0/
+[Keep a Changelog]: https://keepachangelog.com/en/1.1.0/
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 
 This is the NDG changelog, aiming to describe changes that occurred within the
@@ -22,19 +22,31 @@ codebase to the extent that concerns _both users and contributors alike_. As
 monorepo--this document tracks all notable changes regardless of the affected
 project and the scope.
 
-[feel-co/ndg]: https://github.com/feel-co/ndg
+NDG strictly adheres to [Semantic Versioning], and the changelog format below is
+a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 
-[feel-co/ndg] strictly adheres to [Semantic Versioning], and the changelog
-format below is a streamlined variant of the [Keep a Changelog] spec. Notable
-changes are that all sections except for `Changed`, `Added`, `Removed` and
-`Fixed` have been ignored.
+- All sections except for `Changed`, `Added`, `Removed` and `Fixed` have been
+  ignored.
+- Release date is not tracked
 
-## [Unreleased]
+## [2.4.1]
+
+### Added
+
+- Regression test for HTML escaping in search functionality
+
+### Fixed
+
+- HTML escaping in search results to properly handle special characters in
+  option keys
 
 ### Changed
 
-- Streamlined codeblock tracking in `ndg-commonmark` processor
-- Split utils module in `ndg-commonmark` for better organization
+- Replaced `unwrap()` calls with better error handling patterns using `expect()`
+  - Improved error handling in file includes API for safer operation
+- Streamlined codeblock tracking and split utils module for better organization
+- Added logging when falling back to never matching regex patterns
+- Improved error messages and documentation throughout codebase
 
 ## [2.4.0]
 
@@ -86,3 +98,4 @@ changes are that all sections except for `Changed`, `Added`, `Removed` and
 
 [Unreleased]: https://github.com/feel-co/ndg/compare/v2.4.0...HEAD
 [2.4.0]: https://github.com/feel-co/ndg/compare/v2.3.2...v2.4.0
+[2.4.1]: https://github.com/feel-co/ndg/compare/v2.4.0...v2.4.1
