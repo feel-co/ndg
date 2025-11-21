@@ -21,7 +21,7 @@ jobs:
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         name: Checkout
       - name: Read version
         id: read_version
@@ -101,7 +101,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -167,7 +167,7 @@ jobs:
     if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Download Assets
         uses: robinraju/release-downloader@v1
