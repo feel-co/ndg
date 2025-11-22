@@ -1,7 +1,13 @@
-use std::{collections::HashMap, path::Path};
+#![allow(clippy::expect_used, reason = "Panics are fine inside tests.")]
+use std::{collections::HashMap, fs, path::Path};
 
-use ndg::{config::Config, formatter::options::NixOption, html::template};
-use ndg_commonmark::Header;
+use ndg::{
+  config::{Config, sidebar::SidebarConfig},
+  formatter::options::NixOption,
+  html::template,
+};
+use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
+use tempfile::TempDir;
 
 /// Checks for highlighted code HTML
 fn contains_highlighted_code(html: &str) -> bool {
@@ -98,7 +104,6 @@ fn render_options_page_renders_description() {
 
 #[test]
 fn render_page_with_syntax_highlighting() {
-  use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
   let mut config = minimal_config();
   config.highlight_code = true;
 
@@ -297,10 +302,6 @@ fn render_search_page_contains_footer() {
 
 #[test]
 fn render_page_with_custom_template_dir() {
-  use std::fs;
-
-  use tempfile::TempDir;
-
   let temp_dir = TempDir::new().expect("Failed to create temp dir");
   let template_dir = temp_dir.path();
 
@@ -493,4 +494,148 @@ fn footer_text_is_customizable() {
 
   // Should contain custom footer text
   assert!(html.contains("Copyright 2025 - Custom Footer"));
+}
+
+#[test]
+fn sidebar_numbering_excludes_special_files() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let input_dir = temp_dir.path();
+
+  // Create some markdown files including special files
+  fs::write(input_dir.join("index.md"), "# Index\nIndex content")
+    .expect("Failed to write index.md");
+  fs::write(input_dir.join("README.md"), "# Readme\nReadme content")
+    .expect("Failed to write README.md");
+  fs::write(input_dir.join("guide.md"), "# Guide\nGuide content")
+    .expect("Failed to write guide.md");
+  fs::write(
+    input_dir.join("tutorial.md"),
+    "# Tutorial\nTutorial content",
+  )
+  .expect("Failed to write tutorial.md");
+
+  let mut config = minimal_config();
+  config.input_dir = Some(input_dir.to_path_buf());
+  config.sidebar = Some(SidebarConfig {
+    numbered:             true,
+    number_special_files: false, // Default behavior
+    ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
+    matches:              vec![],
+  });
+
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // Special files (index.md, README.md) should NOT have numbers
+  assert!(
+    !html.contains("1. Index") && !html.contains("2. Readme"),
+    "Special files should not be numbered"
+  );
+
+  // Regular files should be numbered starting from 1
+  assert!(
+    html.contains("1. Guide") || html.contains("1. Tutorial"),
+    "First regular file should be numbered 1"
+  );
+  assert!(
+    html.contains("2. Guide") || html.contains("2. Tutorial"),
+    "Second regular file should be numbered 2"
+  );
+}
+
+#[test]
+fn sidebar_numbering_special_files_included() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let input_dir = temp_dir.path();
+
+  // Create some markdown files including special files
+  fs::write(input_dir.join("index.md"), "# Index\nIndex content")
+    .expect("Failed to write index.md");
+  fs::write(input_dir.join("README.md"), "# Readme\nReadme content")
+    .expect("Failed to write README.md");
+  fs::write(input_dir.join("guide.md"), "# Guide\nGuide content")
+    .expect("Failed to write guide.md");
+  fs::write(
+    input_dir.join("tutorial.md"),
+    "# Tutorial\nTutorial content",
+  )
+  .expect("Failed to write tutorial.md");
+
+  let mut config = minimal_config();
+  config.input_dir = Some(input_dir.to_path_buf());
+  config.sidebar = Some(SidebarConfig {
+    numbered:             true,
+    number_special_files: true, // Enable numbering for special files
+    ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
+    matches:              vec![],
+  });
+
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // All files should be numbered (special files first, then alphabetically)
+  // Special files should be numbered
+  assert!(
+    html.contains("1. Index") || html.contains("1. Readme"),
+    "First special file should be numbered 1"
+  );
+  assert!(
+    html.contains("2. Index") || html.contains("2. Readme"),
+    "Second special file should be numbered 2"
+  );
+
+  // Regular files should continue the numbering sequence
+  assert!(
+    html.contains("3. Guide") || html.contains("3. Tutorial"),
+    "First regular file should be numbered 3"
+  );
+  assert!(
+    html.contains("4. Guide") || html.contains("4. Tutorial"),
+    "Second regular file should be numbered 4"
+  );
+}
+
+#[test]
+fn sidebar_numbering_disabled_no_numbers() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let input_dir = temp_dir.path();
+
+  // Create some markdown files
+  fs::write(input_dir.join("index.md"), "# Index\nIndex content")
+    .expect("Failed to write index.md");
+  fs::write(input_dir.join("guide.md"), "# Guide\nGuide content")
+    .expect("Failed to write guide.md");
+
+  let mut config = minimal_config();
+  config.input_dir = Some(input_dir.to_path_buf());
+  config.sidebar = Some(SidebarConfig {
+    numbered:             false, // Numbering disabled
+    number_special_files: false,
+    ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
+    matches:              vec![],
+  });
+
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // No files should have numbers when numbering is disabled
+  assert!(
+    !html.contains("1. Index") && !html.contains("1. Guide"),
+    "No files should be numbered when numbering is disabled"
+  );
 }
