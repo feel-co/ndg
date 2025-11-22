@@ -5,7 +5,7 @@ on:
   push:
     tags: ["v*"]
   workflow_run:
-    workflows: ["Tag version"]
+    workflows: ["Tag and Release"]
     types:
       - completed
 
