@@ -99,7 +99,8 @@ mod tests {
   #[cfg(feature = "syntastica")]
   #[test]
   fn test_syntastica_highlighter() {
-    let highlighter = SyntasticaHighlighter::new().expect("Failed to create SyntasticaHighlighter");
+    let highlighter = SyntasticaHighlighter::new()
+      .expect("Failed to create SyntasticaHighlighter");
     assert_eq!(highlighter.name(), "Syntastica");
     assert!(!highlighter.supported_languages().is_empty());
     assert!(!highlighter.available_themes().is_empty());
@@ -108,7 +109,8 @@ mod tests {
   #[cfg(feature = "syntastica")]
   #[test]
   fn test_syntastica_highlight_simple() {
-    let highlighter = SyntasticaHighlighter::new().expect("Failed to create SyntasticaHighlighter");
+    let highlighter = SyntasticaHighlighter::new()
+      .expect("Failed to create SyntasticaHighlighter");
     let result = highlighter.highlight("fn main() {}", "rust", None);
     assert!(result.is_ok());
     let html = result.expect("Failed to highlight code");
@@ -118,7 +120,8 @@ mod tests {
   #[cfg(any(feature = "syntastica", feature = "syntect"))]
   #[test]
   fn test_syntax_manager() {
-    let manager = create_default_manager().expect("Failed to create default syntax manager");
+    let manager = create_default_manager()
+      .expect("Failed to create default syntax manager");
     assert!(!manager.highlighter().supported_languages().is_empty());
 
     let resolved = manager.resolve_language("js");
@@ -128,7 +131,8 @@ mod tests {
   #[cfg(any(feature = "syntastica", feature = "syntect"))]
   #[test]
   fn test_language_resolution() {
-    let manager = create_default_manager().expect("Failed to create default syntax manager");
+    let manager = create_default_manager()
+      .expect("Failed to create default syntax manager");
 
     // Test alias resolution
     assert_eq!(manager.resolve_language("js"), "javascript");
@@ -169,7 +173,8 @@ mod tests {
   #[cfg(any(feature = "syntastica", feature = "syntect"))]
   #[test]
   fn test_extended_theme_availability() {
-    let manager = create_default_manager().expect("Failed to create default syntax manager");
+    let manager = create_default_manager()
+      .expect("Failed to create default syntax manager");
     let themes = manager.highlighter().available_themes();
 
     // Verify we have loaded like a lot of themes
@@ -229,7 +234,8 @@ mod tests {
   #[cfg(feature = "syntect")]
   #[test]
   fn test_nix_language_support() {
-    let manager = create_default_manager().expect("Failed to create default syntax manager");
+    let manager = create_default_manager()
+      .expect("Failed to create default syntax manager");
     let languages = manager.highlighter().supported_languages();
 
     // Verify that Nix is supported via two-face

@@ -47,10 +47,8 @@ pub fn collect_included_files(
     let files = collect_markdown_files(input_dir);
 
     // Use provided processor or create a new one
-    let base_processor = processor.map_or_else(
-      || create_processor(config, None),
-      std::clone::Clone::clone,
-    );
+    let base_processor = processor
+      .map_or_else(|| create_processor(config, None), std::clone::Clone::clone);
 
     for file_path in &files {
       let content = fs::read_to_string(file_path).wrap_err_with(|| {
@@ -121,10 +119,8 @@ pub fn process_markdown_files(
 
     // First pass: collect all custom outputs for included files
     // Use provided processor or create a new one
-    let base_processor = processor.map_or_else(
-      || create_processor(config, None),
-      std::clone::Clone::clone,
-    );
+    let base_processor = processor
+      .map_or_else(|| create_processor(config, None), std::clone::Clone::clone);
 
     for file_path in &files {
       let content = fs::read_to_string(file_path).wrap_err_with(|| {

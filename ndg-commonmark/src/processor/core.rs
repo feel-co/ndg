@@ -375,15 +375,17 @@ impl MarkdownProcessor {
     &self,
     content: &str,
   ) -> (String, Vec<crate::types::IncludedFile>) {
-    let (with_includes, included_files) = match
-      super::extensions::process_file_includes(content, &self.base_dir, 0)
-    {
-      Ok(result) => result,
-      Err(e) => {
-        log::warn!("File include processing failed: {e}. Continuing without includes.");
-        (content.to_string(), Vec::new())
-      },
-    };
+    let (with_includes, included_files) =
+      match super::extensions::process_file_includes(content, &self.base_dir, 0)
+      {
+        Ok(result) => result,
+        Err(e) => {
+          log::warn!(
+            "File include processing failed: {e}. Continuing without includes."
+          );
+          (content.to_string(), Vec::new())
+        },
+      };
     let with_blocks = super::extensions::process_block_elements(&with_includes);
     let processed = super::extensions::process_inline_anchors(&with_blocks);
     (processed, included_files)
@@ -533,8 +535,12 @@ impl MarkdownProcessor {
           log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
           utils::never_matching_regex().unwrap_or_else(|_| {
             // As a last resort, create a regex that matches nothing
-            #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-            Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+            #[allow(
+              clippy::expect_used,
+              reason = "This pattern is guaranteed to be valid"
+            )]
+            Regex::new(r"[^\s\S]")
+              .expect("regex pattern [^\\s\\S] should always compile")
           })
         })
     });

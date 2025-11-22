@@ -26,8 +26,12 @@ static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
     error!("Failed to compile ROLE_PATTERN regex in manpage/options.rs: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -38,8 +42,12 @@ static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
     error!("Failed to compile COMMAND_PROMPT regex in manpage/options.rs: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -49,8 +57,12 @@ static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
     error!("Failed to compile REPL_PROMPT regex in manpage/options.rs: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -64,8 +76,12 @@ static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
     error!("Failed to compile INLINE_CODE regex in manpage/options.rs: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -75,8 +91,12 @@ static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"</?[a-zA-Z][^>]*>").unwrap_or_else(|e| {
     error!("Failed to compile HTML_TAGS regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -86,8 +106,12 @@ static ADMONITION_START: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap_or_else(|e| {
     error!("Failed to compile ADMONITION_START regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -98,8 +122,12 @@ static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap_or_else(|e| {
     error!("Failed to compile LIST_ITEM regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -108,8 +136,12 @@ static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap_or_else(|e| {
     error!("Failed to compile NUMBERED_LIST_ITEM regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -119,8 +151,12 @@ static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap_or_else(|e| {
     error!("Failed to compile MARKDOWN_LINK regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });

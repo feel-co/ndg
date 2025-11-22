@@ -157,8 +157,12 @@ impl AstTransformer for PromptTransformer {
         );
         crate::utils::never_matching_regex().unwrap_or_else(|_| {
           // As a last resort, create a regex that matches nothing
-          #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-          Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+          #[allow(
+            clippy::expect_used,
+            reason = "This pattern is guaranteed to be valid"
+          )]
+          Regex::new(r"[^\s\S]")
+            .expect("regex pattern [^\\s\\S] should always compile")
         })
       })
     });
@@ -170,8 +174,12 @@ impl AstTransformer for PromptTransformer {
         );
         crate::utils::never_matching_regex().unwrap_or_else(|_| {
           // As a last resort, create a regex that matches nothing
-          #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-          Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+          #[allow(
+            clippy::expect_used,
+            reason = "This pattern is guaranteed to be valid"
+          )]
+          Regex::new(r"[^\s\S]")
+            .expect("regex pattern [^\\s\\S] should always compile")
         })
       })
     });

@@ -13,8 +13,12 @@ pub static TROFF_FORMATTING: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\\f[PBIR]").unwrap_or_else(|e| {
     log::error!("Failed to compile TROFF_FORMATTING regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });
@@ -23,8 +27,12 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\\[\(\[\\\.]").unwrap_or_else(|e| {
     log::error!("Failed to compile TROFF_ESCAPE regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-      Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
     })
   })
 });

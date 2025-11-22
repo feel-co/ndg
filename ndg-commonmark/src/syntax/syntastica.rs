@@ -112,8 +112,6 @@ impl SyntasticaHighlighter {
   }
 }
 
-
-
 impl SyntaxHighlighter for SyntasticaHighlighter {
   fn name(&self) -> &'static str {
     "Syntastica"

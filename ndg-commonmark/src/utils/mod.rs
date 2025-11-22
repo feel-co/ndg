@@ -75,8 +75,8 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics if the fallback regex pattern fails to compile, which should never happen
-/// with the hardcoded pattern.
+/// Panics if the fallback regex pattern fails to compile, which should never
+/// happen with the hardcoded pattern.
 #[must_use]
 pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   let arena = Arena::new();
@@ -103,8 +103,12 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
       );
       never_matching_regex().unwrap_or_else(|_| {
         // As a last resort, create a regex that matches nothing
-        #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-        Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+        #[allow(
+          clippy::expect_used,
+          reason = "This pattern is guaranteed to be valid"
+        )]
+        Regex::new(r"[^\s\S]")
+          .expect("regex pattern [^\\s\\S] should always compile")
       })
     })
   });
@@ -149,8 +153,12 @@ pub fn clean_anchor_patterns(text: &str) -> String {
       );
       never_matching_regex().unwrap_or_else(|_| {
         // As a last resort, create a regex that matches nothing
-        #[allow(clippy::expect_used, reason = "This pattern is guaranteed to be valid")]
-        Regex::new(r"[^\s\S]").expect("regex pattern [^\\s\\S] should always compile")
+        #[allow(
+          clippy::expect_used,
+          reason = "This pattern is guaranteed to be valid"
+        )]
+        Regex::new(r"[^\s\S]")
+          .expect("regex pattern [^\\s\\S] should always compile")
       })
     })
   });
@@ -261,8 +269,8 @@ pub fn load_manpage_urls(
 ///
 /// # Errors
 ///
-/// Returns an error if both primary and fallback regex patterns fail to compile,
-/// which should never happen with hardcoded patterns.
+/// Returns an error if both primary and fallback regex patterns fail to
+/// compile, which should never happen with hardcoded patterns.
 pub fn never_matching_regex() -> Result<regex::Regex, regex::Error> {
   // Use a pattern that will never match anything because it asserts something
   // impossible - this pattern is guaranteed to be valid
