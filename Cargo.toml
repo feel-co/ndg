@@ -16,14 +16,14 @@ version      = "2.4.1"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
-clap = { version = "4.5.51", default-features = false, features = [
+clap = { version = "4.5.53", default-features = false, features = [
   "std",
   "derive",
   "help",
   "usage",
   "suggestions",
 ] }
-clap_complete = "4.5.60"
+clap_complete = "4.5.61"
 clap_mangen = "0.2.31"
 color-eyre = "0.6.5"
 comrak = { version = "0.48.0", default-features = false, features = [ "syntect" ] }
@@ -33,7 +33,7 @@ grass = { version = "0.13.4", default-features = false }
 html-escape = "0.2.13"
 html5ever = "0.36.1"
 jiff = "0.2.16"
-kuchikikiki = { git = "https://github.com/NotAShelf/kuchikikikiki.git" }
+kuchikikiki = "0.9.1"
 log = "0.4.28"
 markup5ever = "0.36.1"
 minifier = { version = "0.3.6", features = [ "html" ] }
@@ -87,9 +87,9 @@ todo          = "warn"
 unimplemented = "warn"
 unreachable   = "warn"
 
-
 [profile.dev]
-opt-level = 1
+debug     = true
+opt-level = 0
 
 [profile.release]
 codegen-units = 1
