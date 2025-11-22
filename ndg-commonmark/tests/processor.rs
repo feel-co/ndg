@@ -284,7 +284,8 @@ fn test_error_handling_utilities() {
   assert_eq!(result, "processed: test input");
 
   // Test never_matching_regex
-  let regex = never_matching_regex();
+  let regex =
+    never_matching_regex().expect("Failed to create never matching regex");
   assert!(!regex.is_match("anything"));
   assert!(!regex.is_match(""));
   assert!(!regex.is_match("lots of text with various characters 123 !@#"));
