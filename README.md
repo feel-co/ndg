@@ -31,6 +31,10 @@ documented.
 
 ### ndg
 
+[![Build Status](https://img.shields.io/github/actions/workflow/status/feel-co/ndg/rust.yml?branch=main)](https://github.com/feel-co/ndg/actions/workflows/rust.yml)
+[![Nix Build](https://img.shields.io/github/actions/workflow/status/feel-co/ndg/nix.yml?branch=main)](https://github.com/feel-co/ndg/actions/workflows/nix.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/feel-co/ndg)](https://github.com/feel-co/ndg/releases/latest)
+
 ndg; or, "Not A Docs Generator" is our in-house documentation utility for Nix
 and Nix-adjacent projects, replacing commonly used tooling such as MdBook with a
 heavier emphasis on Nix and customizability. ndg also aims to be more "batteries
@@ -46,6 +50,10 @@ templating system and various configuration options to allow designing beautiful
 documentation for your projects.
 
 ### ndg-commonmark
+
+[![Documentation](https://img.shields.io/docsrs/ndg-commonmark/latest)](https://docs.rs/ndg-commonmark/latest/)
+[![Crates.io Version](https://img.shields.io/crates/v/ndg-commonmark)](https://crates.io/crates/ndg-commonmark)
+[![Rust Version](https://img.shields.io/badge/rust-1.85+-orange.svg)](https://www.rust-lang.org)
 
 [published on crates.io]: https://crates.io/crates/ndg-commonmark
 
@@ -119,6 +127,15 @@ checks:
 - `-W clippy::complexity`
 - `-W clippy::suspicious`
 - `-W clippy::correctness`
+
+The above lints, with some additional rules to allow certain rules, are provided
+in `Cargo.toml` in the lints section, so running `cargo clippy` should be enough
+unless you have a weird linter setup.
+
+Do note that usage of `unwrap()` is forbidden in `ndg-commonmark`, and
+`expect()` will cause warnings. Since `ndg-commonmark` is a public library, you
+are expected to use more intuitive error patterns. It is fine to panic in `ndg`,
+but you must ensure that you provide appropriate information with the panic.
 
 #### Usage without flakes
 
