@@ -1,7 +1,4 @@
-<!-- markdownlint-disable MD013 MD033 -->
-
-<!-- markdownlint-disable MD033 MD041 -->
-
+<!-- markdownlint-disable MD013 MD033 MD041 -->
 <div id="doc-begin" align="center">
   <h1 id="header">
     <pre>NDG: Not a Docs Generator</pre>
@@ -15,32 +12,37 @@
 
 ## What is it?
 
-**ndg** is a fast, customizable and convenient utility for generating HTML
+[CommonMark]: https://commonmark.org/
+
+**NDG** is a fast, customizable and convenient utility for generating HTML
 documents and manpages for your Nix related projects from Markdown inputs, and
 Nix module options. It can be considered a more opinionated and more specialized
 alternative to MdBook, choosing to focus on Nix-related projects. While this
 project is designed for [Hjem](https://hjem.feel-co.org) in mind, it is
 perfectly possible to use NDG outside of Nix contexts. All Nix-specific
-features, such as module options page and Nixpkgs-flavored Commonmark parsing
+features, such as module options page and Nixpkgs-flavored [CommonMark] parsing
 are optional and can be controlled via various knobs.
 
 ### Features
+
+[ndg-commonmark]: https://crates.io/crates/ndg-commonmark
 
 We would like for NDG to be fast, but also flexible and powerful. It boasts
 several features such as
 
 - **Markdown to HTML and Manpage conversion** with support for Nixpkgs-flavored
-  Commonmark features[^1].
-- **Useful Markdown Companions**
-  - **Automatic table of contents** generation from document headings
-  - **Title Anchors** - Automatically generates anchors for headings
+  CommonMark features[^1].
+  - **Useful Markdown Companions**
+    - **Automatic table of contents** generation from document headings
+    - **Title Anchors** are automatically generated for headings
+    - **GFM extensions** powered by [ndg-commonmark]
 - **Search functionality** to quickly find content across documents
 - **Nix module options support** to generate documentation from `options.json`
 - **Fully customizable templates** to match your project's style fully
-- **Multi-threading support** for fast generation of large documentation sets
 - **Incredibly fast** documentation generation for all scenarios
+  - **Multi-threading support** for fast generation of large documentation sets
 
-[^1]: This is a best-effort. Regular commonmark is fully supported, but Nixpkgs
+[^1]: This is a best-effort. Regular CommonMark is fully supported, but Nixpkgs
     additions may sometimes break due to the lack of a clear specification.
     Please open an issue if this is the case for you.
 
@@ -108,15 +110,17 @@ nonstandard location, you may specify a path to the configuration file using the
 $ ndg html
 
 # Run with explicitly specified config
-$ ndg html --config path/to/ndg.toml
+$ ndg html --config nested/path/to/ndg.toml
 ```
 
 ### Generating Your First Documents
 
-To run, NDG requires one of two things: **Markdown Sources** or
-**`options.json`**. Or alternatively, both.
+To generate your documents, NDG requires one of two things: **Markdown Sources**
+or **`options.json`**. Alternatively, for more comprehensive documents, you can
+provide both. The latter will be used for an `options.html` with your module
+options in the case Markdown sources are provided.
 
-The markdown sources are expected in an "inputs" directory, in which you can
+The Markdown sources are expected in an "inputs" directory, in which you can
 dump your Markdown files with ndg-flavored Commonmark, and they will be
 converted to HTML following the same structure. For example:
 
@@ -128,8 +132,8 @@ docs/
 └── package.nix
 ```
 
-Assuming your input directory is `inputs/`, you will receive the following
-output:
+Assuming your input directory (`--input-dir`) is `inputs/`, you will receive the
+following output:
 
 ```plaintext
 docs-output/
@@ -458,8 +462,40 @@ users always start with the latest default templates and can easily update them
 when ndg is upgraded. Though, ndg will fall back to internal templates when none
 are provided.
 
-See the [templating documntation](./docs/TEMPLATING.md) for details about the
+See the [templating documentation](./docs/TEMPLATING.md) for details about the
 templating. If your use-case is not supported, feel free to request a feature!
+
+### Sidebar Customization
+
+NDG allows you to customize the sidebar navigation through flexible
+configuration options. You can control item ordering, add numbering, and
+customize titles using pattern-based matching:
+
+```toml
+[sidebar]
+numbered = true
+ordering = "custom"
+
+[[sidebar.matches]]
+path = "getting-started.md"
+new_title = "🚀 Quick Start"
+position = 1
+
+[[sidebar.matches]]
+path = "installation.md"
+new_title = "📦 Installation"
+position = 2
+```
+
+This enables features like:
+
+- **Sequential numbering** of sidebar items
+- **Custom ordering** (alphabetical, custom position-based, or filesystem)
+- **Pattern-based title customization** using exact or regex matching
+- **Flexible positioning** for specific documentation items
+
+See the [sidebar configuration guide](./docs/SIDEBAR.md) for complete
+documentation including examples, use cases, and best practices.
 
 ### Template Customization Made Easy
 
@@ -757,6 +793,80 @@ templates/
 - **Create an index.md file**: Place an `index.md` file in your input directory
   to serve as the landing page.
 
+#### Special Files
+
+NDG treats certain files specially to maintain clear navigation hierarchy and
+ensure proper site structure. These files have behaviors that differ from
+regular documentation pages.
+
+> [!TIP]
+> **What are "Special Files"**?
+>
+> The following files are considered "special" (case-insensitive):
+>
+> - **`index.md`**
+> - **`README.md`**
+>
+> In the case neither special file, nor an `options.json` is provided; NDG will
+> create a fallback page that links available documents in the project. You are
+> encouraged to provide a README or an index page to avoid serving your users a
+> mostly empty fallback page.
+
+**Special file behaviors:**
+
+1. **Landing page priority** (`index.md` only):
+   - Preferred source for the site's `index.html` landing page
+   - If no `index.md` exists, NDG falls back to using `options.html` or creates
+     a fallback index listing all documents
+
+2. **Sidebar rendering** (both `index.md` and `README.md`):
+   - Always appear **first** in the sidebar navigation
+   - **Excluded from numbering by default** when `numbered = true` in sidebar
+     config
+   - Can be included in numbering by setting `number_special_files = true`
+   - Can have custom titles via sidebar pattern matching
+
+> [!NOTE]
+> **Why this design?** Special files represent **conceptual entry points**
+> rather than sequential content:
+>
+> - They serve as landing pages or overviews outside the normal documentation
+>   flow
+> - Numbering them (e.g., "1. Home", "2. Getting Started") creates awkward
+>   visual hierarchy
+> - Keeping them unnumbered and first emphasizes their role as anchors
+
+With sidebar numbering enabled (`number_special_files = false`, the default):
+
+```plaintext
+docs/
+├── index.md
+├── README.md
+├── getting-started.md
+├── installation.md
+└── usage.md
+```
+
+Renders as:
+
+```plaintext
+index.md          (unnumbered, appears first)
+README.md         (unnumbered, appears second)
+1. Getting Started
+2. Installation
+3. Usage
+```
+
+With `number_special_files = true`:
+
+```plaintext
+1. index.md
+2. README.md
+3. Getting Started
+4. Installation
+5. Usage
+```
+
 ### GitHub Integration
 
 - **Link to source with revision**: Use the `--revision` option to specify a
@@ -834,9 +944,13 @@ $ cargo doc --workspace # target/doc
 
 ## License
 
+<!-- markdownlint-disable MD059 -->
+
 This project is made available under Mozilla Public License (MPL) version 2.0.
 See [LICENSE](LICENSE) for more details on the exact conditions. An online copy
 is provided [here](https://www.mozilla.org/en-US/MPL/2.0/).
+
+<!-- markdownlint-enable MD059 -->
 
 <div align="right">
   <a href="#doc-begin">Back to the Top</a>
