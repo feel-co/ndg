@@ -743,40 +743,39 @@ fn get_template_content(
   Ok(fallback.to_string())
 }
 
-/// Generate the document navigation HTM
-fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
-  let mut doc_nav = String::new();
-  let root_prefix =
-    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
+/// Represents a navigation item with its metadata for rendering
+struct NavItem {
+  path:     String,
+  title:    String,
+  position: Option<usize>,
+  number:   Option<usize>,
+}
 
-  #[allow(
-    clippy::items_after_statements,
-    reason = "Helper function scoped for clarity"
-  )]
-  fn render_nav_entry(
-    doc_nav: &mut String,
-    root_prefix: &str,
-    input_dir: &Path,
-    entry: &walkdir::DirEntry,
-  ) {
-    let path = entry.path();
-    if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
-      let mut html_path = rel_doc_path.to_path_buf();
-      html_path.set_extension("html");
-
-      let target_path =
-        format!("{}{}", root_prefix, html_path.to_string_lossy());
-
-      let page_title = std::fs::read_to_string(path).map_or_else(
-        |_| {
+/// Extract page title from markdown file.
+///
+/// First attempts to read the file and extract the title from the first H1
+/// heading. Falls back to using the file stem as the title if reading fails or
+/// no H1 is found.
+fn extract_page_title(path: &Path, html_path: &Path) -> String {
+  std::fs::read_to_string(path).map_or_else(
+    |_| {
+      html_path
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string()
+    },
+    |content| {
+      content.lines().next().map_or_else(
+        || {
           html_path
             .file_stem()
             .unwrap_or_default()
             .to_string_lossy()
             .to_string()
         },
-        |content| {
-          content.lines().next().map_or_else(
+        |first_line| {
+          first_line.strip_prefix("# ").map_or_else(
             || {
               html_path
                 .file_stem()
@@ -784,28 +783,19 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
                 .to_string_lossy()
                 .to_string()
             },
-            |first_line| {
-              first_line.strip_prefix("# ").map_or_else(
-                || {
-                  html_path
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string()
-                },
-                ndg_commonmark::utils::clean_anchor_patterns,
-              )
-            },
+            ndg_commonmark::utils::clean_anchor_patterns,
           )
         },
-      );
+      )
+    },
+  )
+}
 
-      let _ = writeln!(
-        doc_nav,
-        "<li><a href=\"{target_path}\">{page_title}</a></li>"
-      );
-    }
-  }
+/// Generate the document navigation HTM
+fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
+  let mut doc_nav = String::new();
+  let root_prefix =
+    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
 
   // Only process markdown files if input_dir is provided
   if let Some(input_dir) = &config.input_dir {
@@ -848,13 +838,181 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         }
       }
 
-      // Render special entries first (index.md, README.md)
-      for entry in &special_entries {
-        render_nav_entry(&mut doc_nav, &root_prefix, input_dir, entry);
+      // Process regular entries with sidebar configuration
+      let mut nav_items: Vec<NavItem> = regular_entries
+        .iter()
+        .filter_map(|entry| {
+          let path = entry.path();
+          let rel_doc_path = path.strip_prefix(input_dir).ok()?;
+          let mut html_path = rel_doc_path.to_path_buf();
+          html_path.set_extension("html");
+
+          let target_path =
+            format!("{}{}", root_prefix, html_path.to_string_lossy());
+
+          // Extract page title
+          let page_title = extract_page_title(path, &html_path);
+
+          // Apply sidebar configuration if available
+          let (display_title, position) =
+            if let Some(sidebar_config) = &config.sidebar {
+              let path_str = rel_doc_path.to_string_lossy();
+              if let Some(matched_rule) =
+                sidebar_config.find_match(&path_str, &page_title)
+              {
+                let title = matched_rule
+                  .get_title()
+                  .map_or_else(|| page_title.clone(), String::from);
+                let pos = matched_rule.get_position();
+                (title, pos)
+              } else {
+                (page_title, None)
+              }
+            } else {
+              (page_title, None)
+            };
+
+          Some(NavItem {
+            path: target_path,
+            title: display_title,
+            position,
+            number: None,
+          })
+        })
+        .collect();
+
+      // Sort items based on sidebar ordering configuration
+      if let Some(sidebar_config) = &config.sidebar {
+        use crate::config::sidebar::SidebarOrdering;
+        match sidebar_config.ordering {
+          SidebarOrdering::Alphabetical => {
+            nav_items.sort_by(|a, b| a.title.cmp(&b.title));
+          },
+          SidebarOrdering::Custom => {
+            // Sort by position first, then alphabetically
+            nav_items.sort_by(|a, b| {
+              match (a.position, b.position) {
+                (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => a.title.cmp(&b.title),
+              }
+            });
+          },
+          SidebarOrdering::Filesystem => {
+            // Keep filesystem order (already in order thanks to walkdir)
+          },
+        }
+
+        // Add numbering if enabled
+        if sidebar_config.numbered {
+          for (idx, item) in nav_items.iter_mut().enumerate() {
+            item.number = Some(idx + 1);
+          }
+        }
+      } else {
+        // Default: alphabetical sorting
+        nav_items.sort_by(|a, b| a.title.cmp(&b.title));
       }
-      // Then render regular entries
-      for entry in &regular_entries {
-        render_nav_entry(&mut doc_nav, &root_prefix, input_dir, entry);
+
+      // Process special entries
+      let special_nav_items: Vec<NavItem> = special_entries
+        .iter()
+        .filter_map(|entry| {
+          let path = entry.path();
+          let rel_doc_path = path.strip_prefix(input_dir).ok()?;
+          let mut html_path = rel_doc_path.to_path_buf();
+          html_path.set_extension("html");
+
+          let target_path =
+            format!("{}{}", root_prefix, html_path.to_string_lossy());
+
+          let page_title = extract_page_title(path, &html_path);
+
+          // Apply sidebar configuration to special files if available
+          let display_title = if let Some(sidebar_config) = &config.sidebar {
+            let path_str = rel_doc_path.to_string_lossy();
+            if let Some(matched_rule) =
+              sidebar_config.find_match(&path_str, &page_title)
+            {
+              matched_rule
+                .get_title()
+                .map_or_else(|| page_title.clone(), String::from)
+            } else {
+              page_title
+            }
+          } else {
+            page_title
+          };
+
+          Some(NavItem {
+            path:     target_path,
+            title:    display_title,
+            position: None,
+            number:   None,
+          })
+        })
+        .collect();
+
+      // Determine if we should number special files
+      let should_number_special = config
+        .sidebar
+        .as_ref()
+        .is_some_and(|s| s.numbered && s.number_special_files);
+
+      // Render navigation items
+      if should_number_special {
+        // Combine special and regular items with unified numbering
+        let mut all_items = special_nav_items;
+        all_items.extend(nav_items);
+
+        // Apply numbering to all items
+        for (idx, item) in all_items.iter_mut().enumerate() {
+          item.number = Some(idx + 1);
+        }
+
+        // Render all items
+        for item in all_items {
+          if let Some(num) = item.number {
+            let _ = writeln!(
+              doc_nav,
+              "<li><a href=\"{}\">{num}. {}</a></li>",
+              item.path, item.title
+            );
+          } else {
+            let _ = writeln!(
+              doc_nav,
+              "<li><a href=\"{}\">{}</a></li>",
+              item.path, item.title
+            );
+          }
+        }
+      } else {
+        // Render special entries first without numbering
+        for item in special_nav_items {
+          let _ = writeln!(
+            doc_nav,
+            "<li><a href=\"{}\">{}</a></li>",
+            item.path, item.title
+          );
+        }
+
+        // Render regular entries with optional numbering
+        for item in nav_items {
+          if let Some(num) = item.number {
+            let _ = writeln!(
+              doc_nav,
+              "<li><a href=\"{}\">{num}. {}</a></li>",
+              item.path, item.title
+            );
+          } else {
+            let _ = writeln!(
+              doc_nav,
+              "<li><a href=\"{}\">{}</a></li>",
+              item.path, item.title
+            );
+          }
+        }
       }
     }
   }

@@ -1,3 +1,4 @@
+pub mod sidebar;
 pub mod templates;
 
 use std::{
@@ -146,6 +147,10 @@ pub struct Config {
   /// How to handle hard tabs in code blocks.
   #[serde(default = "default_tab_style")]
   pub tab_style: String,
+
+  /// Sidebar configuration.
+  #[serde(default)]
+  pub sidebar: Option<sidebar::SidebarConfig>,
 }
 
 impl Config {
@@ -294,6 +299,16 @@ impl Config {
 
     // Validate all paths
     config.validate_paths()?;
+
+    // Validate sidebar configuration if present
+    if let Some(ref sidebar) = config.sidebar {
+      sidebar.validate().map_err(|e| {
+        NdgError::Config(format!(
+          "Sidebar configuration validation failed: {e}"
+        ))
+      })?;
+    }
+
     Ok(config)
   }
 

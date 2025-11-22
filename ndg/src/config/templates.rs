@@ -88,6 +88,44 @@ revision = "main"
 
 # Additional meta tags to inject into the HTML head (example: { description = "Docs", keywords = "nix,docs" })
 # meta_tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
+
+# Sidebar configuration
+# [sidebar]
+# Enable numbering for sidebar items
+# numbered = true
+
+# Include special files (index.md, README.md) in numbering sequence
+# Only has effect when numbered = true. By default, special files appear first without numbers.
+# number_special_files = false
+
+# Ordering algorithm for sidebar items: "alphabetical", "custom", or "filesystem"
+# ordering = "alphabetical"
+
+# Pattern-based sidebar matching rules
+# Rules are evaluated in order, and the first matching rule is applied.
+# All specified conditions must match (AND logic).
+
+# Simple exact path match (shorthand syntax)
+# [[sidebar.matches]]
+# path = "getting-started.md"
+# position = 1
+
+# Exact title match with override (shorthand syntax)
+# [[sidebar.matches]]
+# title = "Release Notes"
+# new_title = "What's New"
+# position = 999
+
+# Regex patterns for more advanced matching (nested syntax required)
+# [[sidebar.matches]]
+# path.regex = "^api/.*\\.md$"
+# position = 50
+
+# Combined conditions (path regex + title regex)
+# [[sidebar.matches]]
+# path.regex = "^guides/.*\\.md$"
+# title.regex = "^Tutorial:.*"
+# position = 10
 "#;
 
 /// Default configuration template in JSON format.
@@ -103,11 +141,33 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "tab_style": "none",
   "revision": "main",
   "opengraph": {
-    "og:title": "My Project",
+    "og:title": "My Project"
   },
   "meta_tags": {
     "description": "Documentation for My Project",
     "keywords": "nix,docs,ndg,nixos"
+  },
+  "sidebar": {
+    "numbered": true,
+    "number_special_files": false,
+    "ordering": "alphabetical",
+    "matches": [
+      {
+        "path": "getting-started.md",
+        "position": 1
+      },
+      {
+        "title": "Release Notes",
+        "new_title": "What's New",
+        "position": 999
+      },
+      {
+        "path": {
+          "regex": "^api/.*\\.md$"
+        },
+        "position": 50
+      }
+    ]
   }
 }
 "#;
