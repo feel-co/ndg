@@ -28,29 +28,31 @@ in
         (s + /Cargo.toml)
       ];
     };
-    cargoLock = {
-      lockFile = "${finalAttrs.src}/Cargo.lock";
-      outputHashes = {
-        "kuchikikiki-0.9.1" = "sha256-uKfJsSpWRyhGvFQTGFK093SZCwcPLsUshWcHY5ODu88=";
-      };
-    };
+
+    cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
 
     # xtask doesn't support passing --target
-    # but nix hooks expect the folder structure from when it's set
+    # but Nix hooks expect the folder structure from when it's set
     env.CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.cargoShortTarget;
     cargoBuildFlags = ["-p" "ndg" "-p" "xtask"];
     enableParallelBuilding = true;
 
-    useNextest = true;
     nativeInstallCheckInputs = [versionCheckHook];
+    doInstallCheck = true;
     versionCheckProgram = "${placeholder "out"}/bin/${finalAttrs.meta.mainProgram}";
     versionCheckProgramArg = "--version";
-    doInstallCheck = true;
+
+    # Besides the install check, we have a bunch of tests to run. Nextest is
+    # the fastest way of running those since it's significantly faster than
+    # `cargo test`, and has a nicer UI with CI-friendly characteristics.
+    useNextest = true;
+    cargoTestFlags = ["run" "--workspace" "--verbose"];
 
     postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
       # Install required files with the 'dist' task
       $out/bin/xtask dist
 
+      # Install the generated completions/ and man/ artifacts
       for dir in completions man; do
         mkdir -p "$out/share/$dir"
         cp -rf "dist/$dir" "$out/share/"
