@@ -3,31 +3,34 @@
 This repository contains our in-house documentation tooling, designed to
 accommodate our various documentation needs, and the relevant dependencies that
 are needed to make it happen. The most critical component stored here, which you
-might be the most interested in, is [ndg](./ndg); a fast, robust and
+might be the most interested in, is [NDG](./ndg); a fast, robust and
 customizable documentation utility to generate a complete documentation website
 for your Nix-adjacent projects on the fly. [ndg-commonmark](./ndg-commonmark) is
 a Rust crate that handles parsing flavored commonmark, which is not very useful
 on its own.
 
-If you plan to make use of NDG or the ndg-commonmark crate, please read the
-appropriate sections below.
+If you plan to make use of NDG, or the ndg-commonmark library, please read the
+appropriate sections below. More advanced documentation can be found in each
+crate's own directory.
 
 ## Repository Structure
+
+[Github Flavored Markdown]: https://github.github.com/gfm/
 
 ```plaintext
 .
 ├── ndg
-└── ndg-commonmark
+├── ndg-commonmark
+└── nix
 ```
 
-[Github Flavored Markdown]: https://github.github.com/gfm/
-
-The `ndg/` directory contains the source code for the **ndg** utility, and
-**ndg-commonmark** is a public Rust crate that implements a parser for Nixpkgs
-flavored CommonMark with our own additions on top of [Github Flavored Markdown]
-(GFM). While ndg-commonmark was not _exactly_ designed for public use, it _was_
-designed with possible users and use-cases in mind, and the API was generously
-documented.
+This repository consists of three critical components. The [`ndg`](./ndg)
+directory contains the source code for the NDG utility, and the
+[`ndg-commonmark`](./ndg-commonmark) directory contains a Rust library crate
+that implements a parser for Nixpkgs-flavored CommonMark with our own additions
+as well as [Github Flavored Markdown] (GFM). Last but not least, the
+[`nix`](./nix) directory contains our packaging utilities via Nix, which is the
+primary method of interacting with this repository.
 
 ### ndg
 
@@ -35,19 +38,31 @@ documented.
 [![Nix Build](https://img.shields.io/github/actions/workflow/status/feel-co/ndg/nix.yml?branch=main)](https://github.com/feel-co/ndg/actions/workflows/nix.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/feel-co/ndg)](https://github.com/feel-co/ndg/releases/latest)
 
-ndg; or, "Not A Docs Generator" is our in-house documentation utility for Nix
-and Nix-adjacent projects, replacing commonly used tooling such as MdBook with a
-heavier emphasis on Nix and customizability. ndg also aims to be more "batteries
-included" compared to nixpkgs tooling (à la `nixos-render-docs`), and offers
-various improvements such as a higher degree of customization, graceful error
-recovery, and a lot of room for extension as ndg is not tied to Nixpkgs in any
-way.
+[Hjem]: https://github.com/feel-co/hjem
+[quickstart document]: ./ndg/README.md
 
-While the main focus of this tool to generate documentation for Nix module
-systems, you may _easily_ use it as a MdBook replacement in your projects by
-disabling Nix-specific features. ndg offers a flexible Markdown parser, a robust
-templating system and various configuration options to allow designing beautiful
-documentation for your projects.
+> [!TIP]
+> To begin working with NDG, take a look at the [quickstart document]. CLI
+> usage, supported syntax, Nix integration and so on are generously documented
+> in this document
+
+NDG; or, "Not A Docs Generator" is our in-house documentation utility for Nix
+and Nix-adjacent projects, replacing most commonly used tooling such as MdBook
+with a tool far less opinionated and Nix-friendly for our needs. That said, NDG
+also aims to be more "batteries included" compared to existing and somewhat
+popular Nixpkgs-first tooling (à la `nixos-render-docs`), and offers various
+improvements compared to those tooling such as a higher degree of customization,
+more intuitive architecture, graceful error recovery and _a lot_ of room for
+further extension as NDG is not tied to Nixpkgs and is not constrained by
+backwards compatibility with legacy baggage.
+
+While the _main_ focus of this tool is to generate documentation for projects
+that provide Nix module systems (such as [Hjem]), you may _easily_ use it as a
+MdBook replacement in your projects. You may even disable Nix-specific features
+completely! NDG offers a flexible Markdown parser, a robust templating system
+and various configuration options to allow designing beautiful documentation for
+your projects. The only thing it _can't_ do is to write the documentation for
+you...
 
 ### ndg-commonmark
 
@@ -56,35 +71,61 @@ documentation for your projects.
 [![Rust Version](https://img.shields.io/badge/rust-1.85+-orange.svg)](https://www.rust-lang.org)
 
 [published on crates.io]: https://crates.io/crates/ndg-commonmark
+[documentation for latest tagged release]: https://docs.rs/ndg-commonmark/latest/
+[documentation for the nightly variant]: https://ndg.feel-co.org
 
-While working on ndg, a large portion of Markdown parsing had to be done through
-various hacks (such as Regex) in house because there is no library that can
-parse Nixpkgs-flavored Markdown. The official documentation generator for
-Nixpkgs, `nixos-render-docs`, uses an in-house tokenizer that is not formally
-available elsewhere. This lack in the ecosystem lead to the gradual refactoring
-out of ndg's Markdown parser as a standalone crate while increasing its
-robustness, documentation and compatibility offerings for 3rd party tooling. ndg
-was eventually updated to use the `ndg-commonmark`.
+> [!IMPORTANT]
+> ndg-commonmark is a public Rust library designed to allow interacting with
+> Nixpkgs-flavored CommonMark. It is used by NDG under the hood to parse and
+> render Nixpkgs-flavored CommonMark. If you are interested in working with
+> ndg-commonmark in your projects take a look at the
+> [documentation for latest tagged release] or
+> [documentation for the nightly variant].
 
-You may integrate ndg-commonmark freely in your utilities as long as you follow
-the license. It was designed to remain compatible no matter now opinionated and
-unique your tooling is when ndg does not meet your requirements or does not just
-_click_ for your needs.
+The CLI component of this repository, NDG, has began as a Pandoc wrapper that
+preprocessed some of your options and structured them into a format more
+suitable for Pandoc. This was fine, of course, but it required a lot of Lua
+filter work and it could not deal with Nixpkgs flavored CommonMark--which is to
+be expected, as Nixpkgs-flavored CommonMark is not formally codified, and lives
+only as a reference document in the Nixpkgs repository.
 
-Please note, while ndg-commonmark _is_ designed for ndg, it is not as tightly
-coupled as it could have been. If your usecase is not supported, please let us
-know in an issue and we'll see what we can do. ndg-commonmark has been
-refactored as a library and [published on crates.io] for this reason.
+NDG 1.0.0 was the Rust rewrite of this Pandoc wrapper, which saw us drop Pandoc
+_entirely_ and migrate to a Rust CLI utility that leveraged pulldown-cmark under
+the hood for Markdown processing. This version of NDG relied solely on various
+hacks (such as Regex) and was not very robust. In NDG 2.0.0, we have migrated to
+Comrak and opted in for a more _robust_, AST-based parser powered by
+Comrak--which in itself is a very fast Markdown parser.
+
+It is also worth nothing that the official documentation generator for Nixpkgs,
+`nixos-render-docs`, uses an in-house tokenizer that is not formally available
+elsewhere. Thus, the lack in the ecosystem lead to the gradual refactoring of
+NDG's Markdown parser components into a standalone crate with increased
+robustness, better documentation, and generous integration options for usage by
+other projects into ecosystems that want to create their own documentation
+generators. NDG was eventually updated to use the `ndg-commonmark`, and has been
+successfully doing so since the v2.2.0 release.
+
+> [!TIP]
+> While ndg-commonmark _is_ designed _specifically_ for NDG, it is not as
+> tightly coupled as it could have been. Which is to say if your use case is not
+> supported, or if you have feedback/feature requests you are more than welcome
+> to submit those, and we will consider implementing those as time and technical
+> constraints allow. ndg-commonmark has been refactored into a library and
+> [published on crates.io] for this reason. You may integrate ndg-commonmark
+> freely in your utilities as long as you follow the license. It was designed to
+> remain compatible no matter now opinionated and unique your tooling is when
+> ndg does not meet your requirements or does not just _click_ for your needs.
 
 ## Contributing
 
-Most of our projects, and especially ndg, were designed with our own use cases
-in mind. While we will not reject any contributions outright (and we welcome
-them regardless!), it is often a good idea to discuss your ideas in a friendly
-issue beforehand. There may be overlapping plans and scheduling issues that we
-would rather be prepared for. As such, please discuss with us before forking or
-submitting a PR! We may come to an agreement that benefits us all. Worst case
-you will be gently nudged away.
+Most of our projects under the feel-co umbrella, and _especially NDG_, were
+designed with our own use cases in mind. While we will not reject any
+contributions outright (and in fact, we welcome them nevertheless!), it is often
+a good idea to discuss your ideas with us in a friendly issue beforehand. There
+may be overlapping plans and scheduling issues that we would rather be prepared
+for. As such, please discuss with us before forking or submitting a PR! We may
+come to an agreement that benefits us all. Worst case you will be gently nudged
+away, or guided into a better compromise that fulfills the needs of everyone.
 
 If making a pull request, please remember to follow our formatting guidelines
 and to run Clippy lints. Good API docs are not a hard-requirement, but you
@@ -93,24 +134,37 @@ change.
 
 ### Guidelines
 
-We do not expect much from you in a contribution besides your due diligence.
-Namely, we would like you to follow our formatting guidelines (enforced through
-`.rustfmt.toml` and `.taplo.toml`) and run Clippy lints. Good API docs are not a
-hard-requirement, but new functions _must_ have documentation coverage in the
-sense that they should _at least_ have a comment explaining what the function
-does. This is not only good for reviewers, but also for IDE setups where the
-editor displays function signatures and description in hover docs.
+NDG has no CLA, and has no formal contributing guidelines. This is because we do
+not expect anything from your contribution besides your due diligence. Namely,
+we would like you to follow our formatting guidelines (enforced through
+`.rustfmt.toml` and `.taplo.toml`) and run Clippy lints.
 
-While submitting a PR, please describe your changes properly and let us know
-what compelled to make this change. If you can describe the previous state and
-the state after your changes, it can help illustrate your motive better.
+Comprehensive API docs are not a hard-requirement, but new functions _must_ have
+documentation coverage in the sense that they should _at least_ have a comment
+explaining what the function does and in the case of ndg-commonmark, some amount
+of Rustdoc is good to have. This is not only good for reviewers, but also for
+IDE setups where the editor displays function signatures and description in
+hover docs. It also tells us that you are fully engaged with the code you're
+submitting.
+
+Once your changes are done and you're submitting your PR, please describe your
+changes properly and let us know what compelled to make this change. If you can
+describe the previous state and the state after your changes, it can help
+illustrate your motive better. An empty PR body with no explanation will likely
+result in us putting your issue on a backlog until we can engage with it with
+comfort.
 
 ### Hacking
 
-While working on either crate, you would like some development utilities in your
-shell. Namely you might need Cargo, Clippy, Rustfmt and the such consistent with
-what is used in development. NDG provides a Nix development shell, which you can
-use alongside [Direnv](https://direnv.net) or manually.
+[Direnv]: https://direnv.net
+
+While working on either Rust crate, you would like some development utilities in
+your shell. Even if you do have those in your PATH, it is good to match the
+tools we are using with the exact versions we've used. Namely you might need
+Cargo, Clippy, Rustfmt and the such consistent with what is used in development.
+
+NDG provides a Nix development shell, which you can use alongside [Direnv] or
+manually.
 
 ```sh
 # Load dependencies
@@ -132,15 +186,20 @@ The above lints, with some additional rules to allow certain rules, are provided
 in `Cargo.toml` in the lints section, so running `cargo clippy` should be enough
 unless you have a weird linter setup.
 
-Do note that usage of `unwrap()` is forbidden in `ndg-commonmark`, and
-`expect()` will cause warnings. Since `ndg-commonmark` is a public library, you
-are expected to use more intuitive error patterns. It is fine to panic in `ndg`,
-but you must ensure that you provide appropriate information with the panic.
+> [!WARNING]
+> Do note that usage of `unwrap()` is forbidden in `ndg-commonmark`, and
+> `expect()` will cause warnings. Since `ndg-commonmark` is a public library,
+> you are expected to use more intuitive error patterns. It is fine to panic in
+> `ndg`, but you must ensure that you provide appropriate information with the
+> panic. `expect()` is somewhat decent at providing information, and should be
+> preferred over `unwrap()` or `panic!`.
 
 #### Usage without flakes
 
-We support usage without flakes via [nix/default.nix](./nix/default.nix).
-Specifically, you can use the following shell commands:
+You may interact with our Nix tooling even if you don't want to use Nix flakes.
+There exists a compatibility interface for flakes in
+[nix/default.nix](./nix/default.nix). Specifically, you can use the following
+shell commands:
 
 | With flakes       | Without flakes                  |
 | ----------------- | ------------------------------- |
@@ -151,5 +210,12 @@ Specifically, you can use the following shell commands:
 
 ## License
 
-Both [ndg](./ndg) and [ndg-commonmark](./ndg-commonmark) are licensed under
-Mozilla Public License v2.0. See [LICENSE](./LICENSE) for more details.
+<!--markdownlint-disable MD059 -->
+
+[here]: https://www.mozilla.org/en-US/MPL/2.0/
+
+Both NDG and ndg-commonmark are made available under Mozilla Public License
+(MPL) version 2.0. See [LICENSE](LICENSE) for more details on the exact
+conditions. An online copy is provided [here].
+
+<!--markdownlint-enable MD059 -->
