@@ -124,6 +124,9 @@ jobs:
             else if ('${{ steps.nextest.outputs.pct }}' >= 70) print "yellowgreen";
             else print "red";
           }')
+
+          # Badge for cargo-nextest results. We can probably add some more if we care to
+          # in the future.
           cat > badges/test-badge.json <<EOF
           {
             "schemaVersion": 1,

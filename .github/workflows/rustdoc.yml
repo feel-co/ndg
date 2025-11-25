@@ -39,16 +39,21 @@ jobs:
           # Build documentation for public workspace members.
           # See:
           #  <https://doc.rust-lang.org/rustdoc/scraped-examples.html>
-          cargo doc --workspace --no-deps --document-private-items -Zunstable-options -Zrustdoc-scrape-examples
+          cargo doc --workspace --exclude --no-deps \
+            --document-private-items -Zunstable-options -Zrustdoc-scrape-examples
 
       - name: Prepare GitHub Pages Deployment
         run: |
+          # By default the generated documentation will not have an index page.
+          # This makes it so that when we visit ndg.feel-co.org it takes us to
+          # the API documentation found in the ndg-commonmark section
           mkdir -p ./target/doc
           echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark" />' > ./target/doc/index.html
 
-      - name: Deploy Docs (Preserve Badges)
+      - name: Deploy Docs
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: ./target/doc
-          clean: false # keep existing files
           branch: gh-pages
+          clean: false # keep existing files, i.e., badges
+
