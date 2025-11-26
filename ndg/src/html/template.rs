@@ -393,13 +393,51 @@ fn generate_options_toc(
   config: &Config,
   tera: &Tera,
 ) -> Result<String> {
-  // Configured depth or default of 2
-  let depth = config.options_toc_depth;
+  // Get depth from sidebar.options config or fallback to legacy
+  // options_toc_depth
+  let default_depth = config
+    .sidebar
+    .as_ref()
+    .and_then(|s| s.options.as_ref())
+    .map(|o| o.depth)
+    .unwrap_or(config.options_toc_depth);
 
   let mut grouped_options: HashMap<String, Vec<&NixOption>> = HashMap::new();
   let mut direct_parent_options: HashMap<String, &NixOption> = HashMap::new();
+  let mut option_custom_names: HashMap<String, String> = HashMap::new();
+  let mut option_positions: HashMap<String, usize> = HashMap::new();
 
   for option in options.values() {
+    // Check if this option has a matching rule in sidebar.options config
+    let match_result = config
+      .sidebar
+      .as_ref()
+      .and_then(|s| s.options.as_ref())
+      .and_then(|o| o.find_match(&option.name));
+
+    // Skip if option is marked as hidden
+    if let Some(matched) = &match_result {
+      if matched.is_hidden() {
+        continue;
+      }
+
+      // Store custom name if provided
+      if let Some(name) = matched.get_name() {
+        option_custom_names.insert(option.name.clone(), name.to_string());
+      }
+
+      // Store custom position if provided
+      if let Some(position) = matched.get_position() {
+        option_positions.insert(option.name.clone(), position);
+      }
+    }
+
+    // Use custom depth if specified, otherwise use default
+    let depth = match_result
+      .as_ref()
+      .and_then(|m| m.get_depth())
+      .unwrap_or(default_depth);
+
     let parent = get_option_parent(&option.name, depth);
 
     // Check if this option exactly matches its parent category
@@ -423,18 +461,43 @@ fn generate_options_toc(
     if !has_multiple_options && !has_child_options {
       // Single option with no children
       let option = opts[0];
+
+      // Use custom name if available, otherwise use option name
+      let display_name = option_custom_names
+        .get(&option.name)
+        .map(String::as_str)
+        .unwrap_or(&option.name);
+
       let option_value = tera::to_value({
         let mut map = tera::Map::new();
         map.insert("name".to_string(), tera::to_value(&option.name)?);
+        map.insert("display_name".to_string(), tera::to_value(display_name)?);
         map.insert("internal".to_string(), tera::to_value(option.internal)?);
         map.insert("read_only".to_string(), tera::to_value(option.read_only)?);
+
+        // Add position if custom position is set
+        if let Some(position) = option_positions.get(&option.name) {
+          map.insert("position".to_string(), tera::to_value(position)?);
+        }
+
         map
       })?;
       single_options.push(option_value);
     } else {
       // Category with multiple options or child options
       let mut category = tera::Map::new();
+
+      // Use custom name for category if the parent option has one
+      let category_display_name = option_custom_names
+        .get(parent)
+        .map(String::as_str)
+        .unwrap_or(parent);
+
       category.insert("name".to_string(), tera::to_value(parent)?);
+      category.insert(
+        "display_name".to_string(),
+        tera::to_value(category_display_name)?,
+      );
       category.insert("count".to_string(), tera::to_value(opts.len())?);
 
       // Add parent option if it exists
@@ -495,29 +558,53 @@ fn generate_options_toc(
       }
 
       category.insert("children".to_string(), tera::to_value(children)?);
+
+      // Add position if custom position is set for parent
+      if let Some(position) = option_positions.get(parent) {
+        category.insert("position".to_string(), tera::to_value(position)?);
+      }
+
       dropdown_categories.push(tera::to_value(category)?);
     }
   }
 
-  // Sort single options alphabetically
+  // Sort single options - by position first if available, then alphabetically
   single_options.sort_by(|a, b| {
     let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    a_name.cmp(b_name)
+    let a_position = a.get("position").and_then(|v| v.as_u64());
+    let b_position = b.get("position").and_then(|v| v.as_u64());
+
+    match (a_position, b_position) {
+      (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+      (Some(_), None) => std::cmp::Ordering::Less,
+      (None, Some(_)) => std::cmp::Ordering::Greater,
+      (None, None) => a_name.cmp(b_name),
+    }
   });
 
-  // Sort dropdown categories
+  // Sort dropdown categories - by position first if available, then by
+  // component count and alphabetically
   dropdown_categories.sort_by(|a, b| {
     let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    let a_position = a.get("position").and_then(|v| v.as_u64());
+    let b_position = b.get("position").and_then(|v| v.as_u64());
 
-    let a_components = a_name.split('.').count();
-    let b_components = b_name.split('.').count();
+    match (a_position, b_position) {
+      (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+      (Some(_), None) => std::cmp::Ordering::Less,
+      (None, Some(_)) => std::cmp::Ordering::Greater,
+      (None, None) => {
+        let a_components = a_name.split('.').count();
+        let b_components = b_name.split('.').count();
 
-    // Sort by component count first
-    match a_components.cmp(&b_components) {
-      std::cmp::Ordering::Equal => a_name.cmp(b_name), // Then alphabetically
-      other => other,
+        // Sort by component count first
+        match a_components.cmp(&b_components) {
+          std::cmp::Ordering::Equal => a_name.cmp(b_name), // Then alphabetically
+          other => other,
+        }
+      }
     }
   });
 
