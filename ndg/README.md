@@ -38,6 +38,8 @@ several features such as
     - **GFM extensions** powered by [ndg-commonmark]
 - **Search functionality** to quickly find content across documents
 - **Nix module options support** to generate documentation from `options.json`
+  - **Flexible options sidebar customization** to control visibility, naming,
+    ordering, and depth of option categories
 - **Fully customizable templates** to match your project's style fully
 - **Incredibly fast** documentation generation for all scenarios
   - **Multi-threading support** for fast generation of large documentation sets
@@ -462,7 +464,7 @@ users always start with the latest default templates and can easily update them
 when ndg is upgraded. Though, ndg will fall back to internal templates when none
 are provided.
 
-See the [templating documentation](./docs/TEMPLATING.md) for details about the
+See the [templating documentation](./docs/TEMPLATING) for details about the
 templating. If your use-case is not supported, feel free to request a feature!
 
 ### Sidebar Customization
@@ -494,8 +496,13 @@ This enables features like:
 - **Pattern-based title customization** using exact or regex matching
 - **Flexible positioning** for specific documentation items
 
-See the [sidebar configuration guide](./docs/SIDEBAR.md) for complete
-documentation including examples, use cases, and best practices.
+For documentation generated from Nix module options, you can also customize the
+options sidebar to control visibility, naming, ordering, and depth of option
+categories. This is particularly useful for large module systems like NixOS or
+Home Manager configurations.
+
+See the [sidebar configuration guide](./docs/SIDEBAR) for complete documentation
+including examples, use cases, and best practices.
 
 ### Template Customization Made Easy
 
