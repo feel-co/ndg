@@ -169,10 +169,17 @@ pub fn process_markdown_files(
 
       let result = processor.render(&content);
 
-      let input_dir = config.input_dir.as_ref().expect("input_dir required");
-      let rel_path = file_path
-        .strip_prefix(input_dir)
-        .expect("strip_prefix failed");
+      // XXX: We're inside the `if let Some(ref input_dir) =
+      // config.input_dir` block, so unwrap is safe here.
+      // P.S. I'm not using `reason` here because it looks ugly as hell.
+      #[allow(clippy::unwrap_used)]
+      let input_dir = config.input_dir.as_ref().unwrap();
+      let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
+        format!(
+          "Failed to determine relative path for {}",
+          file_path.display()
+        )
+      })?;
       let mut output_path = rel_path.to_path_buf();
       output_path.set_extension("html");
       let output_path_str = output_path.to_string_lossy().to_string();
@@ -213,8 +220,8 @@ pub fn process_markdown_files(
       }
     }
 
-    // Write outputs, skipping those marked as included (unless they have custom
-    // output)
+    // Write outputs, skipping those marked as included, unless they have custom
+    // output
     for (out_path, (html_content, headers, title, _src_md, is_included)) in
       &output_map
     {
