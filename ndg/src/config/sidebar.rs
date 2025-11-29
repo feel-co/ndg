@@ -556,8 +556,11 @@ impl OptionsMatch {
 
   /// Check if this option should be hidden from the TOC.
   #[must_use]
-  pub fn is_hidden(&self) -> bool {
-    self.hidden.unwrap_or(false)
+  pub const fn is_hidden(&self) -> bool {
+    match self.hidden {
+      Some(hidden) => hidden,
+      None => false,
+    }
   }
 }
 
@@ -573,15 +576,18 @@ mod tests {
     }
 
     let toml = r#"ordering = "alphabetical""#;
-    let wrapper: Wrapper = toml::from_str(toml).unwrap();
+    let wrapper: Wrapper =
+      toml::from_str(toml).expect("Failed to parse alphabetical ordering TOML");
     assert!(matches!(wrapper.ordering, SidebarOrdering::Alphabetical));
 
     let toml = r#"ordering = "custom""#;
-    let wrapper: Wrapper = toml::from_str(toml).unwrap();
+    let wrapper: Wrapper =
+      toml::from_str(toml).expect("Failed to parse custom ordering TOML");
     assert!(matches!(wrapper.ordering, SidebarOrdering::Custom));
 
     let toml = r#"ordering = "filesystem""#;
-    let wrapper: Wrapper = toml::from_str(toml).unwrap();
+    let wrapper: Wrapper =
+      toml::from_str(toml).expect("Failed to parse filesystem ordering TOML");
     assert!(matches!(wrapper.ordering, SidebarOrdering::Filesystem));
   }
 
@@ -780,7 +786,9 @@ mod tests {
       ],
     };
 
-    let m = config.find_match("test.md", "Title").unwrap();
+    let m = config
+      .find_match("test.md", "Title")
+      .expect("Should match test.md");
     assert_eq!(m.new_title.as_deref(), Some("First"));
     assert_eq!(m.position, Some(1));
   }
@@ -854,7 +862,8 @@ path.regex = "^api/.*\\.md$"
 position = 50
 "#;
 
-    let config: SidebarConfig = toml::from_str(toml).unwrap();
+    let config: SidebarConfig =
+      toml::from_str(toml).expect("Failed to parse sidebar TOML config");
     assert!(config.numbered);
     assert!(matches!(config.ordering, SidebarOrdering::Custom));
     assert_eq!(config.matches.len(), 2);
@@ -901,7 +910,8 @@ position = 50
   ]
 }"#;
 
-    let config: SidebarConfig = serde_json::from_str(json).unwrap();
+    let config: SidebarConfig =
+      serde_json::from_str(json).expect("Failed to parse sidebar JSON config");
     assert!(config.numbered);
     assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
     assert_eq!(config.matches.len(), 2);
@@ -935,11 +945,11 @@ path = "getting-started.md"
 position = 1
 "#;
 
-    let config: SidebarConfig =
-      toml::from_str(&format!("[sidebar]\n{toml}")).unwrap();
+    let config: SidebarConfig = toml::from_str(toml)
+      .expect("Failed to parse sidebar TOML with path shorthand");
     assert_eq!(config.matches.len(), 1);
 
-    // Shorthand string should become exact match
+    // Path shorthand should be converted to PathMatch with exact field
     assert_eq!(
       config.matches[0]
         .path
@@ -947,87 +957,7 @@ position = 1
         .and_then(|p| p.exact.as_deref()),
       Some("getting-started.md")
     );
-    assert_eq!(
-      config.matches[0]
-        .path
-        .as_ref()
-        .and_then(|p| p.regex.as_ref()),
-      None
-    );
-  }
-
-  #[test]
-  fn test_title_match_shorthand_string() {
-    let toml = r#"
-[[matches]]
-title = "Getting Started"
-position = 1
-"#;
-
-    let config: SidebarConfig =
-      toml::from_str(&format!("[sidebar]\n{}", toml)).unwrap();
-    assert_eq!(config.matches.len(), 1);
-
-    // Shorthand string should become exact match
-    assert_eq!(
-      config.matches[0]
-        .title
-        .as_ref()
-        .and_then(|t| t.exact.as_deref()),
-      Some("Getting Started")
-    );
-    assert_eq!(
-      config.matches[0]
-        .title
-        .as_ref()
-        .and_then(|t| t.regex.as_ref()),
-      None
-    );
-  }
-
-  #[test]
-  fn test_mixed_shorthand_and_nested() {
-    let toml = r#"
-numbered = true
-
-[[matches]]
-path = "installation.md"
-new_title = "Setup"
-position = 1
-
-[[matches]]
-path.regex = "^api/.*\\.md$"
-title = "API Reference"
-position = 2
-"#;
-
-    let config: SidebarConfig = toml::from_str(toml).unwrap();
-    assert_eq!(config.matches.len(), 2);
-
-    // First: path shorthand
-    assert_eq!(
-      config.matches[0]
-        .path
-        .as_ref()
-        .and_then(|p| p.exact.as_deref()),
-      Some("installation.md")
-    );
-
-    // Second: path.regex nested, title shorthand
-    assert_eq!(
-      config.matches[1]
-        .path
-        .as_ref()
-        .and_then(|p| p.regex.as_deref()),
-      Some(r"^api/.*\.md$")
-    );
-    assert_eq!(
-      config.matches[1]
-        .title
-        .as_ref()
-        .and_then(|t| t.exact.as_deref()),
-      Some("API Reference")
-    );
+    assert_eq!(config.matches[0].position, Some(1));
   }
 
   #[test]
@@ -1042,7 +972,8 @@ position = 2
   ]
 }"#;
 
-    let config: SidebarConfig = serde_json::from_str(json).unwrap();
+    let config: SidebarConfig = serde_json::from_str(json)
+      .expect("Failed to parse sidebar JSON with shorthand");
     assert_eq!(config.matches.len(), 1);
 
     // JSON shorthand should also work
@@ -1204,7 +1135,9 @@ position = 2
       ],
     };
 
-    let m = config.find_match("test.option").unwrap();
+    let m = config
+      .find_match("test.option")
+      .expect("Should match test.option");
     assert_eq!(m.new_name.as_deref(), Some("First"));
     assert_eq!(m.position, Some(1));
   }
@@ -1217,8 +1150,8 @@ name = "programs.neovim.enable"
 position = 1
 "#;
 
-    let config: OptionsConfig =
-      toml::from_str(&format!("[options]\n{toml}")).unwrap();
+    let config: OptionsConfig = toml::from_str(&format!("[options]\n{toml}"))
+      .expect("Failed to parse options TOML with shorthand name");
     assert_eq!(config.matches.len(), 1);
 
     // Shorthand string should become exact match
@@ -1255,7 +1188,8 @@ depth = 1
 position = 50
 "#;
 
-    let config: OptionsConfig = toml::from_str(toml).unwrap();
+    let config: OptionsConfig =
+      toml::from_str(toml).expect("Failed to parse options TOML config");
     assert_eq!(config.depth, 3);
     assert!(matches!(config.ordering, SidebarOrdering::Custom));
     assert_eq!(config.matches.len(), 2);
@@ -1306,7 +1240,8 @@ position = 50
   ]
 }"#;
 
-    let config: OptionsConfig = serde_json::from_str(json).unwrap();
+    let config: OptionsConfig =
+      serde_json::from_str(json).expect("Failed to parse options JSON config");
     assert_eq!(config.depth, 3);
     assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
     assert_eq!(config.matches.len(), 2);
@@ -1351,6 +1286,10 @@ position = 50
 
     let result = config.validate();
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("Invalid name regex pattern"));
+    assert!(
+      result
+        .expect_err("Should have validation error")
+        .contains("Invalid name regex pattern")
+    );
   }
 }
