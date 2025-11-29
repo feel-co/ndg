@@ -300,8 +300,8 @@ impl Config {
     // Validate all paths
     config.validate_paths()?;
 
-    // Validate sidebar configuration if present
-    if let Some(ref sidebar) = config.sidebar {
+    // Validate and compile sidebar configuration if present
+    if let Some(ref mut sidebar) = config.sidebar {
       sidebar.validate().map_err(|e| {
         NdgError::Config(format!(
           "Sidebar configuration validation failed: {e}"

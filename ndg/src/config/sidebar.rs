@@ -6,6 +6,87 @@ use serde::{
   de::{self, MapAccess, Visitor},
 };
 
+/// Deserializer for match types with `exact` and `regex` fields.
+fn deserialize_match_field<'de, D, T>(
+  deserializer: D,
+  field_name: &'static str,
+) -> Result<T, D::Error>
+where
+  D: Deserializer<'de>,
+  T: MatchField,
+{
+  struct GenericMatchVisitor<T> {
+    field_name: &'static str,
+    _phantom:   std::marker::PhantomData<T>,
+  }
+
+  impl<'de, T: MatchField> Visitor<'de> for GenericMatchVisitor<T> {
+    type Value = T;
+
+    fn expecting(
+      &self,
+      formatter: &mut std::fmt::Formatter,
+    ) -> std::fmt::Result {
+      write!(
+        formatter,
+        "a string or a map with 'exact' and/or 'regex' fields for {}",
+        self.field_name
+      )
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<T, E>
+    where
+      E: de::Error,
+    {
+      Ok(T::from_exact(value.to_string()))
+    }
+
+    fn visit_map<M>(self, mut map: M) -> Result<T, M::Error>
+    where
+      M: MapAccess<'de>,
+    {
+      let mut exact = None;
+      let mut regex = None;
+
+      while let Some(key) = map.next_key::<String>()? {
+        match key.as_str() {
+          "exact" => {
+            if exact.is_some() {
+              return Err(de::Error::duplicate_field("exact"));
+            }
+            exact = Some(map.next_value()?);
+          },
+          "regex" => {
+            if regex.is_some() {
+              return Err(de::Error::duplicate_field("regex"));
+            }
+            regex = Some(map.next_value()?);
+          },
+          _ => {
+            return Err(de::Error::unknown_field(&key, &["exact", "regex"]));
+          },
+        }
+      }
+
+      Ok(T::from_parts(exact, regex))
+    }
+  }
+
+  deserializer.deserialize_any(GenericMatchVisitor {
+    field_name,
+    _phantom: std::marker::PhantomData,
+  })
+}
+
+/// Trait for match types that can be deserialized generically.
+trait MatchField: Sized {
+  /// Create from exact match string (for shorthand deserialization).
+  fn from_exact(exact: String) -> Self;
+
+  /// Create from optional exact and regex parts.
+  fn from_parts(exact: Option<String>, regex: Option<String>) -> Self;
+}
+
 /// Configuration for sidebar behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SidebarConfig {
@@ -32,7 +113,7 @@ pub struct SidebarConfig {
 }
 
 impl SidebarConfig {
-  /// Validate all regex patterns in the sidebar configuration.
+  /// Validate and compile all regex patterns in the sidebar configuration.
   ///
   /// This pre-compiles all regex patterns to ensure they're valid,
   /// failing fast at config load time rather than during rendering.
@@ -40,39 +121,14 @@ impl SidebarConfig {
   /// # Errors
   ///
   /// Returns an error if any regex pattern is invalid.
-  pub fn validate(&self) -> Result<(), String> {
-    for (idx, m) in self.matches.iter().enumerate() {
-      // Validate path regex if present
-      if let Some(ref path_match) = m.path {
-        if let Some(ref regex_path) = path_match.regex {
-          Regex::new(regex_path).map_err(|e| {
-            format!(
-              "Invalid path regex pattern in sidebar match #{}: '{}' - {}",
-              idx + 1,
-              regex_path,
-              e
-            )
-          })?;
-        }
-      }
-
-      // Validate title regex if present.
-      if let Some(ref title_match) = m.title {
-        if let Some(ref regex_title) = title_match.regex {
-          Regex::new(regex_title).map_err(|e| {
-            format!(
-              "Invalid title regex pattern in sidebar match #{}: '{}' - {}",
-              idx + 1,
-              regex_title,
-              e
-            )
-          })?;
-        }
-      }
+  pub fn validate(&mut self) -> Result<(), String> {
+    for (idx, m) in self.matches.iter_mut().enumerate() {
+      m.compile_regexes()
+        .map_err(|e| format!("Sidebar match #{}: {}", idx + 1, e))?;
     }
 
-    // Validate options config if present.
-    if let Some(ref options_config) = self.options {
+    // Validate and compile options config if present
+    if let Some(ref mut options_config) = self.options {
       options_config.validate()?;
     }
 
@@ -102,7 +158,7 @@ pub enum SidebarOrdering {
 }
 
 /// Path matching criteria
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct PathMatch {
   /// Exact path match.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,6 +167,60 @@ pub struct PathMatch {
   /// Regex pattern for path matching.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub regex: Option<String>,
+
+  /// Compiled regex cache (populated after validation).
+  #[serde(skip)]
+  pub compiled_regex: Option<Regex>,
+}
+
+impl PartialEq for PathMatch {
+  fn eq(&self, other: &Self) -> bool {
+    self.exact == other.exact && self.regex == other.regex
+  }
+}
+
+impl Eq for PathMatch {}
+
+impl MatchField for PathMatch {
+  fn from_exact(exact: String) -> Self {
+    Self {
+      exact:          Some(exact),
+      regex:          None,
+      compiled_regex: None,
+    }
+  }
+
+  fn from_parts(exact: Option<String>, regex: Option<String>) -> Self {
+    Self {
+      exact,
+      regex,
+      compiled_regex: None,
+    }
+  }
+}
+
+impl PathMatch {
+  /// Create a new [`PathMatch`] with exact matching.
+  #[cfg(test)]
+  #[must_use]
+  pub const fn exact(path: String) -> Self {
+    Self {
+      exact:          Some(path),
+      regex:          None,
+      compiled_regex: None,
+    }
+  }
+
+  /// Create a new [`PathMatch`] with regex matching.
+  #[cfg(test)]
+  #[must_use]
+  pub const fn regex(pattern: String) -> Self {
+    Self {
+      exact:          None,
+      regex:          Some(pattern),
+      compiled_regex: None,
+    }
+  }
 }
 
 impl<'de> Deserialize<'de> for PathMatch {
@@ -118,67 +228,12 @@ impl<'de> Deserialize<'de> for PathMatch {
   where
     D: Deserializer<'de>,
   {
-    struct PathMatchVisitor;
-
-    impl<'de> Visitor<'de> for PathMatchVisitor {
-      type Value = PathMatch;
-
-      fn expecting(
-        &self,
-        formatter: &mut std::fmt::Formatter,
-      ) -> std::fmt::Result {
-        formatter
-          .write_str("a string or a map with 'exact' and/or 'regex' fields")
-      }
-
-      fn visit_str<E>(self, value: &str) -> Result<PathMatch, E>
-      where
-        E: de::Error,
-      {
-        // `path = "foo"` becomes `path.exact = "foo"`
-        Ok(PathMatch {
-          exact: Some(value.to_string()),
-          regex: None,
-        })
-      }
-
-      fn visit_map<M>(self, mut map: M) -> Result<PathMatch, M::Error>
-      where
-        M: MapAccess<'de>,
-      {
-        let mut exact = None;
-        let mut regex = None;
-
-        while let Some(key) = map.next_key::<String>()? {
-          match key.as_str() {
-            "exact" => {
-              if exact.is_some() {
-                return Err(de::Error::duplicate_field("exact"));
-              }
-              exact = Some(map.next_value()?);
-            },
-            "regex" => {
-              if regex.is_some() {
-                return Err(de::Error::duplicate_field("regex"));
-              }
-              regex = Some(map.next_value()?);
-            },
-            _ => {
-              return Err(de::Error::unknown_field(&key, &["exact", "regex"]));
-            },
-          }
-        }
-
-        Ok(PathMatch { exact, regex })
-      }
-    }
-
-    deserializer.deserialize_any(PathMatchVisitor)
+    deserialize_match_field(deserializer, "path")
   }
 }
 
 /// Title matching criteria (exact or regex).
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct TitleMatch {
   /// Exact title match.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -187,6 +242,60 @@ pub struct TitleMatch {
   /// Regex pattern for title matching.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub regex: Option<String>,
+
+  /// Compiled regex cache (populated after validation).
+  #[serde(skip)]
+  pub compiled_regex: Option<Regex>,
+}
+
+impl PartialEq for TitleMatch {
+  fn eq(&self, other: &Self) -> bool {
+    self.exact == other.exact && self.regex == other.regex
+  }
+}
+
+impl Eq for TitleMatch {}
+
+impl MatchField for TitleMatch {
+  fn from_exact(exact: String) -> Self {
+    Self {
+      exact:          Some(exact),
+      regex:          None,
+      compiled_regex: None,
+    }
+  }
+
+  fn from_parts(exact: Option<String>, regex: Option<String>) -> Self {
+    Self {
+      exact,
+      regex,
+      compiled_regex: None,
+    }
+  }
+}
+
+impl TitleMatch {
+  /// Create a new `TitleMatch` with exact matching.
+  #[cfg(test)]
+  #[must_use]
+  pub const fn exact(title: String) -> Self {
+    Self {
+      exact:          Some(title),
+      regex:          None,
+      compiled_regex: None,
+    }
+  }
+
+  /// Create a new [`TitleMatch`] with regex matching.
+  #[cfg(test)]
+  #[must_use]
+  pub const fn regex(pattern: String) -> Self {
+    Self {
+      exact:          None,
+      regex:          Some(pattern),
+      compiled_regex: None,
+    }
+  }
 }
 
 impl<'de> Deserialize<'de> for TitleMatch {
@@ -194,62 +303,7 @@ impl<'de> Deserialize<'de> for TitleMatch {
   where
     D: Deserializer<'de>,
   {
-    struct TitleMatchVisitor;
-
-    impl<'de> Visitor<'de> for TitleMatchVisitor {
-      type Value = TitleMatch;
-
-      fn expecting(
-        &self,
-        formatter: &mut std::fmt::Formatter,
-      ) -> std::fmt::Result {
-        formatter
-          .write_str("a string or a map with 'exact' and/or 'regex' fields")
-      }
-
-      fn visit_str<E>(self, value: &str) -> Result<TitleMatch, E>
-      where
-        E: de::Error,
-      {
-        // Shorthand: title = "foo" becomes title.exact = "foo"
-        Ok(TitleMatch {
-          exact: Some(value.to_string()),
-          regex: None,
-        })
-      }
-
-      fn visit_map<M>(self, mut map: M) -> Result<TitleMatch, M::Error>
-      where
-        M: MapAccess<'de>,
-      {
-        let mut exact = None;
-        let mut regex = None;
-
-        while let Some(key) = map.next_key::<String>()? {
-          match key.as_str() {
-            "exact" => {
-              if exact.is_some() {
-                return Err(de::Error::duplicate_field("exact"));
-              }
-              exact = Some(map.next_value()?);
-            },
-            "regex" => {
-              if regex.is_some() {
-                return Err(de::Error::duplicate_field("regex"));
-              }
-              regex = Some(map.next_value()?);
-            },
-            _ => {
-              return Err(de::Error::unknown_field(&key, &["exact", "regex"]));
-            },
-          }
-        }
-
-        Ok(TitleMatch { exact, regex })
-      }
-    }
-
-    deserializer.deserialize_any(TitleMatchVisitor)
+    deserialize_match_field(deserializer, "title")
   }
 }
 
@@ -274,9 +328,46 @@ pub struct SidebarMatch {
 }
 
 impl SidebarMatch {
+  /// Compile all regex patterns in this match rule.
+  ///
+  /// This must be called after deserialization to populate the compiled regex
+  /// cache. Regexes are validated and compiled once, then reused for all
+  /// subsequent match operations.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if any regex pattern is invalid.
+  pub fn compile_regexes(&mut self) -> Result<(), String> {
+    if let Some(ref mut path_match) = self.path {
+      if let Some(ref pattern) = path_match.regex {
+        path_match.compiled_regex = Some(
+          Regex::new(pattern)
+            .map_err(|e| format!("Invalid path regex '{pattern}': {e}"))?,
+        );
+      }
+    }
+
+    if let Some(ref mut title_match) = self.title {
+      if let Some(ref pattern) = title_match.regex {
+        title_match.compiled_regex = Some(
+          Regex::new(pattern)
+            .map_err(|e| format!("Invalid title regex '{pattern}': {e}"))?,
+        );
+      }
+    }
+
+    Ok(())
+  }
+
   /// Check if this rule matches the given path and title.
   ///
   /// All specified conditions must match.
+  ///
+  /// # Panics
+  ///
+  /// Panics if `compile_regexes()` was not called after deserialization and
+  /// regex patterns are present. This is a programming error - configs should
+  /// always be validated/compiled via `SidebarConfig::validate()`.
   #[must_use]
   pub fn matches(&self, path_str: &str, title_str: &str) -> bool {
     // Check path matching
@@ -288,14 +379,12 @@ impl SidebarMatch {
         }
       }
 
-      // Check path regex match
-      if let Some(ref regex_path) = path_match.regex {
-        if let Ok(re) = Regex::new(regex_path) {
-          if !re.is_match(path_str) {
-            return false;
-          }
-        } else {
-          // Regex invalid, no match
+      if let Some(re) = path_match
+        .regex
+        .as_ref()
+        .and(path_match.compiled_regex.as_ref())
+      {
+        if !re.is_match(path_str) {
           return false;
         }
       }
@@ -310,14 +399,12 @@ impl SidebarMatch {
         }
       }
 
-      // Check title regex match
-      if let Some(ref regex_title) = title_match.regex {
-        if let Ok(re) = Regex::new(regex_title) {
-          if !re.is_match(title_str) {
-            return false;
-          }
-        } else {
-          // Regex invalid, behead posthaste
+      if let Some(re) = title_match
+        .regex
+        .as_ref()
+        .and(title_match.compiled_regex.as_ref())
+      {
+        if !re.is_match(title_str) {
           return false;
         }
       }
@@ -371,7 +458,7 @@ impl Default for OptionsConfig {
 }
 
 impl OptionsConfig {
-  /// Validate all regex patterns in the options configuration.
+  /// Validate and compile all regex patterns in the options configuration.
   ///
   /// Pre-compiles all regex patterns to ensure they're valid,
   /// failing fast at config load time rather than during rendering.
@@ -379,21 +466,10 @@ impl OptionsConfig {
   /// # Errors
   ///
   /// Returns an error if any regex pattern is invalid.
-  pub fn validate(&self) -> Result<(), String> {
-    for (idx, m) in self.matches.iter().enumerate() {
-      // Validate name regex if present
-      if let Some(ref name_match) = m.name {
-        if let Some(ref regex_name) = name_match.regex {
-          Regex::new(regex_name).map_err(|e| {
-            format!(
-              "Invalid name regex pattern in options match #{}: '{}' - {}",
-              idx + 1,
-              regex_name,
-              e
-            )
-          })?;
-        }
-      }
+  pub fn validate(&mut self) -> Result<(), String> {
+    for (idx, m) in self.matches.iter_mut().enumerate() {
+      m.compile_regexes()
+        .map_err(|e| format!("Options match #{}: {}", idx + 1, e))?;
     }
     Ok(())
   }
@@ -406,7 +482,7 @@ impl OptionsConfig {
 }
 
 /// Option name matching criteria (exact or regex).
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct OptionNameMatch {
   /// Exact option name match.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -415,6 +491,60 @@ pub struct OptionNameMatch {
   /// Regex pattern for option name matching.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub regex: Option<String>,
+
+  /// Compiled regex cache (populated after validation).
+  #[serde(skip)]
+  pub compiled_regex: Option<Regex>,
+}
+
+impl PartialEq for OptionNameMatch {
+  fn eq(&self, other: &Self) -> bool {
+    self.exact == other.exact && self.regex == other.regex
+  }
+}
+
+impl Eq for OptionNameMatch {}
+
+impl MatchField for OptionNameMatch {
+  fn from_exact(exact: String) -> Self {
+    Self {
+      exact:          Some(exact),
+      regex:          None,
+      compiled_regex: None,
+    }
+  }
+
+  fn from_parts(exact: Option<String>, regex: Option<String>) -> Self {
+    Self {
+      exact,
+      regex,
+      compiled_regex: None,
+    }
+  }
+}
+
+impl OptionNameMatch {
+  /// Create a new [`OptionNameMatch`] with exact matching.
+  #[cfg(test)]
+  #[must_use]
+  pub const fn exact(name: String) -> Self {
+    Self {
+      exact:          Some(name),
+      regex:          None,
+      compiled_regex: None,
+    }
+  }
+
+  /// Create a new [`OptionNameMatch`] with regex matching.
+  #[cfg(test)]
+  #[must_use]
+  pub const fn regex(pattern: String) -> Self {
+    Self {
+      exact:          None,
+      regex:          Some(pattern),
+      compiled_regex: None,
+    }
+  }
 }
 
 impl<'de> Deserialize<'de> for OptionNameMatch {
@@ -422,62 +552,7 @@ impl<'de> Deserialize<'de> for OptionNameMatch {
   where
     D: Deserializer<'de>,
   {
-    struct OptionNameMatchVisitor;
-
-    impl<'de> Visitor<'de> for OptionNameMatchVisitor {
-      type Value = OptionNameMatch;
-
-      fn expecting(
-        &self,
-        formatter: &mut std::fmt::Formatter,
-      ) -> std::fmt::Result {
-        formatter
-          .write_str("a string or a map with 'exact' and/or 'regex' fields")
-      }
-
-      fn visit_str<E>(self, value: &str) -> Result<OptionNameMatch, E>
-      where
-        E: de::Error,
-      {
-        // Shorthand: `name = "foo"` -> `name.exact = "foo"`
-        Ok(OptionNameMatch {
-          exact: Some(value.to_string()),
-          regex: None,
-        })
-      }
-
-      fn visit_map<M>(self, mut map: M) -> Result<OptionNameMatch, M::Error>
-      where
-        M: MapAccess<'de>,
-      {
-        let mut exact = None;
-        let mut regex = None;
-
-        while let Some(key) = map.next_key::<String>()? {
-          match key.as_str() {
-            "exact" => {
-              if exact.is_some() {
-                return Err(de::Error::duplicate_field("exact"));
-              }
-              exact = Some(map.next_value()?);
-            },
-            "regex" => {
-              if regex.is_some() {
-                return Err(de::Error::duplicate_field("regex"));
-              }
-              regex = Some(map.next_value()?);
-            },
-            _ => {
-              return Err(de::Error::unknown_field(&key, &["exact", "regex"]));
-            },
-          }
-        }
-
-        Ok(OptionNameMatch { exact, regex })
-      }
-    }
-
-    deserializer.deserialize_any(OptionNameMatchVisitor)
+    deserialize_match_field(deserializer, "name")
   }
 }
 
@@ -506,9 +581,37 @@ pub struct OptionsMatch {
 }
 
 impl OptionsMatch {
+  /// Compile all regex patterns in this match rule.
+  ///
+  /// This must be called after deserialization to populate the compiled regex
+  /// cache. Regexes are validated and compiled once, then reused for all
+  /// subsequent match operations.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if any regex pattern is invalid.
+  pub fn compile_regexes(&mut self) -> Result<(), String> {
+    if let Some(ref mut name_match) = self.name {
+      if let Some(ref pattern) = name_match.regex {
+        name_match.compiled_regex = Some(
+          Regex::new(pattern)
+            .map_err(|e| format!("Invalid name regex '{pattern}': {e}"))?,
+        );
+      }
+    }
+
+    Ok(())
+  }
+
   /// Check if this rule matches the given option name.
   ///
   /// All specified conditions must match (AND logic).
+  ///
+  /// # Panics
+  ///
+  /// Panics if `compile_regexes()` was not called after deserialization and
+  /// regex patterns are present. This is a programming error - configs should
+  /// always be validated/compiled via `OptionsConfig::validate()`.
   #[must_use]
   pub fn matches(&self, option_name: &str) -> bool {
     // Check name matching
@@ -520,14 +623,12 @@ impl OptionsMatch {
         }
       }
 
-      // Check name regex match
-      if let Some(ref regex_name) = name_match.regex {
-        if let Ok(re) = Regex::new(regex_name) {
-          if !re.is_match(option_name) {
-            return false;
-          }
-        } else {
-          // Invalid regex -> no match
+      if let Some(re) = name_match
+        .regex
+        .as_ref()
+        .and(name_match.compiled_regex.as_ref())
+      {
+        if !re.is_match(option_name) {
           return false;
         }
       }
@@ -604,10 +705,7 @@ mod tests {
   #[test]
   fn test_sidebar_match_exact_path() {
     let m = SidebarMatch {
-      path:      Some(PathMatch {
-        exact: Some("getting-started.md".to_string()),
-        regex: None,
-      }),
+      path:      Some(PathMatch::exact("getting-started.md".to_string())),
       title:     None,
       new_title: None,
       position:  Some(1),
@@ -619,15 +717,14 @@ mod tests {
 
   #[test]
   fn test_sidebar_match_regex_path() {
-    let m = SidebarMatch {
-      path:      Some(PathMatch {
-        exact: None,
-        regex: Some(r"^api/.*\.md$".to_string()),
-      }),
+    let mut m = SidebarMatch {
+      path:      Some(PathMatch::regex(r"^api/.*\.md$".to_string())),
       title:     None,
       new_title: None,
       position:  Some(50),
     };
+
+    m.compile_regexes().expect("regex should compile");
 
     assert!(m.matches("api/foo.md", "Any Title"));
     assert!(m.matches("api/bar/baz.md", "Any Title"));
@@ -638,10 +735,7 @@ mod tests {
   fn test_sidebar_match_exact_title() {
     let m = SidebarMatch {
       path:      None,
-      title:     Some(TitleMatch {
-        exact: Some("Release Notes".to_string()),
-        regex: None,
-      }),
+      title:     Some(TitleMatch::exact("Release Notes".to_string())),
       new_title: Some("What's New".to_string()),
       position:  Some(999),
     };
@@ -652,15 +746,14 @@ mod tests {
 
   #[test]
   fn test_sidebar_match_regex_title() {
-    let m = SidebarMatch {
+    let mut m = SidebarMatch {
       path:      None,
-      title:     Some(TitleMatch {
-        exact: None,
-        regex: Some(r"^Release.*".to_string()),
-      }),
+      title:     Some(TitleMatch::regex(r"^Release.*".to_string())),
       new_title: Some("What's New".to_string()),
       position:  Some(999),
     };
+
+    m.compile_regexes().expect("regex should compile");
 
     assert!(m.matches("any/path.md", "Release Notes"));
     assert!(m.matches("any/path.md", "Release 1.0"));
@@ -669,18 +762,14 @@ mod tests {
 
   #[test]
   fn test_sidebar_match_combined_conditions() {
-    let m = SidebarMatch {
-      path:      Some(PathMatch {
-        exact: None,
-        regex: Some(r"^api/.*\.md$".to_string()),
-      }),
-      title:     Some(TitleMatch {
-        exact: None,
-        regex: Some(r"^API.*".to_string()),
-      }),
+    let mut m = SidebarMatch {
+      path:      Some(PathMatch::regex(r"^api/.*\.md$".to_string())),
+      title:     Some(TitleMatch::regex(r"^API.*".to_string())),
       new_title: None,
       position:  Some(50),
     };
+
+    m.compile_regexes().expect("regexes should compile");
 
     // Both conditions must match
     assert!(m.matches("api/foo.md", "API Reference"));
@@ -691,10 +780,7 @@ mod tests {
   #[test]
   fn test_sidebar_match_get_position() {
     let m = SidebarMatch {
-      path:      Some(PathMatch {
-        exact: Some("test.md".to_string()),
-        regex: None,
-      }),
+      path:      Some(PathMatch::exact("test.md".to_string())),
       title:     None,
       new_title: None,
       position:  Some(42),
@@ -706,10 +792,7 @@ mod tests {
   #[test]
   fn test_sidebar_match_get_title() {
     let m = SidebarMatch {
-      path:      Some(PathMatch {
-        exact: Some("test.md".to_string()),
-        regex: None,
-      }),
+      path:      Some(PathMatch::exact("test.md".to_string())),
       title:     None,
       new_title: Some("Custom Title".to_string()),
       position:  None,
@@ -720,32 +803,29 @@ mod tests {
 
   #[test]
   fn test_sidebar_config_find_match() {
-    let config = SidebarConfig {
+    let mut config = SidebarConfig {
       numbered:             true,
       number_special_files: false,
       ordering:             SidebarOrdering::Custom,
       options:              None,
       matches:              vec![
         SidebarMatch {
-          path:      Some(PathMatch {
-            exact: Some("getting-started.md".to_string()),
-            regex: None,
-          }),
+          path:      Some(PathMatch::exact("getting-started.md".to_string())),
           title:     None,
           new_title: None,
           position:  Some(1),
         },
         SidebarMatch {
-          path:      Some(PathMatch {
-            exact: None,
-            regex: Some(r"^api/.*\.md$".to_string()),
-          }),
+          path:      Some(PathMatch::regex(r"^api/.*\.md$".to_string())),
           title:     None,
           new_title: None,
           position:  Some(50),
         },
       ],
     };
+
+    // Validate to compile regexes
+    config.validate().expect("config should be valid");
 
     // First rule matches
     assert!(config.find_match("getting-started.md", "Title").is_some());
@@ -766,19 +846,13 @@ mod tests {
       options:              None,
       matches:              vec![
         SidebarMatch {
-          path:      Some(PathMatch {
-            exact: Some("test.md".to_string()),
-            regex: None,
-          }),
+          path:      Some(PathMatch::exact("test.md".to_string())),
           title:     None,
           new_title: Some("First".to_string()),
           position:  Some(1),
         },
         SidebarMatch {
-          path:      Some(PathMatch {
-            exact: Some("test.md".to_string()),
-            regex: None,
-          }),
+          path:      Some(PathMatch::exact("test.md".to_string())),
           title:     None,
           new_title: Some("Second".to_string()),
           position:  Some(2),
@@ -801,10 +875,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       options:              None,
       matches:              vec![SidebarMatch {
-        path:      Some(PathMatch {
-          exact: Some("test.md".to_string()),
-          regex: None,
-        }),
+        path:      Some(PathMatch::exact("test.md".to_string())),
         title:     None,
         new_title: None,
         position:  Some(42),
@@ -828,10 +899,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       options:              None,
       matches:              vec![SidebarMatch {
-        path:      Some(PathMatch {
-          exact: Some("test.md".to_string()),
-          regex: None,
-        }),
+        path:      Some(PathMatch::exact("test.md".to_string())),
         title:     None,
         new_title: Some("Custom".to_string()),
         position:  None,
@@ -999,10 +1067,9 @@ position = 1
   #[test]
   fn test_options_match_exact_name() {
     let m = OptionsMatch {
-      name:     Some(OptionNameMatch {
-        exact: Some("programs.neovim.enable".to_string()),
-        regex: None,
-      }),
+      name:     Some(OptionNameMatch::exact(
+        "programs.neovim.enable".to_string(),
+      )),
       new_name: Some("Neovim".to_string()),
       depth:    None,
       position: Some(1),
@@ -1015,16 +1082,15 @@ position = 1
 
   #[test]
   fn test_options_match_regex_name() {
-    let m = OptionsMatch {
-      name:     Some(OptionNameMatch {
-        exact: None,
-        regex: Some(r"^programs\..*".to_string()),
-      }),
+    let mut m = OptionsMatch {
+      name:     Some(OptionNameMatch::regex(r"^programs\..*".to_string())),
       new_name: Some("Programs".to_string()),
       depth:    Some(1),
       position: Some(1),
       hidden:   None,
     };
+
+    m.compile_regexes().expect("regex should compile");
 
     assert!(m.matches("programs.neovim.enable"));
     assert!(m.matches("programs.vim.enable"));
@@ -1034,10 +1100,7 @@ position = 1
   #[test]
   fn test_options_match_hidden() {
     let m = OptionsMatch {
-      name:     Some(OptionNameMatch {
-        exact: Some("internal.option".to_string()),
-        regex: None,
-      }),
+      name:     Some(OptionNameMatch::exact("internal.option".to_string())),
       new_name: None,
       depth:    None,
       position: None,
@@ -1051,10 +1114,7 @@ position = 1
   #[test]
   fn test_options_match_getters() {
     let m = OptionsMatch {
-      name:     Some(OptionNameMatch {
-        exact: Some("test.option".to_string()),
-        regex: None,
-      }),
+      name:     Some(OptionNameMatch::exact("test.option".to_string())),
       new_name: Some("Test Option".to_string()),
       depth:    Some(3),
       position: Some(42),
@@ -1069,25 +1129,21 @@ position = 1
 
   #[test]
   fn test_options_config_find_match() {
-    let config = OptionsConfig {
+    let mut config = OptionsConfig {
       depth:    2,
       ordering: SidebarOrdering::Custom,
       matches:  vec![
         OptionsMatch {
-          name:     Some(OptionNameMatch {
-            exact: Some("programs.neovim.enable".to_string()),
-            regex: None,
-          }),
+          name:     Some(OptionNameMatch::exact(
+            "programs.neovim.enable".to_string(),
+          )),
           new_name: Some("Neovim".to_string()),
           depth:    None,
           position: Some(1),
           hidden:   None,
         },
         OptionsMatch {
-          name:     Some(OptionNameMatch {
-            exact: None,
-            regex: Some(r"^services\..*".to_string()),
-          }),
+          name:     Some(OptionNameMatch::regex(r"^services\..*".to_string())),
           new_name: Some("Services".to_string()),
           depth:    Some(1),
           position: Some(50),
@@ -1095,6 +1151,9 @@ position = 1
         },
       ],
     };
+
+    // Validate to compile regexes
+    config.validate().expect("config should be valid");
 
     // First rule matches
     assert!(config.find_match("programs.neovim.enable").is_some());
@@ -1113,20 +1172,14 @@ position = 1
       ordering: SidebarOrdering::Alphabetical,
       matches:  vec![
         OptionsMatch {
-          name:     Some(OptionNameMatch {
-            exact: Some("test.option".to_string()),
-            regex: None,
-          }),
+          name:     Some(OptionNameMatch::exact("test.option".to_string())),
           new_name: Some("First".to_string()),
           depth:    None,
           position: Some(1),
           hidden:   None,
         },
         OptionsMatch {
-          name:     Some(OptionNameMatch {
-            exact: Some("test.option".to_string()),
-            regex: None,
-          }),
+          name:     Some(OptionNameMatch::exact("test.option".to_string())),
           new_name: Some("Second".to_string()),
           depth:    None,
           position: Some(2),
@@ -1269,14 +1322,11 @@ position = 50
 
   #[test]
   fn test_options_config_validation_invalid_regex() {
-    let config = OptionsConfig {
+    let mut config = OptionsConfig {
       depth:    2,
       ordering: SidebarOrdering::Alphabetical,
       matches:  vec![OptionsMatch {
-        name:     Some(OptionNameMatch {
-          exact: None,
-          regex: Some("[invalid regex(".to_string()),
-        }),
+        name:     Some(OptionNameMatch::regex("[invalid regex(".to_string())),
         new_name: None,
         depth:    None,
         position: None,
@@ -1286,10 +1336,14 @@ position = 50
 
     let result = config.validate();
     assert!(result.is_err());
+    let error_msg = result.expect_err("Should have validation error");
     assert!(
-      result
-        .expect_err("Should have validation error")
-        .contains("Invalid name regex pattern")
+      error_msg.contains("Options match #1"),
+      "Error should mention match number: {error_msg}"
+    );
+    assert!(
+      error_msg.contains("Invalid name regex"),
+      "Error should mention invalid regex: {error_msg}"
     );
   }
 }
