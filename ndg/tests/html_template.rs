@@ -521,6 +521,7 @@ fn sidebar_numbering_excludes_special_files() {
     number_special_files: false, // Default behavior
     ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
     matches:              vec![],
+    options:              None,
   });
 
   let content = "<p>Test content</p>";
@@ -573,6 +574,7 @@ fn sidebar_numbering_special_files_included() {
     number_special_files: true, // Enable numbering for special files
     ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
     matches:              vec![],
+    options:              None,
   });
 
   let content = "<p>Test content</p>";
@@ -623,6 +625,7 @@ fn sidebar_numbering_disabled_no_numbers() {
     number_special_files: false,
     ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
     matches:              vec![],
+    options:              None,
   });
 
   let content = "<p>Test content</p>";
