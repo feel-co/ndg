@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt::Write, fs, path::Path};
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
 use ndg_commonmark::Header;
+use serde_json::Value;
 use tera::Tera;
 
 use crate::{config::Config, formatter::options::NixOption};
@@ -399,8 +400,7 @@ fn generate_options_toc(
     .sidebar
     .as_ref()
     .and_then(|s| s.options.as_ref())
-    .map(|o| o.depth)
-    .unwrap_or(config.options_toc_depth);
+    .map_or(config.options_toc_depth, |o| o.depth);
 
   let mut grouped_options: HashMap<String, Vec<&NixOption>> = HashMap::new();
   let mut direct_parent_options: HashMap<String, &NixOption> = HashMap::new();
@@ -463,6 +463,7 @@ fn generate_options_toc(
       let option = opts[0];
 
       // Use custom name if available, otherwise use option name
+      #[allow(clippy::map_unwrap_or)]
       let display_name = option_custom_names
         .get(&option.name)
         .map(String::as_str)
@@ -488,6 +489,7 @@ fn generate_options_toc(
       let mut category = tera::Map::new();
 
       // Use custom name for category if the parent option has one
+      #[allow(clippy::map_unwrap_or)]
       let category_display_name = option_custom_names
         .get(parent)
         .map(String::as_str)
@@ -572,8 +574,8 @@ fn generate_options_toc(
   single_options.sort_by(|a, b| {
     let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let a_position = a.get("position").and_then(|v| v.as_u64());
-    let b_position = b.get("position").and_then(|v| v.as_u64());
+    let a_position = a.get("position").and_then(Value::as_u64);
+    let b_position = b.get("position").and_then(Value::as_u64);
 
     match (a_position, b_position) {
       (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
@@ -588,8 +590,8 @@ fn generate_options_toc(
   dropdown_categories.sort_by(|a, b| {
     let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let a_position = a.get("position").and_then(|v| v.as_u64());
-    let b_position = b.get("position").and_then(|v| v.as_u64());
+    let a_position = a.get("position").and_then(Value::as_u64);
+    let b_position = b.get("position").and_then(Value::as_u64);
 
     match (a_position, b_position) {
       (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
@@ -1179,13 +1181,13 @@ fn generate_toc(headers: &[Header]) -> String {
           visible_text = visible_text[..idx].trim_end();
         }
       }
-      writeln!(
+      // Writing to String is infallible
+      let _ = writeln!(
         toc,
         "<a href=\"#{}\">{}</a>",
         header.id,
         encode_text(visible_text)
-      )
-      .expect("Failed to write to toc string");
+      );
     }
   }
 
@@ -1214,19 +1216,18 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
     let option_id = format!("option-{}", option.name.replace('.', "-"));
 
     // Open option container with ID for direct linking
-    writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">")
-      .expect("Failed to write to options_html string");
+    // Writing to String is infallible
+    let _ = writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">");
 
     // Option name with anchor link and copy button
-    write!(
+    let _ = write!(
       options_html,
       "  <h3 class=\"option-name\">\n    <a href=\"#{}\" \
        class=\"option-anchor\">{}</a>\n    <span class=\"copy-link\" \
        title=\"Copy link to this option\"></span>\n    <span \
        class=\"copy-feedback\">Link copied!</span>\n  </h3>\n",
       option_id, option.name
-    )
-    .expect("Failed to write to options_html string");
+    );
 
     // Option metadata (internal/readOnly)
     let mut metadata = Vec::new();
@@ -1238,29 +1239,27 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
     }
 
     if !metadata.is_empty() {
-      writeln!(
+      // Writing to String is infallible
+      let _ = writeln!(
         options_html,
         "  <div class=\"option-metadata\">{}</div>",
         metadata.join(", ")
-      )
-      .expect("Failed to write to options_html string");
+      );
     }
 
     // Option type
-    writeln!(
+    let _ = writeln!(
       options_html,
       "  <div class=\"option-type\">Type: <code>{}</code></div>",
       option.type_name
-    )
-    .expect("Failed to write to options_html string");
+    );
 
     // Option description
-    writeln!(
+    let _ = writeln!(
       options_html,
       "  <div class=\"option-description\">{}</div>",
       option.description
-    )
-    .expect("Failed to write to options_html string");
+    );
 
     // Add default value if available
     add_default_value(&mut options_html, option);
@@ -1270,20 +1269,19 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
 
     // Option declared in - now with hyperlink support
     if let Some(declared_in) = &option.declared_in {
+      // Writing to String is infallible
       if let Some(url) = &option.declared_in_url {
-        writeln!(
+        let _ = writeln!(
           options_html,
           "  <div class=\"option-declared\">Declared in: <code><a \
            href=\"{url}\" target=\"_blank\">{declared_in}</a></code></div>"
-        )
-        .expect("Failed to write to options_html string");
+        );
       } else {
-        writeln!(
+        let _ = writeln!(
           options_html,
           "  <div class=\"option-declared\">Declared in: \
            <code>{declared_in}</code></div>"
-        )
-        .expect("Failed to write to options_html string");
+        );
       }
     }
 
@@ -1307,19 +1305,18 @@ fn add_default_value(html: &mut String, option: &NixOption) {
       default_text
     };
 
-    writeln!(
+    // Writing to String is infallible
+    let _ = writeln!(
       html,
       "  <div class=\"option-default\">Default: \
        <code>{clean_default}</code></div>"
-    )
-    .expect("Failed to write to options HTML string");
+    );
   } else if let Some(default_val) = &option.default {
-    writeln!(
+    let _ = writeln!(
       html,
       "  <div class=\"option-default\">Default: \
        <code>{default_val}</code></div>"
-    )
-    .expect("Failed to write to options HTML string");
+    );
   }
 }
 
@@ -1343,12 +1340,12 @@ fn add_example_value(html: &mut String, option: &NixOption) {
         &safe_example
       };
 
-      writeln!(
+      // Writing to String is infallible
+      let _ = writeln!(
         html,
         "  <div class=\"option-example\">Example: \
          <pre><code>{trimmed_example}</code></pre></div>"
-      )
-      .expect("Failed to write to options HTML string");
+      );
     } else {
       // Check if this is already a code block (surrounded by backticks)
       if example_text.starts_with('`')
@@ -1359,22 +1356,20 @@ fn add_example_value(html: &mut String, option: &NixOption) {
         let code_content = &example_text[1..example_text.len() - 1];
         let safe_content =
           code_content.replace('<', "&lt;").replace('>', "&gt;");
-        writeln!(
+        let _ = writeln!(
           html,
           "  <div class=\"option-example\">Example: \
            <code>{safe_content}</code></div>"
-        )
-        .expect("Failed to write to options HTML string");
+        );
       } else {
         // Regular inline example - still needs escaping
         let safe_example =
           example_text.replace('<', "&lt;").replace('>', "&gt;");
-        writeln!(
+        let _ = writeln!(
           html,
           "  <div class=\"option-example\">Example: \
            <code>{safe_example}</code></div>"
-        )
-        .expect("Failed to write to options HTML string");
+        );
       }
     }
   } else if let Some(example_val) = &option.example {
@@ -1382,20 +1377,18 @@ fn add_example_value(html: &mut String, option: &NixOption) {
     let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
     if example_str.contains('\n') {
       // Multi-line JSON examples need special handling
-      writeln!(
+      let _ = writeln!(
         html,
         "  <div class=\"option-example\">Example: \
          <pre><code>{safe_example}</code></pre></div>"
-      )
-      .expect("Failed to write to options HTML string");
+      );
     } else {
       // Single-line JSON examples
-      writeln!(
+      let _ = writeln!(
         html,
         "  <div class=\"option-example\">Example: \
          <code>{safe_example}</code></div>"
-      )
-      .expect("Failed to write to options HTML string");
+      );
     }
   }
 }
