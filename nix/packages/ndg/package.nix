@@ -46,7 +46,7 @@ in
     # the fastest way of running those since it's significantly faster than
     # `cargo test`, and has a nicer UI with CI-friendly characteristics.
     useNextest = true;
-    cargoTestFlags = ["run" "--workspace" "--verbose"];
+    cargoTestFlags = ["--workspace" "--verbose"];
 
     postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
       # Install required files with the 'dist' task
