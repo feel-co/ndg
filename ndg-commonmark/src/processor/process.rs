@@ -291,6 +291,7 @@ mod tests {
   }
 
   #[test]
+  #[allow(clippy::panic)]
   fn test_safely_process_markup_fallback() {
     let content = "test content";
     let result = process_safe(content, |_| panic!("test panic"), "fallback");
