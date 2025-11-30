@@ -371,6 +371,11 @@ impl Config {
       }
 
       if let Some(toc_depth) = options_toc_depth {
+        log::warn!(
+          "The --options-depth flag is deprecated and will be removed in a \
+           future release. Use '--config sidebar.options.depth={toc_depth}' \
+           or set 'sidebar.options.depth' in your config file instead."
+        );
         self.options_toc_depth = *toc_depth;
       }
 
@@ -524,12 +529,39 @@ impl Config {
           };
         },
         "options_toc_depth" => {
+          log::warn!(
+            "The 'options_toc_depth' config key is deprecated. Use \
+             'sidebar.options.depth' instead."
+          );
           self.options_toc_depth = value.parse::<usize>().map_err(|_| {
             NdgError::Config(format!(
               "Invalid value for 'options_toc_depth': '{value}'. Expected a \
                positive integer"
             ))
           })?;
+        },
+
+        // Nested sidebar.options.depth
+        "sidebar.options.depth" => {
+          let depth = value.parse::<usize>().map_err(|_| {
+            NdgError::Config(format!(
+              "Invalid value for 'sidebar.options.depth': '{value}'. Expected \
+               a positive integer"
+            ))
+          })?;
+
+          // Create sidebar.options if it doesn't exist
+          if self.sidebar.is_none() {
+            self.sidebar = Some(sidebar::SidebarConfig::default());
+          }
+          if let Some(ref mut sidebar) = self.sidebar {
+            if sidebar.options.is_none() {
+              sidebar.options = Some(sidebar::OptionsConfig::default());
+            }
+            if let Some(ref mut options) = sidebar.options {
+              options.depth = depth;
+            }
+          }
         },
 
         _ => {
