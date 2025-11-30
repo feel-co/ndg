@@ -33,10 +33,28 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 
 ### Added
 
+- Support for multiple configuration files via repeatable `--config-file` flag
+  - Config files are merged in order with later files overriding earlier ones
+- New `--config KEY=VALUE` flag for fine-grained configuration overrides
+  - Supports boolean (true/false/yes/no/1/0), string, path, and numeric types
+  - Support for nested config keys with dot notation (e.g.,
+    `sidebar.options.depth`)
 - Sidebar configuration for documentation and options ordering
   - Pattern-based matching for custom sidebar grouping
   - Configurable ordering algorithms (alphabetical, custom)
   - Support for read-only option badges in sidebar
+
+### Changed
+
+- Renamed `--config` flag to `--config-file` for clarity
+  - New `--config` flag now accepts KEY=VALUE override pairs
+- Sidebar font size increased from 12px to 14px for better legibility
+- Count badge colors changed from orange to primary purple for better contrast
+- **Deprecated** `--options-depth` CLI flag in favor of config-based approach
+  - Flag still works but emits deprecation warning
+  - Use `--config sidebar.options.depth=N` or config file instead
+- **Deprecated** `options_toc_depth` config key in favor of
+  `sidebar.options.depth`
 
 ### Fixed
 
@@ -46,13 +64,6 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   messages
 - Regex compilation performance improved by caching compiled patterns during
   validation
-
-### Changed
-
-- Sidebar font size increased from 12px to 14px for better legibility
-- Count badge colors changed from orange to primary purple for better contrast
-- Deprecated top-level `options_depth` option in favor of
-  `sidebar.options.depth`
 
 ## [2.4.1]
 
