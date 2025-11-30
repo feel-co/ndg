@@ -94,7 +94,7 @@ revision = "main"
 # Enable numbering for sidebar items
 # numbered = true
 
-# Include special files  in numbering sequence
+# Include special files in numbering sequence
 # Only has effect when numbered = true.
 # number_special_files = false
 
