@@ -166,8 +166,9 @@ fn test_sidebar_integration() {
     matches:              vec![
       SidebarMatch {
         path:      Some(PathMatch {
-          exact: Some("installation.md".to_string()),
-          regex: None,
+          exact:          Some("installation.md".to_string()),
+          regex:          None,
+          compiled_regex: None,
         }),
         title:     None,
         new_title: Some("Setup Guide".to_string()),
@@ -175,8 +176,9 @@ fn test_sidebar_integration() {
       },
       SidebarMatch {
         path:      Some(PathMatch {
-          exact: Some("api.md".to_string()),
-          regex: None,
+          exact:          Some("api.md".to_string()),
+          regex:          None,
+          compiled_regex: None,
         }),
         title:     None,
         new_title: None,
@@ -184,8 +186,9 @@ fn test_sidebar_integration() {
       },
       SidebarMatch {
         path:      Some(PathMatch {
-          exact: Some("configuration.md".to_string()),
-          regex: None,
+          exact:          Some("configuration.md".to_string()),
+          regex:          None,
+          compiled_regex: None,
         }),
         title:     None,
         new_title: None,
@@ -218,24 +221,31 @@ fn test_sidebar_integration() {
   );
 
   // Test with regex matching
-  let sidebar_config_regex = SidebarConfig {
+  let mut sidebar_config_regex = SidebarConfig {
     numbered:             true,
     number_special_files: false,
     ordering:             SidebarOrdering::Alphabetical,
     matches:              vec![SidebarMatch {
       path:      Some(PathMatch {
-        exact: None,
-        regex: Some(r"^.*\.md$".to_string()),
+        exact:          None,
+        regex:          Some(r"^.*\.md$".to_string()),
+        compiled_regex: None,
       }),
       title:     Some(TitleMatch {
-        exact: None,
-        regex: Some(r".*Guide.*".to_string()),
+        exact:          None,
+        regex:          Some(r".*Guide.*".to_string()),
+        compiled_regex: None,
       }),
       new_title: Some("📖 Guide".to_string()),
       position:  None,
     }],
     options:              None,
   };
+
+  // Compile regexes
+  sidebar_config_regex
+    .validate()
+    .expect("sidebar config should be valid");
 
   let config_regex = Config {
     input_dir: Some(input_dir),
