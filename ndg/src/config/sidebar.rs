@@ -379,11 +379,13 @@ impl SidebarMatch {
         }
       }
 
-      if let Some(re) = path_match
-        .regex
-        .as_ref()
-        .and(path_match.compiled_regex.as_ref())
-      {
+      // Check regex path match
+      if let Some(ref _pattern) = path_match.regex {
+        #[allow(clippy::expect_used)]
+        let re = path_match
+          .compiled_regex
+          .as_ref()
+          .expect("internal error: invalid regex configuration");
         if !re.is_match(path_str) {
           return false;
         }
@@ -399,11 +401,13 @@ impl SidebarMatch {
         }
       }
 
-      if let Some(re) = title_match
-        .regex
-        .as_ref()
-        .and(title_match.compiled_regex.as_ref())
-      {
+      // Check regex title match
+      if let Some(ref _pattern) = title_match.regex {
+        #[allow(clippy::expect_used)]
+        let re = title_match
+          .compiled_regex
+          .as_ref()
+          .expect("internal error: invalid regex configuration");
         if !re.is_match(title_str) {
           return false;
         }
@@ -623,11 +627,13 @@ impl OptionsMatch {
         }
       }
 
-      if let Some(re) = name_match
-        .regex
-        .as_ref()
-        .and(name_match.compiled_regex.as_ref())
-      {
+      // Check regex name match
+      if let Some(ref _pattern) = name_match.regex {
+        #[allow(clippy::expect_used)]
+        let re = name_match
+          .compiled_regex
+          .as_ref()
+          .expect("internal error: invalid regex configuration");
         if !re.is_match(option_name) {
           return false;
         }
