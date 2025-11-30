@@ -29,6 +29,31 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   ignored.
 - Release date is not tracked
 
+## [Unreleased]
+
+### Added
+
+- Sidebar configuration for documentation and options ordering
+  - Pattern-based matching for custom sidebar grouping
+  - Configurable ordering algorithms (alphabetical, custom)
+  - Support for read-only option badges in sidebar
+
+### Fixed
+
+- Config file values for `generate_search` and `highlight_code` are now
+  respected when CLI flags are not provided
+- Silent regex failures in sidebar matching now properly panic with clear error
+  messages
+- Regex compilation performance improved by caching compiled patterns during
+  validation
+
+### Changed
+
+- Sidebar font size increased from 12px to 14px for better legibility
+- Count badge colors changed from orange to primary purple for better contrast
+- Deprecated top-level `options_depth` option in favor of
+  `sidebar.options.depth`
+
 ## [2.4.1]
 
 ### Added
