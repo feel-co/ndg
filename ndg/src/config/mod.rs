@@ -371,38 +371,61 @@ impl Config {
     }
   }
 
-  /// Get template directory path or file parent
+  /// Get the template directory path, if available.
+  ///
+  /// # Returns
+  ///
+  /// Directory path that contains template files. Priority order:
+  ///
+  /// 1. Explicit `template_dir` configuration
+  /// 2. If `template_path` is a directory, use that
+  /// 3. [`None`] otherwise (single file templates don't provide a directory)
   #[must_use]
   pub fn get_template_path(&self) -> Option<PathBuf> {
-    // First check explicit template directory
-    self.template_dir
-            .clone()
-            // Then check if template_path is a directory or use its parent
-            .or_else(|| {
-                self.template_path.as_ref().and_then(|path| {
-                    if path.is_dir() {
-                        Some(path.clone())
-                    } else {
-                        path.parent().map(PathBuf::from)
-                    }
-                })
-            })
-  }
+    // Explicit template directory has highest priority
+    if let Some(ref dir) = self.template_dir {
+      return Some(dir.clone());
+    }
 
-  /// Get template file path for a specific template name
-  #[must_use]
-  pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
-    // First check if there's a direct template path and it matches the name
-    if let Some(path) = &self.template_path {
-      // Only use template_path if it's a file and its filename matches the
-      // requested name
-      if path.is_file() && path.file_name().is_some_and(|fname| fname == name) {
+    // Check if template_path is a directory
+    if let Some(ref path) = self.template_path {
+      if path.is_dir() {
         return Some(path.clone());
       }
     }
 
-    // Otherwise check template directory
-    self.get_template_path().map(|dir| dir.join(name))
+    None
+  }
+
+  /// Get the path to a specific template file by name.
+  ///
+  /// # Returns
+  ///
+  /// Path to the requested template file if it can be found in:
+  ///
+  /// 1. The template directory (if configured)
+  /// 2. As a single file via `template_path` (if the filename matches)
+  ///
+  /// This method does not check if the returned path exists.
+  #[must_use]
+  pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
+    // If we have a template directory, check for the file there
+    if let Some(dir) = self.get_template_path() {
+      return Some(dir.join(name));
+    }
+
+    // Check if template_path is a single file matching the requested name
+    if let Some(ref path) = self.template_path {
+      if path.is_file() {
+        if let Some(filename) = path.file_name() {
+          if filename == name {
+            return Some(path.clone());
+          }
+        }
+      }
+    }
+
+    None
   }
 
   /// Search for config files in common locations
