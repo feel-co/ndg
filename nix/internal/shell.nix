@@ -16,10 +16,12 @@ pkgs.mkShell {
     pkgs.cargo-nextest
     pkgs.cargo-machete
     pkgs.cargo-llvm-cov
+    pkgs.cargo-deny
   ];
 
   env = {
     RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
+
     # 'cargo llvm-cov' reads these environment variables to find these
     # binaries, which are needed to run the tests.
     LLVM_COV = "${pkgs.llvm}/bin/llvm-cov";
