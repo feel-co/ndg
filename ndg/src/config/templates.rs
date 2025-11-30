@@ -77,7 +77,7 @@ options_toc_depth = 2
 # Whether to enable syntax highlighting for code blocks
 highlight_code = true
 
-# How to handle hard tabs in code blocks (none, warn, normalize)
+# How to handle hard tabs in code blocks (one of "none", "warn", or "normalize")
 tab_style = "none"
 
 # GitHub revision for linking to source files (defaults to 'local')
@@ -88,6 +88,78 @@ revision = "main"
 
 # Additional meta tags to inject into the HTML head (example: { description = "Docs", keywords = "nix,docs" })
 # meta_tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
+
+# Sidebar configuration
+# [sidebar]
+# Enable numbering for sidebar items
+# numbered = true
+
+# Include special files in numbering sequence
+# Only has effect when numbered = true.
+# number_special_files = false
+
+# Ordering algorithm for sidebar items: "alphabetical", "custom", or "filesystem"
+# ordering = "alphabetical"
+
+# Pattern-based sidebar matching rules
+# Rules are evaluated in order, and the first matching rule is applied.
+# All specified conditions are expected to match.
+
+# Simple exact path match (shorthand syntax)
+# [[sidebar.matches]]
+# path = "getting-started.md"
+# position = 1
+
+# Exact title match with override (shorthand syntax)
+# [[sidebar.matches]]
+# title = "Release Notes"
+# new_title = "What's New"
+# position = 999
+
+# Regex patterns for more advanced matching (nested syntax required)
+# [[sidebar.matches]]
+# path.regex = "^api/.*\\.md$"
+# position = 50
+
+# Combined conditions (path regex & title regex)
+# [[sidebar.matches]]
+# path.regex = "^guides/.*\\.md$"
+# title.regex = "^Tutorial:.*"
+# position = 10
+
+# Options sidebar configuration
+# [sidebar.options]
+# Depth of parent categories in options TOC (defaults to root options_toc_depth)
+# depth = 2
+
+# Ordering algorithm for options: "alphabetical", "custom", or "filesystem"
+# ordering = "alphabetical"
+
+# Pattern-based options matching rules
+# Rules are evaluated in order, and the first matching rule is applied.
+
+# Hide internal options from the TOC
+# [[sidebar.options.matches]]
+# name.regex = "^myInternal\\..*"
+# hidden = true
+
+# Rename a category for display
+# [[sidebar.options.matches]]
+# name = "programs.git"
+# new_name = "Git Configuration"
+# position = 5
+
+# Set custom depth for specific options
+# [[sidebar.options.matches]]
+# name.regex = "^services\\..*"
+# depth = 3
+# position = 10
+
+# Basic exact name match (shorthand syntax)
+# [[sidebar.options.matches]]
+# name = "networking.firewall"
+# new_name = "Firewall Settings"
+# position = 1
 "#;
 
 /// Default configuration template in JSON format.
@@ -103,11 +175,57 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "tab_style": "none",
   "revision": "main",
   "opengraph": {
-    "og:title": "My Project",
+    "og:title": "My Project"
   },
   "meta_tags": {
     "description": "Documentation for My Project",
     "keywords": "nix,docs,ndg,nixos"
+  },
+  "sidebar": {
+    "numbered": true,
+    "number_special_files": false,
+    "ordering": "alphabetical",
+    "matches": [
+      {
+        "path": "getting-started.md",
+        "position": 1
+      },
+      {
+        "title": "Release Notes",
+        "new_title": "What's New",
+        "position": 999
+      },
+      {
+        "path": {
+          "regex": "^api/.*\\.md$"
+        },
+        "position": 50
+      }
+    ],
+    "options": {
+      "depth": 2,
+      "ordering": "alphabetical",
+      "matches": [
+        {
+          "name": {
+            "regex": "^myInternal\\..*"
+          },
+          "hidden": true
+        },
+        {
+          "name": "programs.git",
+          "new_name": "Git Configuration",
+          "position": 5
+        },
+        {
+          "name": {
+            "regex": "^services\\..*"
+          },
+          "depth": 3,
+          "position": 10
+        }
+      ]
+    }
   }
 }
 "#;

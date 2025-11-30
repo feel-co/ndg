@@ -1,6 +1,9 @@
+pub mod meta;
+pub mod sidebar;
 pub mod templates;
 
 use std::{
+  collections::HashMap,
   fs,
   path::{Path, PathBuf},
 };
@@ -12,140 +15,117 @@ use crate::{
   error::NdgError,
 };
 
-// XXX: I know this looks silly, but my understanding is that this is the most
-// type-correct and re-usable way. Functions allow for more complex default
-// values that can't be expressed as literals. For example, creating a
-// `PathBuf` would require execution, not just a literal value.
-// So this should be fine, but I'm open to suggestions.
-const fn default_input_dir() -> Option<PathBuf> {
-  None
-}
-
-fn default_output_dir() -> PathBuf {
-  PathBuf::from("build")
-}
-
-fn default_title() -> String {
-  "ndg documentation".to_string()
-}
-
-fn default_footer_text() -> String {
-  "Generated with ndg".to_string()
-}
-
-fn default_revision() -> String {
-  "local".to_string()
-}
-
-const fn default_options_toc_depth() -> usize {
-  2
-}
-
-const fn default_true() -> bool {
-  true
-}
-
-fn default_excluded_files() -> std::collections::HashSet<std::path::PathBuf> {
-  std::collections::HashSet::new()
-}
-
-fn default_tab_style() -> String {
-  "none".to_string()
-}
-
 /// Configuration for the NDG documentation generator.
 ///
 /// [`Config`] holds all configuration options for controlling documentation
 /// generation, including input/output directories, template customization,
 /// search, syntax highlighting, and more. Fields are typically loaded from a
 /// TOML or JSON config file, but can also be set via CLI arguments.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
   /// Input directory containing markdown files.
-  #[serde(default = "default_input_dir")]
   pub input_dir: Option<PathBuf>,
 
   /// Output directory for generated documentation.
-  #[serde(default = "default_output_dir")]
   pub output_dir: PathBuf,
 
   /// Path to options.json file (optional).
-  #[serde(default)]
   pub module_options: Option<PathBuf>,
 
   /// Path to custom template file.
-  #[serde(default)]
   pub template_path: Option<PathBuf>,
 
   /// Path to template directory containing all template files.
-  #[serde(default)]
   pub template_dir: Option<PathBuf>,
 
   /// Paths to custom stylesheets.
-  #[serde(default)]
   pub stylesheet_paths: Vec<PathBuf>,
 
   /// Paths to custom JavaScript files.
-  #[serde(default)]
   pub script_paths: Vec<PathBuf>,
 
   /// Directory containing additional assets.
-  #[serde(default)]
   pub assets_dir: Option<PathBuf>,
 
   /// Path to manpage URL mappings JSON file.
-  #[serde(default)]
   pub manpage_urls_path: Option<PathBuf>,
 
   /// Title for the documentation.
-  #[serde(default = "default_title")]
   pub title: String,
 
   /// Number of threads to use for parallel processing.
-  #[serde(default)]
   pub jobs: Option<usize>,
 
   /// Whether to generate anchors for headings.
-  #[serde(default = "default_true")]
   pub generate_anchors: bool,
 
   /// Whether to generate a search index.
-  #[serde(default = "default_true")]
   pub generate_search: bool,
 
   /// Text to be inserted in the footer.
-  #[serde(default = "default_footer_text")]
   pub footer_text: String,
 
   /// Depth of parent categories in options TOC.
-  #[serde(default = "default_options_toc_depth")]
   pub options_toc_depth: usize,
 
   /// Whether to enable syntax highlighting for code blocks.
-  #[serde(default = "default_true")]
   pub highlight_code: bool,
 
   /// GitHub revision for linking to source files.
-  #[serde(default = "default_revision")]
   pub revision: String,
 
-  /// `OpenGraph` tags to inject into the HTML head (e.g., {"og:title": "...",
-  /// "og:image": "..."})
-  #[serde(default)]
-  pub opengraph: Option<std::collections::HashMap<String, String>>,
-
   /// Files to exclude from sidebar navigation (included files).
-  #[serde(skip, default = "default_excluded_files")]
+  #[serde(skip)]
   pub excluded_files: std::collections::HashSet<std::path::PathBuf>,
 
-  /// Additional meta tags to inject into the HTML head (e.g., {"description":
-  /// "...", "keywords": "..."})
-  #[serde(default)]
-  pub meta_tags: Option<std::collections::HashMap<String, String>>,
-
   /// How to handle hard tabs in code blocks.
-  #[serde(default = "default_tab_style")]
   pub tab_style: String,
+
+  /// Meta tag configuration (`OpenGraph` and additional tags).
+  pub meta: Option<meta::MetaConfig>,
+
+  /// Sidebar configuration.
+  pub sidebar: Option<sidebar::SidebarConfig>,
+
+  #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub opengraph: Option<HashMap<String, String>>,
+
+  #[deprecated(since = "2.5.0", note = "Use `meta.tags` instead")]
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub meta_tags: Option<HashMap<String, String>>,
+}
+
+impl Default for Config {
+  #[allow(deprecated)]
+  fn default() -> Self {
+    Self {
+      input_dir:         None,
+      output_dir:        PathBuf::from("build"),
+      module_options:    None,
+      template_path:     None,
+      template_dir:      None,
+      stylesheet_paths:  Vec::new(),
+      script_paths:      Vec::new(),
+      assets_dir:        None,
+      manpage_urls_path: None,
+      title:             "ndg documentation".to_string(),
+      jobs:              None,
+      generate_anchors:  true,
+      generate_search:   true,
+      footer_text:       "Generated with ndg".to_string(),
+      options_toc_depth: 2,
+      highlight_code:    true,
+      revision:          "local".to_string(),
+      excluded_files:    std::collections::HashSet::new(),
+      tab_style:         "none".to_string(),
+      meta:              None,
+      sidebar:           None,
+      opengraph:         None,
+      meta_tags:         None,
+    }
+  }
 }
 
 impl Config {
@@ -228,15 +208,35 @@ impl Config {
   ///
   /// Returns an error if required fields are missing or paths are invalid.
   pub fn load(cli: &Cli) -> Result<Self, NdgError> {
-    let mut config = if let Some(config_path) = &cli.config_file {
-      // Config file explicitly specified via CLI
-      Self::from_file(config_path).map_err(|e| {
-        NdgError::Config(format!(
-          "Failed to load config from {}: {}",
-          config_path.display(),
-          e
-        ))
-      })?
+    let mut config = if !cli.config_files.is_empty() {
+      // Config file(s) explicitly specified via CLI
+      // Load and merge them in order
+      let mut merged_config =
+        Self::from_file(&cli.config_files[0]).map_err(|e| {
+          NdgError::Config(format!(
+            "Failed to load config from {}: {}",
+            cli.config_files[0].display(),
+            e
+          ))
+        })?;
+
+      // Merge additional config files if provided
+      for config_path in &cli.config_files[1..] {
+        let additional_config = Self::from_file(config_path).map_err(|e| {
+          NdgError::Config(format!(
+            "Failed to load config from {}: {}",
+            config_path.display(),
+            e
+          ))
+        })?;
+        merged_config.merge(additional_config);
+      }
+
+      if cli.config_files.len() > 1 {
+        log::info!("Loaded and merged {} config files", cli.config_files.len());
+      }
+
+      merged_config
     } else if let Some(discovered_config) = Self::find_config_file() {
       // Found a config file in a standard location
       log::info!(
@@ -257,18 +257,23 @@ impl Config {
     // Merge CLI arguments
     config.merge_with_cli(cli);
 
+    // Apply config overrides from --config KEY=VALUE flags
+    if !cli.config_overrides.is_empty() {
+      config.apply_overrides(&cli.config_overrides)?;
+    }
+
     // Get options from command if present
     if let Some(Commands::Html { .. }) = &cli.command {
       // Validation is handled in merge_with_cli
     } else {
       // No Html command, validate required fields if no config file was
       // specified
-      if cli.config_file.is_none() && Self::find_config_file().is_none() {
+      if cli.config_files.is_empty() && Self::find_config_file().is_none() {
         // If there's no config file (explicit or discovered) and no Html
         // command, we're missing required data
         return Err(NdgError::Config(
           "Neither config file nor 'html' subcommand provided. Use 'ndg html' \
-           or provide a config file with --config."
+           or provide a config file with --config-file."
             .to_string(),
         ));
       }
@@ -294,6 +299,16 @@ impl Config {
 
     // Validate all paths
     config.validate_paths()?;
+
+    // Validate and compile sidebar configuration if present
+    if let Some(ref mut sidebar) = config.sidebar {
+      sidebar.validate().map_err(|e| {
+        NdgError::Config(format!(
+          "Sidebar configuration validation failed: {e}"
+        ))
+      })?;
+    }
+
     Ok(config)
   }
 
@@ -363,6 +378,11 @@ impl Config {
       }
 
       if let Some(toc_depth) = options_toc_depth {
+        log::warn!(
+          "The --options-depth flag is deprecated and will be removed in a \
+           future release. Use '--config sidebar.options.depth={toc_depth}' \
+           or set 'sidebar.options.depth' in your config file instead."
+        );
         self.options_toc_depth = *toc_depth;
       }
 
@@ -370,11 +390,17 @@ impl Config {
         self.manpage_urls_path = Some(manpage_urls.clone());
       }
 
-      // Handle the generate-search flag, overriding config
-      self.generate_search = *generate_search;
+      // Handle the generate-search flag - only override if flag was explicitly
+      // provided
+      if *generate_search {
+        self.generate_search = true;
+      }
 
-      // Handle the highlight-code flag, overriding config
-      self.highlight_code = *highlight_code;
+      // Handle the highlight-code flag - only override if flag was explicitly
+      // provided
+      if *highlight_code {
+        self.highlight_code = true;
+      }
 
       if let Some(revision) = revision {
         self.revision.clone_from(revision);
@@ -382,38 +408,469 @@ impl Config {
     }
   }
 
-  /// Get template directory path or file parent
-  #[must_use]
-  pub fn get_template_path(&self) -> Option<PathBuf> {
-    // First check explicit template directory
-    self.template_dir
-            .clone()
-            // Then check if template_path is a directory or use its parent
-            .or_else(|| {
-                self.template_path.as_ref().and_then(|path| {
-                    if path.is_dir() {
-                        Some(path.clone())
-                    } else {
-                        path.parent().map(PathBuf::from)
-                    }
-                })
-            })
+  /// Apply configuration overrides from KEY=VALUE strings.
+  ///
+  /// This method parses and applies configuration overrides specified via
+  /// `--config KEY=VALUE` CLI flags. Each override must be in the format
+  /// `KEY=VALUE` where KEY is a valid configuration field name.
+  ///
+  /// # Arguments
+  ///
+  /// * `overrides` - Vector of KEY=VALUE strings to apply
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if:
+  ///
+  /// - An override string is not in KEY=VALUE format
+  /// - A key is not recognized
+  /// - A value cannot be parsed as the expected type
+  ///
+  /// # Panics
+  ///
+  /// Panics if `strip_prefix` fails after a successful `starts_with` check for
+  /// nested keys. This should never happen in practice as the guard condition
+  /// ensures the prefix exists.
+  ///
+  /// # Example
+  ///
+  /// ```rust, ignore
+  /// config.apply_overrides(&vec![
+  ///     "generate_search=false".to_string(),
+  ///     "title=My Documentation".to_string(),
+  /// ])?;
+  /// ```
+  pub fn apply_overrides(
+    &mut self,
+    overrides: &[String],
+  ) -> Result<(), NdgError> {
+    for override_str in overrides {
+      let (key, value) = override_str.split_once('=').ok_or_else(|| {
+        NdgError::Config(format!(
+          "Invalid config override format: '{override_str}'. Expected \
+           KEY=VALUE"
+        ))
+      })?;
+
+      let key = key.trim();
+      let value = value.trim();
+
+      match key {
+        // Path fields
+        "input_dir" => {
+          self.input_dir = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "output_dir" => {
+          self.output_dir = PathBuf::from(value);
+        },
+        "module_options" => {
+          self.module_options = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "template_path" => {
+          self.template_path = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "template_dir" => {
+          self.template_dir = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "assets_dir" => {
+          self.assets_dir = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "manpage_urls_path" => {
+          self.manpage_urls_path = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+
+        // String fields
+        "title" => {
+          self.title = value.to_string();
+        },
+        "footer_text" => {
+          self.footer_text = value.to_string();
+        },
+        "revision" => {
+          self.revision = value.to_string();
+        },
+        "tab_style" => {
+          self.tab_style = value.to_string();
+        },
+
+        // Boolean fields
+        "generate_anchors" => {
+          self.generate_anchors = Self::parse_bool(value, key)?;
+        },
+        "generate_search" => {
+          self.generate_search = Self::parse_bool(value, key)?;
+        },
+        "highlight_code" => {
+          self.highlight_code = Self::parse_bool(value, key)?;
+        },
+
+        // Numeric fields
+        "jobs" => {
+          self.jobs = if value.is_empty() {
+            None
+          } else {
+            Some(value.parse::<usize>().map_err(|_| {
+              NdgError::Config(format!(
+                "Invalid value for 'jobs': '{value}'. Expected a positive \
+                 integer"
+              ))
+            })?)
+          };
+        },
+        "options_toc_depth" => {
+          log::warn!(
+            "The 'options_toc_depth' config key is deprecated. Use \
+             'sidebar.options.depth' instead."
+          );
+          self.options_toc_depth = value.parse::<usize>().map_err(|_| {
+            NdgError::Config(format!(
+              "Invalid value for 'options_toc_depth': '{value}'. Expected a \
+               positive integer"
+            ))
+          })?;
+        },
+
+        // Nested sidebar.options.depth
+        "sidebar.options.depth" => {
+          let depth = value.parse::<usize>().map_err(|_| {
+            NdgError::Config(format!(
+              "Invalid value for 'sidebar.options.depth': '{value}'. Expected \
+               a positive integer"
+            ))
+          })?;
+
+          // Create sidebar.options if it doesn't exist
+          if self.sidebar.is_none() {
+            self.sidebar = Some(sidebar::SidebarConfig::default());
+          }
+          if let Some(ref mut sidebar) = self.sidebar {
+            if sidebar.options.is_none() {
+              sidebar.options = Some(sidebar::OptionsConfig::default());
+            }
+            if let Some(ref mut options) = sidebar.options {
+              options.depth = depth;
+            }
+          }
+        },
+
+        // `Vec<PathBuf>` fields - append single value
+        "stylesheet_paths" => {
+          self.stylesheet_paths.push(PathBuf::from(value));
+        },
+
+        "script_paths" => {
+          self.script_paths.push(PathBuf::from(value));
+        },
+
+        // Nested meta.opengraph.* - set individual key=value
+        key if key.starts_with("meta.opengraph.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("meta.opengraph.").expect(
+            "Key starts with 'meta.opengraph.' prefix, strip_prefix cannot \
+             fail",
+          );
+          if self.meta.is_none() {
+            self.meta = Some(meta::MetaConfig::default());
+          }
+          if let Some(ref mut meta) = self.meta {
+            if meta.opengraph.is_none() {
+              meta.opengraph = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = meta.opengraph {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
+        // Nested meta.tags.* - set individual key=value
+        key if key.starts_with("meta.tags.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("meta.tags.").expect(
+            "Key starts with 'meta.tags.' prefix, strip_prefix cannot fail",
+          );
+          if self.meta.is_none() {
+            self.meta = Some(meta::MetaConfig::default());
+          }
+          if let Some(ref mut meta) = self.meta {
+            if meta.tags.is_none() {
+              meta.tags = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = meta.tags {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
+        // Deprecated: opengraph.* - redirect to meta.opengraph.*
+        key if key.starts_with("opengraph.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("opengraph.").expect(
+            "Key starts with 'opengraph.' prefix, strip_prefix cannot fail",
+          );
+          log::warn!(
+            "The 'opengraph.{subkey}' config override is deprecated. Use \
+             'meta.opengraph.{subkey}' instead."
+          );
+          #[allow(deprecated)]
+          {
+            if self.opengraph.is_none() {
+              self.opengraph = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = self.opengraph {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
+        // Deprecated: meta_tags.* - redirect to meta.tags.*
+        key if key.starts_with("meta_tags.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("meta_tags.").expect(
+            "Key starts with 'meta_tags.' prefix, strip_prefix cannot fail",
+          );
+          log::warn!(
+            "The 'meta_tags.{subkey}' config override is deprecated. Use \
+             'meta.tags.{subkey}' instead."
+          );
+          #[allow(deprecated)]
+          {
+            if self.meta_tags.is_none() {
+              self.meta_tags = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = self.meta_tags {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
+        _ => {
+          return Err(NdgError::Config(format!(
+            "Unknown configuration key: '{key}'. See documentation for \
+             supported keys."
+          )));
+        },
+      }
+    }
+
+    Ok(())
   }
 
-  /// Get template file path for a specific template name
+  /// Parse a boolean value from a string.
+  ///
+  /// Accepts: true/false, yes/no, 1/0 (case-insensitive)
+  fn parse_bool(value: &str, key: &str) -> Result<bool, NdgError> {
+    match value.to_lowercase().as_str() {
+      "true" | "yes" | "1" => Ok(true),
+      "false" | "no" | "0" => Ok(false),
+      _ => {
+        Err(NdgError::Config(format!(
+          "Invalid boolean value for '{key}': '{value}'. Expected true/false, \
+           yes/no, or 1/0"
+        )))
+      },
+    }
+  }
+
+  /// Merge another config into this one, with the other config's values taking
+  /// precedence.
+  ///
+  /// This method is used when loading multiple config files - each successive
+  /// config file is merged into the accumulated config, overriding values.
+  ///
+  /// # Merge Rules
+  ///
+  /// - [`Option<T>`] fields: Other's [`Some`] value replaces this config's
+  ///   value
+  /// - [`Vec<T>`] fields: Other's vec is appended to this config's vec
+  /// - Plain fields (String, bool, etc.): Other's value always replaces
+  /// - [`HashMap`] fields: Other's entries are merged in (can override
+  ///   individual keys)
+  ///
+  /// # Arguments
+  ///
+  /// * `other` - The config to merge in (takes precedence)
+  pub fn merge(&mut self, other: Self) {
+    // Option fields - replace if other has Some
+    if other.input_dir.is_some() {
+      self.input_dir = other.input_dir;
+    }
+    if other.module_options.is_some() {
+      self.module_options = other.module_options;
+    }
+    if other.template_path.is_some() {
+      self.template_path = other.template_path;
+    }
+    if other.template_dir.is_some() {
+      self.template_dir = other.template_dir;
+    }
+    if other.assets_dir.is_some() {
+      self.assets_dir = other.assets_dir;
+    }
+    if other.manpage_urls_path.is_some() {
+      self.manpage_urls_path = other.manpage_urls_path;
+    }
+    if other.jobs.is_some() {
+      self.jobs = other.jobs;
+    }
+    if other.sidebar.is_some() {
+      self.sidebar = other.sidebar;
+    }
+    if other.meta.is_some() {
+      self.meta = other.meta;
+    }
+
+    // Vec fields - append
+    self.stylesheet_paths.extend(other.stylesheet_paths);
+    self.script_paths.extend(other.script_paths);
+
+    // Plain fields - always replace with other's value
+    // We only replace if other's value is not the default, to allow proper
+    // layering
+    if other.output_dir.as_os_str() != "build" {
+      self.output_dir = other.output_dir;
+    }
+    if other.title != "ndg documentation" {
+      self.title = other.title;
+    }
+    if other.footer_text != "Generated with ndg" {
+      self.footer_text = other.footer_text;
+    }
+    if other.revision != "local" {
+      self.revision = other.revision;
+    }
+    if other.tab_style != "none" {
+      self.tab_style = other.tab_style;
+    }
+
+    // Numeric/boolean fields - always use other's value
+    // These don't have a meaningful "unset" state, so we always take the
+    // value
+    self.options_toc_depth = other.options_toc_depth;
+    self.generate_anchors = other.generate_anchors;
+    self.generate_search = other.generate_search;
+    self.highlight_code = other.highlight_code;
+
+    // Deprecated fields - merge if present, with warnings
+    #[allow(deprecated)]
+    {
+      if let Some(other_og) = other.opengraph {
+        log::warn!(
+          "The 'opengraph' config field is deprecated. Use 'meta.opengraph' \
+           instead."
+        );
+        if let Some(ref mut og) = self.opengraph {
+          og.extend(other_og);
+        } else {
+          self.opengraph = Some(other_og);
+        }
+      }
+      if let Some(other_meta) = other.meta_tags {
+        log::warn!(
+          "The 'meta_tags' config field is deprecated. Use 'meta.tags' \
+           instead."
+        );
+        if let Some(ref mut meta) = self.meta_tags {
+          meta.extend(other_meta);
+        } else {
+          self.meta_tags = Some(other_meta);
+        }
+      }
+    }
+
+    // excluded_files is runtime-only (#[serde(skip)]), so we don't merge it
+  }
+
+  /// Get the template directory path, if available.
+  ///
+  /// # Returns
+  ///
+  /// Directory path that contains template files. Priority order:
+  ///
+  /// 1. Explicit `template_dir` configuration
+  /// 2. If `template_path` is a directory, use that
+  /// 3. [`None`] otherwise (single file templates don't provide a directory)
   #[must_use]
-  pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
-    // First check if there's a direct template path and it matches the name
-    if let Some(path) = &self.template_path {
-      // Only use template_path if it's a file and its filename matches the
-      // requested name
-      if path.is_file() && path.file_name().is_some_and(|fname| fname == name) {
+  pub fn get_template_path(&self) -> Option<PathBuf> {
+    // Explicit template directory has highest priority
+    if let Some(ref dir) = self.template_dir {
+      return Some(dir.clone());
+    }
+
+    // Check if template_path is a directory
+    if let Some(ref path) = self.template_path {
+      if path.is_dir() {
         return Some(path.clone());
       }
     }
 
-    // Otherwise check template directory
-    self.get_template_path().map(|dir| dir.join(name))
+    None
+  }
+
+  /// Get the path to a specific template file by name.
+  ///
+  /// # Returns
+  ///
+  /// Path to the requested template file if it can be found in:
+  ///
+  /// 1. The template directory (if configured)
+  /// 2. As a single file via `template_path` (if the filename matches)
+  ///
+  /// This method does not check if the returned path exists.
+  #[must_use]
+  pub fn get_template_file(&self, name: &str) -> Option<PathBuf> {
+    // If we have a template directory, check for the file there
+    if let Some(dir) = self.get_template_path() {
+      return Some(dir.join(name));
+    }
+
+    // Check if template_path is a single file matching the requested name
+    if let Some(ref path) = self.template_path {
+      if path.is_file() {
+        if let Some(filename) = path.file_name() {
+          if filename == name {
+            return Some(path.clone());
+          }
+        }
+      }
+    }
+
+    None
   }
 
   /// Search for config files in common locations
@@ -710,5 +1167,183 @@ impl Config {
     templates.insert("main.js", include_str!("../../templates/main.js"));
 
     templates
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_config_merge_option_fields() {
+    let mut base = Config::default();
+    base.input_dir = Some(PathBuf::from("base-input"));
+    base.module_options = None;
+
+    let mut override_config = Config::default();
+    override_config.input_dir = None; // Should not replace
+    override_config.module_options = Some(PathBuf::from("override-options"));
+
+    base.merge(override_config);
+
+    // input_dir should remain from base (override had None)
+    assert_eq!(base.input_dir, Some(PathBuf::from("base-input")));
+    // module_options should come from override
+    assert_eq!(base.module_options, Some(PathBuf::from("override-options")));
+  }
+
+  #[test]
+  fn test_config_merge_vec_fields_append() {
+    let mut base = Config::default();
+    base.stylesheet_paths = vec![PathBuf::from("base.css")];
+    base.script_paths = vec![PathBuf::from("base.js")];
+
+    let mut override_config = Config::default();
+    override_config.stylesheet_paths = vec![PathBuf::from("override.css")];
+    override_config.script_paths = vec![PathBuf::from("override.js")];
+
+    base.merge(override_config);
+
+    // Vecs should be appended, not replaced
+    assert_eq!(base.stylesheet_paths.len(), 2);
+    assert_eq!(base.stylesheet_paths[0], PathBuf::from("base.css"));
+    assert_eq!(base.stylesheet_paths[1], PathBuf::from("override.css"));
+
+    assert_eq!(base.script_paths.len(), 2);
+    assert_eq!(base.script_paths[0], PathBuf::from("base.js"));
+    assert_eq!(base.script_paths[1], PathBuf::from("override.js"));
+  }
+
+  #[test]
+  fn test_config_merge_boolean_fields() {
+    let mut base = Config::default();
+    base.generate_search = true;
+    base.highlight_code = false;
+
+    let mut override_config = Config::default();
+    override_config.generate_search = false;
+    override_config.highlight_code = true;
+
+    base.merge(override_config);
+
+    // Boolean fields should take override's value
+    assert!(!base.generate_search);
+    assert!(base.highlight_code);
+  }
+
+  #[test]
+  fn test_apply_overrides_boolean() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "generate_search=false".to_string(),
+        "highlight_code=yes".to_string(),
+      ])
+      .unwrap();
+
+    assert!(!config.generate_search);
+    assert!(config.highlight_code);
+  }
+
+  #[test]
+  fn test_apply_overrides_string() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "title=Test Documentation".to_string(),
+        "footer_text=Custom Footer".to_string(),
+      ])
+      .unwrap();
+
+    assert_eq!(config.title, "Test Documentation");
+    assert_eq!(config.footer_text, "Custom Footer");
+  }
+
+  #[test]
+  fn test_apply_overrides_path() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "output_dir=/tmp/output".to_string(),
+        "input_dir=/tmp/input".to_string(),
+      ])
+      .unwrap();
+
+    assert_eq!(config.output_dir, PathBuf::from("/tmp/output"));
+    assert_eq!(config.input_dir, Some(PathBuf::from("/tmp/input")));
+  }
+
+  #[test]
+  fn test_apply_overrides_numeric() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "jobs=8".to_string(),
+        "options_toc_depth=5".to_string(),
+      ])
+      .unwrap();
+
+    assert_eq!(config.jobs, Some(8));
+    assert_eq!(config.options_toc_depth, 5);
+  }
+
+  #[test]
+  fn test_apply_overrides_invalid_format() {
+    let mut config = Config::default();
+
+    let result = config.apply_overrides(&vec!["no_equals_sign".to_string()]);
+
+    assert!(result.is_err());
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Expected KEY=VALUE")
+    );
+  }
+
+  #[test]
+  fn test_apply_overrides_unknown_key() {
+    let mut config = Config::default();
+
+    let result = config.apply_overrides(&vec!["unknown_key=value".to_string()]);
+
+    assert!(result.is_err());
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Unknown configuration key")
+    );
+  }
+
+  #[test]
+  fn test_apply_overrides_invalid_boolean() {
+    let mut config = Config::default();
+
+    let result =
+      config.apply_overrides(&vec!["generate_search=maybe".to_string()]);
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Invalid boolean"));
+  }
+
+  #[test]
+  fn test_apply_overrides_invalid_numeric() {
+    let mut config = Config::default();
+
+    let result = config.apply_overrides(&vec!["jobs=not_a_number".to_string()]);
+
+    assert!(result.is_err());
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Expected a positive integer")
+    );
   }
 }

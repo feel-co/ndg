@@ -29,6 +29,68 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   ignored.
 - Release date is not tracked
 
+## [Unreleased]
+
+### Added
+
+- Support for multiple configuration files via repeatable `--config-file` flag
+  - Config files are merged in order with later files overriding earlier ones
+- New `--config KEY=VALUE` flag for fine-grained configuration overrides
+  - Supports boolean (true/false/yes/no/1/0), string, path, and numeric types
+  - Support for nested config keys with dot notation (e.g.,
+    `sidebar.options.depth`)
+- Sidebar configuration for documentation and options ordering
+  - Pattern-based matching for custom sidebar grouping
+  - Configurable ordering algorithms (alphabetical, custom)
+  - Support for read-only option badges in sidebar
+
+### Changed
+
+- Renamed `--config` flag to `--config-file` for clarity
+  - New `--config` flag now accepts KEY=VALUE override pairs
+- Sidebar font size increased from 12px to 14px for better legibility
+- Count badge colors changed from orange to primary purple for better contrast
+- **Deprecated** `--options-depth` CLI flag in favor of config-based approach
+  - Flag still works but emits deprecation warning
+  - Use `--config sidebar.options.depth=N` or config file instead
+- **Deprecated** `options_toc_depth` config key in favor of
+  `sidebar.options.depth`
+- **Deprecated** `meta_tags` and `opengraph` config fields in favor of nested
+  `meta` configuration
+  - Old: `meta_tags = { description = "..." }` and
+    `opengraph = { "og:title" = "..." }`
+  - New: `meta.tags = { description = "..." }` and
+    `meta.opengraph = { "og:title" = "..." }`
+
+  Example:
+
+  ```toml
+  [meta.tags]
+  description = "My awesome documentation"
+  keywords = "rust,nix,docs"
+
+  [meta.opengraph]
+  "og:title" = "My Project Docs"
+  "og:image" = "/path/to/image.png"
+  ```
+
+  Or:
+
+  ```toml
+  [meta]
+  opengraph = { "og:title" = "..." }
+  tags = { description = "..." }
+  ```
+
+### Fixed
+
+- Config file values for `generate_search` and `highlight_code` are now
+  respected when CLI flags are not provided
+- Silent regex failures in sidebar matching now properly panic with clear error
+  messages
+- Regex compilation performance improved by caching compiled patterns during
+  validation
+
 ## [2.4.1]
 
 ### Added

@@ -121,7 +121,7 @@ fn test_syntastica_backend_directly() {
     highlighter.highlight("fn main() { println!(\"Hello\"); }", "rust", None);
 
   assert!(result.is_ok());
-  let html = result.unwrap();
+  let html = result.expect("Failed to highlight rust code");
   assert!(html.contains("main"));
   assert!(html.contains("println"));
 
@@ -149,7 +149,7 @@ fn test_syntect_backend_directly() {
     highlighter.highlight("fn main() { println!(\"Hello\"); }", "rust", None);
 
   assert!(result.is_ok());
-  let html = result.unwrap();
+  let html = result.expect("Failed to highlight rust code");
   assert!(html.contains("main"));
   assert!(html.contains("println"));
 
@@ -194,7 +194,7 @@ fn test_syntax_manager_highlighting_with_aliases() {
 
   if manager.highlighter().supports_language("javascript") {
     assert!(result.is_ok());
-    let html = result.unwrap();
+    let html = result.expect("Failed to highlight javascript code");
     assert!(html.contains("console"));
     assert!(html.contains("log"));
   }

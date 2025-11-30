@@ -14,9 +14,16 @@ pub struct Cli {
   #[arg(short, long)]
   pub verbose: bool,
 
-  /// Path to configuration file (TOML or JSON)
-  #[arg(short = 'c', long = "config")]
-  pub config_file: Option<PathBuf>,
+  /// Path to configuration file(s) (TOML or JSON, can be specified multiple
+  /// times) Multiple files are merged in order, with later files overriding
+  /// earlier ones
+  #[arg(short = 'c', long = "config-file", action = clap::ArgAction::Append)]
+  pub config_files: Vec<PathBuf>,
+
+  /// Override configuration values (KEY=VALUE format, can be used multiple
+  /// times)
+  #[arg(long = "config", action = clap::ArgAction::Append)]
+  pub config_overrides: Vec<String>,
 }
 
 /// All supported subcommands for the ndg CLI.
@@ -99,7 +106,7 @@ pub enum Commands {
     module_options: Option<PathBuf>,
 
     /// Depth of parent categories in options section in the sidebar.
-    #[arg(long = "options-depth", value_parser = clap::value_parser!(usize))]
+    #[arg(long = "options-depth", value_parser = clap::value_parser!(usize), hide = true)]
     options_toc_depth: Option<usize>,
 
     /// Path to manpage URL mappings JSON file.
@@ -107,11 +114,11 @@ pub enum Commands {
     manpage_urls: Option<PathBuf>,
 
     /// Whether to generate search data and render relevant components.
-    #[arg(short = 'S', long = "generate-search")]
+    #[arg(short = 'S', long = "generate-search", action = clap::ArgAction::SetTrue)]
     generate_search: bool,
 
     /// Whether to enable syntax highlighting for code blocks.
-    #[arg(long = "highlight-code")]
+    #[arg(long = "highlight-code", action = clap::ArgAction::SetTrue)]
     highlight_code: bool,
 
     /// GitHub revision for linking to source files.

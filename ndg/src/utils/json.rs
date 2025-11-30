@@ -28,7 +28,7 @@ pub fn extract_value(value: &Value, wrap_code: bool) -> Option<String> {
             if wrap_code && type_name.as_str() == "literalExpression" {
               return Some(format!("`{}`", text.clone()));
             }
-            return Some(text.to_string());
+            return Some(text.clone());
           }
         },
         _ => {},

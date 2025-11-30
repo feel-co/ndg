@@ -52,13 +52,13 @@ pub fn create_fallback_index(
           // Get page title from first heading or filename
           let page_title = extract_page_title(file_path, &html_path);
 
-          writeln!(
+          // Writing to String is infallible
+          let _ = writeln!(
             file_list,
             "  <li><a href=\"{}\">{}</a></li>",
             html_path.to_string_lossy(),
             page_title
-          )
-          .expect("failed to write file list entry");
+          );
         }
       }
 

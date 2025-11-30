@@ -1,7 +1,4 @@
-<!-- markdownlint-disable MD013 MD033 -->
-
-<!-- markdownlint-disable MD033 MD041 -->
-
+<!-- markdownlint-disable MD013 MD033 MD041 -->
 <div id="doc-begin" align="center">
   <h1 id="header">
     <pre>NDG: Not a Docs Generator</pre>
@@ -15,32 +12,39 @@
 
 ## What is it?
 
-**ndg** is a fast, customizable and convenient utility for generating HTML
+[CommonMark]: https://commonmark.org/
+
+**NDG** is a fast, customizable and convenient utility for generating HTML
 documents and manpages for your Nix related projects from Markdown inputs, and
 Nix module options. It can be considered a more opinionated and more specialized
 alternative to MdBook, choosing to focus on Nix-related projects. While this
 project is designed for [Hjem](https://hjem.feel-co.org) in mind, it is
 perfectly possible to use NDG outside of Nix contexts. All Nix-specific
-features, such as module options page and Nixpkgs-flavored Commonmark parsing
+features, such as module options page and Nixpkgs-flavored [CommonMark] parsing
 are optional and can be controlled via various knobs.
 
 ### Features
+
+[ndg-commonmark]: https://crates.io/crates/ndg-commonmark
 
 We would like for NDG to be fast, but also flexible and powerful. It boasts
 several features such as
 
 - **Markdown to HTML and Manpage conversion** with support for Nixpkgs-flavored
-  Commonmark features[^1].
-- **Useful Markdown Companions**
-  - **Automatic table of contents** generation from document headings
-  - **Title Anchors** - Automatically generates anchors for headings
+  CommonMark features[^1].
+  - **Useful Markdown Companions**
+    - **Automatic table of contents** generation from document headings
+    - **Title Anchors** are automatically generated for headings
+    - **GFM extensions** powered by [ndg-commonmark]
 - **Search functionality** to quickly find content across documents
 - **Nix module options support** to generate documentation from `options.json`
+  - **Flexible options sidebar customization** to control visibility, naming,
+    ordering, and depth of option categories
 - **Fully customizable templates** to match your project's style fully
-- **Multi-threading support** for fast generation of large documentation sets
 - **Incredibly fast** documentation generation for all scenarios
+  - **Multi-threading support** for fast generation of large documentation sets
 
-[^1]: This is a best-effort. Regular commonmark is fully supported, but Nixpkgs
+[^1]: This is a best-effort. Regular CommonMark is fully supported, but Nixpkgs
     additions may sometimes break due to the lack of a clear specification.
     Please open an issue if this is the case for you.
 
@@ -63,10 +67,12 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -v, --verbose               Enable verbose debug logging
-  -c, --config <CONFIG_FILE>  Path to configuration file (TOML or JSON)
-  -h, --help                  Print help
-  -V, --version               Print version
+  -v, --verbose                     Enable verbose debug logging
+  -c, --config-file <CONFIG_FILES>  Path to configuration file(s) (TOML or JSON, can be specified multiple times) Multiple files are merged in order, with later files overriding earl
+ier ones
+      --config <CONFIG_OVERRIDES>   Override configuration values (KEY=VALUE format, can be used multiple times)
+  -h, --help                        Print help
+  -V, --version                     Print version
 ```
 
 You can review `ndg html` and `ndg manpage` commands' help texts to get more
@@ -101,22 +107,53 @@ file to customize your documentation generation process.
 Once you have a configuration file, NDG will automatically detect it when ran in
 the same directory. Though if you want to move the configuration file to a
 nonstandard location, you may specify a path to the configuration file using the
-`--config` option.
+`--config-file` option.
 
 ```bash
 # Run with automatically detected config
 $ ndg html
 
 # Run with explicitly specified config
-$ ndg html --config path/to/ndg.toml
+$ ndg html --config-file nested/path/to/ndg.toml
+
+# Run with multiple config files (merged in order)
+$ ndg html --config-file base.toml --config-file overrides.toml
+
+# Override specific config values without editing files
+$ ndg html --config generate_search=false --config sidebar.options.depth=3
+```
+
+Upon running `ndg init`, you will receive a configuration file in one of JSON or
+TOML formats depending on the format specified, with all available options and
+their default values as well as explanatory comments. You can then edit this
+file to customize your documentation generation process.
+
+> [!TIP]
+> The generated configuration includes detailed comments for each option, making
+> it easy to understand what each setting does without needing to refer to the
+> documentation.
+
+Once you have a configuration file, NDG will automatically detect it when ran in
+the same directory. Though if you want to move the configuration file to a
+nonstandard location, you may specify a path to the configuration file using the
+`--config-file` option.
+
+```bash
+# Run with automatically detected config
+$ ndg html
+
+# Run with explicitly specified config
+$ ndg html --config-file nested/path/to/ndg.toml
 ```
 
 ### Generating Your First Documents
 
-To run, NDG requires one of two things: **Markdown Sources** or
-**`options.json`**. Or alternatively, both.
+To generate your documents, NDG requires one of two things: **Markdown Sources**
+or **`options.json`**. Alternatively, for more comprehensive documents, you can
+provide both. The latter will be used for an `options.html` with your module
+options in the case Markdown sources are provided.
 
-The markdown sources are expected in an "inputs" directory, in which you can
+The Markdown sources are expected in an "inputs" directory, in which you can
 dump your Markdown files with ndg-flavored Commonmark, and they will be
 converted to HTML following the same structure. For example:
 
@@ -128,8 +165,8 @@ docs/
 └── package.nix
 ```
 
-Assuming your input directory is `inputs/`, you will receive the following
-output:
+Assuming your input directory (`--input-dir`) is `inputs/`, you will receive the
+following output:
 
 ```plaintext
 docs-output/
@@ -218,9 +255,159 @@ generate_search = true  # Can be overridden by CLI
 > `ndg html --generate-search`, search will be enabled.
 
 If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
-`generate_search` defaults to `false` if omitted from both; CLI flags override
+`generate_search` defaults to `true` if omitted from both; CLI flags override
 config when present). For a full list of CLI options, see the help output with
 `ndg html --help`.
+
+#### Configuration Reference
+
+Below is a comprehensive list of configuration options available in `ndg.toml`:
+
+**Basic Options:**
+
+- `input_dir` - Path to directory containing Markdown files
+- `output_dir` - Output directory for generated documentation (default:
+  `"build"`)
+- `title` - Documentation title (default: `"ndg documentation"`)
+- `footer_text` - Footer text (default: `"Generated with ndg"`)
+- `jobs` - Number of threads for parallel processing (default: auto-detected)
+
+**Feature Toggles:**
+
+- `generate_search` - Enable search functionality (default: `true`)
+- `highlight_code` - Enable syntax highlighting (default: `true`)
+- `generate_anchors` - Generate heading anchors (default: `true`)
+
+**Advanced Options:**
+
+- `template_path` - Path to custom template file
+- `template_dir` - Directory containing custom templates
+- `stylesheet_paths` - Array of custom stylesheet paths
+- `script_paths` - Array of custom JavaScript file paths
+- `assets_dir` - Directory containing additional assets to copy
+- `module_options` - Path to `options.json` for NixOS module documentation
+- `options_toc_depth` - Depth of option categories in TOC (default: `2`)
+- `manpage_urls_path` - Path to manpage URL mappings JSON file
+- `revision` - Git revision for source file links (default: `"local"`)
+- `tab_style` - How to handle tabs in code blocks: `"none"`, `"warn"`, or
+  `"normalize"` (default: `"none"`)
+
+**Metadata Options:**
+
+- `opengraph` - Table of OpenGraph meta tags (e.g.,
+  `{ "og:title" = "My Docs", "og:image" = "..." }`)
+- `meta_tags` - Table of additional HTML meta tags (e.g.,
+  `{ description = "...", keywords = "..." }`)
+
+Example configuration:
+
+```toml
+input_dir = "docs"
+output_dir = "build"
+title = "My Project Documentation"
+footer_text = "© 2025 My Project"
+jobs = 4
+
+# Enable features
+generate_search = true
+highlight_code = true
+generate_anchors = true
+
+# Code block handling
+tab_style = "normalize"  # converts tabs to spaces
+
+# Custom assets
+stylesheet_paths = ["custom.css"]
+script_paths = ["analytics.js"]
+assets_dir = "static"
+
+# Git integration
+revision = "main"
+
+# SEO metadata
+[opengraph]
+"og:title" = "My Project Docs"
+"og:description" = "Comprehensive documentation"
+"og:image" = "https://example.com/og-image.png"
+
+[meta_tags]
+description = "Complete guide to My Project"
+keywords = "documentation,nix,tutorial"
+author = "My Name"
+```
+
+#### Advanced Configuration Details
+
+**Parallel Processing (`jobs`):**
+
+The `jobs` option controls how many threads NDG uses for processing files. By
+default, NDG auto-detects the number of CPU cores. For large documentation sets,
+this significantly speeds up generation:
+
+```bash
+# Use 8 threads
+ndg html --jobs 8
+
+# Or in config
+jobs = 8
+```
+
+**Tab Handling (`tab_style`):**
+
+Controls how hard tabs in code blocks are handled:
+
+- `"none"` - Leave tabs as-is (default)
+- `"warn"` - Log warnings when tabs are detected
+- `"normalize"` - Convert tabs to spaces (4 spaces per tab)
+
+This is useful for ensuring consistent code block rendering across browsers.
+
+**Manpage URL Mappings (`manpage_urls_path`):**
+
+Provides a JSON file mapping manpage references to URLs. This allows NDG to
+automatically link manpage citations in your documentation:
+
+```json
+{
+  "man(1)": "https://man7.org/linux/man-pages/man1/man.1.html",
+  "bash(1)": "https://man7.org/linux/man-pages/man1/bash.1.html"
+}
+```
+
+**Custom Assets (`assets_dir`, `stylesheet_paths`, `script_paths`):**
+
+- `assets_dir` - Directory to copy wholesale into the output (images, fonts,
+  etc.)
+- `stylesheet_paths` - Additional CSS files to include (can specify multiple)
+- `script_paths` - Additional JavaScript files to include (can specify multiple)
+
+Example:
+
+```toml
+assets_dir = "static"  # Copies static/* to build/assets/*
+stylesheet_paths = ["theme.css", "custom.css"]
+script_paths = ["analytics.js", "search-enhance.js"]
+```
+
+**SEO and Social Media (`opengraph`, `meta_tags`):**
+
+These options inject metadata into the HTML `<head>` for better SEO and social
+media sharing:
+
+```toml
+[opengraph]
+"og:title" = "My Documentation"
+"og:type" = "website"
+"og:url" = "https://docs.example.com"
+"og:image" = "https://docs.example.com/preview.png"
+"og:description" = "Comprehensive documentation for My Project"
+
+[meta_tags]
+description = "Learn everything about My Project"
+keywords = "documentation,tutorial,guide,nix"
+author = "Jane Developer"
+robots = "index,follow"
+```
 
 ### Generating HTML Documents
 
@@ -233,6 +420,8 @@ under the `html` subcommand. The `html` subcommand includes the following
 options:
 
 ```console
+Usage: ndg html [OPTIONS]
+
 Options:
   -i, --input-dir <INPUT_DIR>
           Path to the directory containing markdown files
@@ -254,8 +443,6 @@ Options:
           Footer text for the documentation
   -j, --module-options <MODULE_OPTIONS>
           Path to a JSON file containing module options in the same format expected by nixos-render-docs
-      --options-depth <OPTIONS_TOC_DEPTH>
-          Depth of parent categories in options section in the sidebar
       --manpage-urls <MANPAGE_URLS>
           Path to manpage URL mappings JSON file
   -S, --generate-search
@@ -272,7 +459,7 @@ As covered in the previous chapters, you must NDG an **input directory**
 containing your markdown files (`--input-dir`), an **output directory**
 (`--output-dir`) to put the created files, and a **title** (`--title`) for basic
 functionality. Alternatively, those can all be read from a config file, passed
-to ndg through the `--config` option.
+to ndg through the `--config-file` option.
 
 For example:
 
@@ -458,8 +645,45 @@ users always start with the latest default templates and can easily update them
 when ndg is upgraded. Though, ndg will fall back to internal templates when none
 are provided.
 
-See the [templating documntation](./docs/TEMPLATING.md) for details about the
+See the [templating documentation](./docs/TEMPLATING) for details about the
 templating. If your use-case is not supported, feel free to request a feature!
+
+### Sidebar Customization
+
+NDG allows you to customize the sidebar navigation through flexible
+configuration options. You can control item ordering, add numbering, and
+customize titles using pattern-based matching:
+
+```toml
+[sidebar]
+numbered = true
+ordering = "custom"
+
+[[sidebar.matches]]
+path = "getting-started.md"
+new_title = "🚀 Quick Start"
+position = 1
+
+[[sidebar.matches]]
+path = "installation.md"
+new_title = "📦 Installation"
+position = 2
+```
+
+This enables features like:
+
+- **Sequential numbering** of sidebar items
+- **Custom ordering** (alphabetical, custom position-based, or filesystem)
+- **Pattern-based title customization** using exact or regex matching
+- **Flexible positioning** for specific documentation items
+
+For documentation generated from Nix module options, you can also customize the
+options sidebar to control visibility, naming, ordering, and depth of option
+categories. This is particularly useful for large module systems like NixOS or
+Home Manager configurations.
+
+See the [sidebar configuration guide](./docs/SIDEBAR) for complete documentation
+including examples, use cases, and best practices.
 
 ### Template Customization Made Easy
 
@@ -757,6 +981,80 @@ templates/
 - **Create an index.md file**: Place an `index.md` file in your input directory
   to serve as the landing page.
 
+#### Special Files
+
+NDG treats certain files specially to maintain clear navigation hierarchy and
+ensure proper site structure. These files have behaviors that differ from
+regular documentation pages.
+
+> [!TIP]
+> **What are "Special Files"**?
+>
+> The following files are considered "special" (case-insensitive):
+>
+> - **`index.md`**
+> - **`README.md`**
+>
+> In the case neither special file, nor an `options.json` is provided; NDG will
+> create a fallback page that links available documents in the project. You are
+> encouraged to provide a README or an index page to avoid serving your users a
+> mostly empty fallback page.
+
+**Special file behaviors:**
+
+1. **Landing page priority** (`index.md` only):
+   - Preferred source for the site's `index.html` landing page
+   - If no `index.md` exists, NDG falls back to using `options.html` or creates
+     a fallback index listing all documents
+
+2. **Sidebar rendering** (both `index.md` and `README.md`):
+   - Always appear **first** in the sidebar navigation
+   - **Excluded from numbering by default** when `numbered = true` in sidebar
+     config
+   - Can be included in numbering by setting `number_special_files = true`
+   - Can have custom titles via sidebar pattern matching
+
+> [!NOTE]
+> **Why this design?** Special files represent **conceptual entry points**
+> rather than sequential content:
+>
+> - They serve as landing pages or overviews outside the normal documentation
+>   flow
+> - Numbering them (e.g., "1. Home", "2. Getting Started") creates awkward
+>   visual hierarchy
+> - Keeping them unnumbered and first emphasizes their role as anchors
+
+With sidebar numbering enabled (`number_special_files = false`, the default):
+
+```plaintext
+docs/
+├── index.md
+├── README.md
+├── getting-started.md
+├── installation.md
+└── usage.md
+```
+
+Renders as:
+
+```plaintext
+index.md          (unnumbered, appears first)
+README.md         (unnumbered, appears second)
+1. Getting Started
+2. Installation
+3. Usage
+```
+
+With `number_special_files = true`:
+
+```plaintext
+1. index.md
+2. README.md
+3. Getting Started
+4. Installation
+5. Usage
+```
+
 ### GitHub Integration
 
 - **Link to source with revision**: Use the `--revision` option to specify a
@@ -834,9 +1132,13 @@ $ cargo doc --workspace # target/doc
 
 ## License
 
+<!-- markdownlint-disable MD059 -->
+
 This project is made available under Mozilla Public License (MPL) version 2.0.
 See [LICENSE](LICENSE) for more details on the exact conditions. An online copy
 is provided [here](https://www.mozilla.org/en-US/MPL/2.0/).
+
+<!-- markdownlint-enable MD059 -->
 
 <div align="right">
   <a href="#doc-begin">Back to the Top</a>

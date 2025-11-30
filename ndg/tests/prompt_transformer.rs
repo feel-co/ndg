@@ -19,7 +19,8 @@ fn render_html_after_transform(
   transformer.transform(root);
 
   let mut html_output = String::new();
-  comrak::format_html(root, &options, &mut html_output).unwrap();
+  comrak::format_html(root, &options, &mut html_output)
+    .expect("Failed to format HTML in prompt_transformer test");
   html_output
 }
 

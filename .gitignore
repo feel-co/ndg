@@ -17,6 +17,7 @@
 !/.rustfmt.toml
 !/.clippy.toml
 !/.taplo.toml
+!/deny.toml
 !/.gitattributes
 !/.gitignore
 !/.github

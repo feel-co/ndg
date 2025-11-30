@@ -1,15 +1,16 @@
 # Templating Guide
 
-`ndg` supports a flexible templating system powered by
-[Tera](https://crates.io/crates/tera) and backed by our own templating logic.
-Using this system, you may customize the appearance and structure of your
-generated documentation while avoiding what could be referred to as a "vendor
-lock-in".
+[Tera]: https://crates.io/crates/tera
+
+NDG supports a flexible templating system powered by [Tera] and backed by our
+own templating logic. Using this system, you may customize the appearance and
+structure of your generated documentation while avoiding what could be referred
+to as a "vendor lock-in".
 
 ## Template Types
 
 There are several "special" templates that is expected during documentation
-generation. ndg bundles its own templates that will be used by default, but you
+generation. NDG bundles its own templates that will be used by default, but you
 may override them as you wish to make your documentation site truly unique.
 
 ### Core Templates
@@ -34,7 +35,7 @@ As mentioned before, you may
 ### Template Directory
 
 Using the template directory is the recommended way of overriding default
-templates of ndg. In this method, you must use a template directory containing
+templates of NDG. In this method, you must use a template directory containing
 all your custom templates:
 
 ```bash
@@ -129,7 +130,7 @@ Customize the footer that appears at the bottom of all pages.
 ```html
 <footer>
   <p>{{ footer_text }}</p>
-  <p>Built with <a href="https://github.com/notashelf/ndg">ndg</a></p>
+  <p>Built with <a href="https://github.com/feel-co/ndg">ndg</a></p>
 </footer>
 ```
 
@@ -184,11 +185,12 @@ ndg export-templates --output ./templates --force
 
 ## Template Syntax
 
-Templates use the [Tera](https://keats.github.io/tera/) templating engine, which
-is similar to Jinja2/Django templates. Below are some examples provided for your
-convenience. Please refer to the
-[Tera's documentation](https://keats.github.io/tera/docs/#templates) for more
-details. Everything supported by Tera is supported in ndg.
+[Tera's documentation]: https://keats.github.io/tera/docs/#templates
+
+Templates use the [Tera] templating engine, which is similar to Jinja2/Django
+templates. Below are some examples provided for your convenience. Please refer
+to the [Tera's documentation] for more details. Everything supported by Tera is
+supported in NDG's templated documents.
 
 ### Variables
 
@@ -327,7 +329,7 @@ For a clean(er) experience, we recommend that you:
 3. **Preserve CSS classes**: Keep the default CSS classes to maintain
    functionality (sidebar toggle, search, etc.)
 
-The nature of a mixed-approach that ndg supports may sometimes yield results
+The nature of a mixed-approach that NDG supports may sometimes yield results
 that can be best described as annoying. Though it is perfectly possible to have
 a good design _and_ keep your sanity.
 
@@ -355,4 +357,4 @@ fallback templates are available.
 - Ensure the template filename matches the markdown filename (e.g., `foo.html`
   for `foo.md`)
 - Check that the template is in the configured template directory
-- Verify the template has valid Tera syntax
+- Verify the template has valid [Tera] syntax
