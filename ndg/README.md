@@ -67,10 +67,12 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -v, --verbose               Enable verbose debug logging
-  -c, --config <CONFIG_FILE>  Path to configuration file (TOML or JSON)
-  -h, --help                  Print help
-  -V, --version               Print version
+  -v, --verbose                     Enable verbose debug logging
+  -c, --config-file <CONFIG_FILES>  Path to configuration file(s) (TOML or JSON, can be specified multiple times) Multiple files are merged in order, with later files overriding earl
+ier ones
+      --config <CONFIG_OVERRIDES>   Override configuration values (KEY=VALUE format, can be used multiple times)
+  -h, --help                        Print help
+  -V, --version                     Print version
 ```
 
 You can review `ndg html` and `ndg manpage` commands' help texts to get more
@@ -105,14 +107,43 @@ file to customize your documentation generation process.
 Once you have a configuration file, NDG will automatically detect it when ran in
 the same directory. Though if you want to move the configuration file to a
 nonstandard location, you may specify a path to the configuration file using the
-`--config` option.
+`--config-file` option.
 
 ```bash
 # Run with automatically detected config
 $ ndg html
 
 # Run with explicitly specified config
-$ ndg html --config nested/path/to/ndg.toml
+$ ndg html --config-file nested/path/to/ndg.toml
+
+# Run with multiple config files (merged in order)
+$ ndg html --config-file base.toml --config-file overrides.toml
+
+# Override specific config values without editing files
+$ ndg html --config generate_search=false --config sidebar.options.depth=3
+```
+
+Upon running `ndg init`, you will receive a configuration file in one of JSON or
+TOML formats depending on the format specified, with all available options and
+their default values as well as explanatory comments. You can then edit this
+file to customize your documentation generation process.
+
+> [!TIP]
+> The generated configuration includes detailed comments for each option, making
+> it easy to understand what each setting does without needing to refer to the
+> documentation.
+
+Once you have a configuration file, NDG will automatically detect it when ran in
+the same directory. Though if you want to move the configuration file to a
+nonstandard location, you may specify a path to the configuration file using the
+`--config-file` option.
+
+```bash
+# Run with automatically detected config
+$ ndg html
+
+# Run with explicitly specified config
+$ ndg html --config-file nested/path/to/ndg.toml
 ```
 
 ### Generating Your First Documents
@@ -389,6 +420,8 @@ under the `html` subcommand. The `html` subcommand includes the following
 options:
 
 ```console
+Usage: ndg html [OPTIONS]
+
 Options:
   -i, --input-dir <INPUT_DIR>
           Path to the directory containing markdown files
@@ -410,8 +443,6 @@ Options:
           Footer text for the documentation
   -j, --module-options <MODULE_OPTIONS>
           Path to a JSON file containing module options in the same format expected by nixos-render-docs
-      --options-depth <OPTIONS_TOC_DEPTH>
-          Depth of parent categories in options section in the sidebar
       --manpage-urls <MANPAGE_URLS>
           Path to manpage URL mappings JSON file
   -S, --generate-search
@@ -428,7 +459,7 @@ As covered in the previous chapters, you must NDG an **input directory**
 containing your markdown files (`--input-dir`), an **output directory**
 (`--output-dir`) to put the created files, and a **title** (`--title`) for basic
 functionality. Alternatively, those can all be read from a config file, passed
-to ndg through the `--config` option.
+to ndg through the `--config-file` option.
 
 For example:
 
