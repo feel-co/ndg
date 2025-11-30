@@ -201,15 +201,35 @@ impl Config {
   ///
   /// Returns an error if required fields are missing or paths are invalid.
   pub fn load(cli: &Cli) -> Result<Self, NdgError> {
-    let mut config = if let Some(config_path) = &cli.config_file {
-      // Config file explicitly specified via CLI
-      Self::from_file(config_path).map_err(|e| {
-        NdgError::Config(format!(
-          "Failed to load config from {}: {}",
-          config_path.display(),
-          e
-        ))
-      })?
+    let mut config = if !cli.config_files.is_empty() {
+      // Config file(s) explicitly specified via CLI
+      // Load and merge them in order
+      let mut merged_config =
+        Self::from_file(&cli.config_files[0]).map_err(|e| {
+          NdgError::Config(format!(
+            "Failed to load config from {}: {}",
+            cli.config_files[0].display(),
+            e
+          ))
+        })?;
+
+      // Merge additional config files if provided
+      for config_path in &cli.config_files[1..] {
+        let additional_config = Self::from_file(config_path).map_err(|e| {
+          NdgError::Config(format!(
+            "Failed to load config from {}: {}",
+            config_path.display(),
+            e
+          ))
+        })?;
+        merged_config.merge(additional_config);
+      }
+
+      if cli.config_files.len() > 1 {
+        log::info!("Loaded and merged {} config files", cli.config_files.len());
+      }
+
+      merged_config
     } else if let Some(discovered_config) = Self::find_config_file() {
       // Found a config file in a standard location
       log::info!(
@@ -230,18 +250,23 @@ impl Config {
     // Merge CLI arguments
     config.merge_with_cli(cli);
 
+    // Apply config overrides from --config KEY=VALUE flags
+    if !cli.config_overrides.is_empty() {
+      config.apply_overrides(&cli.config_overrides)?;
+    }
+
     // Get options from command if present
     if let Some(Commands::Html { .. }) = &cli.command {
       // Validation is handled in merge_with_cli
     } else {
       // No Html command, validate required fields if no config file was
       // specified
-      if cli.config_file.is_none() && Self::find_config_file().is_none() {
+      if cli.config_files.is_empty() && Self::find_config_file().is_none() {
         // If there's no config file (explicit or discovered) and no Html
         // command, we're missing required data
         return Err(NdgError::Config(
           "Neither config file nor 'html' subcommand provided. Use 'ndg html' \
-           or provide a config file with --config."
+           or provide a config file with --config-file."
             .to_string(),
         ));
       }
@@ -369,6 +394,264 @@ impl Config {
         self.revision.clone_from(revision);
       }
     }
+  }
+
+  /// Apply configuration overrides from KEY=VALUE strings.
+  ///
+  /// This method parses and applies configuration overrides specified via
+  /// `--config KEY=VALUE` CLI flags. Each override must be in the format
+  /// `KEY=VALUE` where KEY is a valid configuration field name.
+  ///
+  /// # Arguments
+  ///
+  /// * `overrides` - Vector of KEY=VALUE strings to apply
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if:
+  ///
+  /// - An override string is not in KEY=VALUE format
+  /// - A key is not recognized
+  /// - A value cannot be parsed as the expected type
+  ///
+  /// # Example
+  ///
+  /// ```rust, ignore
+  /// config.apply_overrides(&vec![
+  ///     "generate_search=false".to_string(),
+  ///     "title=My Documentation".to_string(),
+  /// ])?;
+  /// ```
+  pub fn apply_overrides(
+    &mut self,
+    overrides: &[String],
+  ) -> Result<(), NdgError> {
+    for override_str in overrides {
+      let (key, value) = override_str.split_once('=').ok_or_else(|| {
+        NdgError::Config(format!(
+          "Invalid config override format: '{override_str}'. Expected \
+           KEY=VALUE"
+        ))
+      })?;
+
+      let key = key.trim();
+      let value = value.trim();
+
+      match key {
+        // Path fields
+        "input_dir" => {
+          self.input_dir = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "output_dir" => {
+          self.output_dir = PathBuf::from(value);
+        },
+        "module_options" => {
+          self.module_options = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "template_path" => {
+          self.template_path = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "template_dir" => {
+          self.template_dir = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "assets_dir" => {
+          self.assets_dir = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+        "manpage_urls_path" => {
+          self.manpage_urls_path = if value.is_empty() {
+            None
+          } else {
+            Some(PathBuf::from(value))
+          };
+        },
+
+        // String fields
+        "title" => {
+          self.title = value.to_string();
+        },
+        "footer_text" => {
+          self.footer_text = value.to_string();
+        },
+        "revision" => {
+          self.revision = value.to_string();
+        },
+        "tab_style" => {
+          self.tab_style = value.to_string();
+        },
+
+        // Boolean fields
+        "generate_anchors" => {
+          self.generate_anchors = Self::parse_bool(value, key)?;
+        },
+        "generate_search" => {
+          self.generate_search = Self::parse_bool(value, key)?;
+        },
+        "highlight_code" => {
+          self.highlight_code = Self::parse_bool(value, key)?;
+        },
+
+        // Numeric fields
+        "jobs" => {
+          self.jobs = if value.is_empty() {
+            None
+          } else {
+            Some(value.parse::<usize>().map_err(|_| {
+              NdgError::Config(format!(
+                "Invalid value for 'jobs': '{value}'. Expected a positive \
+                 integer"
+              ))
+            })?)
+          };
+        },
+        "options_toc_depth" => {
+          self.options_toc_depth = value.parse::<usize>().map_err(|_| {
+            NdgError::Config(format!(
+              "Invalid value for 'options_toc_depth': '{value}'. Expected a \
+               positive integer"
+            ))
+          })?;
+        },
+
+        _ => {
+          return Err(NdgError::Config(format!(
+            "Unknown configuration key: '{key}'. See documentation for \
+             supported keys."
+          )));
+        },
+      }
+    }
+
+    Ok(())
+  }
+
+  /// Parse a boolean value from a string.
+  ///
+  /// Accepts: true/false, yes/no, 1/0 (case-insensitive)
+  fn parse_bool(value: &str, key: &str) -> Result<bool, NdgError> {
+    match value.to_lowercase().as_str() {
+      "true" | "yes" | "1" => Ok(true),
+      "false" | "no" | "0" => Ok(false),
+      _ => {
+        Err(NdgError::Config(format!(
+          "Invalid boolean value for '{key}': '{value}'. Expected true/false, \
+           yes/no, or 1/0"
+        )))
+      },
+    }
+  }
+
+  /// Merge another config into this one, with the other config's values taking
+  /// precedence.
+  ///
+  /// This method is used when loading multiple config files - each successive
+  /// config file is merged into the accumulated config, overriding values.
+  ///
+  /// # Merge Rules
+  ///
+  /// - `Option<T>` fields: Other's `Some` value replaces this config's value
+  /// - `Vec<T>` fields: Other's vec is appended to this config's vec
+  /// - Plain fields (String, bool, etc.): Other's value always replaces
+  /// - `HashMap` fields: Other's entries are merged in (can override individual
+  ///   keys)
+  ///
+  /// # Arguments
+  ///
+  /// * `other` - The config to merge in (takes precedence)
+  pub fn merge(&mut self, other: Self) {
+    // Option fields - replace if other has Some
+    if other.input_dir.is_some() {
+      self.input_dir = other.input_dir;
+    }
+    if other.module_options.is_some() {
+      self.module_options = other.module_options;
+    }
+    if other.template_path.is_some() {
+      self.template_path = other.template_path;
+    }
+    if other.template_dir.is_some() {
+      self.template_dir = other.template_dir;
+    }
+    if other.assets_dir.is_some() {
+      self.assets_dir = other.assets_dir;
+    }
+    if other.manpage_urls_path.is_some() {
+      self.manpage_urls_path = other.manpage_urls_path;
+    }
+    if other.jobs.is_some() {
+      self.jobs = other.jobs;
+    }
+    if other.sidebar.is_some() {
+      self.sidebar = other.sidebar;
+    }
+
+    // Vec fields - append
+    self.stylesheet_paths.extend(other.stylesheet_paths);
+    self.script_paths.extend(other.script_paths);
+
+    // Plain fields - always replace with other's value
+    // We only replace if other's value is not the default, to allow proper
+    // layering
+    if other.output_dir.as_os_str() != "build" {
+      self.output_dir = other.output_dir;
+    }
+    if other.title != "ndg documentation" {
+      self.title = other.title;
+    }
+    if other.footer_text != "Generated with ndg" {
+      self.footer_text = other.footer_text;
+    }
+    if other.revision != "local" {
+      self.revision = other.revision;
+    }
+    if other.tab_style != "none" {
+      self.tab_style = other.tab_style;
+    }
+
+    // Numeric/boolean fields - always use other's value
+    // These don't have a meaningful "unset" state, so we always take the
+    // value
+    self.options_toc_depth = other.options_toc_depth;
+    self.generate_anchors = other.generate_anchors;
+    self.generate_search = other.generate_search;
+    self.highlight_code = other.highlight_code;
+
+    // HashMap fields - merge entries
+    if let Some(other_og) = other.opengraph {
+      if let Some(ref mut og) = self.opengraph {
+        og.extend(other_og);
+      } else {
+        self.opengraph = Some(other_og);
+      }
+    }
+    if let Some(other_meta) = other.meta_tags {
+      if let Some(ref mut meta) = self.meta_tags {
+        meta.extend(other_meta);
+      } else {
+        self.meta_tags = Some(other_meta);
+      }
+    }
+
+    // excluded_files is runtime-only (#[serde(skip)]), so we don't merge it
   }
 
   /// Get the template directory path, if available.
@@ -722,5 +1005,183 @@ impl Config {
     templates.insert("main.js", include_str!("../../templates/main.js"));
 
     templates
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_config_merge_option_fields() {
+    let mut base = Config::default();
+    base.input_dir = Some(PathBuf::from("base-input"));
+    base.module_options = None;
+
+    let mut override_config = Config::default();
+    override_config.input_dir = None; // Should not replace
+    override_config.module_options = Some(PathBuf::from("override-options"));
+
+    base.merge(override_config);
+
+    // input_dir should remain from base (override had None)
+    assert_eq!(base.input_dir, Some(PathBuf::from("base-input")));
+    // module_options should come from override
+    assert_eq!(base.module_options, Some(PathBuf::from("override-options")));
+  }
+
+  #[test]
+  fn test_config_merge_vec_fields_append() {
+    let mut base = Config::default();
+    base.stylesheet_paths = vec![PathBuf::from("base.css")];
+    base.script_paths = vec![PathBuf::from("base.js")];
+
+    let mut override_config = Config::default();
+    override_config.stylesheet_paths = vec![PathBuf::from("override.css")];
+    override_config.script_paths = vec![PathBuf::from("override.js")];
+
+    base.merge(override_config);
+
+    // Vecs should be appended, not replaced
+    assert_eq!(base.stylesheet_paths.len(), 2);
+    assert_eq!(base.stylesheet_paths[0], PathBuf::from("base.css"));
+    assert_eq!(base.stylesheet_paths[1], PathBuf::from("override.css"));
+
+    assert_eq!(base.script_paths.len(), 2);
+    assert_eq!(base.script_paths[0], PathBuf::from("base.js"));
+    assert_eq!(base.script_paths[1], PathBuf::from("override.js"));
+  }
+
+  #[test]
+  fn test_config_merge_boolean_fields() {
+    let mut base = Config::default();
+    base.generate_search = true;
+    base.highlight_code = false;
+
+    let mut override_config = Config::default();
+    override_config.generate_search = false;
+    override_config.highlight_code = true;
+
+    base.merge(override_config);
+
+    // Boolean fields should take override's value
+    assert!(!base.generate_search);
+    assert!(base.highlight_code);
+  }
+
+  #[test]
+  fn test_apply_overrides_boolean() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "generate_search=false".to_string(),
+        "highlight_code=yes".to_string(),
+      ])
+      .unwrap();
+
+    assert!(!config.generate_search);
+    assert!(config.highlight_code);
+  }
+
+  #[test]
+  fn test_apply_overrides_string() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "title=Test Documentation".to_string(),
+        "footer_text=Custom Footer".to_string(),
+      ])
+      .unwrap();
+
+    assert_eq!(config.title, "Test Documentation");
+    assert_eq!(config.footer_text, "Custom Footer");
+  }
+
+  #[test]
+  fn test_apply_overrides_path() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "output_dir=/tmp/output".to_string(),
+        "input_dir=/tmp/input".to_string(),
+      ])
+      .unwrap();
+
+    assert_eq!(config.output_dir, PathBuf::from("/tmp/output"));
+    assert_eq!(config.input_dir, Some(PathBuf::from("/tmp/input")));
+  }
+
+  #[test]
+  fn test_apply_overrides_numeric() {
+    let mut config = Config::default();
+
+    config
+      .apply_overrides(&vec![
+        "jobs=8".to_string(),
+        "options_toc_depth=5".to_string(),
+      ])
+      .unwrap();
+
+    assert_eq!(config.jobs, Some(8));
+    assert_eq!(config.options_toc_depth, 5);
+  }
+
+  #[test]
+  fn test_apply_overrides_invalid_format() {
+    let mut config = Config::default();
+
+    let result = config.apply_overrides(&vec!["no_equals_sign".to_string()]);
+
+    assert!(result.is_err());
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Expected KEY=VALUE")
+    );
+  }
+
+  #[test]
+  fn test_apply_overrides_unknown_key() {
+    let mut config = Config::default();
+
+    let result = config.apply_overrides(&vec!["unknown_key=value".to_string()]);
+
+    assert!(result.is_err());
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Unknown configuration key")
+    );
+  }
+
+  #[test]
+  fn test_apply_overrides_invalid_boolean() {
+    let mut config = Config::default();
+
+    let result =
+      config.apply_overrides(&vec!["generate_search=maybe".to_string()]);
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Invalid boolean"));
+  }
+
+  #[test]
+  fn test_apply_overrides_invalid_numeric() {
+    let mut config = Config::default();
+
+    let result = config.apply_overrides(&vec!["jobs=not_a_number".to_string()]);
+
+    assert!(result.is_err());
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Expected a positive integer")
+    );
   }
 }

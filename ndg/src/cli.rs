@@ -14,9 +14,16 @@ pub struct Cli {
   #[arg(short, long)]
   pub verbose: bool,
 
-  /// Path to configuration file (TOML or JSON)
-  #[arg(short = 'c', long = "config")]
-  pub config_file: Option<PathBuf>,
+  /// Path to configuration file(s) (TOML or JSON, can be specified multiple
+  /// times) Multiple files are merged in order, with later files overriding
+  /// earlier ones
+  #[arg(short = 'c', long = "config-file", action = clap::ArgAction::Append)]
+  pub config_files: Vec<PathBuf>,
+
+  /// Override configuration values (KEY=VALUE format, can be used multiple
+  /// times)
+  #[arg(long = "config", action = clap::ArgAction::Append)]
+  pub config_overrides: Vec<String>,
 }
 
 /// All supported subcommands for the ndg CLI.
