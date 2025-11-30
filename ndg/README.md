@@ -224,9 +224,159 @@ generate_search = true  # Can be overridden by CLI
 > `ndg html --generate-search`, search will be enabled.
 
 If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
-`generate_search` defaults to `false` if omitted from both; CLI flags override
+`generate_search` defaults to `true` if omitted from both; CLI flags override
 config when present). For a full list of CLI options, see the help output with
 `ndg html --help`.
+
+#### Configuration Reference
+
+Below is a comprehensive list of configuration options available in `ndg.toml`:
+
+**Basic Options:**
+
+- `input_dir` - Path to directory containing Markdown files
+- `output_dir` - Output directory for generated documentation (default:
+  `"build"`)
+- `title` - Documentation title (default: `"ndg documentation"`)
+- `footer_text` - Footer text (default: `"Generated with ndg"`)
+- `jobs` - Number of threads for parallel processing (default: auto-detected)
+
+**Feature Toggles:**
+
+- `generate_search` - Enable search functionality (default: `true`)
+- `highlight_code` - Enable syntax highlighting (default: `true`)
+- `generate_anchors` - Generate heading anchors (default: `true`)
+
+**Advanced Options:**
+
+- `template_path` - Path to custom template file
+- `template_dir` - Directory containing custom templates
+- `stylesheet_paths` - Array of custom stylesheet paths
+- `script_paths` - Array of custom JavaScript file paths
+- `assets_dir` - Directory containing additional assets to copy
+- `module_options` - Path to `options.json` for NixOS module documentation
+- `options_toc_depth` - Depth of option categories in TOC (default: `2`)
+- `manpage_urls_path` - Path to manpage URL mappings JSON file
+- `revision` - Git revision for source file links (default: `"local"`)
+- `tab_style` - How to handle tabs in code blocks: `"none"`, `"warn"`, or
+  `"normalize"` (default: `"none"`)
+
+**Metadata Options:**
+
+- `opengraph` - Table of OpenGraph meta tags (e.g.,
+  `{ "og:title" = "My Docs", "og:image" = "..." }`)
+- `meta_tags` - Table of additional HTML meta tags (e.g.,
+  `{ description = "...", keywords = "..." }`)
+
+Example configuration:
+
+```toml
+input_dir = "docs"
+output_dir = "build"
+title = "My Project Documentation"
+footer_text = "© 2025 My Project"
+jobs = 4
+
+# Enable features
+generate_search = true
+highlight_code = true
+generate_anchors = true
+
+# Code block handling
+tab_style = "normalize"  # converts tabs to spaces
+
+# Custom assets
+stylesheet_paths = ["custom.css"]
+script_paths = ["analytics.js"]
+assets_dir = "static"
+
+# Git integration
+revision = "main"
+
+# SEO metadata
+[opengraph]
+"og:title" = "My Project Docs"
+"og:description" = "Comprehensive documentation"
+"og:image" = "https://example.com/og-image.png"
+
+[meta_tags]
+description = "Complete guide to My Project"
+keywords = "documentation,nix,tutorial"
+author = "My Name"
+```
+
+#### Advanced Configuration Details
+
+**Parallel Processing (`jobs`):**
+
+The `jobs` option controls how many threads NDG uses for processing files. By
+default, NDG auto-detects the number of CPU cores. For large documentation sets,
+this significantly speeds up generation:
+
+```bash
+# Use 8 threads
+ndg html --jobs 8
+
+# Or in config
+jobs = 8
+```
+
+**Tab Handling (`tab_style`):**
+
+Controls how hard tabs in code blocks are handled:
+
+- `"none"` - Leave tabs as-is (default)
+- `"warn"` - Log warnings when tabs are detected
+- `"normalize"` - Convert tabs to spaces (4 spaces per tab)
+
+This is useful for ensuring consistent code block rendering across browsers.
+
+**Manpage URL Mappings (`manpage_urls_path`):**
+
+Provides a JSON file mapping manpage references to URLs. This allows NDG to
+automatically link manpage citations in your documentation:
+
+```json
+{
+  "man(1)": "https://man7.org/linux/man-pages/man1/man.1.html",
+  "bash(1)": "https://man7.org/linux/man-pages/man1/bash.1.html"
+}
+```
+
+**Custom Assets (`assets_dir`, `stylesheet_paths`, `script_paths`):**
+
+- `assets_dir` - Directory to copy wholesale into the output (images, fonts,
+  etc.)
+- `stylesheet_paths` - Additional CSS files to include (can specify multiple)
+- `script_paths` - Additional JavaScript files to include (can specify multiple)
+
+Example:
+
+```toml
+assets_dir = "static"  # Copies static/* to build/assets/*
+stylesheet_paths = ["theme.css", "custom.css"]
+script_paths = ["analytics.js", "search-enhance.js"]
+```
+
+**SEO and Social Media (`opengraph`, `meta_tags`):**
+
+These options inject metadata into the HTML `<head>` for better SEO and social
+media sharing:
+
+```toml
+[opengraph]
+"og:title" = "My Documentation"
+"og:type" = "website"
+"og:url" = "https://docs.example.com"
+"og:image" = "https://docs.example.com/preview.png"
+"og:description" = "Comprehensive documentation for My Project"
+
+[meta_tags]
+description = "Learn everything about My Project"
+keywords = "documentation,tutorial,guide,nix"
+author = "Jane Developer"
+robots = "index,follow"
+```
 
 ### Generating HTML Documents
 
