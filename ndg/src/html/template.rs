@@ -880,7 +880,7 @@ fn extract_page_title(path: &Path, html_path: &Path) -> String {
   )
 }
 
-/// Generate the document navigation HTM
+/// Generate the document navigation HTML
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let mut doc_nav = String::new();
   let root_prefix =
