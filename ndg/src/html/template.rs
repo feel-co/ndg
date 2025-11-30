@@ -6,7 +6,10 @@ use ndg_commonmark::Header;
 use serde_json::Value;
 use tera::Tera;
 
-use crate::{config::Config, formatter::options::NixOption};
+use crate::{
+  config::{Config, sidebar::SidebarOrdering},
+  formatter::options::NixOption,
+};
 
 // Template constants - these serve as fallbacks
 const DEFAULT_TEMPLATE: &str = include_str!("../../templates/default.html");
@@ -990,7 +993,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
       }
 
       // Process special entries
-      let special_nav_items: Vec<NavItem> = special_entries
+      let mut special_nav_items: Vec<NavItem> = special_entries
         .iter()
         .filter_map(|entry| {
           let path = entry.path();
@@ -1027,6 +1030,25 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           })
         })
         .collect();
+
+      // Sort special entries according to sidebar ordering configuration
+      if let Some(sidebar_config) = &config.sidebar {
+        match sidebar_config.ordering {
+          SidebarOrdering::Alphabetical => {
+            special_nav_items.sort_by(|a, b| a.title.cmp(&b.title));
+          },
+          SidebarOrdering::Custom => {
+            // Custom ordering uses position from matches
+            special_nav_items.sort_by_key(|item| item.position);
+          },
+          SidebarOrdering::Filesystem => {
+            // Filesystem ordering keeps the order from directory iteration
+          },
+        }
+      } else {
+        // Default: alphabetical sorting
+        special_nav_items.sort_by(|a, b| a.title.cmp(&b.title));
+      }
 
       // Determine if we should number special files
       let should_number_special = config
