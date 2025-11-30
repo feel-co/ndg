@@ -55,6 +55,32 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   - Use `--config sidebar.options.depth=N` or config file instead
 - **Deprecated** `options_toc_depth` config key in favor of
   `sidebar.options.depth`
+- **Deprecated** `meta_tags` and `opengraph` config fields in favor of nested
+  `meta` configuration
+  - Old: `meta_tags = { description = "..." }` and
+    `opengraph = { "og:title" = "..." }`
+  - New: `meta.tags = { description = "..." }` and
+    `meta.opengraph = { "og:title" = "..." }`
+
+  Example:
+
+  ```toml
+  [meta.tags]
+  description = "My awesome documentation"
+  keywords = "rust,nix,docs"
+
+  [meta.opengraph]
+  "og:title" = "My Project Docs"
+  "og:image" = "/path/to/image.png"
+  ```
+
+  Or:
+
+  ```toml
+  [meta]
+  opengraph = { "og:title" = "..." }
+  tags = { description = "..." }
+  ```
 
 ### Fixed
 
