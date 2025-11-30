@@ -30,10 +30,6 @@ in
     };
 
     cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
-
-    # xtask doesn't support passing --target
-    # but Nix hooks expect the folder structure from when it's set
-    env.CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.cargoShortTarget;
     cargoBuildFlags = ["-p" "ndg" "-p" "xtask"];
     enableParallelBuilding = true;
 
@@ -53,10 +49,8 @@ in
       $out/bin/xtask dist
 
       # Install the generated completions/ and man/ artifacts
-      for dir in completions man; do
-        mkdir -p "$out/share/$dir"
-        cp -rf "dist/$dir" "$out/share/"
-      done
+      installManPage ./man/*
+      installShellCompletion --cmd ${finalAttrs.meta.mainProgram} ./completions/*
 
       # Avoid populating PATH with an 'xtask' cmd
       rm $out/bin/xtask
