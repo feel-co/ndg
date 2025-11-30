@@ -13,144 +13,112 @@ use crate::{
   error::NdgError,
 };
 
-// XXX: I know this looks silly, but my understanding is that this is the most
-// type-correct and re-usable way. Functions allow for more complex default
-// values that can't be expressed as literals. For example, creating a
-// `PathBuf` would require execution, not just a literal value.
-// So this should be fine, but I'm open to suggestions.
-const fn default_input_dir() -> Option<PathBuf> {
-  None
-}
-
-fn default_output_dir() -> PathBuf {
-  PathBuf::from("build")
-}
-
-fn default_title() -> String {
-  "ndg documentation".to_string()
-}
-
-fn default_footer_text() -> String {
-  "Generated with ndg".to_string()
-}
-
-fn default_revision() -> String {
-  "local".to_string()
-}
-
-const fn default_options_toc_depth() -> usize {
-  2
-}
-
-const fn default_true() -> bool {
-  true
-}
-
-fn default_excluded_files() -> std::collections::HashSet<std::path::PathBuf> {
-  std::collections::HashSet::new()
-}
-
-fn default_tab_style() -> String {
-  "none".to_string()
-}
-
 /// Configuration for the NDG documentation generator.
 ///
 /// [`Config`] holds all configuration options for controlling documentation
 /// generation, including input/output directories, template customization,
 /// search, syntax highlighting, and more. Fields are typically loaded from a
 /// TOML or JSON config file, but can also be set via CLI arguments.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
   /// Input directory containing markdown files.
-  #[serde(default = "default_input_dir")]
   pub input_dir: Option<PathBuf>,
 
   /// Output directory for generated documentation.
-  #[serde(default = "default_output_dir")]
   pub output_dir: PathBuf,
 
   /// Path to options.json file (optional).
-  #[serde(default)]
   pub module_options: Option<PathBuf>,
 
   /// Path to custom template file.
-  #[serde(default)]
   pub template_path: Option<PathBuf>,
 
   /// Path to template directory containing all template files.
-  #[serde(default)]
   pub template_dir: Option<PathBuf>,
 
   /// Paths to custom stylesheets.
-  #[serde(default)]
   pub stylesheet_paths: Vec<PathBuf>,
 
   /// Paths to custom JavaScript files.
-  #[serde(default)]
   pub script_paths: Vec<PathBuf>,
 
   /// Directory containing additional assets.
-  #[serde(default)]
   pub assets_dir: Option<PathBuf>,
 
   /// Path to manpage URL mappings JSON file.
-  #[serde(default)]
   pub manpage_urls_path: Option<PathBuf>,
 
   /// Title for the documentation.
-  #[serde(default = "default_title")]
   pub title: String,
 
   /// Number of threads to use for parallel processing.
-  #[serde(default)]
   pub jobs: Option<usize>,
 
   /// Whether to generate anchors for headings.
-  #[serde(default = "default_true")]
   pub generate_anchors: bool,
 
   /// Whether to generate a search index.
-  #[serde(default = "default_true")]
   pub generate_search: bool,
 
   /// Text to be inserted in the footer.
-  #[serde(default = "default_footer_text")]
   pub footer_text: String,
 
   /// Depth of parent categories in options TOC.
-  #[serde(default = "default_options_toc_depth")]
   pub options_toc_depth: usize,
 
   /// Whether to enable syntax highlighting for code blocks.
-  #[serde(default = "default_true")]
   pub highlight_code: bool,
 
   /// GitHub revision for linking to source files.
-  #[serde(default = "default_revision")]
   pub revision: String,
 
   /// `OpenGraph` tags to inject into the HTML head (e.g., {"og:title": "...",
   /// "og:image": "..."})
-  #[serde(default)]
   pub opengraph: Option<std::collections::HashMap<String, String>>,
 
   /// Files to exclude from sidebar navigation (included files).
-  #[serde(skip, default = "default_excluded_files")]
+  #[serde(skip)]
   pub excluded_files: std::collections::HashSet<std::path::PathBuf>,
 
   /// Additional meta tags to inject into the HTML head (e.g., {"description":
   /// "...", "keywords": "..."})
-  #[serde(default)]
   pub meta_tags: Option<std::collections::HashMap<String, String>>,
 
   /// How to handle hard tabs in code blocks.
-  #[serde(default = "default_tab_style")]
   pub tab_style: String,
 
   /// Sidebar configuration.
-  #[serde(default)]
   pub sidebar: Option<sidebar::SidebarConfig>,
+}
+
+impl Default for Config {
+  fn default() -> Self {
+    Self {
+      input_dir:         None,
+      output_dir:        PathBuf::from("build"),
+      module_options:    None,
+      template_path:     None,
+      template_dir:      None,
+      stylesheet_paths:  Vec::new(),
+      script_paths:      Vec::new(),
+      assets_dir:        None,
+      manpage_urls_path: None,
+      title:             "ndg documentation".to_string(),
+      jobs:              None,
+      generate_anchors:  true,
+      generate_search:   true,
+      footer_text:       "Generated with ndg".to_string(),
+      options_toc_depth: 2,
+      highlight_code:    true,
+      revision:          "local".to_string(),
+      opengraph:         None,
+      excluded_files:    std::collections::HashSet::new(),
+      meta_tags:         None,
+      tab_style:         "none".to_string(),
+      sidebar:           None,
+    }
+  }
 }
 
 impl Config {
@@ -385,11 +353,17 @@ impl Config {
         self.manpage_urls_path = Some(manpage_urls.clone());
       }
 
-      // Handle the generate-search flag, overriding config
-      self.generate_search = *generate_search;
+      // Handle the generate-search flag - only override if flag was explicitly
+      // provided
+      if *generate_search {
+        self.generate_search = true;
+      }
 
-      // Handle the highlight-code flag, overriding config
-      self.highlight_code = *highlight_code;
+      // Handle the highlight-code flag - only override if flag was explicitly
+      // provided
+      if *highlight_code {
+        self.highlight_code = true;
+      }
 
       if let Some(revision) = revision {
         self.revision.clone_from(revision);

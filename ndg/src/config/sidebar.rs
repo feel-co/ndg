@@ -430,31 +430,24 @@ impl SidebarMatch {
   }
 }
 
-/// Default depth for options TOC grouping.
-const fn default_options_depth() -> usize {
-  2
-}
-
 /// Configuration for options sidebar behavior.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct OptionsConfig {
   /// Depth of parent categories in options TOC.
-  #[serde(default = "default_options_depth")]
   pub depth: usize,
 
   /// Ordering algorithm for options.
-  #[serde(default)]
   pub ordering: SidebarOrdering,
 
   /// Pattern-based matching rules for options.
-  #[serde(default)]
   pub matches: Vec<OptionsMatch>,
 }
 
 impl Default for OptionsConfig {
   fn default() -> Self {
     Self {
-      depth:    default_options_depth(),
+      depth:    2,
       ordering: SidebarOrdering::default(),
       matches:  Vec::new(),
     }

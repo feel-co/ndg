@@ -107,11 +107,11 @@ pub enum Commands {
     manpage_urls: Option<PathBuf>,
 
     /// Whether to generate search data and render relevant components.
-    #[arg(short = 'S', long = "generate-search")]
+    #[arg(short = 'S', long = "generate-search", action = clap::ArgAction::SetTrue)]
     generate_search: bool,
 
     /// Whether to enable syntax highlighting for code blocks.
-    #[arg(long = "highlight-code")]
+    #[arg(long = "highlight-code", action = clap::ArgAction::SetTrue)]
     highlight_code: bool,
 
     /// GitHub revision for linking to source files.
