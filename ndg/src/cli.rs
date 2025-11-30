@@ -106,9 +106,6 @@ pub enum Commands {
     module_options: Option<PathBuf>,
 
     /// Depth of parent categories in options section in the sidebar.
-    ///
-    /// DEPRECATED: Use `--config sidebar.options.depth=N` or set in config
-    /// file instead. This flag will be removed in a future release.
     #[arg(long = "options-depth", value_parser = clap::value_parser!(usize), hide = true)]
     options_toc_depth: Option<usize>,
 

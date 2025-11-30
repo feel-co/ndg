@@ -1,7 +1,9 @@
+pub mod meta;
 pub mod sidebar;
 pub mod templates;
 
 use std::{
+  collections::HashMap,
   fs,
   path::{Path, PathBuf},
 };
@@ -73,26 +75,30 @@ pub struct Config {
   /// GitHub revision for linking to source files.
   pub revision: String,
 
-  /// `OpenGraph` tags to inject into the HTML head (e.g., {"og:title": "...",
-  /// "og:image": "..."})
-  pub opengraph: Option<std::collections::HashMap<String, String>>,
-
   /// Files to exclude from sidebar navigation (included files).
   #[serde(skip)]
   pub excluded_files: std::collections::HashSet<std::path::PathBuf>,
 
-  /// Additional meta tags to inject into the HTML head (e.g., {"description":
-  /// "...", "keywords": "..."})
-  pub meta_tags: Option<std::collections::HashMap<String, String>>,
-
   /// How to handle hard tabs in code blocks.
   pub tab_style: String,
 
+  /// Meta tag configuration (`OpenGraph` and additional tags).
+  pub meta: Option<meta::MetaConfig>,
+
   /// Sidebar configuration.
   pub sidebar: Option<sidebar::SidebarConfig>,
+
+  #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub opengraph: Option<HashMap<String, String>>,
+
+  #[deprecated(since = "2.5.0", note = "Use `meta.tags` instead")]
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub meta_tags: Option<HashMap<String, String>>,
 }
 
 impl Default for Config {
+  #[allow(deprecated)]
   fn default() -> Self {
     Self {
       input_dir:         None,
@@ -112,11 +118,12 @@ impl Default for Config {
       options_toc_depth: 2,
       highlight_code:    true,
       revision:          "local".to_string(),
-      opengraph:         None,
       excluded_files:    std::collections::HashSet::new(),
-      meta_tags:         None,
       tab_style:         "none".to_string(),
+      meta:              None,
       sidebar:           None,
+      opengraph:         None,
+      meta_tags:         None,
     }
   }
 }
@@ -419,6 +426,12 @@ impl Config {
   /// - A key is not recognized
   /// - A value cannot be parsed as the expected type
   ///
+  /// # Panics
+  ///
+  /// Panics if `strip_prefix` fails after a successful `starts_with` check for
+  /// nested keys. This should never happen in practice as the guard condition
+  /// ensures the prefix exists.
+  ///
   /// # Example
   ///
   /// ```rust, ignore
@@ -564,6 +577,108 @@ impl Config {
           }
         },
 
+        // `Vec<PathBuf>` fields - append single value
+        "stylesheet_paths" => {
+          self.stylesheet_paths.push(PathBuf::from(value));
+        },
+
+        "script_paths" => {
+          self.script_paths.push(PathBuf::from(value));
+        },
+
+        // Nested meta.opengraph.* - set individual key=value
+        key if key.starts_with("meta.opengraph.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("meta.opengraph.").expect(
+            "Key starts with 'meta.opengraph.' prefix, strip_prefix cannot \
+             fail",
+          );
+          if self.meta.is_none() {
+            self.meta = Some(meta::MetaConfig::default());
+          }
+          if let Some(ref mut meta) = self.meta {
+            if meta.opengraph.is_none() {
+              meta.opengraph = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = meta.opengraph {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
+        // Nested meta.tags.* - set individual key=value
+        key if key.starts_with("meta.tags.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("meta.tags.").expect(
+            "Key starts with 'meta.tags.' prefix, strip_prefix cannot fail",
+          );
+          if self.meta.is_none() {
+            self.meta = Some(meta::MetaConfig::default());
+          }
+          if let Some(ref mut meta) = self.meta {
+            if meta.tags.is_none() {
+              meta.tags = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = meta.tags {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
+        // Deprecated: opengraph.* - redirect to meta.opengraph.*
+        key if key.starts_with("opengraph.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("opengraph.").expect(
+            "Key starts with 'opengraph.' prefix, strip_prefix cannot fail",
+          );
+          log::warn!(
+            "The 'opengraph.{subkey}' config override is deprecated. Use \
+             'meta.opengraph.{subkey}' instead."
+          );
+          #[allow(deprecated)]
+          {
+            if self.opengraph.is_none() {
+              self.opengraph = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = self.opengraph {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
+        // Deprecated: meta_tags.* - redirect to meta.tags.*
+        key if key.starts_with("meta_tags.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("meta_tags.").expect(
+            "Key starts with 'meta_tags.' prefix, strip_prefix cannot fail",
+          );
+          log::warn!(
+            "The 'meta_tags.{subkey}' config override is deprecated. Use \
+             'meta.tags.{subkey}' instead."
+          );
+          #[allow(deprecated)]
+          {
+            if self.meta_tags.is_none() {
+              self.meta_tags = Some(HashMap::new());
+            }
+            if let Some(ref mut map) = self.meta_tags {
+              map.insert(subkey.to_string(), value.to_string());
+            }
+          }
+        },
+
         _ => {
           return Err(NdgError::Config(format!(
             "Unknown configuration key: '{key}'. See documentation for \
@@ -600,11 +715,12 @@ impl Config {
   ///
   /// # Merge Rules
   ///
-  /// - `Option<T>` fields: Other's `Some` value replaces this config's value
-  /// - `Vec<T>` fields: Other's vec is appended to this config's vec
+  /// - [`Option<T>`] fields: Other's [`Some`] value replaces this config's
+  ///   value
+  /// - [`Vec<T>`] fields: Other's vec is appended to this config's vec
   /// - Plain fields (String, bool, etc.): Other's value always replaces
-  /// - `HashMap` fields: Other's entries are merged in (can override individual
-  ///   keys)
+  /// - [`HashMap`] fields: Other's entries are merged in (can override
+  ///   individual keys)
   ///
   /// # Arguments
   ///
@@ -634,6 +750,9 @@ impl Config {
     }
     if other.sidebar.is_some() {
       self.sidebar = other.sidebar;
+    }
+    if other.meta.is_some() {
+      self.meta = other.meta;
     }
 
     // Vec fields - append
@@ -667,19 +786,30 @@ impl Config {
     self.generate_search = other.generate_search;
     self.highlight_code = other.highlight_code;
 
-    // HashMap fields - merge entries
-    if let Some(other_og) = other.opengraph {
-      if let Some(ref mut og) = self.opengraph {
-        og.extend(other_og);
-      } else {
-        self.opengraph = Some(other_og);
+    // Deprecated fields - merge if present, with warnings
+    #[allow(deprecated)]
+    {
+      if let Some(other_og) = other.opengraph {
+        log::warn!(
+          "The 'opengraph' config field is deprecated. Use 'meta.opengraph' \
+           instead."
+        );
+        if let Some(ref mut og) = self.opengraph {
+          og.extend(other_og);
+        } else {
+          self.opengraph = Some(other_og);
+        }
       }
-    }
-    if let Some(other_meta) = other.meta_tags {
-      if let Some(ref mut meta) = self.meta_tags {
-        meta.extend(other_meta);
-      } else {
-        self.meta_tags = Some(other_meta);
+      if let Some(other_meta) = other.meta_tags {
+        log::warn!(
+          "The 'meta_tags' config field is deprecated. Use 'meta.tags' \
+           instead."
+        );
+        if let Some(ref mut meta) = self.meta_tags {
+          meta.extend(other_meta);
+        } else {
+          self.meta_tags = Some(other_meta);
+        }
       }
     }
 

@@ -86,23 +86,20 @@ pub fn render(
 
   // Prepare meta tags HTML
   let meta_tags_html =
-    config
-      .meta_tags
-      .as_ref()
-      .map_or_else(String::new, |meta_tags| {
-        meta_tags
-          .iter()
-          .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
-          .collect::<Vec<_>>()
-          .join("\n    ")
-      });
+    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
+      meta_tags
+        .iter()
+        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
 
   // Prepare OpenGraph tags HTML, handling og:image as local path or URL
   #[allow(
     clippy::option_if_let_else,
     reason = " Complex image handling logic clearer with if-let"
   )]
-  let opengraph_html = if let Some(opengraph) = &config.opengraph {
+  let opengraph_html = if let Some(opengraph) = get_opengraph(config) {
     opengraph
       .iter()
       .map(|(k, v)| {
@@ -320,28 +317,22 @@ pub fn render_options(
 
   // Add meta and opengraph tags
   let meta_tags_html =
-    config
-      .meta_tags
-      .as_ref()
-      .map_or_else(String::new, |meta_tags| {
-        meta_tags
-          .iter()
-          .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
-          .collect::<Vec<_>>()
-          .join("\n    ")
-      });
+    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
+      meta_tags
+        .iter()
+        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
 
   let opengraph_html =
-    config
-      .opengraph
-      .as_ref()
-      .map_or_else(String::new, |opengraph| {
-        opengraph
-          .iter()
-          .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-          .collect::<Vec<_>>()
-          .join("\n    ")
-      });
+    get_opengraph(config).map_or_else(String::new, |opengraph| {
+      opengraph
+        .iter()
+        .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -729,28 +720,22 @@ pub fn render_search(
 
   // Add meta and opengraph tags
   let meta_tags_html =
-    config
-      .meta_tags
-      .as_ref()
-      .map_or_else(String::new, |meta_tags| {
-        meta_tags
-          .iter()
-          .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
-          .collect::<Vec<_>>()
-          .join("\n    ")
-      });
+    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
+      meta_tags
+        .iter()
+        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
 
   let opengraph_html =
-    config
-      .opengraph
-      .as_ref()
-      .map_or_else(String::new, |opengraph| {
-        opengraph
-          .iter()
-          .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-          .collect::<Vec<_>>()
-          .join("\n    ")
-      });
+    get_opengraph(config).map_or_else(String::new, |opengraph| {
+      opengraph
+        .iter()
+        .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -1391,4 +1376,32 @@ fn add_example_value(html: &mut String, option: &NixOption) {
       );
     }
   }
+}
+
+/// Get `OpenGraph` tags with backward compatibility
+///
+/// Checks the new `meta.opengraph` field first, then falls back to deprecated
+/// `opengraph` field
+#[allow(deprecated)]
+const fn get_opengraph(config: &Config) -> Option<&HashMap<String, String>> {
+  if let Some(ref meta) = config.meta {
+    if let Some(ref og) = meta.opengraph {
+      return Some(og);
+    }
+  }
+  config.opengraph.as_ref()
+}
+
+/// Get meta tags with backward compatibility
+///
+/// Checks the new `meta.tags` field first, then falls back to deprecated
+/// `meta_tags` field
+#[allow(deprecated)]
+const fn get_meta_tags(config: &Config) -> Option<&HashMap<String, String>> {
+  if let Some(ref meta) = config.meta {
+    if let Some(ref tags) = meta.tags {
+      return Some(tags);
+    }
+  }
+  config.meta_tags.as_ref()
 }
