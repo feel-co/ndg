@@ -538,14 +538,17 @@ fn sidebar_numbering_excludes_special_files() {
     "Special files should not be numbered"
   );
 
-  // Regular files should be numbered starting from 1
+  // Regular files should be numbered starting from 1, in alphabetical order
+  // Verify exact ordering by checking positions in HTML
+  let pos_1_guide = html.find("1. Guide").expect("Should contain '1. Guide'");
+  let pos_2_tutorial = html
+    .find("2. Tutorial")
+    .expect("Should contain '2. Tutorial'");
+
+  // Verify the sequence: 1. Guide < 2. Tutorial
   assert!(
-    html.contains("1. Guide") || html.contains("1. Tutorial"),
-    "First regular file should be numbered 1"
-  );
-  assert!(
-    html.contains("2. Guide") || html.contains("2. Tutorial"),
-    "Second regular file should be numbered 2"
+    pos_1_guide < pos_2_tutorial,
+    "'1. Guide' must appear before '2. Tutorial' in HTML (alphabetical order)"
   );
 }
 
@@ -585,25 +588,29 @@ fn sidebar_numbering_special_files_included() {
   let html = template::render(&config, content, title, &headers, rel_path)
     .expect("Should render HTML");
 
-  // All files should be numbered (special files first, then alphabetically)
-  // Special files should be numbered
-  assert!(
-    html.contains("1. Index") || html.contains("1. Readme"),
-    "First special file should be numbered 1"
-  );
-  assert!(
-    html.contains("2. Index") || html.contains("2. Readme"),
-    "Second special file should be numbered 2"
-  );
+  // All files should be numbered in exact sequence: special files first
+  // (alphabetically), then regular files (alphabetically) Verify exact
+  // ordering by checking positions in HTML
+  let pos_1_index = html.find("1. Index").expect("Should contain '1. Index'");
+  let pos_2_readme =
+    html.find("2. Readme").expect("Should contain '2. Readme'");
+  let pos_3_guide = html.find("3. Guide").expect("Should contain '3. Guide'");
+  let pos_4_tutorial = html
+    .find("4. Tutorial")
+    .expect("Should contain '4. Tutorial'");
 
-  // Regular files should continue the numbering sequence
+  // Verify the sequence: 1. Index < 2. Readme < 3. Guide < 4. Tutorial
   assert!(
-    html.contains("3. Guide") || html.contains("3. Tutorial"),
-    "First regular file should be numbered 3"
+    pos_1_index < pos_2_readme,
+    "'1. Index' must appear before '2. Readme' in HTML"
   );
   assert!(
-    html.contains("4. Guide") || html.contains("4. Tutorial"),
-    "Second regular file should be numbered 4"
+    pos_2_readme < pos_3_guide,
+    "'2. Readme' must appear before '3. Guide' in HTML"
+  );
+  assert!(
+    pos_3_guide < pos_4_tutorial,
+    "'3. Guide' must appear before '4. Tutorial' in HTML"
   );
 }
 
@@ -617,6 +624,13 @@ fn sidebar_numbering_disabled_no_numbers() {
     .expect("Failed to write index.md");
   fs::write(input_dir.join("guide.md"), "# Guide\nGuide content")
     .expect("Failed to write guide.md");
+  fs::write(input_dir.join("README.md"), "# README\nREADME content")
+    .expect("Failed to write README.md");
+  fs::write(
+    input_dir.join("tutorial.md"),
+    "# Tutorial\nTutorial content",
+  )
+  .expect("Failed to write tutorial.md");
 
   let mut config = minimal_config();
   config.input_dir = Some(input_dir.to_path_buf());
@@ -638,7 +652,14 @@ fn sidebar_numbering_disabled_no_numbers() {
 
   // No files should have numbers when numbering is disabled
   assert!(
-    !html.contains("1. Index") && !html.contains("1. Guide"),
+    !html.contains("1. Index")
+      && !html.contains("1. Guide")
+      && !html.contains("1. README")
+      && !html.contains("1. Tutorial"),
     "No files should be numbered when numbering is disabled"
+  );
+  assert!(
+    !html.contains("2. ") && !html.contains("3. ") && !html.contains("4. "),
+    "No numbered items should appear in sidebar"
   );
 }

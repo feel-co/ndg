@@ -263,7 +263,24 @@ fn test_sidebar_integration() {
   )
   .expect("Failed to render HTML with regex config in test");
 
-  // Verify the regex match worked - the title contains "Guide" so it should
-  // match
-  assert!(html_regex.contains("📖 Guide") || html_regex.contains("Guide"));
+  // Verify the regex match worked - the sidebar title should be replaced with
+  // emoji
+  assert!(
+    html_regex.contains("📖 Guide"),
+    "Expected emoji replacement '📖 Guide' not found in HTML"
+  );
+
+  // Ensure the original plain "Installation Guide" is NOT in a sidebar link
+  // Extract navigation/sidebar section to check title replacement occurred
+  let sidebar_section = html_regex
+    .split("<aside")
+    .nth(1)
+    .or_else(|| html_regex.split("class=\"sidebar").nth(1))
+    .unwrap_or("");
+
+  assert!(
+    !sidebar_section.contains(">Installation Guide<"),
+    "Sidebar should not contain plain 'Installation Guide' link; should be \
+     replaced with '📖 Guide'"
+  );
 }
