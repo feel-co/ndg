@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Write, fs, path::Path};
+use std::{collections::HashMap, fmt::Write, fs, path::Path, string::String};
 
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
@@ -9,6 +9,7 @@ use tera::Tera;
 use crate::{
   config::{Config, sidebar::SidebarOrdering},
   formatter::options::NixOption,
+  utils::html::{calculate_root_relative_path, generate_asset_paths},
 };
 
 // Template constants - these serve as fallbacks
@@ -81,11 +82,9 @@ pub fn render(
     "style=\"display:none;\""
   };
 
-  // Generate custom scripts HTML
   let custom_scripts = generate_custom_scripts(config, rel_path)?;
-
-  // Generate asset and navigation paths based on file location
-  let asset_paths = crate::utils::html::generate_asset_paths(rel_path);
+  let asset_paths = generate_asset_paths(rel_path);
+  let root_prefix = calculate_root_relative_path(rel_path);
 
   // Prepare meta tags HTML
   let meta_tags_html =
@@ -100,7 +99,7 @@ pub fn render(
   // Prepare OpenGraph tags HTML, handling og:image as local path or URL
   #[allow(
     clippy::option_if_let_else,
-    reason = " Complex image handling logic clearer with if-let"
+    reason = "Complex image handling logic clearer with if-let"
   )]
   let opengraph_html = if let Some(opengraph) = get_opengraph(config) {
     opengraph
@@ -183,43 +182,44 @@ pub fn render(
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
-  // Add asset paths
+  // Populate Tera context with asset paths
   tera_context.insert(
     "stylesheet_path",
     asset_paths
       .get("stylesheet_path")
-      .map_or("assets/style.css", std::string::String::as_str),
+      .map_or("assets/style.css", String::as_str),
   );
   tera_context.insert(
     "main_js_path",
     asset_paths
       .get("main_js_path")
-      .map_or("assets/main.js", std::string::String::as_str),
+      .map_or("assets/main.js", String::as_str),
   );
   tera_context.insert(
     "search_js_path",
     asset_paths
       .get("search_js_path")
-      .map_or("assets/search.js", std::string::String::as_str),
+      .map_or("assets/search.js", String::as_str),
   );
   tera_context.insert(
     "index_path",
     asset_paths
       .get("index_path")
-      .map_or("index.html", std::string::String::as_str),
+      .map_or("index.html", String::as_str),
   );
   tera_context.insert(
     "options_path",
     asset_paths
       .get("options_path")
-      .map_or("options.html", std::string::String::as_str),
+      .map_or("options.html", String::as_str),
   );
   tera_context.insert(
     "search_path",
     asset_paths
       .get("search_path")
-      .map_or("search.html", std::string::String::as_str),
+      .map_or("search.html", String::as_str),
   );
+  tera_context.insert("root_prefix", &root_prefix);
 
   // Render the template
   let html = tera.render("default", &tera_context)?;
@@ -274,8 +274,9 @@ pub fn render_options(
   // Generate custom scripts HTML for root level
   let custom_scripts = generate_custom_scripts(config, root_path)?;
 
-  // Generate asset and navigation paths (options page is at root)
-  let asset_paths = crate::utils::html::generate_asset_paths(root_path);
+  // Generate asset and navigation paths
+  let asset_paths = generate_asset_paths(root_path);
+  let root_prefix = calculate_root_relative_path(root_path);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -376,6 +377,7 @@ pub fn render_options(
       .get("search_path")
       .map_or("search.html", std::string::String::as_str),
   );
+  tera_context.insert("root_prefix", &root_prefix);
 
   // Render the template
   let html = tera.render("options", &tera_context)?;
@@ -681,6 +683,10 @@ pub fn render_search(
   // Generate asset and navigation paths (search page is at root)
   let asset_paths = crate::utils::html::generate_asset_paths(root_path);
 
+  // Calculate root prefix for JavaScript path resolution (search page is at
+  // root)
+  let root_prefix = crate::utils::html::calculate_root_relative_path(root_path);
+
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
     let mut ctx = tera::Context::new();
@@ -779,6 +785,7 @@ pub fn render_search(
       .get("search_path")
       .map_or("search.html", std::string::String::as_str),
   );
+  tera_context.insert("root_prefix", &root_prefix);
 
   // Render the template
   let html = tera.render("search", &tera_context)?;
@@ -871,8 +878,7 @@ fn extract_page_title(path: &Path, html_path: &Path) -> String {
 /// Generate the document navigation HTML
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let mut doc_nav = String::new();
-  let root_prefix =
-    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
+  let root_prefix = calculate_root_relative_path(current_file_rel_path);
 
   // Only process markdown files if input_dir is provided
   if let Some(input_dir) = &config.input_dir {
