@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, reason = "Fine in tests")]
 use comrak::{Arena, options::Options, parse_document};
 use ndg_commonmark::processor::{AstTransformer, PromptTransformer};
 

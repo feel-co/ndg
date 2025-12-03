@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, reason = "Fine in tests")]
 use std::fs;
 
 use ndg::config::Config;
