@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, reason = "Fine in tests")]
 use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
 
 /// Extract headers from markdown using the actual code.

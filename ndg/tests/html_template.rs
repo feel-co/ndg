@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, reason = "Panics are fine inside tests.")]
+#![allow(clippy::expect_used, reason = "Fine in tests")]
 use std::{collections::HashMap, fs, path::Path};
 
 use ndg::{

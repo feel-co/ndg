@@ -8,6 +8,7 @@ class SearchEngine {
     this.loadError = false;
     this.useWebWorker = typeof Worker !== 'undefined' && searchWorker !== null;
     this.fullDocuments = null; // for lazy loading
+    this.rootPath = window.searchNamespace?.rootPath || '';
   }
 
   // Load search data from JSON
@@ -353,6 +354,22 @@ class SearchEngine {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  // Resolve path relative to current page location
+  resolvePath(path) {
+    // If path already starts with '/', it's absolute from domain root
+    if (path.startsWith('/')) {
+      return path;
+    }
+    
+    // If path starts with '#', it's a fragment on current page
+    if (path.startsWith('#')) {
+      return path;
+    }
+    
+    // Prepend root path for relative navigation
+    return this.rootPath + path;
+  }
+
   // Optimized JSON parser for large files
   async parseLargeJSON(response) {
     const contentLength = response.headers.get('content-length');
@@ -520,9 +537,10 @@ document.addEventListener("DOMContentLoaded", function() {
                   doc.title,
                   window.searchNamespace.engine.tokenize(searchTerm)
                 );
+                const resolvedPath = window.searchNamespace.engine.resolvePath(doc.path);
                 return `
                           <div class="search-result-item">
-                              <a href="${doc.path}">${highlightedTitle}</a>
+                              <a href="${resolvedPath}">${highlightedTitle}</a>
                           </div>
                       `;
               },
@@ -677,9 +695,10 @@ document.addEventListener("DOMContentLoaded", function() {
                     doc.title,
                     window.searchNamespace.engine.tokenize(searchTerm)
                   );
+                  const resolvedPath = window.searchNamespace.engine.resolvePath(doc.path);
                   return `
                     <div class="search-result-item">
-                        <a href="${doc.path}">${highlightedTitle}</a>
+                        <a href="${resolvedPath}">${highlightedTitle}</a>
                     </div>
                 `;
                 },
@@ -742,8 +761,9 @@ async function performSearch(query) {
       for (const result of results) {
         const highlightedTitle = window.searchNamespace.engine.highlightTerms(result.title, queryTerms);
         const preview = window.searchNamespace.engine.generatePreview(result.content, query);
+        const resolvedPath = window.searchNamespace.engine.resolvePath(result.path);
         html += `<li class="search-result-item">
-          <a href="${result.path}">
+          <a href="${resolvedPath}">
             <div class="search-result-title">${highlightedTitle}</div>
             <div class="search-result-preview">${preview}</div>
           </a>
