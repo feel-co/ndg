@@ -34,7 +34,7 @@ html-escape = "0.2.13"
 html5ever = "0.36.1"
 jiff = "0.2.16"
 kuchikikiki = "0.9.1"
-log = "0.4.28"
+log = "0.4.29"
 markup5ever = "0.36.1"
 minifier = { version = "0.3.6", features = [ "html" ] }
 ndg = { path = "./ndg" }
