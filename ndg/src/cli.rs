@@ -122,7 +122,7 @@ pub enum Commands {
     highlight_code: bool,
 
     /// GitHub revision for linking to source files.
-    #[arg(long, default_value = "local")]
+    #[arg(long)]
     revision: Option<String>,
   },
 
