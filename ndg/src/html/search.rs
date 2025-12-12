@@ -18,9 +18,9 @@ use crate::{config::Config, html};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchDocument {
   id:           String,
-  title:        String,
+  pub title:    String,
   content:      String,
-  path:         String,
+  pub path:     String,
   tokens:       Vec<String>,
   title_tokens: Vec<String>,
 }
