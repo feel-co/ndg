@@ -75,9 +75,11 @@ pub struct Config {
   /// GitHub revision for linking to source files.
   pub revision: String,
 
-  /// Files to exclude from sidebar navigation (included files).
+  /// Files that are included via {=include=}, mapped to their parent input
+  /// files
   #[serde(skip)]
-  pub excluded_files: std::collections::HashSet<std::path::PathBuf>,
+  pub included_files:
+    std::collections::HashMap<std::path::PathBuf, std::path::PathBuf>,
 
   /// How to handle hard tabs in code blocks.
   pub tab_style: String,
@@ -118,7 +120,7 @@ impl Default for Config {
       options_toc_depth: 2,
       highlight_code:    true,
       revision:          "local".to_string(),
-      excluded_files:    std::collections::HashSet::new(),
+      included_files:    std::collections::HashMap::new(),
       tab_style:         "none".to_string(),
       meta:              None,
       sidebar:           None,

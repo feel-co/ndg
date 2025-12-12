@@ -7,6 +7,7 @@ use std::{
 
 use color_eyre::eyre::{Context, Result};
 use log::info;
+use ndg_commonmark::utils::slugify;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -18,9 +19,9 @@ use crate::{config::Config, html};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchDocument {
   id:           String,
-  title:        String,
+  pub title:    String,
   content:      String,
-  path:         String,
+  pub path:     String,
   tokens:       Vec<String>,
   title_tokens: Vec<String>,
 }
@@ -95,13 +96,9 @@ pub fn generate_search_index(
   let mut doc_id = 0;
 
   // Process markdown files in parallel if available and input_dir is provided
-  if !markdown_files.is_empty() && config.input_dir.is_some() {
-    #[allow(
-      clippy::unwrap_used,
-      reason = "We just checked that input_dir is Some above"
-    )]
-    let input_dir = config.input_dir.as_ref().unwrap();
-
+  if !markdown_files.is_empty()
+    && let Some(ref input_dir) = config.input_dir
+  {
     let documents: Result<Vec<_>> = markdown_files
       .par_iter()
       .map(|file_path| {
@@ -112,12 +109,15 @@ pub fn generate_search_index(
           )
         })?;
 
-        let title = extract_title(&content).unwrap_or_else(|| {
-          file_path
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string()
+        let (title, id) = extract_title_and_id(&content).unwrap_or_else(|| {
+          (
+            file_path
+              .file_stem()
+              .unwrap_or_default()
+              .to_string_lossy()
+              .to_string(),
+            None,
+          )
         });
 
         let plain_text = crate::utils::html::content_to_plaintext(&content);
@@ -130,19 +130,26 @@ pub fn generate_search_index(
             )
           })?;
 
-        let mut output_path = rel_path.to_owned();
+        let mut output_path = config
+          .included_files
+          .get(rel_path)
+          .map_or_else(|| rel_path.to_owned(), ToOwned::to_owned);
         output_path.set_extension("html");
+
+        let path = if config.included_files.contains_key(rel_path) {
+          format!(
+            "{}#{}",
+            output_path.to_string_lossy(),
+            id.unwrap_or_else(|| slugify(&title))
+          )
+        } else {
+          output_path.to_string_lossy().to_string()
+        };
 
         let tokens = tokenize(&plain_text);
         let title_tokens = tokenize(&title);
 
-        Ok((
-          title,
-          plain_text,
-          output_path.to_string_lossy().to_string(),
-          tokens,
-          title_tokens,
-        ))
+        Ok((title, plain_text, path, tokens, title_tokens))
       })
       .collect();
 
@@ -221,9 +228,9 @@ pub fn generate_search_index(
   Ok(())
 }
 
-/// Extract title from markdown content (first H1)
-fn extract_title(content: &str) -> Option<String> {
-  ndg_commonmark::utils::extract_title_from_markdown(content)
+/// Extract title and anchor ID from markdown content (first H1)
+fn extract_title_and_id(content: &str) -> Option<(String, Option<String>)> {
+  ndg_commonmark::utils::extract_markdown_title_and_id(content)
 }
 
 /// Create the search page HTML and write it to the output directory.

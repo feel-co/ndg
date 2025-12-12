@@ -73,12 +73,17 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 ///
 /// [`None`] if no H1 heading is found.
 ///
+/// `Some(title, id)` if a H1 heading is found. id can be None if inline anchor
+/// does not exist.
+///
 /// # Panics
 ///
 /// Panics if the fallback regex pattern fails to compile, which should never
 /// happen with the hardcoded pattern.
 #[must_use]
-pub fn extract_title_from_markdown(content: &str) -> Option<String> {
+pub fn extract_markdown_title_and_id(
+  content: &str,
+) -> Option<(String, Option<String>)> {
   let arena = Arena::new();
   let mut options = Options::default();
   options.extension.table = true;
@@ -96,7 +101,7 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
   )]
   static ANCHOR_RE: OnceLock<Regex> = OnceLock::new();
   let anchor_re = ANCHOR_RE.get_or_init(|| {
-    Regex::new(r"(\[\]\{#.*?\}|\{#.*?\})").unwrap_or_else(|e| {
+    Regex::new(r"(\[\])?\{#(.*?)\}").unwrap_or_else(|e| {
       log::error!(
         "Failed to compile ANCHOR_RE regex in extract_h1_title: {e}\n Falling \
          back to never matching regex."
@@ -125,9 +130,12 @@ pub fn extract_title_from_markdown(content: &str) -> Option<String> {
           }
         }
         // Clean the title by removing inline anchors and other NDG markup
+        let anchor_id = anchor_re
+          .captures(&text)
+          .and_then(|caps| Some(caps.get(2)?.as_str().to_string()));
         let clean_title = anchor_re.replace_all(&text, "").trim().to_string();
         if !clean_title.is_empty() {
-          return Some(clean_title);
+          return Some((clean_title, anchor_id));
         }
       }
     }

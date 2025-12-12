@@ -896,7 +896,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         // Filter out excluded files (included files)
         e.path()
           .strip_prefix(input_dir)
-          .is_ok_and(|rel_path| !config.excluded_files.contains(rel_path))
+          .is_ok_and(|rel_path| !config.included_files.contains_key(rel_path))
       })
       .collect();
 
