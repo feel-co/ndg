@@ -7,6 +7,7 @@ use std::{
 
 use color_eyre::eyre::{Context, Result};
 use log::info;
+use ndg_commonmark::utils::slugify;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -108,12 +109,15 @@ pub fn generate_search_index(
           )
         })?;
 
-        let title = extract_title(&content).unwrap_or_else(|| {
-          file_path
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string()
+        let (title, id) = extract_title_and_id(&content).unwrap_or_else(|| {
+          (
+            file_path
+              .file_stem()
+              .unwrap_or_default()
+              .to_string_lossy()
+              .to_string(),
+            None,
+          )
         });
 
         let plain_text = crate::utils::html::content_to_plaintext(&content);
@@ -132,16 +136,20 @@ pub fn generate_search_index(
           .map_or_else(|| rel_path.to_owned(), ToOwned::to_owned);
         output_path.set_extension("html");
 
+        let path = if config.included_files.contains_key(rel_path) {
+          format!(
+            "{}#{}",
+            output_path.to_string_lossy(),
+            id.unwrap_or_else(|| slugify(&title))
+          )
+        } else {
+          output_path.to_string_lossy().to_string()
+        };
+
         let tokens = tokenize(&plain_text);
         let title_tokens = tokenize(&title);
 
-        Ok((
-          title,
-          plain_text,
-          output_path.to_string_lossy().to_string(),
-          tokens,
-          title_tokens,
-        ))
+        Ok((title, plain_text, path, tokens, title_tokens))
       })
       .collect();
 
@@ -220,9 +228,9 @@ pub fn generate_search_index(
   Ok(())
 }
 
-/// Extract title from markdown content (first H1)
-fn extract_title(content: &str) -> Option<String> {
-  ndg_commonmark::utils::extract_title_from_markdown(content)
+/// Extract title and anchor ID from markdown content (first H1)
+fn extract_title_and_id(content: &str) -> Option<(String, Option<String>)> {
+  ndg_commonmark::utils::extract_markdown_title_and_id(content)
 }
 
 /// Create the search page HTML and write it to the output directory.
