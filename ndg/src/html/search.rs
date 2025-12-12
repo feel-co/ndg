@@ -95,13 +95,9 @@ pub fn generate_search_index(
   let mut doc_id = 0;
 
   // Process markdown files in parallel if available and input_dir is provided
-  if !markdown_files.is_empty() && config.input_dir.is_some() {
-    #[allow(
-      clippy::unwrap_used,
-      reason = "We just checked that input_dir is Some above"
-    )]
-    let input_dir = config.input_dir.as_ref().unwrap();
-
+  if !markdown_files.is_empty()
+    && let Some(ref input_dir) = config.input_dir
+  {
     let documents: Result<Vec<_>> = markdown_files
       .par_iter()
       .map(|file_path| {
@@ -130,7 +126,10 @@ pub fn generate_search_index(
             )
           })?;
 
-        let mut output_path = rel_path.to_owned();
+        let mut output_path = config
+          .included_files
+          .get(rel_path)
+          .map_or_else(|| rel_path.to_owned(), ToOwned::to_owned);
         output_path.set_extension("html");
 
         let tokens = tokenize(&plain_text);
