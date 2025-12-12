@@ -13,6 +13,7 @@ use ndg::{
   },
   utils::{collect_included_files, create_processor},
 };
+use ndg_commonmark::collect_markdown_files;
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -140,17 +141,25 @@ Some content.
 
 ```{=include=}
 included/file.md
+included/section_no_id.md
 ```
 ";
   fs::write(input_dir.join("main.md"), main_content)
     .expect("Failed to write options.json");
 
-  let included_content = "# Included file
+  let included_content = "# Included file {#included-file-heading}
 
 Some included content.
 ";
   fs::write(included_dir.join("file.md"), included_content)
     .expect("Failed to write included/file.md");
+
+  let no_anchor_id_content = "# Section without an anchor ID
+
+Some text.
+";
+  fs::write(included_dir.join("section_no_id.md"), no_anchor_id_content)
+    .expect("Failed to write section_no_id.md");
 
   let mut config = Config {
     input_dir: Some(input_dir.clone()),
@@ -165,11 +174,9 @@ Some included content.
   config.included_files = collect_included_files(&config, processor.as_ref())
     .expect("Failed to collect include files");
 
-  generate_search_index(&config, &[
-    input_dir.join("main.md"),
-    included_dir.join("file.md"),
-  ])
-  .expect("Failed to generate search index");
+  let markdown_files = collect_markdown_files(&input_dir);
+  generate_search_index(&config, &markdown_files)
+    .expect("Failed to generate search index");
 
   // Verify that search data is generated correctly
   let index_file =
@@ -182,5 +189,13 @@ Some included content.
     .find(|doc| doc.title == "Included file")
     .expect("included file not found in search-data.json");
 
-  assert_eq!(included_doc.path, "main.html");
+  assert_eq!(included_doc.path, "main.html#included-file-heading");
+
+  // println!("{}", temp_dir.keep().display());
+  let no_id_doc = search_data
+    .iter()
+    .find(|doc| doc.title == "Section without an anchor ID")
+    .expect("section_no_id file not found in search-data.json");
+
+  assert_eq!(no_id_doc.path, "main.html#section-without-an-anchor-id");
 }
