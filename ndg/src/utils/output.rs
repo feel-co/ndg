@@ -42,7 +42,7 @@ pub fn create_fallback_index(
       for file_path in markdown_files {
         if let Ok(rel_path) = file_path.strip_prefix(input_dir) {
           // Skip included files that are not generated as HTML
-          if config.excluded_files.contains(rel_path) {
+          if config.included_files.contains_key(rel_path) {
             continue;
           }
 
