@@ -77,9 +77,12 @@ pub fn collect_included_files(
           all_included_files
             .entry(inc_rel.to_path_buf())
             .and_modify(|old| {
-              // for deterministic output
-              if includer_rel < *old {
-                includer_rel.clone_into(old);
+              // For deterministic output
+              if includer_rel < old.as_path() {
+                *old = {
+                  let this = &includer_rel;
+                  this.to_path_buf()
+                };
               }
             })
             .or_insert_with(|| includer_rel.to_owned());
