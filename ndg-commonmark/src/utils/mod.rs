@@ -132,7 +132,7 @@ pub fn extract_markdown_title_and_id(
         // Clean the title by removing inline anchors and other NDG markup
         let anchor_id = anchor_re
           .captures(&text)
-          .and_then(|caps| Some(caps.get(2)?.as_str().to_string()));
+          .and_then(|caps| caps.get(2).map(|m| m.as_str().to_string()));
         let clean_title = anchor_re.replace_all(&text, "").trim().to_string();
         if !clean_title.is_empty() {
           return Some((clean_title, anchor_id));
