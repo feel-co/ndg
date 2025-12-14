@@ -1,7 +1,7 @@
 use std::{
   collections::{HashMap, HashSet},
   fs,
-  path::PathBuf,
+  path::{Path, PathBuf},
   sync::OnceLock,
 };
 
@@ -130,10 +130,19 @@ pub fn generate_search_index(
             )
           })?;
 
-        let mut output_path = config
-          .included_files
-          .get(rel_path)
-          .map_or_else(|| rel_path.to_owned(), ToOwned::to_owned);
+        let mut output_path = config.included_files.get(rel_path).map_or_else(
+          || rel_path.to_owned(),
+          |mut includer| {
+            // find the root document that transitively includes this file
+            // NOTE: it'll be more efficient to resolve this in
+            // collect_included_files() but with the way it works
+            // right now, it's not easy to
+            while let Some(parent) = config.included_files.get(includer) {
+              includer = parent;
+            }
+            includer.to_owned()
+          },
+        );
         output_path.set_extension("html");
 
         let path = if config.included_files.contains_key(rel_path) {

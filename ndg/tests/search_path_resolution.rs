@@ -130,9 +130,10 @@ fn test_search_path_resolution_of_included_file() {
   let temp_dir = TempDir::new().expect("Failed to create temp dir");
   let input_dir = temp_dir.path().join("input");
   let included_dir = input_dir.join("included");
+  let deep_dir = included_dir.join("transitive");
   let output_dir = temp_dir.path().join("output");
 
-  create_dir_all(&included_dir).expect("failed to create input dir");
+  create_dir_all(&deep_dir).expect("failed to create input dir");
   create_dir_all(&output_dir).expect("failed to create output dir");
 
   let main_content = "# Main file
@@ -156,9 +157,18 @@ Some included content.
 
   let no_anchor_id_content = "# Section without an anchor ID
 
-Some text.
+```{=include=}
+transitive/included.md
+```
 ";
   fs::write(included_dir.join("section_no_id.md"), no_anchor_id_content)
+    .expect("Failed to write section_no_id.md");
+
+  let transitive_included_content = "# Transitively included file
+
+This file should be transitively included in `main.html`
+";
+  fs::write(deep_dir.join("included.md"), transitive_included_content)
     .expect("Failed to write section_no_id.md");
 
   let mut config = Config {
@@ -191,11 +201,20 @@ Some text.
 
   assert_eq!(included_doc.path, "main.html#included-file-heading");
 
-  // println!("{}", temp_dir.keep().display());
   let no_id_doc = search_data
     .iter()
     .find(|doc| doc.title == "Section without an anchor ID")
     .expect("section_no_id file not found in search-data.json");
 
   assert_eq!(no_id_doc.path, "main.html#section-without-an-anchor-id");
+
+  let transitive_inc_doc = search_data
+    .iter()
+    .find(|doc| doc.title == "Transitively included file")
+    .expect("transitively included file not found in search-data.json");
+
+  assert_eq!(
+    transitive_inc_doc.path,
+    "main.html#transitively-included-file"
+  );
 }
