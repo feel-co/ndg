@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use color_eyre::eyre::{Context, Result};
 use log::{LevelFilter, info};
@@ -156,7 +156,26 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   // Generate search index if enabled, regardless of whether there are markdown
   // files
   if config.generate_search {
-    html::search::generate_search_index(config, &markdown_files)?;
+    // Filter out included files - they should not appear as standalone entries
+    // in search results. Their content is indexed as part of the parent
+    // document.
+    let searchable_files: Vec<PathBuf> =
+      if let Some(ref input_dir) = config.input_dir {
+        markdown_files
+          .iter()
+          .filter(|file| {
+            file
+              .strip_prefix(input_dir)
+              .ok()
+              .is_none_or(|rel| !config.included_files.contains_key(rel))
+          })
+          .cloned()
+          .collect()
+      } else {
+        markdown_files
+      };
+
+    html::search::generate_search_index(config, &searchable_files)?;
   }
 
   // Copy assets
