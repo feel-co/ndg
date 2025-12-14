@@ -32,7 +32,8 @@ type OutputEntry = (String, Vec<Header>, Option<String>, PathBuf, bool);
 ///
 /// # Returns
 ///
-/// A set of relative paths (to the input directory) of all included files.
+/// A mapping of included file paths (relative to input directory) to the parent
+/// input file path, which included that file
 ///
 /// # Errors
 ///
@@ -40,8 +41,8 @@ type OutputEntry = (String, Vec<Header>, Option<String>, PathBuf, bool);
 pub fn collect_included_files(
   config: &Config,
   processor: Option<&MarkdownProcessor>,
-) -> Result<HashSet<PathBuf>> {
-  let mut all_included_files: HashSet<PathBuf> = HashSet::new();
+) -> Result<HashMap<PathBuf, PathBuf>> {
+  let mut all_included_files: HashMap<PathBuf, PathBuf> = HashMap::new();
 
   if let Some(ref input_dir) = config.input_dir {
     let files = collect_markdown_files(input_dir);
@@ -69,7 +70,19 @@ pub fn collect_included_files(
         // Include paths are relative to the file's directory, not input_dir
         let inc_path = base_dir.join(&inc.path);
         if let Ok(inc_rel) = inc_path.strip_prefix(input_dir) {
-          all_included_files.insert(inc_rel.to_path_buf());
+          let Ok(includer_rel) = file_path.strip_prefix(input_dir) else {
+            continue;
+          };
+
+          all_included_files
+            .entry(inc_rel.to_path_buf())
+            .and_modify(|old| {
+              // for deterministic output
+              if includer_rel < *old {
+                includer_rel.clone_into(old);
+              }
+            })
+            .or_insert_with(|| includer_rel.to_owned());
         }
       }
     }
@@ -185,7 +198,7 @@ pub fn process_markdown_files(
       let output_path_str = output_path.to_string_lossy().to_string();
 
       // Check if this file is included in another file
-      let is_included = config.excluded_files.contains(rel_path);
+      let is_included = config.included_files.contains_key(rel_path);
 
       // Get any pending custom outputs for this file
       let custom_outputs =

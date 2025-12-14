@@ -140,9 +140,8 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   };
 
   // Collect all included files first
-  let excluded_files =
+  config.included_files =
     utils::collect_included_files(config, processor.as_ref())?;
-  config.excluded_files = excluded_files;
 
   // Process markdown files
   let markdown_files =
