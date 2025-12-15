@@ -6,9 +6,15 @@ class SearchEngine {
     this.tokenMap = new Map();
     this.isLoaded = false;
     this.loadError = false;
-    this.useWebWorker = typeof Worker !== 'undefined' && searchWorker !== null;
     this.fullDocuments = null; // for lazy loading
     this.rootPath = window.searchNamespace?.rootPath || '';
+  }
+
+  // Check if we can use Web Worker
+  get useWebWorker() {
+    if (searchWorker === false) return false; // previously failed
+    const worker = initializeSearchWorker();
+    return worker !== null;
   }
 
   // Load search data from JSON
@@ -22,7 +28,10 @@ class SearchEngine {
       // Load JSON data, try multiple possible paths
       // FIXME: There is only one possible path for now, and this search data is guaranteed
       // to generate at this location, but we'll want to extend this in the future.
-      const possiblePaths = ["/assets/search-data.json"];
+      const possiblePaths = [
+        `${this.rootPath}assets/search-data.json`,
+        "/assets/search-data.json" // fallback for root-level sites
+      ];
 
       let response = null;
       let usedPath = "";
@@ -305,10 +314,20 @@ class SearchEngine {
     return highlighted;
   }
 
-  // Web Worker search for large datasets
+  /**
+   * Web Worker search for large datasets
+   * @param {string} query - Search query
+   * @param {number} limit - Maximum results
+   * @returns {Promise<Array>} Search results
+   */
   async searchWithWorker(query, limit) {
+    const worker = initializeSearchWorker();
+    if (!worker) {
+      return this.fallbackSearch(query, limit);
+    }
+
     return new Promise((resolve, reject) => {
-      const messageId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const messageId = `search_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error('Web Worker search timeout'));
@@ -334,14 +353,14 @@ class SearchEngine {
       };
 
       const cleanup = () => {
-        searchWorker.removeEventListener('message', handleMessage);
-        searchWorker.removeEventListener('error', handleError);
+        worker.removeEventListener('message', handleMessage);
+        worker.removeEventListener('error', handleError);
       };
 
-      searchWorker.addEventListener('message', handleMessage);
-      searchWorker.addEventListener('error', handleError);
+      worker.addEventListener('message', handleMessage);
+      worker.addEventListener('error', handleError);
 
-      searchWorker.postMessage({
+      worker.postMessage({
         messageId,
         type: 'search',
         data: { documents: this.documents, query, limit }
@@ -360,12 +379,12 @@ class SearchEngine {
     if (path.startsWith('/')) {
       return path;
     }
-    
+
     // If path starts with '#', it's a fragment on current page
     if (path.startsWith('#')) {
       return path;
     }
-    
+
     // Prepend root path for relative navigation
     return this.rootPath + path;
   }
@@ -452,15 +471,24 @@ class SearchEngine {
 }
 
 // Web Worker for background search processing
-// This is CLEARLY the best way to do it lmao.
-// Create Web Worker if supported
+// Create Web Worker if supported - initialized lazily to use rootPath
 let searchWorker = null;
-if (typeof Worker !== 'undefined') {
+
+function initializeSearchWorker() {
+  if (searchWorker !== null || typeof Worker === 'undefined') {
+    return searchWorker;
+  }
+
   try {
-    searchWorker = new Worker('/assets/search-worker.js');
+    const rootPath = window.searchNamespace?.rootPath || '';
+    const workerPath = rootPath ? `${rootPath}assets/search-worker.js` : '/assets/search-worker.js';
+    searchWorker = new Worker(workerPath);
     console.log('Web Worker initialized for background search');
+    return searchWorker;
   } catch (error) {
     console.warn('Web Worker creation failed, using main thread:', error);
+    searchWorker = false; // mark as failed so we don't retry
+    return null;
   }
 }
 

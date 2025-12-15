@@ -15,6 +15,10 @@
     </script>
     <link rel="stylesheet" href="{{ stylesheet_path }}" />
     <script defer src="{{ main_js_path }}"></script>
+    <script>
+      window.searchNamespace = window.searchNamespace || {};
+      window.searchNamespace.rootPath = "{{ root_prefix }}";
+    </script>
     <script defer src="{{ search_js_path }}"></script>
   </head>
   <body>
