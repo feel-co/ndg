@@ -184,8 +184,21 @@ This file should be transitively included in `main.html`
   config.included_files = collect_included_files(&config, processor.as_ref())
     .expect("Failed to collect include files");
 
-  let markdown_files = collect_markdown_files(&input_dir);
-  generate_search_index(&config, &markdown_files)
+  let all_markdown_files = collect_markdown_files(&input_dir);
+
+  // Filter out included files - only standalone files should be in search index
+  let searchable_files: Vec<_> = all_markdown_files
+    .iter()
+    .filter(|file| {
+      file
+        .strip_prefix(&input_dir)
+        .ok()
+        .map_or(true, |rel| !config.included_files.contains_key(rel))
+    })
+    .cloned()
+    .collect();
+
+  generate_search_index(&config, &searchable_files)
     .expect("Failed to generate search index");
 
   // Verify that search data is generated correctly
@@ -194,27 +207,179 @@ This file should be transitively included in `main.html`
       .expect("Failed to open search-data.json");
   let search_data: Vec<SearchDocument> =
     serde_json::from_reader(index_file).expect("Failed to read index data");
-  let included_doc = search_data
+
+  // Only the main file should appear in search index
+  // The included files' content is already in main.html, so they're searchable
+  // through the main document
+  let main_doc = search_data
     .iter()
-    .find(|doc| doc.title == "Included file")
-    .expect("included file not found in search-data.json");
+    .find(|doc| doc.title == "Main file")
+    .expect("main file not found in search-data.json");
 
-  assert_eq!(included_doc.path, "main.html#included-file-heading");
+  assert_eq!(main_doc.path, "main.html");
 
-  let no_id_doc = search_data
+  // Included files should NOT have separate search entries
+  assert!(
+    search_data.iter().all(|doc| doc.title != "Included file"),
+    "Included files should not have separate search entries"
+  );
+  assert!(
+    search_data
+      .iter()
+      .all(|doc| doc.title != "Section without an anchor ID"),
+    "Included files should not have separate search entries"
+  );
+  assert!(
+    search_data
+      .iter()
+      .all(|doc| doc.title != "Transitively included file"),
+    "Included files should not have separate search entries"
+  );
+}
+
+#[test]
+fn test_nested_directory_include_search_paths() {
+  // This test replicates a real-world scenario where:
+  // - index.md includes installation/modules.md
+  // - installation/modules.md includes installation/modules/nixos.md
+  // The search index should NOT create entries for included files as
+  // standalone pages (e.g., installation/modules/nixos.html), but should
+  // index their content under the root document with anchors.
+
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let input_dir = temp_dir.path().join("input");
+  let installation_dir = input_dir.join("installation");
+  let modules_dir = installation_dir.join("modules");
+  let output_dir = temp_dir.path().join("output");
+
+  create_dir_all(&modules_dir).expect("failed to create modules dir");
+  create_dir_all(&output_dir).expect("failed to create output dir");
+
+  // Root document that includes a file from a subdirectory
+  let index_content = "# Documentation Index
+
+Welcome to the documentation.
+
+```{=include=}
+installation/modules.md
+```
+";
+  fs::write(input_dir.join("index.md"), index_content)
+    .expect("Failed to write index.md");
+
+  // Intermediate file that includes deeper nested files
+  let modules_content = "# Module Installation {#ch-module-installation}
+
+The below chapters describe module installation.
+
+```{=include=}
+modules/nixos.md
+modules/home-manager.md
+```
+";
+  fs::write(installation_dir.join("modules.md"), modules_content)
+    .expect("Failed to write installation/modules.md");
+
+  // Deeply nested included files
+  let nixos_content = "# NixOS Module {#ch-nixos-module}
+
+This describes the NixOS module installation.
+";
+  fs::write(modules_dir.join("nixos.md"), nixos_content)
+    .expect("Failed to write installation/modules/nixos.md");
+
+  let hm_content = "# Home Manager Module {#ch-home-manager-module}
+
+This describes the Home Manager module installation.
+";
+  fs::write(modules_dir.join("home-manager.md"), hm_content)
+    .expect("Failed to write installation/modules/home-manager.md");
+
+  let mut config = Config {
+    input_dir: Some(input_dir.clone()),
+    output_dir: output_dir.clone(),
+    module_options: None,
+    title: "Test Documentation".to_string(),
+    generate_search: true,
+    ..Default::default()
+  };
+
+  let processor = Some(create_processor(&config, None));
+  config.included_files = collect_included_files(&config, processor.as_ref())
+    .expect("Failed to collect include files");
+
+  let all_markdown_files = collect_markdown_files(&input_dir);
+
+  // Process markdown files to generate HTML
+  ndg::utils::process_markdown_files(&config, processor.as_ref())
+    .expect("Failed to process markdown files");
+
+  // Filter out included files - only standalone files should be in search index
+  let searchable_files: Vec<_> = all_markdown_files
     .iter()
-    .find(|doc| doc.title == "Section without an anchor ID")
-    .expect("section_no_id file not found in search-data.json");
+    .filter(|file| {
+      file
+        .strip_prefix(&input_dir)
+        .ok()
+        .map_or(true, |rel| !config.included_files.contains_key(rel))
+    })
+    .cloned()
+    .collect();
 
-  assert_eq!(no_id_doc.path, "main.html#section-without-an-anchor-id");
+  // Generate search index with only standalone files
+  generate_search_index(&config, &searchable_files)
+    .expect("Failed to generate search index");
 
-  let transitive_inc_doc = search_data
+  // Verify that search data is generated correctly
+  let index_file =
+    File::open(output_dir.join("assets").join("search-data.json"))
+      .expect("Failed to open search-data.json");
+  let search_data: Vec<SearchDocument> =
+    serde_json::from_reader(index_file).expect("Failed to read index data");
+
+  // The index document should be in search results
+  let index_doc = search_data
     .iter()
-    .find(|doc| doc.title == "Transitively included file")
-    .expect("transitively included file not found in search-data.json");
+    .find(|doc| doc.title == "Documentation Index");
+  assert!(
+    index_doc.is_some(),
+    "Index document should be in search results"
+  );
+  assert_eq!(index_doc.unwrap().path, "index.html");
 
-  assert_eq!(
-    transitive_inc_doc.path,
-    "main.html#transitively-included-file"
+  // Included files should NOT appear as separate search entries
+  // Their content is already in index.html
+  assert!(
+    search_data
+      .iter()
+      .all(|doc| doc.title != "Module Installation"),
+    "Included files should not have separate search entries"
+  );
+  assert!(
+    search_data.iter().all(|doc| doc.title != "NixOS Module"),
+    "Included files should not have separate search entries"
+  );
+  assert!(
+    search_data
+      .iter()
+      .all(|doc| doc.title != "Home Manager Module"),
+    "Included files should not have separate search entries"
+  );
+
+  // Verify that the included files are NOT created as standalone HTML files
+  assert!(
+    !output_dir.join("installation/modules.html").exists(),
+    "installation/modules.html should not be created (file is included)"
+  );
+  assert!(
+    !output_dir.join("installation/modules/nixos.html").exists(),
+    "installation/modules/nixos.html should not be created (file is included)"
+  );
+  assert!(
+    !output_dir
+      .join("installation/modules/home-manager.html")
+      .exists(),
+    "installation/modules/home-manager.html should not be created (file is \
+     included)"
   );
 }

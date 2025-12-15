@@ -1,13 +1,12 @@
 use std::{
   collections::{HashMap, HashSet},
   fs,
-  path::{Path, PathBuf},
+  path::PathBuf,
   sync::OnceLock,
 };
 
 use color_eyre::eyre::{Context, Result};
 use log::info;
-use ndg_commonmark::utils::slugify;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -68,7 +67,12 @@ fn tokenize(text: &str) -> Vec<String> {
   tokens.into_iter().collect()
 }
 
-/// Generate search index from markdown files
+/// Generate search index from standalone markdown files.
+///
+/// This function only processes markdown files that will be rendered as
+/// standalone HTML pages. Files that are included in other documents via
+/// `{=include=}` directives should not be passed to this function - their
+/// content is already indexed as part of the parent document.
 ///
 /// # Errors
 ///
@@ -95,7 +99,7 @@ pub fn generate_search_index(
   let mut search_index = SearchIndex::new();
   let mut doc_id = 0;
 
-  // Process markdown files in parallel if available and input_dir is provided
+  // Process standalone markdown files in parallel
   if !markdown_files.is_empty()
     && let Some(ref input_dir) = config.input_dir
   {
@@ -109,16 +113,17 @@ pub fn generate_search_index(
           )
         })?;
 
-        let (title, id) = extract_title_and_id(&content).unwrap_or_else(|| {
-          (
-            file_path
-              .file_stem()
-              .unwrap_or_default()
-              .to_string_lossy()
-              .to_string(),
-            None,
-          )
-        });
+        let (title, _id) =
+          extract_title_and_id(&content).unwrap_or_else(|| {
+            (
+              file_path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+              None,
+            )
+          });
 
         let plain_text = crate::utils::html::content_to_plaintext(&content);
 
@@ -130,30 +135,10 @@ pub fn generate_search_index(
             )
           })?;
 
-        let mut output_path = config.included_files.get(rel_path).map_or_else(
-          || rel_path.to_owned(),
-          |mut includer| {
-            // find the root document that transitively includes this file
-            // NOTE: it'll be more efficient to resolve this in
-            // collect_included_files() but with the way it works
-            // right now, it's not easy to
-            while let Some(parent) = config.included_files.get(includer) {
-              includer = parent;
-            }
-            includer.to_owned()
-          },
-        );
-        output_path.set_extension("html");
-
-        let path = if config.included_files.contains_key(rel_path) {
-          format!(
-            "{}#{}",
-            output_path.to_string_lossy(),
-            id.unwrap_or_else(|| slugify(&title))
-          )
-        } else {
-          output_path.to_string_lossy().to_string()
-        };
+        // Convert markdown path to HTML path
+        let mut html_path = rel_path.to_path_buf();
+        html_path.set_extension("html");
+        let path = html_path.to_string_lossy().to_string();
 
         let tokens = tokenize(&plain_text);
         let title_tokens = tokenize(&title);
