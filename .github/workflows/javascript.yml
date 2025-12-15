@@ -1,0 +1,49 @@
+name: JavaScript Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  changes:
+    name: Detect JavaScript Changes
+    runs-on: ubuntu-latest
+    outputs:
+      js_changed: ${{ steps.changed-files.outputs.js }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Get changed files
+        id: changed-files
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            js:
+              - '**/*.js'
+              - '.github/workflows/javascript.yml'
+
+  lint:
+    name: Lint JavaScript
+    needs: changes
+    if: ${{ needs.changes.outputs.js_changed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      # Deno has a relatively straightforward linter that we can use. If we had
+      # more Javascript ESLint could've been necessary, but it's overkill for now.
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.1.x
+
+      # For now we use Javascript in NDG templates, and the simple solution
+      # would be to lint ndg/templates/*.js but we *could* place Javascript
+      # in other locations, perhaps for a NDG website made with NDG so let's
+      # just lint all Javascript files no matter the path.
+      - name: Lint JavaScript files
+        run: |
+          deno lint **/*.js
