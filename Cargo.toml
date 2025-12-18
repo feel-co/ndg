@@ -11,8 +11,8 @@ keywords     = [ "markdown", "nix", "nixpkgs", "nixos", "documentation" ]
 license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/feel-co/ndg"
-rust-version = "1.85"
-version      = "2.4.1"
+rust-version = "1.90"
+version      = "2.5.0-beta1"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
@@ -36,7 +36,7 @@ jiff = "0.2.16"
 kuchikikiki = "0.9.1"
 log = "0.4.29"
 markup5ever = "0.36.1"
-minifier = { version = "0.3.6", features = [ "html" ] }
+minify-html = "0.18.1"
 ndg = { path = "./ndg" }
 ndg-commonmark = { path = "./ndg-commonmark" }
 num_cpus = "1.17.0"
@@ -93,10 +93,10 @@ opt-level = 0
 
 [profile.release]
 codegen-units = 1
-lto           = "thin"
-opt-level     = "s"
+lto           = true
+opt-level     = "z"
 panic         = "abort"
-strip         = true
+strip         = "symbols"
 
 [profile.dev.package.backtrace]
 opt-level = 3
