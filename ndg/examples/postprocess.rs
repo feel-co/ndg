@@ -75,32 +75,31 @@ greet("World");"#;
   let html_normal = process_html(html, &config_no_minify).unwrap();
   println!("{html_normal}\n");
 
-  // Demo 2: HTML with minification (collapse whitespace only)
-  println!("--- HTML (Minified - Collapse Whitespace) ---");
-  let config_minify_ws = PostprocessConfig {
+  // Demo 2: HTML with minification (keeping comments)
+  println!("--- HTML (Minified - Keep Comments) ---");
+  let config_keep_comments = PostprocessConfig {
     minify_html: true,
     html: Some(HtmlMinifyOptions {
-      collapse_whitespace: true,
-      remove_comments:     false,
+      remove_comments: false,
     }),
     ..Default::default()
   };
-  let html_minified_ws = process_html(html, &config_minify_ws).unwrap();
+  let html_minified_keep = process_html(html, &config_keep_comments).unwrap();
   println!(
     "Size: {} bytes (saved {} bytes, {:.1}% reduction)",
-    html_minified_ws.len(),
-    html.len() - html_minified_ws.len(),
-    ((html.len() - html_minified_ws.len()) as f64 / html.len() as f64) * 100.0
+    html_minified_keep.len(),
+    html.len() - html_minified_keep.len(),
+    ((html.len() - html_minified_keep.len()) as f64 / html.len() as f64)
+      * 100.0
   );
-  println!("{html_minified_ws}\n");
+  println!("{html_minified_keep}\n");
 
-  // Demo 3: HTML with full minification (collapse whitespace + remove comments)
+  // Demo 3: HTML with full minification (remove comments)
   println!("--- HTML (Minified - Full) ---");
   let config_minify_full = PostprocessConfig {
     minify_html: true,
     html: Some(HtmlMinifyOptions {
-      collapse_whitespace: true,
-      remove_comments:     true,
+      remove_comments: true,
     }),
     ..Default::default()
   };
