@@ -11,7 +11,6 @@ use color_eyre::eyre::{self, Context};
 use log::info;
 
 pub use crate::utils::{
-  self,
   assets::copy_assets,
   markdown::{
     collect_included_files,
@@ -81,7 +80,7 @@ pub fn ensure_index(
 
     // Apply postprocessing if requested
     let processed_html = if let Some(ref postprocess) = config.postprocess {
-      utils::postprocess::process_html(&html, postprocess)?
+      crate::utils::postprocess::process_html(&html, postprocess)?
     } else {
       html
     };
