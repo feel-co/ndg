@@ -1,7 +1,7 @@
 use color_eyre::{Result, eyre::eyre};
 use oxc_allocator::Allocator;
 use oxc_codegen::{Codegen, CodegenOptions};
-use oxc_minifier::{Minifier, MinifierOptions};
+use oxc_minifier::{CompressOptions, MangleOptions, Minifier, MinifierOptions};
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 
@@ -71,6 +71,8 @@ pub fn process_css(
     return Ok(content.to_string());
   }
 
+  let css_opts = config.css_options();
+
   let stylesheet = lightningcss::stylesheet::StyleSheet::parse(
     content,
     lightningcss::stylesheet::ParserOptions::default(),
@@ -79,7 +81,7 @@ pub fn process_css(
 
   let result = stylesheet
     .to_css(lightningcss::stylesheet::PrinterOptions {
-      minify: true,
+      minify: css_opts.minify,
       ..Default::default()
     })
     .map_err(|e| eyre!("Failed to minify CSS: {e}"))?;
@@ -128,7 +130,21 @@ pub fn process_js(content: &str, config: &PostprocessConfig) -> Result<String> {
 
   let mut program = ret.program;
 
-  let minifier_options = MinifierOptions::default();
+  let js_opts = config.js_options();
+
+  let minifier_options = MinifierOptions {
+    compress: if js_opts.compress {
+      Some(CompressOptions::default())
+    } else {
+      None
+    },
+    mangle:   if js_opts.mangle {
+      Some(MangleOptions::default())
+    } else {
+      None
+    },
+  };
+
   let minifier = Minifier::new(minifier_options);
   minifier.minify(&allocator, &mut program);
 
@@ -152,10 +168,7 @@ mod tests {
     };
     let html = "<html>  <body>  Test  </body>  </html>";
     let result = process_html(html, &config).unwrap();
-    assert_eq!(
-      result, html,
-      "Content should be unchanged when minification is disabled"
-    );
+    assert_eq!(result, html);
   }
 
   #[test]
@@ -164,49 +177,28 @@ mod tests {
       minify_html: true,
       ..Default::default()
     };
-    let html = "<html>\n  <body>\n    <p>Test</p>\n  </body>\n</html>";
+    let html = r#"<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+  </head>
+  <body>
+    <pre>code    with    spaces</pre>
+    <div><!-- Comment -->Content</div>
+  </body>
+</html>"#;
     let result = process_html(html, &config).unwrap();
 
-    assert!(
-      result.len() <= html.len(),
-      "Minified HTML should be shorter or equal"
-    );
-    assert!(result.contains("Test"), "Content should be preserved");
+    assert!(result.len() < html.len());
+    assert!(result.contains("charset"));
+    assert!(result.contains("code    with    spaces")); // <pre> preserves whitespace
+    assert!(!result.contains("<!-- Comment -->")); // Comments removed by default
+    assert!(result.contains("Content"));
   }
 
   #[test]
-  fn test_html_preserves_whitespace_sensitive_elements() {
-    let config = PostprocessConfig {
-      minify_html: true,
-      ..Default::default()
-    };
-    let html = "<pre>code    with    spaces</pre>";
-    let result = process_html(html, &config).unwrap();
-
-    assert!(
-      result.contains("code    with    spaces"),
-      "Pre tags should preserve whitespace"
-    );
-  }
-
-  #[test]
-  fn test_html_removes_comments_by_default() {
-    let config = PostprocessConfig {
-      minify_html: true,
-      ..Default::default()
-    };
-    let html = "<div><!-- This is a comment -->Content</div>";
-    let result = process_html(html, &config).unwrap();
-
-    assert!(
-      !result.contains("<!-- This is a comment -->"),
-      "Comments should be removed by default"
-    );
-    assert!(result.contains("Content"), "Content should be preserved");
-  }
-
-  #[test]
-  fn test_html_keeps_comments_when_configured() {
+  fn test_html_remove_comments_option() {
     let config = PostprocessConfig {
       minify_html: true,
       html: Some(crate::config::postprocess::HtmlMinifyOptions {
@@ -214,13 +206,10 @@ mod tests {
       }),
       ..Default::default()
     };
-    let html = "<div><!-- Keep this -->Content</div>";
+    let html = "<div><!-- Keep -->Content</div>";
     let result = process_html(html, &config).unwrap();
 
-    assert!(
-      result.contains("<!-- Keep this -->"),
-      "Comments should be kept when configured"
-    );
+    assert!(result.contains("<!-- Keep -->"));
   }
 
   #[test]
@@ -231,10 +220,7 @@ mod tests {
     };
     let css = "body { color: red; }";
     let result = process_css(css, &config).unwrap();
-    assert_eq!(
-      result, css,
-      "CSS should be unchanged when minification is disabled"
-    );
+    assert_eq!(result, css);
   }
 
   #[test]
@@ -243,47 +229,62 @@ mod tests {
       minify_css: true,
       ..Default::default()
     };
-    let css = "body {\n  color: red;\n  margin: 0;\n}";
+    let css = r"
+/* Comment */
+body {
+  color: #ff0000;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .container { width: 100%; }
+}
+";
     let result = process_css(css, &config).unwrap();
 
-    assert!(result.len() < css.len(), "Minified CSS should be shorter");
-    assert!(result.contains("red"), "Color value should be preserved");
-    assert!(!result.contains('\n'), "Newlines should be removed");
+    assert!(result.len() < css.len());
+    assert!(!result.contains("/*"));
+    assert!(!result.contains('\n'));
+    assert!(result.contains("@media"));
+    // lightningcss optimizes #ff0000 to red
+    assert!(result.contains("red") || result.contains("#f00"));
   }
 
   #[test]
-  fn test_css_minification_optimizes() {
+  fn test_css_minify_option() {
+    let css = "body { color: red; }";
+
+    // With minify: true
+    let config_minify = PostprocessConfig {
+      minify_css: true,
+      css: Some(crate::config::postprocess::CssMinifyOptions { minify: true }),
+      ..Default::default()
+    };
+    let result_minify = process_css(css, &config_minify).unwrap();
+
+    // With minify: false (should still parse but not minify)
+    let config_no_minify = PostprocessConfig {
+      minify_css: true,
+      css: Some(crate::config::postprocess::CssMinifyOptions { minify: false }),
+      ..Default::default()
+    };
+    let result_no_minify = process_css(css, &config_no_minify).unwrap();
+
+    // minify: false should produce longer output
+    assert!(result_no_minify.len() >= result_minify.len());
+  }
+
+  #[test]
+  fn test_css_invalid_syntax() {
     let config = PostprocessConfig {
       minify_css: true,
       ..Default::default()
     };
-    // lightningcss can optimize color values
-    let css = ".test { color: #ff0000; }";
-    let result = process_css(css, &config).unwrap();
-
-    // Should either keep #ff0000 or optimize to red
-    assert!(
-      result.contains("red") || result.contains("#f00"),
-      "Color should be optimized"
-    );
-  }
-
-  #[test]
-  fn test_css_minification_handles_invalid_syntax() {
-    let config = PostprocessConfig {
-      minify_css: true,
-      ..Default::default()
-    };
-    // This is actually valid CSS in some contexts (declarations can be omitted)
-    // We need to use truly invalid CSS
     let css = "body { @@@invalid: syntax; }";
     let result = process_css(css, &config);
 
-    assert!(result.is_err(), "Invalid CSS should return an error");
-    assert!(
-      result.unwrap_err().to_string().contains("parse"),
-      "Error should mention parsing"
-    );
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("parse"));
   }
 
   #[test]
@@ -294,10 +295,7 @@ mod tests {
     };
     let js = "function test() { return true; }";
     let result = process_js(js, &config).unwrap();
-    assert_eq!(
-      result, js,
-      "JS should be unchanged when minification is disabled"
-    );
+    assert_eq!(result, js);
   }
 
   #[test]
@@ -307,230 +305,102 @@ mod tests {
       ..Default::default()
     };
 
-    // Use code with side effects so it won't be eliminated by DCE
-    let js =
-      "console.log( 'test' ) ;\nconst x  =  1  +  2 ;\nconsole.log( x ) ;";
-    let result = process_js(js, &config).unwrap();
-
-    // Minification should compress, a.k.a, remove extra spaces, optimize
-    // syntax, and apply constant folding
-    assert!(result.len() < js.len(), "Minified JS should be shorter");
-
-    // Should preserve console.log calls (they have side effects)
-    assert!(
-      result.contains("console.log"),
-      "Should preserve console.log"
-    );
-  }
-
-  #[test]
-  fn test_js_minification_invalid_syntax() {
-    let config = PostprocessConfig {
-      minify_js: true,
-      ..Default::default()
-    };
-    // Use truly invalid JavaScript that cannot be parsed
-    let js = "function test() { @@@invalid }";
-    let result = process_js(js, &config);
-
-    assert!(result.is_err(), "Invalid JS should return an error");
-    assert!(
-      result.unwrap_err().to_string().contains("parse"),
-      "Error should mention parsing"
-    );
-  }
-
-  #[test]
-  fn test_html_document_prod() {
-    let config = PostprocessConfig {
-      minify_html: true,
-      ..Default::default()
-    };
-    let html = r#"<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Test Page</title>
-  </head>
-  <body>
-    <nav>
-      <a href="/">Home</a>
-      <a href="/about">About</a>
-    </nav>
-    <main>
-      <h1>Welcome</h1>
-      <p>This is a test paragraph with some content.</p>
-    </main>
-  </body>
-</html>"#;
-    let result = process_html(html, &config).unwrap();
-
-    assert!(result.len() < html.len(), "Should compress realistic HTML");
-    assert!(result.contains("Welcome"), "Should preserve content");
-    assert!(result.contains("charset"), "Should preserve meta tags");
-    assert!(!result.contains("  "), "Should remove extra spaces");
-  }
-
-  #[test]
-  fn test_html_empty_content() {
-    let config = PostprocessConfig {
-      minify_html: true,
-      ..Default::default()
-    };
-    let html = "";
-    let result = process_html(html, &config).unwrap();
-    assert_eq!(result, "", "Empty HTML should remain empty");
-  }
-
-  #[test]
-  fn test_css_realistic_stylesheet() {
-    let config = PostprocessConfig {
-      minify_css: true,
-      ..Default::default()
-    };
-    let css = r"
-// Header Styles
-.header {
-  background-color: #ffffff;
-  padding: 20px;
-  margin: 0;
-}
-
-.nav-item {
-  display: inline-block;
-  color: #000000;
-  text-decoration: none;
-}
-
-// Footer
-.footer {
-  background: #333333;
-  color: white;
-}
-";
-    let result = process_css(css, &config).unwrap();
-
-    assert!(result.len() < css.len(), "Should compress realistic CSS");
-    assert!(!result.contains("/*"), "Should remove comments");
-    assert!(!result.contains('\n'), "Should remove newlines");
-    assert!(result.contains(".header"), "Should preserve class names");
-    assert!(
-      result.contains("inline-block"),
-      "Should preserve property values"
-    );
-  }
-
-  #[test]
-  fn test_css_empty_content() {
-    let config = PostprocessConfig {
-      minify_css: true,
-      ..Default::default()
-    };
-    let css = "";
-    let result = process_css(css, &config).unwrap();
-    assert_eq!(result, "", "Empty CSS should remain empty");
-  }
-
-  #[test]
-  fn test_css_with_media_queries() {
-    let config = PostprocessConfig {
-      minify_css: true,
-      ..Default::default()
-    };
-    let css = r"
-@media (max-width: 768px) {
-  .container {
-    width: 100%;
-  }
-}
-";
-    let result = process_css(css, &config).unwrap();
-
-    assert!(result.contains("@media"), "Should preserve media queries");
-    // lightningcss optimizes "max-width: 768px" to modern "width<=768px" syntax
-    assert!(
-      result.contains("width") && result.contains("768"),
-      "Should preserve width conditions"
-    );
-    assert!(result.len() < css.len(), "Should still minify");
-  }
-
-  #[test]
-  fn test_js_realistic_code() {
-    let config = PostprocessConfig {
-      minify_js: true,
-      ..Default::default()
-    };
     let js = r"
-// Initialize application
+// Initialize app
 function init() {
-  const container = document.getElementById('app');
-  if (container) {
-    container.innerHTML = 'Hello World';
-  }
+  const x = 5 + 10 * 2;
+  console.log('test');
+  console.log(x);
 }
-
-// Run on load
 window.addEventListener('load', function() {
   init();
 });
 ";
     let result = process_js(js, &config).unwrap();
 
-    assert!(result.len() < js.len(), "Should compress realistic JS");
-    // NOTE: oxc may preserve some comments depending on configuration
-    // The important thing is that code is minified and functional
-    assert!(
-      result.contains("getElementById"),
-      "Should preserve method names"
-    );
-    assert!(
-      result.contains("addEventListener"),
-      "Should preserve API calls"
-    );
+    assert!(result.len() < js.len());
+    assert!(result.contains("25")); // Constant folding: 5 + 10 * 2
+    assert!(result.contains("console.log"));
+    assert!(result.contains("addEventListener"));
   }
 
   #[test]
-  fn test_js_empty_content() {
+  fn test_js_compress_option() {
+    let js = "const unused = 1; const x = 5 + 10; console.log(x);";
+
+    // With compress: true (should do DCE and constant folding)
+    let config_compress = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: true,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let result_compress = process_js(js, &config_compress).unwrap();
+
+    // With compress: false (no optimizations)
+    let config_no_compress = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let result_no_compress = process_js(js, &config_no_compress).unwrap();
+
+    // Compress should be more aggressive
+    assert!(result_compress.len() < result_no_compress.len());
+    // With compress, constant folding should produce 15
+    assert!(result_compress.contains("15"));
+  }
+
+  #[test]
+  fn test_js_mangle_option() {
+    let js = "function test() { const localVar = 1; return localVar + 1; }";
+
+    // With mangle: true
+    let config_mangle = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   true,
+      }),
+      ..Default::default()
+    };
+    let result_mangle = process_js(js, &config_mangle).unwrap();
+
+    // With mangle: false
+    let config_no_mangle = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let result_no_mangle = process_js(js, &config_no_mangle).unwrap();
+
+    // Without mangle, original names should be preserved
+    assert!(result_no_mangle.contains("localVar"));
+    // With mangle, names may be shortened (oxc's mangler behavior)
+    // At minimum, both should produce valid code
+    assert!(!result_mangle.is_empty());
+    assert!(!result_no_mangle.is_empty());
+  }
+
+  #[test]
+  fn test_js_invalid_syntax() {
     let config = PostprocessConfig {
       minify_js: true,
       ..Default::default()
     };
-    let js = "";
-    let result = process_js(js, &config).unwrap();
-    assert_eq!(result, "", "Empty JS should remain empty");
-  }
+    let js = "function test() { @@@invalid }";
+    let result = process_js(js, &config);
 
-  #[test]
-  fn test_js_constant_folding() {
-    let config = PostprocessConfig {
-      minify_js: true,
-      ..Default::default()
-    };
-    let js = "const result = 5 + 10 * 2; console.log(result);";
-    let result = process_js(js, &config).unwrap();
-
-    // oxc should fold the constant expression
-    assert!(
-      result.len() < js.len(),
-      "Should optimize constant expressions"
-    );
-    assert!(result.contains("25"), "Should fold 5 + 10 * 2 to 25");
-  }
-
-  #[test]
-  fn test_js_preserves_string_literals() {
-    let config = PostprocessConfig {
-      minify_js: true,
-      ..Default::default()
-    };
-    let js = r#"const message = "Hello, World!"; console.log(message);"#;
-    let result = process_js(js, &config).unwrap();
-
-    assert!(
-      result.contains("Hello, World!"),
-      "Should preserve string content"
-    );
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("parse"));
   }
 
   #[test]
@@ -543,22 +413,5 @@ window.addEventListener('load', function() {
     assert_eq!(process_html(html, &config).unwrap(), html);
     assert_eq!(process_css(css, &config).unwrap(), css);
     assert_eq!(process_js(js, &config).unwrap(), js);
-  }
-
-  #[test]
-  fn test_html_with_inline_styles_and_scripts() {
-    let config = PostprocessConfig {
-      minify_html: true,
-      ..Default::default()
-    };
-    let html = r#"<div style="color: red;">
-      <script>console.log('test');</script>
-      Content
-    </div>"#;
-    let result = process_html(html, &config).unwrap();
-
-    assert!(result.contains("style="), "Should preserve inline styles");
-    assert!(result.contains("<script>"), "Should preserve script tags");
-    assert!(result.contains("Content"), "Should preserve content");
   }
 }

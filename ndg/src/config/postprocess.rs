@@ -23,6 +23,12 @@ pub struct PostprocessConfig {
 
   /// Options specific to HTML minification
   pub html: Option<HtmlMinifyOptions>,
+
+  /// Options specific to CSS minification
+  pub css: Option<CssMinifyOptions>,
+
+  /// Options specific to JavaScript minification
+  pub js: Option<JsMinifyOptions>,
 }
 
 /// Options for HTML minification
@@ -45,10 +51,68 @@ impl Default for HtmlMinifyOptions {
   }
 }
 
+/// Options for CSS minification
+///
+/// These control `lightningcss` behavior.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CssMinifyOptions {
+  /// Enable minification
+  ///
+  /// When enabled, applies CSS minification including whitespace removal,
+  /// shorthand properties, and other optimizations.
+  pub minify: bool,
+}
+
+impl Default for CssMinifyOptions {
+  fn default() -> Self {
+    Self { minify: true }
+  }
+}
+
+/// Options for JavaScript minification
+///
+/// These control `oxc_minifier` behavior.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct JsMinifyOptions {
+  /// Enable compression optimizations
+  ///
+  /// When enabled, applies transformations like dead code elimination,
+  /// constant folding, and expression simplification.
+  pub compress: bool,
+
+  /// Enable name mangling
+  ///
+  /// When enabled, shortens variable and function names to reduce file size.
+  pub mangle: bool,
+}
+
+impl Default for JsMinifyOptions {
+  fn default() -> Self {
+    Self {
+      compress: true,
+      mangle:   true,
+    }
+  }
+}
+
 impl PostprocessConfig {
   /// Get HTML minify options or default
   #[must_use]
   pub fn html_options(&self) -> HtmlMinifyOptions {
     self.html.clone().unwrap_or_default()
+  }
+
+  /// Get CSS minify options or default
+  #[must_use]
+  pub fn css_options(&self) -> CssMinifyOptions {
+    self.css.clone().unwrap_or_default()
+  }
+
+  /// Get JavaScript minify options or default
+  #[must_use]
+  pub fn js_options(&self) -> JsMinifyOptions {
+    self.js.clone().unwrap_or_default()
   }
 }
