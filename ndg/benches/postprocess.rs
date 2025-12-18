@@ -122,7 +122,7 @@ body {
   background-color: #ffffff;
 }
 
-// Container
+/* Container */
 .container {
   max-width: 1400px;
   margin: 0 auto;
@@ -134,7 +134,7 @@ body {
   gap: 2rem;
 }
 
-// Headers
+/* Headers */
 header {
   background-color: #f5f5f5;
   padding: 1rem 2rem;
@@ -152,7 +152,7 @@ header {
   font-weight: 600;
 }
 
-// Nav
+/* Nav */
 nav a {
   color: #0066cc;
   text-decoration: none;
@@ -165,7 +165,7 @@ nav a:hover {
   background-color: #e6f2ff;
 }
 
-// Sidebar
+/* Sidebar */
 .sidebar {
   width: 250px;
   flex-shrink: 0;
@@ -179,7 +179,7 @@ nav a:hover {
   margin-bottom: 0.5rem;
 }
 
-// Content
+/* Content */
 .content {
   flex: 1;
   min-width: 0;
@@ -202,7 +202,7 @@ nav a:hover {
   margin-bottom: 1rem;
 }
 
-// Code Blocks
+/* Code Blocks */
 pre {
   background-color: #f8f8f8;
   border: 1px solid #dddddd;
@@ -216,7 +216,7 @@ code {
   font-size: 0.9em;
 }
 
-// Footer
+/* Footer */
 footer {
   margin-top: 4rem;
   padding: 2rem;
@@ -225,7 +225,7 @@ footer {
   color: #666666;
 }
 
-// Media
+/* Media */
 @media (max-width: 768px) {
   .layout {
     flex-direction: column;
