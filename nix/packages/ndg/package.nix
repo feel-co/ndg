@@ -21,9 +21,11 @@ in
       fileset = fs.unions [
         (s + /.config)
         (s + /.cargo)
+
         (s + /ndg)
         (s + /ndg-commonmark)
         (s + /xtask)
+
         (s + /Cargo.lock)
         (s + /Cargo.toml)
       ];
@@ -32,6 +34,12 @@ in
     cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
     cargoBuildFlags = ["-p" "ndg" "-p" "xtask"];
     enableParallelBuilding = true;
+
+    # We'll want to build with lld for faster and somewhat more optimized builds.
+    # This is also the only way of getting ndg's build to *work*, since unlike
+    # Rust 1.90 it introduces a hard dependency on lld. This is not a problem for
+    # reasonable distros that package up-to-date toolchaims, such as NixOS.
+    env.RUSTFLAGS = "-C linker=lld -C linker-flavor=ld.lld";
 
     nativeInstallCheckInputs = [versionCheckHook];
     doInstallCheck = true;
@@ -57,10 +65,11 @@ in
     '';
 
     meta = {
-      description = "not a docs generator";
+      description = "NDG: not a docs generator";
+      changelog = "https://github.com/feel-co/ndg/blob/${finalAttrs.version}/CHANGELOG.md";
       homepage = "https://github.com/feel-co/ndg";
       license = lib.licenses.mpl20;
-      maintainers = with lib.maintainers; [NotAShelf];
+      maintainers = [lib.maintainers.NotAShelf];
       mainProgram = "ndg";
     };
   })
