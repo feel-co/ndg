@@ -121,22 +121,21 @@ pub fn extract_markdown_title_and_id(
   for node in root.descendants() {
     if let NodeValue::Heading(NodeHeading { level, .. }) =
       &node.data.borrow().value
+      && *level == 1
     {
-      if *level == 1 {
-        let mut text = String::new();
-        for child in node.children() {
-          if let NodeValue::Text(ref t) = child.data.borrow().value {
-            text.push_str(t);
-          }
+      let mut text = String::new();
+      for child in node.children() {
+        if let NodeValue::Text(ref t) = child.data.borrow().value {
+          text.push_str(t);
         }
-        // Clean the title by removing inline anchors and other NDG markup
-        let anchor_id = anchor_re
-          .captures(&text)
-          .and_then(|caps| caps.get(2).map(|m| m.as_str().to_string()));
-        let clean_title = anchor_re.replace_all(&text, "").trim().to_string();
-        if !clean_title.is_empty() {
-          return Some((clean_title, anchor_id));
-        }
+      }
+      // Clean the title by removing inline anchors and other NDG markup
+      let anchor_id = anchor_re
+        .captures(&text)
+        .and_then(|caps| caps.get(2).map(|m| m.as_str().to_string()));
+      let clean_title = anchor_re.replace_all(&text, "").trim().to_string();
+      if !clean_title.is_empty() {
+        return Some((clean_title, anchor_id));
       }
     }
   }

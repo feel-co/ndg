@@ -415,15 +415,14 @@ impl MarkdownProcessor {
     let mut normalized = String::with_capacity(content.len());
     for line in content.lines() {
       let trimmed = line.trim_end();
-      if !trimmed.starts_with('#') {
-        if let Some(anchor_start) = trimmed.rfind("{#") {
-          if let Some(anchor_end) = trimmed[anchor_start..].find('}') {
-            let text = trimmed[..anchor_start].trim_end();
-            let id = &trimmed[anchor_start + 2..anchor_start + anchor_end];
-            let _ = writeln!(normalized, "## {text} {{#{id}}}");
-            continue;
-          }
-        }
+      if !trimmed.starts_with('#')
+        && let Some(anchor_start) = trimmed.rfind("{#")
+        && let Some(anchor_end) = trimmed[anchor_start..].find('}')
+      {
+        let text = trimmed[..anchor_start].trim_end();
+        let id = &trimmed[anchor_start + 2..anchor_start + anchor_end];
+        let _ = writeln!(normalized, "## {text} {{#{id}}}");
+        continue;
       }
       normalized.push_str(line);
       normalized.push('\n');
@@ -457,11 +456,11 @@ impl MarkdownProcessor {
             NodeValue::HtmlInline(html) => {
               // Look for explicit anchor in HTML inline node: {#id}
               let html_str = html.as_str();
-              if let Some(start) = html_str.find("{#") {
-                if let Some(end) = html_str[start..].find('}') {
-                  let anchor = &html_str[start + 2..start + end];
-                  explicit_id = Some(anchor.to_string());
-                }
+              if let Some(start) = html_str.find("{#")
+                && let Some(end) = html_str[start..].find('}')
+              {
+                let anchor = &html_str[start + 2..start + end];
+                explicit_id = Some(anchor.to_string());
               }
             },
             #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
@@ -629,12 +628,11 @@ impl MarkdownProcessor {
               .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
           {
             // Check if this comment is inside an <li> element
-            if let Some(parent) = comment.parent() {
-              if let Some(element) = parent.as_element() {
-                if element.name.local.as_ref() == "li" {
-                  to_modify.push((comment.clone(), id.to_string()));
-                }
-              }
+            if let Some(parent) = comment.parent()
+              && let Some(element) = parent.as_element()
+              && element.name.local.as_ref() == "li"
+            {
+              to_modify.push((comment.clone(), id.to_string()));
             }
           }
         }
@@ -685,16 +683,16 @@ impl MarkdownProcessor {
               .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
           {
             // Check if this comment is inside a header element
-            if let Some(parent) = comment.parent() {
-              if let Some(element) = parent.as_element() {
-                let tag_name = element.name.local.as_ref();
-                if matches!(tag_name, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
-                  to_modify.push((
-                    parent.clone(),
-                    comment.clone(),
-                    id.to_string(),
-                  ));
-                }
+            if let Some(parent) = comment.parent()
+              && let Some(element) = parent.as_element()
+            {
+              let tag_name = element.name.local.as_ref();
+              if matches!(tag_name, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+                to_modify.push((
+                  parent.clone(),
+                  comment.clone(),
+                  id.to_string(),
+                ));
               }
             }
           }
@@ -726,50 +724,50 @@ impl MarkdownProcessor {
 
       let text_content = li_element.text_contents();
 
-      if let Some(anchor_start) = text_content.find("[]{#") {
-        if let Some(anchor_end) = text_content[anchor_start..].find('}') {
-          let id = &text_content[anchor_start + 4..anchor_start + anchor_end];
-          if !id.is_empty()
-            && id
-              .chars()
-              .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-          {
-            let remaining_content =
-              &text_content[anchor_start + anchor_end + 1..];
+      if let Some(anchor_start) = text_content.find("[]{#")
+        && let Some(anchor_end) = text_content[anchor_start..].find('}')
+      {
+        let id = &text_content[anchor_start + 4..anchor_start + anchor_end];
+        if !id.is_empty()
+          && id
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
+          let remaining_content =
+            &text_content[anchor_start + anchor_end + 1..];
 
-            // Clear current content and rebuild
-            for child in li_element.children() {
-              child.detach();
-            }
+          // Clear current content and rebuild
+          for child in li_element.children() {
+            child.detach();
+          }
 
-            let span = kuchikikiki::NodeRef::new_element(
-              markup5ever::QualName::new(
-                None,
-                markup5ever::ns!(html),
-                local_name!("span"),
+          let span = kuchikikiki::NodeRef::new_element(
+            markup5ever::QualName::new(
+              None,
+              markup5ever::ns!(html),
+              local_name!("span"),
+            ),
+            vec![
+              (
+                kuchikikiki::ExpandedName::new("", "id"),
+                kuchikikiki::Attribute {
+                  prefix: None,
+                  value:  id.into(),
+                },
               ),
-              vec![
-                (
-                  kuchikikiki::ExpandedName::new("", "id"),
-                  kuchikikiki::Attribute {
-                    prefix: None,
-                    value:  id.into(),
-                  },
-                ),
-                (
-                  kuchikikiki::ExpandedName::new("", "class"),
-                  kuchikikiki::Attribute {
-                    prefix: None,
-                    value:  "nixos-anchor".into(),
-                  },
-                ),
-              ],
-            );
-            li_element.append(span);
-            if !remaining_content.is_empty() {
-              li_element
-                .append(kuchikikiki::NodeRef::new_text(remaining_content));
-            }
+              (
+                kuchikikiki::ExpandedName::new("", "class"),
+                kuchikikiki::Attribute {
+                  prefix: None,
+                  value:  "nixos-anchor".into(),
+                },
+              ),
+            ],
+          );
+          li_element.append(span);
+          if !remaining_content.is_empty() {
+            li_element
+              .append(kuchikikiki::NodeRef::new_text(remaining_content));
           }
         }
       }
@@ -789,50 +787,49 @@ impl MarkdownProcessor {
 
       let text_content = p_element.text_contents();
 
-      if let Some(anchor_start) = text_content.find("[]{#") {
-        if let Some(anchor_end) = text_content[anchor_start..].find('}') {
-          let id = &text_content[anchor_start + 4..anchor_start + anchor_end];
-          if !id.is_empty()
-            && id
-              .chars()
-              .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-          {
-            let remaining_content =
-              &text_content[anchor_start + anchor_end + 1..];
+      if let Some(anchor_start) = text_content.find("[]{#")
+        && let Some(anchor_end) = text_content[anchor_start..].find('}')
+      {
+        let id = &text_content[anchor_start + 4..anchor_start + anchor_end];
+        if !id.is_empty()
+          && id
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
+          let remaining_content =
+            &text_content[anchor_start + anchor_end + 1..];
 
-            // Clear current content and rebuild
-            for child in p_element.children() {
-              child.detach();
-            }
+          // Clear current content and rebuild
+          for child in p_element.children() {
+            child.detach();
+          }
 
-            let span = kuchikikiki::NodeRef::new_element(
-              markup5ever::QualName::new(
-                None,
-                markup5ever::ns!(html),
-                local_name!("span"),
+          let span = kuchikikiki::NodeRef::new_element(
+            markup5ever::QualName::new(
+              None,
+              markup5ever::ns!(html),
+              local_name!("span"),
+            ),
+            vec![
+              (
+                kuchikikiki::ExpandedName::new("", "id"),
+                kuchikikiki::Attribute {
+                  prefix: None,
+                  value:  id.into(),
+                },
               ),
-              vec![
-                (
-                  kuchikikiki::ExpandedName::new("", "id"),
-                  kuchikikiki::Attribute {
-                    prefix: None,
-                    value:  id.into(),
-                  },
-                ),
-                (
-                  kuchikikiki::ExpandedName::new("", "class"),
-                  kuchikikiki::Attribute {
-                    prefix: None,
-                    value:  "nixos-anchor".into(),
-                  },
-                ),
-              ],
-            );
-            p_element.append(span);
-            if !remaining_content.is_empty() {
-              p_element
-                .append(kuchikikiki::NodeRef::new_text(remaining_content));
-            }
+              (
+                kuchikikiki::ExpandedName::new("", "class"),
+                kuchikikiki::Attribute {
+                  prefix: None,
+                  value:  "nixos-anchor".into(),
+                },
+              ),
+            ],
+          );
+          p_element.append(span);
+          if !remaining_content.is_empty() {
+            p_element.append(kuchikikiki::NodeRef::new_text(remaining_content));
           }
         }
       }
@@ -849,13 +846,12 @@ impl MarkdownProcessor {
         let mut parent = node.parent();
         let mut in_code = false;
         while let Some(p) = parent {
-          if let Some(element) = p.as_element() {
-            if element.name.local == local_name!("code")
-              || element.name.local == local_name!("pre")
-            {
-              in_code = true;
-              break;
-            }
+          if let Some(element) = p.as_element()
+            && (element.name.local == local_name!("code")
+              || element.name.local == local_name!("pre"))
+          {
+            in_code = true;
+            break;
           }
           parent = p.parent();
         }
@@ -978,21 +974,20 @@ impl MarkdownProcessor {
           .map(std::string::ToString::to_string);
         let text_content = link_element.text_contents();
 
-        if let Some(href_value) = href {
-          if href_value.starts_with('#')
-            && (text_content.trim().is_empty()
-              || text_content.trim() == "{{ANCHOR}}")
-          {
-            // Clear placeholder text if present
-            if text_content.trim() == "{{ANCHOR}}" {
-              for child in link_element.children() {
-                child.detach();
-              }
+        if let Some(href_value) = href
+          && href_value.starts_with('#')
+          && (text_content.trim().is_empty()
+            || text_content.trim() == "{{ANCHOR}}")
+        {
+          // Clear placeholder text if present
+          if text_content.trim() == "{{ANCHOR}}" {
+            for child in link_element.children() {
+              child.detach();
             }
-            // Empty link with anchor - add humanized text
-            let display_text = Self::humanize_anchor_id(&href_value);
-            link_element.append(kuchikikiki::NodeRef::new_text(display_text));
           }
+          // Empty link with anchor - add humanized text
+          let display_text = Self::humanize_anchor_id(&href_value);
+          link_element.append(kuchikikiki::NodeRef::new_text(display_text));
         }
       }
     }
@@ -1011,13 +1006,12 @@ impl MarkdownProcessor {
             child.detach();
           }
         }
-        if let Some(element) = link_element.as_element() {
-          if let Some(href) =
+        if let Some(element) = link_element.as_element()
+          && let Some(href) =
             element.attributes.borrow().get(local_name!("href"))
-          {
-            let display_text = Self::humanize_anchor_id(href);
-            link_element.append(kuchikikiki::NodeRef::new_text(display_text));
-          }
+        {
+          let display_text = Self::humanize_anchor_id(href);
+          link_element.append(kuchikikiki::NodeRef::new_text(display_text));
         }
       }
     }
@@ -1038,17 +1032,17 @@ impl MarkdownProcessor {
           .map(std::string::ToString::to_string);
         let text_content = link_element.text_contents();
 
-        if let Some(href_value) = href {
-          if href_value.starts_with("#opt-") {
-            let option_anchor = href_value[1..].to_string(); // remove the leading #
-            let needs_text_replacement = text_content.trim().is_empty()
-              || text_content.trim() == "{{ANCHOR}}";
-            to_modify.push((
-              link_element.clone(),
-              option_anchor,
-              needs_text_replacement,
-            ));
-          }
+        if let Some(href_value) = href
+          && href_value.starts_with("#opt-")
+        {
+          let option_anchor = href_value[1..].to_string(); // remove the leading #
+          let needs_text_replacement = text_content.trim().is_empty()
+            || text_content.trim() == "{{ANCHOR}}";
+          to_modify.push((
+            link_element.clone(),
+            option_anchor,
+            needs_text_replacement,
+          ));
         }
       }
     }
