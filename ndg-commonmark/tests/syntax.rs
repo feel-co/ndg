@@ -1,5 +1,4 @@
-//! Integration tests for syntax highlighting functionality.
-
+#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use ndg_commonmark::{
   MarkdownOptions,
   MarkdownProcessor,
