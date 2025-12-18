@@ -12,7 +12,7 @@ license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/feel-co/ndg"
 rust-version = "1.90"
-version      = "2.5.0-beta1"
+version      = "2.5.0-beta2"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
@@ -34,12 +34,18 @@ html-escape = "0.2.13"
 html5ever = "0.36.1"
 jiff = "0.2.16"
 kuchikikiki = "0.9.1"
+lightningcss = { version = "1.0.0-alpha.68", default-features = false }
 log = "0.4.29"
 markup5ever = "0.36.1"
 minify-html = "0.18.1"
 ndg = { path = "./ndg" }
 ndg-commonmark = { path = "./ndg-commonmark" }
 num_cpus = "1.17.0"
+oxc_allocator = "0.95.0"
+oxc_codegen = "0.95.0"
+oxc_minifier = "0.95.0"
+oxc_parser = "0.95.0"
+oxc_span = "0.95.0"
 rayon = "1.11.0"
 regex = "1.12.2"
 serde = { version = "1.0.228", features = [ "derive" ] }

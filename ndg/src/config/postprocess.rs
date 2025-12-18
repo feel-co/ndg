@@ -2,10 +2,13 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration for HTML/CSS/JS postprocessing
 ///
-/// Controls minification of generated output files.
+/// Controls minification of generated output files using specialized
+/// minification libraries:
 ///
-/// All minification is performed using the [`minifier`] crate, which provides
-/// basic minification without excessive configuration options.
+/// - HTML: `minify-html` - Fast, spec-compliant HTML minification
+/// - CSS: `lightningcss` - Production-grade CSS parsing and minification
+/// - JavaScript: `oxc_minifier` - Production-grade JavaScript minification with
+///   17+ optimization passes
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct PostprocessConfig {
@@ -24,28 +27,20 @@ pub struct PostprocessConfig {
 
 /// Options for HTML minification
 ///
-/// These control post-processing behavior applied after the `minifier` crate's
-/// basic HTML minification.
+/// These control `minify-html` behavior.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct HtmlMinifyOptions {
-  /// Collapse whitespace in text nodes
-  ///
-  /// When enabled, uses the minifier crate's output which collapses multiple
-  /// spaces into single spaces.
-  pub collapse_whitespace: bool,
-
   /// Remove HTML comments
   ///
-  /// When enabled, applies a custom comment removal pass after minification.
+  /// When enabled, removes all HTML comments from the output.
   pub remove_comments: bool,
 }
 
 impl Default for HtmlMinifyOptions {
   fn default() -> Self {
     Self {
-      collapse_whitespace: true,
-      remove_comments:     true,
+      remove_comments: true,
     }
   }
 }

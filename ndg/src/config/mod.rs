@@ -295,13 +295,13 @@ impl Config {
     }
 
     // Validate input_dir if it's provided
-    if let Some(ref input_dir) = config.input_dir {
-      if !input_dir.exists() {
-        return Err(NdgError::Config(format!(
-          "Input directory does not exist: {}",
-          input_dir.display()
-        )));
-      }
+    if let Some(ref input_dir) = config.input_dir
+      && !input_dir.exists()
+    {
+      return Err(NdgError::Config(format!(
+        "Input directory does not exist: {}",
+        input_dir.display()
+      )));
     }
 
     // Validate all paths
@@ -686,9 +686,6 @@ impl Config {
             }
             if let Some(ref mut html_opts) = pp.html {
               match subkey {
-                "collapse_whitespace" => {
-                  html_opts.collapse_whitespace = Self::parse_bool(value, key)?;
-                },
                 "remove_comments" => {
                   html_opts.remove_comments = Self::parse_bool(value, key)?;
                 },
@@ -907,10 +904,10 @@ impl Config {
     }
 
     // Check if template_path is a directory
-    if let Some(ref path) = self.template_path {
-      if path.is_dir() {
-        return Some(path.clone());
-      }
+    if let Some(ref path) = self.template_path
+      && path.is_dir()
+    {
+      return Some(path.clone());
     }
 
     None
@@ -934,14 +931,12 @@ impl Config {
     }
 
     // Check if template_path is a single file matching the requested name
-    if let Some(ref path) = self.template_path {
-      if path.is_file() {
-        if let Some(filename) = path.file_name() {
-          if filename == name {
-            return Some(path.clone());
-          }
-        }
-      }
+    if let Some(ref path) = self.template_path
+      && path.is_file()
+      && let Some(filename) = path.file_name()
+      && filename == name
+    {
+      return Some(path.clone());
     }
 
     None
@@ -1020,13 +1015,13 @@ impl Config {
     }
 
     // Template file should exist if specified
-    if let Some(ref template_path) = self.template_path {
-      if !template_path.exists() {
-        errors.push(format!(
-          "Template file does not exist: {}",
-          template_path.display()
-        ));
-      }
+    if let Some(ref template_path) = self.template_path
+      && !template_path.exists()
+    {
+      errors.push(format!(
+        "Template file does not exist: {}",
+        template_path.display()
+      ));
     }
 
     // Template directory should exist if specified

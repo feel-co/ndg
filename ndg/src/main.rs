@@ -48,13 +48,13 @@ fn main() -> Result<()> {
         }
 
         // Create parent directories if needed
-        if let Some(parent) = output.parent() {
-          if !parent.exists() {
-            fs::create_dir_all(parent).wrap_err_with(|| {
-              format!("Failed to create directory: {}", parent.display())
-            })?;
-            info!("Created directory: {}", parent.display());
-          }
+        if let Some(parent) = output.parent()
+          && !parent.exists()
+        {
+          fs::create_dir_all(parent).wrap_err_with(|| {
+            format!("Failed to create directory: {}", parent.display())
+          })?;
+          info!("Created directory: {}", parent.display());
         }
 
         // Generate the config file

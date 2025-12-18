@@ -809,18 +809,19 @@ fn get_template_content(
   }
   // If template_path is specified but doesn't point to a directory with our
   // template
-  if let Some(template_path) = &config.template_path {
-    if template_path.exists() && template_name == "default.html" {
-      // XXX: For backward compatibility
-      // If template_path is a file, use it for default.html
-      return fs::read_to_string(template_path).wrap_err({
-        format!(
-          "Failed to read custom template file: {}. Check file permissions \
-           and ensure the file is valid UTF-8",
-          template_path.display()
-        )
-      });
-    }
+  if let Some(template_path) = &config.template_path
+    && template_path.exists()
+    && template_name == "default.html"
+  {
+    // XXX: For backward compatibility
+    // If template_path is a file, use it for default.html
+    return fs::read_to_string(template_path).wrap_err({
+      format!(
+        "Failed to read custom template file: {}. Check file permissions and \
+         ensure the file is valid UTF-8",
+        template_path.display()
+      )
+    });
   }
   // Use fallback embedded template if no custom template found
   // If fallback is empty, return empty string (used for optional templates)
@@ -1189,10 +1190,10 @@ fn generate_toc(headers: &[Header]) -> String {
       }
 
       let mut visible_text = header.text.as_str();
-      if let Some(idx) = visible_text.rfind("{#") {
-        if visible_text.ends_with('}') {
-          visible_text = visible_text[..idx].trim_end();
-        }
+      if let Some(idx) = visible_text.rfind("{#")
+        && visible_text.ends_with('}')
+      {
+        visible_text = visible_text[..idx].trim_end();
       }
       // Writing to String is infallible
       let _ = writeln!(
@@ -1412,10 +1413,10 @@ fn add_example_value(html: &mut String, option: &NixOption) {
 /// `opengraph` field
 #[allow(deprecated)]
 const fn get_opengraph(config: &Config) -> Option<&HashMap<String, String>> {
-  if let Some(ref meta) = config.meta {
-    if let Some(ref og) = meta.opengraph {
-      return Some(og);
-    }
+  if let Some(ref meta) = config.meta
+    && let Some(ref og) = meta.opengraph
+  {
+    return Some(og);
   }
   config.opengraph.as_ref()
 }
@@ -1426,10 +1427,10 @@ const fn get_opengraph(config: &Config) -> Option<&HashMap<String, String>> {
 /// `meta_tags` field
 #[allow(deprecated)]
 const fn get_meta_tags(config: &Config) -> Option<&HashMap<String, String>> {
-  if let Some(ref meta) = config.meta {
-    if let Some(ref tags) = meta.tags {
-      return Some(tags);
-    }
+  if let Some(ref meta) = config.meta
+    && let Some(ref tags) = meta.tags
+  {
+    return Some(tags);
   }
   config.meta_tags.as_ref()
 }

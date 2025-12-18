@@ -435,10 +435,10 @@ fn parse_option(
     option.internal = *internal;
   }
 
-  if let Some(Value::Bool(visible)) = option_data.get("visible") {
-    if !visible {
-      option.internal = true;
-    }
+  if let Some(Value::Bool(visible)) = option_data.get("visible")
+    && !visible
+  {
+    option.internal = true;
   }
 
   // File where option is declared

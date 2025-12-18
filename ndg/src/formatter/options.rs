@@ -154,12 +154,12 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
         }
 
         // Process declarations with location handling
-        if let Some(Value::Array(decls)) = option_data.get("declarations") {
-          if !decls.is_empty() {
-            let (display, url) = format_location(&decls[0], &config.revision);
-            option.declared_in = display;
-            option.declared_in_url = url;
-          }
+        if let Some(Value::Array(decls)) = option_data.get("declarations")
+          && !decls.is_empty()
+        {
+          let (display, url) = format_location(&decls[0], &config.revision);
+          option.declared_in = display;
+          option.declared_in_url = url;
         }
 
         // Read-only status
@@ -172,33 +172,32 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
           option.internal = *internal;
         }
 
-        if let Some(Value::Bool(visible)) = option_data.get("visible") {
-          if !visible {
-            option.internal = true;
-          }
+        if let Some(Value::Bool(visible)) = option_data.get("visible")
+          && !visible
+        {
+          option.internal = true;
         }
 
         // Use loc as fallback if no declaration
-        if option.declared_in.is_none() {
-          if let Some(Value::Array(loc_data)) = option_data.get("loc") {
-            if !loc_data.is_empty() {
-              // For loc data, join the parts to form a path
-              let parts: Vec<String> = loc_data
-                .iter()
-                .filter_map(|v| {
-                  if let Value::String(s) = v {
-                    Some(s.clone())
-                  } else {
-                    None
-                  }
-                })
-                .collect();
-
-              if !parts.is_empty() {
-                option.declared_in = Some(parts.join("."));
-                debug!("Set declared_in from loc: {}", parts.join("."));
+        if option.declared_in.is_none()
+          && let Some(Value::Array(loc_data)) = option_data.get("loc")
+          && !loc_data.is_empty()
+        {
+          // For loc data, join the parts to form a path
+          let parts: Vec<String> = loc_data
+            .iter()
+            .filter_map(|v| {
+              if let Value::String(s) = v {
+                Some(s.clone())
+              } else {
+                None
               }
-            }
+            })
+            .collect();
+
+          if !parts.is_empty() {
+            option.declared_in = Some(parts.join("."));
+            debug!("Set declared_in from loc: {}", parts.join("."));
           }
         }
 

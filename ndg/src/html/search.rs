@@ -167,34 +167,30 @@ pub fn generate_search_index(
   }
 
   // Process options if available
-  if let Some(options_path) = &config.module_options {
-    if let Ok(options_content) = fs::read_to_string(options_path) {
-      if let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
-      {
-        if let Some(options_obj) = options_data.as_object() {
-          for (key, option_value) in options_obj {
-            let raw_description =
-              option_value["description"].as_str().unwrap_or("");
-            let plain_description =
-              crate::utils::html::content_to_plaintext(raw_description);
+  if let Some(options_path) = &config.module_options
+    && let Ok(options_content) = fs::read_to_string(options_path)
+    && let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
+    && let Some(options_obj) = options_data.as_object()
+  {
+    for (key, option_value) in options_obj {
+      let raw_description = option_value["description"].as_str().unwrap_or("");
+      let plain_description =
+        crate::utils::html::content_to_plaintext(raw_description);
 
-            let title = format!("Option: {}", html_escape::encode_text(key));
-            let tokens = tokenize(&plain_description);
-            let title_tokens = tokenize(&title);
+      let title = format!("Option: {}", html_escape::encode_text(key));
+      let tokens = tokenize(&plain_description);
+      let title_tokens = tokenize(&title);
 
-            search_index.add_document(SearchDocument {
-              id: doc_id.to_string(),
-              title,
-              content: plain_description,
-              path: format!("options.html#option-{}", key.replace('.', "-")),
-              tokens,
-              title_tokens,
-            });
+      search_index.add_document(SearchDocument {
+        id: doc_id.to_string(),
+        title,
+        content: plain_description,
+        path: format!("options.html#option-{}", key.replace('.', "-")),
+        tokens,
+        title_tokens,
+      });
 
-            doc_id += 1;
-          }
-        }
-      }
+      doc_id += 1;
     }
   }
 

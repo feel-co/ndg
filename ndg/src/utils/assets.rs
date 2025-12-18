@@ -124,14 +124,15 @@ fn copy_template_asset(
 ///
 /// Returns an error if copying fails.
 fn copy_custom_assets(config: &Config, assets_dir: &Path) -> eyre::Result<()> {
-  if let Some(custom_assets_dir) = &config.assets_dir {
-    if custom_assets_dir.exists() && custom_assets_dir.is_dir() {
-      debug!("Copying custom assets from {}", custom_assets_dir.display());
+  if let Some(custom_assets_dir) = &config.assets_dir
+    && custom_assets_dir.exists()
+    && custom_assets_dir.is_dir()
+  {
+    debug!("Copying custom assets from {}", custom_assets_dir.display());
 
-      let options = fs_extra::dir::CopyOptions::new().overwrite(true);
-      fs_extra::dir::copy(custom_assets_dir, assets_dir, &options)
-        .wrap_err("Failed to copy custom assets")?;
-    }
+    let options = fs_extra::dir::CopyOptions::new().overwrite(true);
+    fs_extra::dir::copy(custom_assets_dir, assets_dir, &options)
+      .wrap_err("Failed to copy custom assets")?;
   }
   Ok(())
 }
