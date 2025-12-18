@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, reason = "Fine in tests")]
+#![allow(clippy::expect_used, clippy::unwrap_used, reason = "Fine in tests")]
 use std::{
   fs::{self, File, create_dir_all},
   path::PathBuf,
@@ -193,7 +193,7 @@ This file should be transitively included in `main.html`
       file
         .strip_prefix(&input_dir)
         .ok()
-        .map_or(true, |rel| !config.included_files.contains_key(rel))
+        .is_none_or(|rel| !config.included_files.contains_key(rel))
     })
     .cloned()
     .collect();
@@ -321,7 +321,7 @@ This describes the Home Manager module installation.
       file
         .strip_prefix(&input_dir)
         .ok()
-        .map_or(true, |rel| !config.included_files.contains_key(rel))
+        .is_none_or(|rel| !config.included_files.contains_key(rel))
     })
     .cloned()
     .collect();
