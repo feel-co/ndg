@@ -14,7 +14,7 @@ use ndg_commonmark::{
   processor::types::TabStyle,
 };
 
-use crate::{config::Config, html::template};
+use crate::{config::Config, html::template, utils::postprocess};
 
 /// Output entry for processed markdown files.
 type OutputEntry = (String, Vec<Header>, Option<String>, PathBuf, bool);
@@ -267,6 +267,13 @@ pub fn process_markdown_files(
         rel_path,
       )?;
 
+      // Apply postprocessing if requested
+      let processed_html = if let Some(ref postprocess) = config.postprocess {
+        postprocess::process_html(&html, postprocess)?
+      } else {
+        html
+      };
+
       let output_path = config.output_dir.join(rel_path);
       if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).wrap_err_with(|| {
@@ -274,7 +281,7 @@ pub fn process_markdown_files(
         })?;
       }
 
-      fs::write(&output_path, html).wrap_err_with(|| {
+      fs::write(&output_path, processed_html).wrap_err_with(|| {
         format!("Failed to write output HTML: {}", output_path.display())
       })?;
     }

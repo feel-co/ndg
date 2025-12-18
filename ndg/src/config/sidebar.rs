@@ -666,6 +666,8 @@ impl OptionsMatch {
 
 #[cfg(test)]
 mod tests {
+  #![allow(clippy::expect_used, reason = "Fine in tests")]
+
   use super::*;
 
   #[test]

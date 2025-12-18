@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use color_eyre::eyre::{self, Context, Result};
 use log::debug;
 
-use crate::config::Config;
+use crate::{config::Config, utils::postprocess};
 
 /// Template constants for default assets
 const DEFAULT_CSS: &str = include_str!("../../templates/default.css");
@@ -20,6 +20,8 @@ const MAIN_JS: &str = include_str!("../../templates/main.js");
 /// - Any custom assets from the configured assets directory
 /// - Any custom script files specified in the configuration
 ///
+/// Assets are postprocessed (minified) if configured via `config.postprocess`
+///
 /// # Errors
 ///
 /// Returns an error if any asset cannot be read or written.
@@ -30,7 +32,12 @@ pub fn copy_assets(config: &Config) -> Result<()> {
 
   // Generate and write CSS
   let css = generate_css(config)?;
-  fs::write(assets_dir.join("style.css"), css)
+  let processed_css = if let Some(ref postprocess) = config.postprocess {
+    postprocess::process_css(&css, postprocess)?
+  } else {
+    css
+  };
+  fs::write(assets_dir.join("style.css"), processed_css)
     .context("Failed to write CSS file")?;
 
   // Copy main.js, which is always needed for the default templates
@@ -92,7 +99,21 @@ fn copy_template_asset(
     fallback_content.to_string()
   };
 
-  fs::write(assets_dir.join(filename), content)
+  // Apply postprocessing based on file type
+  let processed_content = if let Some(ref postprocess) = config.postprocess {
+    if std::path::Path::new(filename)
+      .extension()
+      .is_some_and(|ext| ext.eq_ignore_ascii_case("js"))
+    {
+      postprocess::process_js(&content, postprocess)?
+    } else {
+      content
+    }
+  } else {
+    content
+  };
+
+  fs::write(assets_dir.join(filename), processed_content)
     .wrap_err_with(|| format!("Failed to write {filename} to assets directory"))
 }
 
@@ -128,15 +149,21 @@ fn copy_script_files(config: &Config, assets_dir: &Path) -> eyre::Result<()> {
         .ok_or_else(|| eyre::eyre!("Invalid script filename"))?;
       let dest_path = assets_dir.join(file_name);
 
-      fs::read(script_path)
-        .wrap_err_with(|| {
-          format!("Failed to read script file {}", script_path.display())
-        })
-        .and_then(|content| {
-          fs::write(&dest_path, content).wrap_err_with(|| {
-            format!("Failed to write script file to {}", dest_path.display())
-          })
-        })?;
+      let content = fs::read_to_string(script_path).wrap_err_with(|| {
+        format!("Failed to read script file {}", script_path.display())
+      })?;
+
+      // Apply postprocessing if enabled
+      let processed_content = if let Some(ref postprocess) = config.postprocess
+      {
+        postprocess::process_js(&content, postprocess)?
+      } else {
+        content
+      };
+
+      fs::write(&dest_path, processed_content).wrap_err_with(|| {
+        format!("Failed to write script file to {}", dest_path.display())
+      })?;
     }
   }
   Ok(())

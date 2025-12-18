@@ -20,6 +20,7 @@ grass.workspace          = true
 html-escape.workspace    = true
 jiff.workspace           = true
 log.workspace            = true
+minifier.workspace       = true
 ndg-commonmark.workspace = true
 num_cpus.workspace       = true
 rayon.workspace          = true

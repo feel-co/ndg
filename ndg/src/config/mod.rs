@@ -1,4 +1,5 @@
 pub mod meta;
+pub mod postprocess;
 pub mod sidebar;
 pub mod templates;
 
@@ -90,6 +91,9 @@ pub struct Config {
   /// Sidebar configuration.
   pub sidebar: Option<sidebar::SidebarConfig>,
 
+  /// Postprocessing configuration for HTML/CSS/JS minification
+  pub postprocess: Option<postprocess::PostprocessConfig>,
+
   #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
   #[serde(skip_serializing_if = "Option::is_none")]
   pub opengraph: Option<HashMap<String, String>>,
@@ -124,6 +128,7 @@ impl Default for Config {
       tab_style:         "none".to_string(),
       meta:              None,
       sidebar:           None,
+      postprocess:       None,
       opengraph:         None,
       meta_tags:         None,
     }
@@ -633,6 +638,70 @@ impl Config {
           }
         },
 
+        // Nested postprocess.* - boolean fields for minification control
+        "postprocess.minify_html" => {
+          let value = Self::parse_bool(value, key)?;
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            pp.minify_html = value;
+          }
+        },
+        "postprocess.minify_css" => {
+          let value = Self::parse_bool(value, key)?;
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            pp.minify_css = value;
+          }
+        },
+        "postprocess.minify_js" => {
+          let value = Self::parse_bool(value, key)?;
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            pp.minify_js = value;
+          }
+        },
+
+        // Nested postprocess.html.* - HTML minification options
+        key if key.starts_with("postprocess.html.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("postprocess.html.").expect(
+            "Key starts with 'postprocess.html.' prefix, strip_prefix cannot \
+             fail",
+          );
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            if pp.html.is_none() {
+              pp.html = Some(postprocess::HtmlMinifyOptions::default());
+            }
+            if let Some(ref mut html_opts) = pp.html {
+              match subkey {
+                "collapse_whitespace" => {
+                  html_opts.collapse_whitespace = Self::parse_bool(value, key)?;
+                },
+                "remove_comments" => {
+                  html_opts.remove_comments = Self::parse_bool(value, key)?;
+                },
+                _ => {
+                  return Err(NdgError::Config(format!(
+                    "Unknown postprocess.html configuration key: '{key}'"
+                  )));
+                },
+              }
+            }
+          }
+        },
+
         // Deprecated: opengraph.* - redirect to meta.opengraph.*
         key if key.starts_with("opengraph.") => {
           #[allow(
@@ -755,6 +824,9 @@ impl Config {
     }
     if other.meta.is_some() {
       self.meta = other.meta;
+    }
+    if other.postprocess.is_some() {
+      self.postprocess = other.postprocess;
     }
 
     // Vec fields - append
@@ -1174,6 +1246,13 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
+  #![allow(
+    clippy::useless_vec,
+    clippy::unwrap_used,
+    clippy::field_reassign_with_default,
+    reason = "Fine in tests"
+  )]
+
   use super::*;
 
   #[test]
@@ -1183,7 +1262,7 @@ mod tests {
     base.module_options = None;
 
     let mut override_config = Config::default();
-    override_config.input_dir = None; // Should not replace
+    override_config.input_dir = None; // should not replace
     override_config.module_options = Some(PathBuf::from("override-options"));
 
     base.merge(override_config);

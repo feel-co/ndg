@@ -12,7 +12,7 @@ use serde_json::{self, Value};
 use crate::{
   config::Config,
   html::template,
-  utils::{create_processor, json::extract_value},
+  utils::{create_processor, json::extract_value, postprocess},
 };
 
 /// Represents a `NixOS` configuration option.
@@ -253,8 +253,16 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
   // Render options page
   let html = template::render_options(config, &customized_options)?;
+
+  // Apply postprocessing if requested
+  let processed_html = if let Some(ref postprocess) = config.postprocess {
+    postprocess::process_html(&html, postprocess)?
+  } else {
+    html
+  };
+
   let output_path = config.output_dir.join("options.html");
-  fs::write(&output_path, html).wrap_err_with(|| {
+  fs::write(&output_path, processed_html).wrap_err_with(|| {
     format!("Failed to write options file: {}", output_path.display())
   })?;
 
@@ -362,8 +370,7 @@ fn escape_html_in_markdown(text: &str) -> String {
       if backquote_counter == 3 && !in_inline_code {
         // Toggle fenced code block state
         in_code_block = !in_code_block;
-        backquote_counter = 0; // Reset counter after handling triple
-      // backticks
+        backquote_counter = 0; // reset counter after handling triple backticks
       } else if backquote_counter == 1 && !in_code_block {
         // Toggle inline code state
         in_inline_code = !in_inline_code;

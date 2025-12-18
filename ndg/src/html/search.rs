@@ -12,9 +12,9 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{config::Config, html};
+use crate::{config::Config, html, utils};
 
-/// Optimized search document with tokenized content
+/// Search document with tokenized content
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchDocument {
   id:           String,
@@ -25,7 +25,7 @@ pub struct SearchDocument {
   title_tokens: Vec<String>,
 }
 
-/// Search index structure for efficient lookup
+/// Search index
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchIndex {
   documents: Vec<SearchDocument>,
@@ -125,7 +125,7 @@ pub fn generate_search_index(
             )
           });
 
-        let plain_text = crate::utils::html::content_to_plaintext(&content);
+        let plain_text = utils::html::content_to_plaintext(&content);
 
         let rel_path =
           file_path.strip_prefix(input_dir).wrap_err_with(|| {
@@ -244,8 +244,15 @@ pub fn create_search_page(config: &Config) -> Result<()> {
 
   let html = html::template::render_search(config, &context)?;
 
+  // Apply postprocessing if configured
+  let processed_html = if let Some(ref postprocess) = config.postprocess {
+    utils::postprocess::process_html(&html, postprocess)?
+  } else {
+    html
+  };
+
   let search_page_path = config.output_dir.join("search.html");
-  fs::write(&search_page_path, &html).wrap_err_with(|| {
+  fs::write(&search_page_path, &processed_html).wrap_err_with(|| {
     format!(
       "Failed to write search page to {}",
       search_page_path.display()
