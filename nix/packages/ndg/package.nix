@@ -14,8 +14,6 @@ in
     pname = "ndg";
     version = cargoTOML.workspace.package.version;
 
-    nativeBuildInputs = [installShellFiles];
-
     src = fs.toSource {
       root = s;
       fileset = fs.unions [
@@ -35,10 +33,19 @@ in
     cargoBuildFlags = ["-p" "ndg" "-p" "xtask"];
     enableParallelBuilding = true;
 
-    # We'll want to build with lld for faster and somewhat more optimized builds.
-    # This is also the only way of getting ndg's build to *work*, since unlike
-    # Rust 1.90 it introduces a hard dependency on lld. This is not a problem for
-    # reasonable distros that package up-to-date toolchaims, such as NixOS.
+    nativeBuildInputs = [
+      installShellFiles
+
+      # Build with lld for faster and more optimized builds.
+      # As of Rust 1.90, it introduces a hard dependency on lld.
+      # This is not a problem for reasonable distros that package up-to-date
+      # toolchains, such as NixOS.
+      stdenv.cc.bintools.lld
+    ];
+
+    # lld is the default on Rust 1.90+, but we don't stand to lose anything from
+    # being more explicit. If anything, this makes errors clearer when lld is not
+    # available, instead of silently falling back.
     env.RUSTFLAGS = "-C linker=lld -C linker-flavor=ld.lld";
 
     nativeInstallCheckInputs = [versionCheckHook];
