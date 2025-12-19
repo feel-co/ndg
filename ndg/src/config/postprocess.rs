@@ -62,11 +62,20 @@ pub struct CssMinifyOptions {
   /// When enabled, applies CSS minification including whitespace removal,
   /// shorthand properties, and other optimizations.
   pub minify: bool,
+
+  /// Project root for resolving relative paths
+  ///
+  /// Used to resolve relative imports and URL references in CSS.
+  /// If `None`, paths are resolved relative to the CSS file location.
+  pub project_root: Option<String>,
 }
 
 impl Default for CssMinifyOptions {
   fn default() -> Self {
-    Self { minify: true }
+    Self {
+      minify:       true,
+      project_root: None,
+    }
   }
 }
 

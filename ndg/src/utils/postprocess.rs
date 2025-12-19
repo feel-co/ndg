@@ -73,17 +73,30 @@ pub fn process_css(
 
   let css_opts = config.css_options();
 
-  let stylesheet = lightningcss::stylesheet::StyleSheet::parse(
-    content,
-    lightningcss::stylesheet::ParserOptions::default(),
-  )
-  .map_err(|e| eyre!("Failed to parse CSS: {e}"))?;
+  let parser_opts = lightningcss::stylesheet::ParserOptions {
+    filename:       String::new(),
+    css_modules:    None,
+    source_index:   0,
+    error_recovery: false,
+    warnings:       None,
+    flags:          lightningcss::stylesheet::ParserFlags::empty(),
+  };
+
+  let stylesheet =
+    lightningcss::stylesheet::StyleSheet::parse(content, parser_opts)
+      .map_err(|e| eyre!("Failed to parse CSS: {e}"))?;
+
+  let printer_opts = lightningcss::stylesheet::PrinterOptions {
+    minify:               css_opts.minify,
+    source_map:           None,
+    project_root:         css_opts.project_root.as_deref(),
+    targets:              Default::default(),
+    analyze_dependencies: None,
+    pseudo_classes:       None,
+  };
 
   let result = stylesheet
-    .to_css(lightningcss::stylesheet::PrinterOptions {
-      minify: css_opts.minify,
-      ..Default::default()
-    })
+    .to_css(printer_opts)
     .map_err(|e| eyre!("Failed to minify CSS: {e}"))?;
 
   Ok(result.code)
@@ -188,7 +201,10 @@ mod tests {
   </body>
 </html>"#;
     let result = process_html(html, &config).unwrap();
-    let expected = "<!doctype html><html lang=en><meta charset=UTF-8><title>Test</title><body><pre>code    with    spaces</pre><div>Content</div>";
+    let expected =
+      "<!doctype html><html lang=en><meta \
+       charset=UTF-8><title>Test</title><body><pre>code    with    \
+       spaces</pre><div>Content</div>";
     assert_eq!(result, expected);
   }
 
@@ -202,7 +218,10 @@ mod tests {
       ..Default::default()
     };
     let html = "<div><!-- Keep -->Content</div>";
-    assert_eq!(process_html(html, &config).unwrap(), "<div><!-- Keep -->Content</div>");
+    assert_eq!(
+      process_html(html, &config).unwrap(),
+      "<div><!-- Keep -->Content</div>"
+    );
   }
 
   #[test]
@@ -233,7 +252,8 @@ body {
 }
 ";
     let result = process_css(css, &config).unwrap();
-    let expected = "body{color:red;margin:0}@media (width<=768px){.container{width:100%}}";
+    let expected =
+      "body{color:red;margin:0}@media (width<=768px){.container{width:100%}}";
     assert_eq!(result, expected);
   }
 
@@ -242,17 +262,26 @@ body {
     let css = "body {\n  color: red;\n}";
     let config_minify = PostprocessConfig {
       minify_css: true,
-      css: Some(crate::config::postprocess::CssMinifyOptions { minify: true }),
+      css: Some(crate::config::postprocess::CssMinifyOptions {
+        minify:       true,
+        project_root: None,
+      }),
       ..Default::default()
     };
     assert_eq!(process_css(css, &config_minify).unwrap(), "body{color:red}");
 
     let config_no_minify = PostprocessConfig {
       minify_css: true,
-      css: Some(crate::config::postprocess::CssMinifyOptions { minify: false }),
+      css: Some(crate::config::postprocess::CssMinifyOptions {
+        minify:       false,
+        project_root: None,
+      }),
       ..Default::default()
     };
-    assert_eq!(process_css(css, &config_no_minify).unwrap(), "body {\n  color: red;\n}\n");
+    assert_eq!(
+      process_css(css, &config_no_minify).unwrap(),
+      "body {\n  color: red;\n}\n"
+    );
   }
 
   #[test]
@@ -264,7 +293,12 @@ body {
     let css = "body { @@@invalid: syntax; }";
     let result = process_css(css, &config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Failed to parse CSS"));
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Failed to parse CSS")
+    );
   }
 
   #[test]
@@ -295,7 +329,9 @@ window.addEventListener('load', function() {
 });
 ";
     let result = process_js(js, &config).unwrap();
-    let expected = "function init(){console.log(`test`),console.log(25)}window.addEventListener(`load`,function(){init()});";
+    let expected = "function init(){console.log(`test`),console.\
+                    log(25)}window.addEventListener(`load`,\
+                    function(){init()});";
     assert_eq!(result, expected);
   }
 
@@ -310,7 +346,10 @@ window.addEventListener('load', function() {
       }),
       ..Default::default()
     };
-    assert_eq!(process_js(js, &config_compress).unwrap(), "const unused=1,x=15;console.log(15);");
+    assert_eq!(
+      process_js(js, &config_compress).unwrap(),
+      "const unused=1,x=15;console.log(15);"
+    );
 
     let config_no_compress = PostprocessConfig {
       minify_js: true,
@@ -320,7 +359,10 @@ window.addEventListener('load', function() {
       }),
       ..Default::default()
     };
-    assert_eq!(process_js(js, &config_no_compress).unwrap(), "const unused=1;const x=5+10;console.log(x);");
+    assert_eq!(
+      process_js(js, &config_no_compress).unwrap(),
+      "const unused=1;const x=5+10;console.log(x);"
+    );
   }
 
   #[test]
@@ -348,15 +390,29 @@ window.addEventListener('load', function() {
     let js = "function test() { @@@invalid }";
     let result = process_js(js, &config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Failed to parse JavaScript"));
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Failed to parse JavaScript")
+    );
   }
 
   #[test]
   fn test_all_minification_disabled() {
     let config = PostprocessConfig::default();
-    assert_eq!(process_html("<div>  test  </div>", &config).unwrap(), "<div>  test  </div>");
-    assert_eq!(process_css("body { color: red; }", &config).unwrap(), "body { color: red; }");
-    assert_eq!(process_js("const x = 1 + 2;", &config).unwrap(), "const x = 1 + 2;");
+    assert_eq!(
+      process_html("<div>  test  </div>", &config).unwrap(),
+      "<div>  test  </div>"
+    );
+    assert_eq!(
+      process_css("body { color: red; }", &config).unwrap(),
+      "body { color: red; }"
+    );
+    assert_eq!(
+      process_js("const x = 1 + 2;", &config).unwrap(),
+      "const x = 1 + 2;"
+    );
   }
 
   #[test]
@@ -377,7 +433,9 @@ function processFile(filename) {
 module.exports = { processFile };
 ";
     let result = process_js(js, &config).unwrap();
-    let expected = "const fs=require(`fs`);function processFile(filename){return fs.readFileSync(filename,`utf8`).trim()}module.exports={processFile};";
+    let expected =
+      "const fs=require(`fs`);function processFile(filename){return \
+       fs.readFileSync(filename,`utf8`).trim()}module.exports={processFile};";
     assert_eq!(result, expected);
   }
 
@@ -399,7 +457,9 @@ export function processFile(filename) {
 export default { processFile };
 ";
     let result = process_js(js, &config).unwrap();
-    let expected = "import{readFile}from\"fs\";export function processFile(filename){return readFile(filename).trim()}export default {processFile};";
+    let expected = "import{readFile}from\"fs\";export function \
+                    processFile(filename){return \
+                    readFile(filename).trim()}export default {processFile};";
     assert_eq!(result, expected);
   }
 
@@ -419,7 +479,8 @@ document.addEventListener('click', function(e) {
 });
 ";
     let result = process_js(js, &config).unwrap();
-    let expected = "document.addEventListener(`click`,function(e){fetch(`/api`).then(r=>r.json())});";
+    let expected = "document.addEventListener(`click`,function(e){fetch(`/\
+                    api`).then(r=>r.json())});";
     assert_eq!(result, expected);
   }
 
@@ -441,7 +502,8 @@ async function getData() {
 }
 ";
     let result = process_js(js, &config).unwrap();
-    let expected = "const fn=x=>x*2;const obj={a:1,...rest};async function getData(){return await fetch(url)}";
+    let expected = "const fn=x=>x*2;const obj={a:1,...rest};async function \
+                    getData(){return await fetch(url)}";
     assert_eq!(result, expected);
   }
 
