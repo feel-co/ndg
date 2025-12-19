@@ -48,22 +48,37 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
 
   for node in root.descendants() {
     if let NodeValue::Heading(_) = &node.data.borrow().value {
-      let mut text = String::new();
-      for child in node.children() {
-        if let NodeValue::Text(t) = &child.data.borrow().value {
-          text.push_str(t);
-        }
-        // Optionally handle inline formatting, code, etc.
-        if let NodeValue::Code(t) = &child.data.borrow().value {
-          text.push_str(&t.literal);
-        }
-      }
+      let text = extract_inline_text_from_node(node);
       if !text.trim().is_empty() {
         return Some(text.trim().to_string());
       }
     }
   }
   None
+}
+
+/// Extract all inline text from a node, recursively handling all inline
+/// elements.
+fn extract_inline_text_from_node<'a>(node: &'a AstNode<'a>) -> String {
+  let mut text = String::new();
+  for child in node.children() {
+    match &child.data.borrow().value {
+      NodeValue::Text(t) => text.push_str(t),
+      NodeValue::Code(t) => text.push_str(&t.literal),
+      NodeValue::Link(..)
+      | NodeValue::Emph
+      | NodeValue::Strong
+      | NodeValue::Strikethrough
+      | NodeValue::Superscript
+      | NodeValue::FootnoteReference(..) => {
+        text.push_str(&extract_inline_text_from_node(child));
+      },
+      #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
+      NodeValue::HtmlInline(_) | NodeValue::Image(..) => {},
+      _ => {},
+    }
+  }
+  text
 }
 
 /// Extract the first H1 heading from markdown content as the document title.
@@ -123,12 +138,7 @@ pub fn extract_markdown_title_and_id(
       &node.data.borrow().value
       && *level == 1
     {
-      let mut text = String::new();
-      for child in node.children() {
-        if let NodeValue::Text(ref t) = child.data.borrow().value {
-          text.push_str(t);
-        }
-      }
+      let text = extract_inline_text_from_node(node);
       // Clean the title by removing inline anchors and other NDG markup
       let anchor_id = anchor_re
         .captures(&text)
