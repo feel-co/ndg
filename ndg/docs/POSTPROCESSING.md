@@ -1,7 +1,5 @@
 # Postprocessing
 
-<!-- TODO: remove when postprocessing API is stable -->
-
 NDG supports postprocessing of generated HTML, CSS, and JavaScript files to
 optimize output size and performance. Postprocessing is optional and disabled by
 default, however, testing and bug reports are welcome :)
@@ -52,7 +50,7 @@ production documents at the cost of a tiny increase in generation time. In most
 cases the cost is negligible, and the decrease of the document size is well
 worth the penalty. However, this feature is completely optional.
 
-If you are deploying your documentation to production, and if bandwith and file
+If you are deploying your documentation to production, and if bandwidth and file
 size matters you will almost certainly want to enable minification. This is a
 low-risk, high-reward feature that will likely yield faster page loads. You
 will, however, want to disable minification if you are developing locally and
@@ -84,22 +82,34 @@ and the input:
 
 ```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Sample Page</title>
+  </head>
   <body>
-    <!-- Navigation -->
-    <nav>
-      <a href="/">Home</a>
-    </nav>
+    <!-- This is a comment -->
+    <div class="container">
+      <h1>Hello World</h1>
+      <p>
+        This is a paragraph with lots of whitespace.
+      </p>
+    </div>
+    <!-- Another comment -->
   </body>
 </html>
 ```
 
 You will receive the following output:
 
+<!-- markdownlint-disable MD013 -->
+
+<!-- deno-fmt-ignore -->
 ```html
-<!DOCTYPE html>
-<html><body><nav><a href="/">Home</a></nav></body></html>
+<!doctype html><html lang=en><meta charset=UTF-8><title>Sample Page</title><body><!-- This is a comment --><div class=container><h1>Hello World</h1><p>This is a paragraph with lots of whitespace.</div><!-- Another comment -->
 ```
+
+<!-- markdownlint-enable MD014 -->
 
 ### CSS Minification
 
@@ -127,26 +137,31 @@ and the input:
 body {
   margin: 0;
   padding: 0;
-  color: #ff0000;
+  font-family: Arial, sans-serif;
 }
 
-/* Comment */
 .container {
   max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1 {
+  color: #333333;
+  font-size: 2em;
+}
+
+p {
+  color: #666666;
+  line-height: 1.6;
 }
 ```
 
 You will receive the following output:
 
+<!-- deno-fmt-ignore -->
 ```css
-body {
-  margin: 0;
-  padding: 0;
-  color: red;
-}
-.container {
-  max-width: 1200px;
-}
+body{margin:0;padding:0;font-family:Arial,sans-serif}.container{max-width:1200px;margin:0 auto;padding:20px}h1{color:#333;font-size:2em}p{color:#666;line-height:1.6}
 ```
 
 ### JavaScript Minification
@@ -157,7 +172,7 @@ dead code elimination. Besides speed, it boasts 100% correctness. While enabled,
 NDG:
 
 - Removes whitespace and comments
-- Folds Constants(`1 + 2` -> `3`)
+- Folds constants (`1 + 2` -> `3`)
 - Eliminates dead code (removes unused functions)
 - Optimizes expressions (comma operators, etc.)
 - Validates syntax during processing
@@ -173,19 +188,25 @@ and the input:
 
 ```javascript
 function greet(name) {
-  // Say hello
   console.log("Hello, " + name);
   return true;
 }
+
+function calculateSum(a, b) {
+  // Add two numbers
+  const result = a + b;
+  return result;
+}
+
+// Initialize
+greet("World");
 ```
 
 You will receive the following output:
 
+<!-- deno-fmt-ignore -->
 ```javascript
-function greet(name) {
-  console.log("Hello, " + name);
-  return true;
-}
+function greet(name){return console.log(`Hello, `+name),!0}greet(`World`);
 ```
 
 ### Complete Example
