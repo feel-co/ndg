@@ -1,4 +1,8 @@
-#![allow(clippy::unwrap_used, reason = "Fine in examples")]
+#![allow(
+  clippy::unwrap_used,
+  clippy::print_stdout,
+  reason = "Fine in examples"
+)]
 use ndg::{
   config::postprocess::{HtmlMinifyOptions, PostprocessConfig},
   utils::postprocess::{process_css, process_html, process_js},

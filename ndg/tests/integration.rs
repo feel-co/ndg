@@ -298,7 +298,7 @@ fn test_custom_assets_css_minification() {
   fs::create_dir_all(&output_dir).expect("Failed to create output dir in test");
 
   // Create a custom CSS file with whitespace and comments
-  let css_content = r#"/* This is a comment */
+  let css_content = r"/* This is a comment */
 body {
   margin: 0;
   padding: 0;
@@ -309,7 +309,7 @@ body {
   max-width: 1200px;
   margin: 0 auto;
 }
-"#;
+";
   fs::write(assets_dir.join("custom.css"), css_content)
     .expect("Failed to write custom.css in test");
 

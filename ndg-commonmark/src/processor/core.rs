@@ -1171,7 +1171,7 @@ where
       transform_fn(&document);
 
       let mut out = Vec::new();
-      document.serialize(&mut out).ok();
+      let _ = document.serialize(&mut out);
       String::from_utf8(out).unwrap_or_default()
     },
     html,

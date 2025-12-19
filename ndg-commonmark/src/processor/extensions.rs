@@ -1041,7 +1041,7 @@ pub fn process_manpage_references(
       }
 
       let mut out = Vec::new();
-      document.serialize(&mut out).ok();
+      let _ = document.serialize(&mut out);
       String::from_utf8(out).unwrap_or_default()
     },
     // Return original HTML on error
@@ -1145,7 +1145,7 @@ pub fn process_option_references(
       }
 
       let mut out = Vec::new();
-      document.serialize(&mut out).ok();
+      let _ = document.serialize(&mut out);
       String::from_utf8(out).unwrap_or_default()
     },
     // Return original HTML on error

@@ -86,7 +86,7 @@ pub fn process_css(
     minify:               css_opts.minify,
     source_map:           None,
     project_root:         css_opts.project_root.as_deref(),
-    targets:              Default::default(),
+    targets:              lightningcss::targets::Targets::default(),
     analyze_dependencies: None,
     pseudo_classes:       None,
   };
@@ -254,6 +254,10 @@ body {
   }
 
   #[test]
+  #[allow(
+    clippy::literal_string_with_formatting_args,
+    reason = "CSS minified output contains braces that trigger false positive"
+  )]
   fn test_css_minify_option() {
     let css = "body {\n  color: red;\n}";
     let config_minify = PostprocessConfig {
@@ -264,7 +268,10 @@ body {
       }),
       ..Default::default()
     };
-    assert_eq!(process_css(css, &config_minify).unwrap(), "body{color:red}");
+    assert_eq!(
+      process_css(css, &config_minify).unwrap(),
+      r"body{color:red}"
+    );
 
     let config_no_minify = PostprocessConfig {
       minify_css: true,
