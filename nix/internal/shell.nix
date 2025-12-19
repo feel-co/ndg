@@ -19,11 +19,13 @@ pkgs.mkShell {
     pkgs.cargo-machete
     pkgs.cargo-llvm-cov
     pkgs.cargo-deny
+
+    # Linter/Formatter for template documents
+    pkgs.deno
+    pkgs.prettier
   ];
 
   env = {
-    RUST_BACKTRACE = "1";
-
     RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
 
     # Allow Cargo to use lld properly
