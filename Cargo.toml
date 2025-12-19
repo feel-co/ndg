@@ -41,11 +41,11 @@ minify-html = "0.18.1"
 ndg = { path = "./ndg" }
 ndg-commonmark = { path = "./ndg-commonmark" }
 num_cpus = "1.17.0"
-oxc_allocator = "0.95.0"
-oxc_codegen = "0.95.0"
-oxc_minifier = "0.95.0"
-oxc_parser = "0.95.0"
-oxc_span = "0.95.0"
+oxc_allocator = "0.104.0"
+oxc_codegen = "0.104.0"
+oxc_minifier = "0.104.0"
+oxc_parser = "0.104.0"
+oxc_span = "0.104.0"
 rayon = "1.11.0"
 regex = "1.12.2"
 serde = { version = "1.0.228", features = [ "derive" ] }
