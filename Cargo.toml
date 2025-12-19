@@ -102,14 +102,21 @@ unnecessary_safety_comment           = "warn"
 unused_result_ok                     = "warn"
 unused_trait_names                   = "allow"
 
+# False positive:
+# clippy's build script check doesn't recognize workspace-inherited metadata
+# which means in our current workspace layout, we get pranked by Clippy.
+cargo_common_metadata = "allow"
+
 # In the honor of a recent Cloudflare regression
 panic       = "deny"
 unwrap_used = "deny"
 
 # Less dangerous, but we'd like to know
+# Those must be opt-in, and are fine ONLY in tests and examples. We *can* panic
+# in NDG (the binary crate), but it should be very deliberate
 expect_used   = "warn"
-print_stderr  = "warn" # Must be opt-in
-print_stdout  = "warn" # Must be opt-in
+print_stderr  = "warn"
+print_stdout  = "warn"
 todo          = "warn"
 unimplemented = "warn"
 unreachable   = "warn"
