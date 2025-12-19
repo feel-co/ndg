@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod meta;
 pub mod postprocess;
 pub mod sidebar;
@@ -48,6 +49,9 @@ pub struct Config {
 
   /// Directory containing additional assets.
   pub assets_dir: Option<PathBuf>,
+
+  /// Options for copying custom assets.
+  pub assets: Option<crate::config::assets::AssetsConfig>,
 
   /// Path to manpage URL mappings JSON file.
   pub manpage_urls_path: Option<PathBuf>,
@@ -115,6 +119,7 @@ impl Default for Config {
       stylesheet_paths:  Vec::new(),
       script_paths:      Vec::new(),
       assets_dir:        None,
+      assets:            None,
       manpage_urls_path: None,
       title:             "ndg documentation".to_string(),
       jobs:              None,
@@ -667,6 +672,47 @@ impl Config {
           }
         },
 
+        // Nested assets.* - asset copying configuration
+        key if key.starts_with("assets.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("assets.").expect(
+            "Key starts with 'assets.' prefix, strip_prefix cannot fail",
+          );
+          if self.assets.is_none() {
+            self.assets = Some(assets::AssetsConfig::default());
+          }
+          if let Some(ref mut assets_cfg) = self.assets {
+            match subkey {
+              "follow_symlinks" => {
+                assets_cfg.follow_symlinks = Self::parse_bool(value, key)?;
+              },
+              "max_depth" => {
+                assets_cfg.max_depth = if value.is_empty() {
+                  None
+                } else {
+                  Some(value.parse::<usize>().map_err(|_| {
+                    NdgError::Config(format!(
+                      "Invalid value for 'assets.max_depth': '{value}'. \
+                       Expected a positive integer"
+                    ))
+                  })?)
+                };
+              },
+              "skip_hidden" => {
+                assets_cfg.skip_hidden = Self::parse_bool(value, key)?;
+              },
+              _ => {
+                return Err(NdgError::Config(format!(
+                  "Unknown assets configuration key: '{key}'"
+                )));
+              },
+            }
+          }
+        },
+
         // Nested postprocess.html.* - HTML minification options
         key if key.starts_with("postprocess.html.") => {
           #[allow(
@@ -824,6 +870,9 @@ impl Config {
     }
     if other.postprocess.is_some() {
       self.postprocess = other.postprocess;
+    }
+    if other.assets.is_some() {
+      self.assets = other.assets;
     }
 
     // Vec fields - append
