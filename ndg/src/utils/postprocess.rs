@@ -21,12 +21,7 @@ use crate::config::postprocess::PostprocessConfig;
 ///
 /// # Errors
 ///
-/// This function does not currently return errors, but uses `Result` for
-/// API consistency with other postprocessing functions.
-#[allow(
-  clippy::unnecessary_wraps,
-  reason = "API consistency with other postprocessing functions"
-)]
+/// Returns an error if the minified HTML contains invalid UTF-8 sequences.
 pub fn process_html(
   content: &str,
   config: &PostprocessConfig,
@@ -43,7 +38,8 @@ pub fn process_html(
   };
 
   let minified = minify_html::minify(content.as_bytes(), &cfg);
-  Ok(String::from_utf8_lossy(&minified).into_owned())
+  String::from_utf8(minified)
+    .map_err(|e| eyre!("Minified HTML contains invalid UTF-8: {}", e))
 }
 
 /// Apply CSS minification if enabled
