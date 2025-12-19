@@ -175,7 +175,7 @@ pub fn generate_search_index(
     for (key, option_value) in options_obj {
       let raw_description = option_value["description"].as_str().unwrap_or("");
       let plain_description =
-        crate::utils::html::content_to_plaintext(raw_description);
+        utils::html::content_to_plaintext(raw_description);
 
       let title = format!("Option: {}", html_escape::encode_text(key));
       let tokens = tokenize(&plain_description);
