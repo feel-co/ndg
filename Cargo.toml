@@ -85,6 +85,7 @@ map_with_unused_argument_over_ranges = "warn"
 missing_docs_in_private_items        = "allow"
 multiple_crate_versions              = "allow" # :(
 non_ascii_literal                    = "allow"
+non_std_lazy_statics                 = "warn"
 pathbuf_init_then_push               = "warn"
 pattern_type_mismatch                = "allow"
 question_mark_used                   = "allow"
