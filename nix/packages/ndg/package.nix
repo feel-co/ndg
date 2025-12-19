@@ -4,6 +4,7 @@
   installShellFiles,
   versionCheckHook,
   stdenv,
+  lld,
 }: let
   fs = lib.fileset;
   s = ../../..;
@@ -40,7 +41,7 @@ in
       # As of Rust 1.90, it introduces a hard dependency on lld.
       # This is not a problem for reasonable distros that package up-to-date
       # toolchains, such as NixOS.
-      stdenv.cc.bintools.lld
+      lld
     ];
 
     # lld is the default on Rust 1.90+, but we don't stand to lose anything from
