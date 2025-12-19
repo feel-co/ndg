@@ -58,7 +58,10 @@ thiserror = "2.0.17"
 toml = { version = "0.9.8", default-features = false, features = [ "parse", "serde" ] }
 walkdir = "2.5.0"
 
+# See:
+#  <https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html>
 [workspace.lints.clippy]
+cargo      = { level = "warn", priority = -1 }
 complexity = { level = "warn", priority = -1 }
 nursery    = { level = "warn", priority = -1 }
 pedantic   = { level = "warn", priority = -1 }
@@ -67,28 +70,45 @@ style      = { level = "warn", priority = -1 }
 
 # The lint groups above enable some less-than-desirable rules, we should manually
 # enable those to keep our sanity.
-absolute_paths                 = "allow"
-arbitrary_source_item_ordering = "allow"
-implicit_return                = "allow"
-missing_docs_in_private_items  = "allow"
-non_ascii_literal              = "allow"
-pattern_type_mismatch          = "allow"
-print_stdout                   = "allow"
-question_mark_used             = "allow"
-similar_names                  = "allow"
-single_call_fn                 = "allow"
-std_instead_of_core            = "allow"
-too_long_first_doc_paragraph   = "allow"
-too_many_lines                 = "allow"
-unused_trait_names             = "allow"
+absolute_paths                       = "allow"
+arbitrary_source_item_ordering       = "allow"
+clone_on_ref_ptr                     = "warn"
+dbg_macro                            = "warn"
+empty_drop                           = "warn"
+empty_structs_with_brackets          = "warn"
+exit                                 = "warn"
+filetype_is_file                     = "warn"
+get_unwrap                           = "warn"
+implicit_return                      = "allow"
+infinite_loop                        = "warn"
+map_with_unused_argument_over_ranges = "warn"
+missing_docs_in_private_items        = "allow"
+multiple_crate_versions              = "allow" # :(
+non_ascii_literal                    = "allow"
+pathbuf_init_then_push               = "warn"
+pattern_type_mismatch                = "allow"
+question_mark_used                   = "allow"
+rc_buffer                            = "warn"
+rc_mutex                             = "warn"
+rest_pat_in_fully_bound_structs      = "warn"
+similar_names                        = "allow"
+single_call_fn                       = "allow"
+std_instead_of_core                  = "allow"
+too_long_first_doc_paragraph         = "allow"
+too_many_lines                       = "allow"
+undocumented_unsafe_blocks           = "warn"
+unnecessary_safety_comment           = "warn"
+unused_result_ok                     = "warn"
+unused_trait_names                   = "allow"
 
 # In the honor of a recent Cloudflare regression
-# Let's get rid of them, what the hell
 panic       = "deny"
 unwrap_used = "deny"
 
 # Less dangerous, but we'd like to know
 expect_used   = "warn"
+print_stderr  = "warn" # Must be opt-in
+print_stdout  = "warn" # Must be opt-in
 todo          = "warn"
 unimplemented = "warn"
 unreachable   = "warn"
