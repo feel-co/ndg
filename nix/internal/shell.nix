@@ -7,7 +7,8 @@ pkgs.mkShell {
     # Build tool
     pkgs.cargo
     pkgs.rustc
-    pkgs.lld # linker
+    pkgs.clang
+    pkgs.rustc.llvmPackages.lld # linker
 
     pkgs.clippy # lints
     pkgs.lldb # debugger
@@ -28,8 +29,9 @@ pkgs.mkShell {
   env = {
     RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
 
-    # Allow Cargo to use lld properly
-    RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+    # Allow Cargo to use lld and clang properly
+    LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+    RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=lld";
 
     # 'cargo llvm-cov' reads these environment variables to find these
     # binaries, which are needed to run the tests.
