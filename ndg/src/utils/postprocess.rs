@@ -112,7 +112,7 @@ pub fn process_js(content: &str, config: &PostprocessConfig) -> Result<String> {
   }
 
   let allocator = Allocator::default();
-  let source_type = SourceType::mjs();
+  let source_type = SourceType::unambiguous();
 
   let ret = Parser::new(&allocator, content, source_type).parse();
 
@@ -167,8 +167,7 @@ mod tests {
       ..Default::default()
     };
     let html = "<html>  <body>  Test  </body>  </html>";
-    let result = process_html(html, &config).unwrap();
-    assert_eq!(result, html);
+    assert_eq!(process_html(html, &config).unwrap(), html);
   }
 
   #[test]
@@ -189,12 +188,8 @@ mod tests {
   </body>
 </html>"#;
     let result = process_html(html, &config).unwrap();
-
-    assert!(result.len() < html.len());
-    assert!(result.contains("charset"));
-    assert!(result.contains("code    with    spaces")); // <pre> preserves whitespace
-    assert!(!result.contains("<!-- Comment -->")); // Comments removed by default
-    assert!(result.contains("Content"));
+    let expected = "<!doctype html><html lang=en><meta charset=UTF-8><title>Test</title><body><pre>code    with    spaces</pre><div>Content</div>";
+    assert_eq!(result, expected);
   }
 
   #[test]
@@ -207,9 +202,7 @@ mod tests {
       ..Default::default()
     };
     let html = "<div><!-- Keep -->Content</div>";
-    let result = process_html(html, &config).unwrap();
-
-    assert!(result.contains("<!-- Keep -->"));
+    assert_eq!(process_html(html, &config).unwrap(), "<div><!-- Keep -->Content</div>");
   }
 
   #[test]
@@ -219,8 +212,7 @@ mod tests {
       ..Default::default()
     };
     let css = "body { color: red; }";
-    let result = process_css(css, &config).unwrap();
-    assert_eq!(result, css);
+    assert_eq!(process_css(css, &config).unwrap(), css);
   }
 
   #[test]
@@ -241,37 +233,26 @@ body {
 }
 ";
     let result = process_css(css, &config).unwrap();
-
-    assert!(result.len() < css.len());
-    assert!(!result.contains("/*"));
-    assert!(!result.contains('\n'));
-    assert!(result.contains("@media"));
-    // lightningcss optimizes #ff0000 to red
-    assert!(result.contains("red") || result.contains("#f00"));
+    let expected = "body{color:red;margin:0}@media (width<=768px){.container{width:100%}}";
+    assert_eq!(result, expected);
   }
 
   #[test]
   fn test_css_minify_option() {
-    let css = "body { color: red; }";
-
-    // With minify: true
+    let css = "body {\n  color: red;\n}";
     let config_minify = PostprocessConfig {
       minify_css: true,
       css: Some(crate::config::postprocess::CssMinifyOptions { minify: true }),
       ..Default::default()
     };
-    let result_minify = process_css(css, &config_minify).unwrap();
+    assert_eq!(process_css(css, &config_minify).unwrap(), "body{color:red}");
 
-    // With minify: false (should still parse but not minify)
     let config_no_minify = PostprocessConfig {
       minify_css: true,
       css: Some(crate::config::postprocess::CssMinifyOptions { minify: false }),
       ..Default::default()
     };
-    let result_no_minify = process_css(css, &config_no_minify).unwrap();
-
-    // minify: false should produce longer output
-    assert!(result_no_minify.len() >= result_minify.len());
+    assert_eq!(process_css(css, &config_no_minify).unwrap(), "body {\n  color: red;\n}\n");
   }
 
   #[test]
@@ -282,9 +263,8 @@ body {
     };
     let css = "body { @@@invalid: syntax; }";
     let result = process_css(css, &config);
-
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("parse"));
+    assert!(result.unwrap_err().to_string().contains("Failed to parse CSS"));
   }
 
   #[test]
@@ -294,8 +274,7 @@ body {
       ..Default::default()
     };
     let js = "function test() { return true; }";
-    let result = process_js(js, &config).unwrap();
-    assert_eq!(result, js);
+    assert_eq!(process_js(js, &config).unwrap(), js);
   }
 
   #[test]
@@ -304,7 +283,6 @@ body {
       minify_js: true,
       ..Default::default()
     };
-
     let js = r"
 // Initialize app
 function init() {
@@ -317,18 +295,13 @@ window.addEventListener('load', function() {
 });
 ";
     let result = process_js(js, &config).unwrap();
-
-    assert!(result.len() < js.len());
-    assert!(result.contains("25")); // Constant folding: 5 + 10 * 2
-    assert!(result.contains("console.log"));
-    assert!(result.contains("addEventListener"));
+    let expected = "function init(){console.log(`test`),console.log(25)}window.addEventListener(`load`,function(){init()});";
+    assert_eq!(result, expected);
   }
 
   #[test]
   fn test_js_compress_option() {
     let js = "const unused = 1; const x = 5 + 10; console.log(x);";
-
-    // With compress: true (should do DCE and constant folding)
     let config_compress = PostprocessConfig {
       minify_js: true,
       js: Some(crate::config::postprocess::JsMinifyOptions {
@@ -337,9 +310,8 @@ window.addEventListener('load', function() {
       }),
       ..Default::default()
     };
-    let result_compress = process_js(js, &config_compress).unwrap();
+    assert_eq!(process_js(js, &config_compress).unwrap(), "const unused=1,x=15;console.log(15);");
 
-    // With compress: false (no optimizations)
     let config_no_compress = PostprocessConfig {
       minify_js: true,
       js: Some(crate::config::postprocess::JsMinifyOptions {
@@ -348,20 +320,13 @@ window.addEventListener('load', function() {
       }),
       ..Default::default()
     };
-    let result_no_compress = process_js(js, &config_no_compress).unwrap();
-
-    // Compress should be more aggressive
-    assert!(result_compress.len() < result_no_compress.len());
-    // With compress, constant folding should produce 15
-    assert!(result_compress.contains("15"));
+    assert_eq!(process_js(js, &config_no_compress).unwrap(), "const unused=1;const x=5+10;console.log(x);");
   }
 
   #[test]
   fn test_js_mangle_option() {
     let js = "function test() { const localVar = 1; return localVar + 1; }";
-
-    // With mangle: true
-    let config_mangle = PostprocessConfig {
+    let config = PostprocessConfig {
       minify_js: true,
       js: Some(crate::config::postprocess::JsMinifyOptions {
         compress: false,
@@ -369,25 +334,9 @@ window.addEventListener('load', function() {
       }),
       ..Default::default()
     };
-    let result_mangle = process_js(js, &config_mangle).unwrap();
-
-    // With mangle: false
-    let config_no_mangle = PostprocessConfig {
-      minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
-        compress: false,
-        mangle:   false,
-      }),
-      ..Default::default()
-    };
-    let result_no_mangle = process_js(js, &config_no_mangle).unwrap();
-
-    // Without mangle, original names should be preserved
-    assert!(result_no_mangle.contains("localVar"));
-    // With mangle, names may be shortened (oxc's mangler behavior)
-    // At minimum, both should produce valid code
-    assert!(!result_mangle.is_empty());
-    assert!(!result_no_mangle.is_empty());
+    // oxc mangler doesn't rename const in this case
+    let expected = "function test(){const localVar=1;return localVar+1}";
+    assert_eq!(process_js(js, &config).unwrap(), expected);
   }
 
   #[test]
@@ -398,20 +347,120 @@ window.addEventListener('load', function() {
     };
     let js = "function test() { @@@invalid }";
     let result = process_js(js, &config);
-
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("parse"));
+    assert!(result.unwrap_err().to_string().contains("Failed to parse JavaScript"));
   }
 
   #[test]
   fn test_all_minification_disabled() {
     let config = PostprocessConfig::default();
-    let html = "<div>  test  </div>";
-    let css = "body { color: red; }";
-    let js = "const x = 1 + 2;";
+    assert_eq!(process_html("<div>  test  </div>", &config).unwrap(), "<div>  test  </div>");
+    assert_eq!(process_css("body { color: red; }", &config).unwrap(), "body { color: red; }");
+    assert_eq!(process_js("const x = 1 + 2;", &config).unwrap(), "const x = 1 + 2;");
+  }
 
-    assert_eq!(process_html(html, &config).unwrap(), html);
-    assert_eq!(process_css(css, &config).unwrap(), css);
-    assert_eq!(process_js(js, &config).unwrap(), js);
+  #[test]
+  fn test_js_commonjs_syntax() {
+    let config = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let js = r"
+const fs = require('fs');
+function processFile(filename) {
+  return fs.readFileSync(filename, 'utf8').trim();
+}
+module.exports = { processFile };
+";
+    let result = process_js(js, &config).unwrap();
+    let expected = "const fs=require(`fs`);function processFile(filename){return fs.readFileSync(filename,`utf8`).trim()}module.exports={processFile};";
+    assert_eq!(result, expected);
+  }
+
+  #[test]
+  fn test_js_es_module_syntax() {
+    let config = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let js = r"
+import { readFile } from 'fs';
+export function processFile(filename) {
+  return readFile(filename).trim();
+}
+export default { processFile };
+";
+    let result = process_js(js, &config).unwrap();
+    let expected = "import{readFile}from\"fs\";export function processFile(filename){return readFile(filename).trim()}export default {processFile};";
+    assert_eq!(result, expected);
+  }
+
+  #[test]
+  fn test_js_browser_apis() {
+    let config = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let js = r"
+document.addEventListener('click', function(e) {
+  fetch('/api').then(r => r.json());
+});
+";
+    let result = process_js(js, &config).unwrap();
+    let expected = "document.addEventListener(`click`,function(e){fetch(`/api`).then(r=>r.json())});";
+    assert_eq!(result, expected);
+  }
+
+  #[test]
+  fn test_js_modern_syntax() {
+    let config = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let js = r"
+const fn = (x) => x * 2;
+const obj = { a: 1, ...rest };
+async function getData() {
+  return await fetch(url);
+}
+";
+    let result = process_js(js, &config).unwrap();
+    let expected = "const fn=x=>x*2;const obj={a:1,...rest};async function getData(){return await fetch(url)}";
+    assert_eq!(result, expected);
+  }
+
+  #[test]
+  fn test_js_template_literals() {
+    let config = PostprocessConfig {
+      minify_js: true,
+      js: Some(crate::config::postprocess::JsMinifyOptions {
+        compress: false,
+        mangle:   false,
+      }),
+      ..Default::default()
+    };
+    let js = r#"
+const name = "World";
+const greeting = `Hello, ${name}!`;
+"#;
+    let result = process_js(js, &config).unwrap();
+    let expected = "const name=`World`;const greeting=`Hello, ${name}!`;";
+    assert_eq!(result, expected);
   }
 }
