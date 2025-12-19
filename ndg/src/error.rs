@@ -42,12 +42,6 @@ impl From<tera::Error> for NdgError {
   }
 }
 
-impl From<fs_extra::error::Error> for NdgError {
-  fn from(e: fs_extra::error::Error) -> Self {
-    Self::Io(io::Error::other(e.to_string()))
-  }
-}
-
 impl From<std::string::FromUtf8Error> for NdgError {
   fn from(e: std::string::FromUtf8Error) -> Self {
     Self::External(e.to_string())
