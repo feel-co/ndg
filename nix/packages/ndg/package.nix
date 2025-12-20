@@ -4,7 +4,9 @@
   installShellFiles,
   versionCheckHook,
   stdenv,
-  lld,
+  rustc,
+  clang,
+  libclang,
 }: let
   fs = lib.fileset;
   s = ../../..;
@@ -37,17 +39,21 @@ in
     nativeBuildInputs = [
       installShellFiles
 
-      # Build with lld for faster and more optimized builds.
-      # As of Rust 1.90, it introduces a hard dependency on lld.
-      # This is not a problem for reasonable distros that package up-to-date
-      # toolchains, such as NixOS.
-      lld
+      # Link with lld for faster and more optimized results. As of Rust 1.90 this
+      # is the default when lld is available in the system. This is not a problem
+      # for reasonable distros that package up-to-date toolchains, such as NixOS.
+      # Let's try it, users can always opt out anyway.
+      rustc.llvmPackages.lld
+      clang
     ];
+    env = {
+      # lld is the default on Rust 1.90+, but we don't stand to lose anything from
+      # being more explicit. If anything, this makes errors clearer when lld is not
+      # available, instead of silently falling back.
+      RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=lld";
 
-    # lld is the default on Rust 1.90+, but we don't stand to lose anything from
-    # being more explicit. If anything, this makes errors clearer when lld is not
-    # available, instead of silently falling back.
-    env.RUSTFLAGS = "-C linker=lld -C linker-flavor=ld.lld";
+      LIBCLANG_PATH = "${libclang.lib}/lib";
+    };
 
     nativeInstallCheckInputs = [versionCheckHook];
     doInstallCheck = true;
