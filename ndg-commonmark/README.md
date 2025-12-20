@@ -111,7 +111,7 @@ options.highlight_code = true;
 options.highlight_theme = Some("gruvbox-dark".to_string());
 
 // Set manpage URL mappings
-// Note: this is required for {man} role to function correctly
+// NOTE: this is required for {man} role to function correctly
 options.manpage_urls_path = Some("manpage-urls.json".to_string());
 
 let processor = MarkdownProcessor::new(options);
@@ -164,6 +164,8 @@ impl MarkdownProcessor {
 
 Configuration options:
 
+<!-- markdownlint-disable MD013 -->
+
 ```rust
 pub struct MarkdownOptions {
     pub gfm: bool,                              // GitHub Flavored Markdown
@@ -174,6 +176,8 @@ pub struct MarkdownOptions {
     pub tab_style: TabStyle,                    // How to handle hard tabs in code blocks
 }
 ```
+
+<!-- markdownlint-enable MD013 -->
 
 ### `TabStyle`
 
@@ -297,6 +301,8 @@ for file in files {
 
 ### Static Site Generators
 
+<!-- markdownlint-disable MD013 -->
+
 ```rust
 use ndg_commonmark::{MarkdownProcessor, MarkdownOptions};
 use std::path::Path;
@@ -331,16 +337,36 @@ fn build_site(input_dir: &Path, output_dir: &Path) -> Result<(), Box<dyn std::er
 }
 ```
 
-## License
-
-This project is licensed under the Mozilla Public License 2.0. See the
-[LICENSE](../LICENSE) file for more details.
+<!-- markdownlint-enable MD013 -->
 
 ## Acknowledgments
 
-- [CommonMark](https://commonmark.org/) specification
-- [comrak](https://github.com/kivikakk/comrak) for CommonMark parsing
-- [Syntastica](https://github.com/RubixDev/syntastica) for modern syntax
-  highlighting
-- [tree-sitter](https://tree-sitter.github.io/) for parsing technology
-- The Nix community for inspiration and requirements
+[comrak]: https://github.com/kivikakk/comrak
+
+ndg-commonmark is inspired and powered by various projects. The first and
+perhaps the most important one is `nixos-render-docs` that powers the NixOS
+documentation. It filled me with so much spite that I felt compelled to write
+this library.
+
+Next, and the second most important is the [comrak] library that powers most of
+the Markdown parsing features. ndg-commonmark is enriched by the robustness of
+this library, so a big thanks to author and contributors.
+
+Last but not least, a big thank you to all the [crates](./Cargo.toml) that we
+use under the hood. The Rust ecosystem is great, and this allows for an
+excellent opportunity to build what I enjoy.
+
+## License
+
+<!-- markdownlint-disable MD059 -->
+
+This project is made available under Mozilla Public License (MPL) version 2.0.
+See [LICENSE](LICENSE) for more details on the exact conditions. An online copy
+is provided [here](https://www.mozilla.org/en-US/MPL/2.0/).
+
+<!-- markdownlint-enable MD059 -->
+
+<div align="right">
+  <a href="#doc-begin">Back to the Top</a>
+  <br/>
+</div>
