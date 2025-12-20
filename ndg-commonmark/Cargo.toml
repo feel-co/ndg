@@ -20,6 +20,13 @@ default      = [ "ndg-flavored", "syntastica" ]
 gfm          = [  ]
 ndg-flavored = [ "gfm", "nixpkgs" ]
 nixpkgs      = [  ]
+
+# Feature flags for Syntax highlighting.
+# Syntastica requires the "most" feature flag if we need Nix support, and Syntect
+# relies on two-face (another crate that powers the Bat pager) for Nix syntax
+# highlighting. The default is Syntastica because of the more robust theme support
+# but Syntect *might* be chosen by end-users if theming is less important, and if
+# compile times are unmanagable.
 syntastica   = [ "dep:syntastica", "dep:syntastica-core", "dep:syntastica-parsers", "dep:syntastica-themes" ]
 syntect      = [ "dep:syntect", "dep:two-face" ]
 
@@ -34,7 +41,7 @@ serde.workspace       = true
 serde_json.workspace  = true
 syntastica            = { version = "0.6.1", optional = true }
 syntastica-core       = { version = "0.6.1", optional = true }
-syntastica-parsers    = { version = "0.6.1", features = [ "all" ], optional = true }
+syntastica-parsers    = { version = "0.6.1", features = [ "most" ], optional = true }
 syntastica-themes     = { version = "0.6.1", optional = true }
 syntect               = { workspace = true, optional = true }
 tendril.workspace     = true
