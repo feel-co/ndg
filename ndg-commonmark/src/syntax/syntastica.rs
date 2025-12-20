@@ -14,7 +14,10 @@
 //! - tokyo night, solarized, monokai
 //! - And many more...
 
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{
+  collections::HashMap,
+  sync::{Arc, Mutex},
+};
 
 use syntastica::{Processor, render, renderer::HtmlRenderer};
 use syntastica_core::theme::ResolvedTheme;
@@ -27,7 +30,10 @@ use super::{
 
 /// Syntastica-based syntax highlighter.
 pub struct SyntasticaHighlighter {
-  #[allow(dead_code, reason = "Must be kept alive as processor holds reference to it")]
+  #[allow(
+    dead_code,
+    reason = "Must be kept alive as processor holds reference to it"
+  )]
   language_set:  Arc<LanguageSetImpl>,
   themes:        HashMap<String, ResolvedTheme>,
   default_theme: ResolvedTheme,
@@ -227,16 +233,17 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
     let highlights = self
       .processor
       .lock()
-      .map_err(|e| SyntaxError::HighlightingFailed(format!("Processor lock poisoned: {e}")))?
+      .map_err(|e| {
+        SyntaxError::HighlightingFailed(format!("Processor lock poisoned: {e}"))
+      })?
       .process(code, lang)
       .map_err(|e| SyntaxError::HighlightingFailed(e.to_string()))?;
 
     // Use the reusable renderer via Mutex for thread-safe interior mutability
     let html = {
-      let mut renderer = self
-        .renderer
-        .lock()
-        .map_err(|e| SyntaxError::HighlightingFailed(format!("Renderer lock poisoned: {e}")))?;
+      let mut renderer = self.renderer.lock().map_err(|e| {
+        SyntaxError::HighlightingFailed(format!("Renderer lock poisoned: {e}"))
+      })?;
       render(&highlights, &mut *renderer, theme)
     };
 

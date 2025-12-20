@@ -311,8 +311,9 @@ This describes the Home Manager module installation.
   let all_markdown_files = collect_markdown_files(&input_dir);
 
   // Process markdown files to generate HTML
-  ndg::utils::process_markdown_files(&config, processor.as_ref())
-    .expect("Failed to process markdown files");
+  let (_processed_files, _included_files) =
+    ndg::utils::process_markdown_files(&config, processor.as_ref())
+      .expect("Failed to process markdown files");
 
   // Filter out included files - only standalone files should be in search index
   let searchable_files: Vec<_> = all_markdown_files

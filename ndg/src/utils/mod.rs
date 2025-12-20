@@ -10,6 +10,7 @@ use std::fs;
 use color_eyre::eyre::{self, Context};
 use log::info;
 
+#[allow(unused_imports, reason = "Re-exported for backward compatibility")]
 pub use crate::utils::{
   assets::copy_assets,
   markdown::{

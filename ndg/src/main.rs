@@ -139,13 +139,10 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     None
   };
 
-  // Collect all included files first
-  config.included_files =
-    utils::collect_included_files(config, processor.as_ref())?;
-
-  // Process markdown files
-  let markdown_files =
+  // Process markdown files and collect included files in one pass
+  let (markdown_files, included_files) =
     utils::process_markdown_files(config, processor.as_ref())?;
+  config.included_files = included_files;
 
   // Process options if provided
   let options_processed = utils::process_module_options(config)?;
