@@ -98,6 +98,7 @@ pub fn generate_search_index(
 
   let mut search_index = SearchIndex::new();
   let mut doc_id = 0;
+  let mut markdown_count = 0;
 
   // Process standalone markdown files in parallel
   if !markdown_files.is_empty()
@@ -149,6 +150,7 @@ pub fn generate_search_index(
 
     let documents = documents?;
     let documents_count = documents.len();
+    markdown_count = documents_count;
     for (index, (title, content, path, tokens, title_tokens)) in
       documents.into_iter().enumerate()
     {
@@ -167,6 +169,7 @@ pub fn generate_search_index(
   }
 
   // Process options if available
+  let mut options_count = 0;
   if let Some(options_path) = &config.module_options
     && let Ok(options_content) = fs::read_to_string(options_path)
     && let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
@@ -191,6 +194,7 @@ pub fn generate_search_index(
       });
 
       doc_id += 1;
+      options_count += 1;
     }
   }
 
@@ -210,9 +214,10 @@ pub fn generate_search_index(
   // Create search page
   create_search_page(config)?;
 
+  let total_count = search_index.documents.len();
   info!(
-    "Search index generated successfully: {} documents indexed",
-    search_index.documents.len()
+    "Search index generated successfully: {markdown_count} markdown \
+     documents, {options_count} options indexed ({total_count} total)"
   );
 
   Ok(())
