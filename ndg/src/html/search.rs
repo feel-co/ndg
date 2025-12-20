@@ -12,9 +12,9 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{config::Config, html};
+use crate::{config::Config, html, utils};
 
-/// Optimized search document with tokenized content
+/// Search document with tokenized content
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchDocument {
   id:           String,
@@ -25,7 +25,7 @@ pub struct SearchDocument {
   title_tokens: Vec<String>,
 }
 
-/// Search index structure for efficient lookup
+/// Search index
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchIndex {
   documents: Vec<SearchDocument>,
@@ -125,7 +125,7 @@ pub fn generate_search_index(
             )
           });
 
-        let plain_text = crate::utils::html::content_to_plaintext(&content);
+        let plain_text = utils::html::content_to_plaintext(&content);
 
         let rel_path =
           file_path.strip_prefix(input_dir).wrap_err_with(|| {
@@ -167,34 +167,30 @@ pub fn generate_search_index(
   }
 
   // Process options if available
-  if let Some(options_path) = &config.module_options {
-    if let Ok(options_content) = fs::read_to_string(options_path) {
-      if let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
-      {
-        if let Some(options_obj) = options_data.as_object() {
-          for (key, option_value) in options_obj {
-            let raw_description =
-              option_value["description"].as_str().unwrap_or("");
-            let plain_description =
-              crate::utils::html::content_to_plaintext(raw_description);
+  if let Some(options_path) = &config.module_options
+    && let Ok(options_content) = fs::read_to_string(options_path)
+    && let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
+    && let Some(options_obj) = options_data.as_object()
+  {
+    for (key, option_value) in options_obj {
+      let raw_description = option_value["description"].as_str().unwrap_or("");
+      let plain_description =
+        utils::html::content_to_plaintext(raw_description);
 
-            let title = format!("Option: {}", html_escape::encode_text(key));
-            let tokens = tokenize(&plain_description);
-            let title_tokens = tokenize(&title);
+      let title = format!("Option: {}", html_escape::encode_text(key));
+      let tokens = tokenize(&plain_description);
+      let title_tokens = tokenize(&title);
 
-            search_index.add_document(SearchDocument {
-              id: doc_id.to_string(),
-              title,
-              content: plain_description,
-              path: format!("options.html#option-{}", key.replace('.', "-")),
-              tokens,
-              title_tokens,
-            });
+      search_index.add_document(SearchDocument {
+        id: doc_id.to_string(),
+        title,
+        content: plain_description,
+        path: format!("options.html#option-{}", key.replace('.', "-")),
+        tokens,
+        title_tokens,
+      });
 
-            doc_id += 1;
-          }
-        }
-      }
+      doc_id += 1;
     }
   }
 
@@ -244,8 +240,15 @@ pub fn create_search_page(config: &Config) -> Result<()> {
 
   let html = html::template::render_search(config, &context)?;
 
+  // Apply postprocessing if configured
+  let processed_html = if let Some(ref postprocess) = config.postprocess {
+    utils::postprocess::process_html(&html, postprocess)?
+  } else {
+    html
+  };
+
   let search_page_path = config.output_dir.join("search.html");
-  fs::write(&search_page_path, &html).wrap_err_with(|| {
+  fs::write(&search_page_path, &processed_html).wrap_err_with(|| {
     format!(
       "Failed to write search page to {}",
       search_page_path.display()

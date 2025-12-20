@@ -30,7 +30,6 @@ fn test_shell_prompt_transformation() {
   let transformer = PromptTransformer;
   let md = r"Run `\$ echo hello` for output.";
   let html = render_html_after_transform(md, &transformer);
-  println!("DEBUG test_shell_prompt_transformation HTML: {html}");
   // Escaped $ should not be transformed
   assert!(html.contains("<code>\\$ echo hello</code>"));
 }
@@ -76,9 +75,6 @@ fn test_prompt_with_leading_and_trailing_whitespace() {
   let transformer = PromptTransformer;
   let md = "Prompt: `  $   echo hi  `";
   let html = render_html_after_transform(md, &transformer);
-  println!(
-    "DEBUG test_prompt_with_leading_and_trailing_whitespace HTML: {html}"
-  );
   // Should trim and still match as shell prompt
   assert!(html.contains(
     "<code class=\"terminal\"><span class=\"prompt\">$</span> echo hi</code>"
@@ -99,7 +95,6 @@ fn test_edge_case_not_a_prompt() {
   let transformer = PromptTransformer;
   let md = "Not a prompt: `$$ foo` and `nix-repl>> bar`";
   let html = render_html_after_transform(md, &transformer);
-  println!("DEBUG test_edge_case_not_a_prompt HTML: {html}");
   // Should not match or transform
   assert!(html.contains("<code>$$ foo</code>"));
   assert!(html.contains("<code>nix-repl&gt;&gt; bar</code>"));

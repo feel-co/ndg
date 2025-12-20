@@ -573,14 +573,13 @@ pub fn process_inline_anchors(content: &str) -> String {
     } else {
       // Check for list items with anchors:
       // "- []{#id} content" or "1. []{#id} content"
-      if let Some(anchor_start) = find_list_item_anchor(trimmed) {
-        if let Some(processed_line) =
+      if let Some(anchor_start) = find_list_item_anchor(trimmed)
+        && let Some(processed_line) =
           process_list_item_anchor(line, anchor_start)
-        {
-          result.push_str(&processed_line);
-          result.push('\n');
-          continue;
-        }
+      {
+        result.push_str(&processed_line);
+        result.push('\n');
+        continue;
       }
 
       // Process regular inline anchors in the line
@@ -787,18 +786,18 @@ fn parse_github_callout(line: &str) -> Option<(String, String)> {
   }
 
   // Find the closing bracket
-  if let Some(close_bracket) = trimmed.find(']') {
-    if close_bracket > 4 {
-      let callout_type = &trimmed[4..close_bracket];
+  if let Some(close_bracket) = trimmed.find(']')
+    && close_bracket > 4
+  {
+    let callout_type = &trimmed[4..close_bracket];
 
-      // Validate callout type
-      match callout_type {
-        "NOTE" | "TIP" | "IMPORTANT" | "WARNING" | "CAUTION" | "DANGER" => {
-          let content = trimmed[close_bracket + 1..].trim();
-          return Some((callout_type.to_lowercase(), content.to_string()));
-        },
-        _ => return None,
-      }
+    // Validate callout type
+    match callout_type {
+      "NOTE" | "TIP" | "IMPORTANT" | "WARNING" | "CAUTION" | "DANGER" => {
+        let content = trimmed[close_bracket + 1..].trim();
+        return Some((callout_type.to_lowercase(), content.to_string()));
+      },
+      _ => return None,
     }
   }
 
@@ -1042,7 +1041,7 @@ pub fn process_manpage_references(
       }
 
       let mut out = Vec::new();
-      document.serialize(&mut out).ok();
+      let _ = document.serialize(&mut out);
       String::from_utf8(out).unwrap_or_default()
     },
     // Return original HTML on error
@@ -1095,17 +1094,14 @@ pub fn process_option_references(
         let mut is_already_option_ref = false;
         let mut current = code_el.parent();
         while let Some(parent) = current {
-          if let Some(element) = parent.as_element() {
-            if element.name.local == local_name!("a") {
-              if let Some(class_attr) =
-                element.attributes.borrow().get(local_name!("class"))
-              {
-                if class_attr.contains("option-reference") {
-                  is_already_option_ref = true;
-                  break;
-                }
-              }
-            }
+          if let Some(element) = parent.as_element()
+            && element.name.local == local_name!("a")
+            && let Some(class_attr) =
+              element.attributes.borrow().get(local_name!("class"))
+            && class_attr.contains("option-reference")
+          {
+            is_already_option_ref = true;
+            break;
           }
           current = parent.parent();
         }
@@ -1149,7 +1145,7 @@ pub fn process_option_references(
       }
 
       let mut out = Vec::new();
-      document.serialize(&mut out).ok();
+      let _ = document.serialize(&mut out);
       String::from_utf8(out).unwrap_or_default()
     },
     // Return original HTML on error

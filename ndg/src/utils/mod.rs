@@ -3,6 +3,7 @@ pub mod html;
 pub mod json;
 pub mod markdown;
 pub mod output;
+pub mod postprocess;
 
 use std::fs;
 
@@ -77,7 +78,14 @@ pub fn ensure_index(
       &std::path::PathBuf::from("index.html"),
     )?;
 
-    fs::write(&index_path, html).wrap_err({
+    // Apply postprocessing if requested
+    let processed_html = if let Some(ref postprocess) = config.postprocess {
+      crate::utils::postprocess::process_html(&html, postprocess)?
+    } else {
+      html
+    };
+
+    fs::write(&index_path, processed_html).wrap_err({
       format!(
         "Failed to write fallback index.html: {}",
         index_path.display()

@@ -34,37 +34,37 @@ pub fn create_fallback_index(
   );
 
   // Add file listing if we have an input directory
-  if let Some(input_dir) = &config.input_dir {
-    if !markdown_files.is_empty() {
-      let mut file_list = String::with_capacity(markdown_files.len() * 100); // preallocate based on estimated size
-      file_list.push_str("<h2>Available Documents</h2>\n<ul>\n");
+  if let Some(input_dir) = &config.input_dir
+    && !markdown_files.is_empty()
+  {
+    let mut file_list = String::with_capacity(markdown_files.len() * 100); // preallocate based on estimated size
+    file_list.push_str("<h2>Available Documents</h2>\n<ul>\n");
 
-      for file_path in markdown_files {
-        if let Ok(rel_path) = file_path.strip_prefix(input_dir) {
-          // Skip included files that are not generated as HTML
-          if config.included_files.contains_key(rel_path) {
-            continue;
-          }
-
-          let mut html_path = rel_path.to_path_buf();
-          html_path.set_extension("html");
-
-          // Get page title from first heading or filename
-          let page_title = extract_page_title(file_path, &html_path);
-
-          // Writing to String is infallible
-          let _ = writeln!(
-            file_list,
-            "  <li><a href=\"{}\">{}</a></li>",
-            html_path.to_string_lossy(),
-            page_title
-          );
+    for file_path in markdown_files {
+      if let Ok(rel_path) = file_path.strip_prefix(input_dir) {
+        // Skip included files that are not generated as HTML
+        if config.included_files.contains_key(rel_path) {
+          continue;
         }
-      }
 
-      file_list.push_str("</ul>");
-      content.push_str(&file_list);
+        let mut html_path = rel_path.to_path_buf();
+        html_path.set_extension("html");
+
+        // Get page title from first heading or filename
+        let page_title = extract_page_title(file_path, &html_path);
+
+        // Writing to String is infallible
+        let _ = writeln!(
+          file_list,
+          "  <li><a href=\"{}\">{}</a></li>",
+          html_path.to_string_lossy(),
+          page_title
+        );
+      }
     }
+
+    file_list.push_str("</ul>");
+    content.push_str(&file_list);
   }
 
   content

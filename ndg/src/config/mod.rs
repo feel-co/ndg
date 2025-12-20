@@ -1,4 +1,6 @@
+pub mod assets;
 pub mod meta;
+pub mod postprocess;
 pub mod sidebar;
 pub mod templates;
 
@@ -48,6 +50,9 @@ pub struct Config {
   /// Directory containing additional assets.
   pub assets_dir: Option<PathBuf>,
 
+  /// Options for copying custom assets.
+  pub assets: Option<crate::config::assets::AssetsConfig>,
+
   /// Path to manpage URL mappings JSON file.
   pub manpage_urls_path: Option<PathBuf>,
 
@@ -90,6 +95,9 @@ pub struct Config {
   /// Sidebar configuration.
   pub sidebar: Option<sidebar::SidebarConfig>,
 
+  /// Postprocessing configuration for HTML/CSS/JS minification
+  pub postprocess: Option<postprocess::PostprocessConfig>,
+
   #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
   #[serde(skip_serializing_if = "Option::is_none")]
   pub opengraph: Option<HashMap<String, String>>,
@@ -111,6 +119,7 @@ impl Default for Config {
       stylesheet_paths:  Vec::new(),
       script_paths:      Vec::new(),
       assets_dir:        None,
+      assets:            None,
       manpage_urls_path: None,
       title:             "ndg documentation".to_string(),
       jobs:              None,
@@ -124,6 +133,7 @@ impl Default for Config {
       tab_style:         "none".to_string(),
       meta:              None,
       sidebar:           None,
+      postprocess:       None,
       opengraph:         None,
       meta_tags:         None,
     }
@@ -290,13 +300,13 @@ impl Config {
     }
 
     // Validate input_dir if it's provided
-    if let Some(ref input_dir) = config.input_dir {
-      if !input_dir.exists() {
-        return Err(NdgError::Config(format!(
-          "Input directory does not exist: {}",
-          input_dir.display()
-        )));
-      }
+    if let Some(ref input_dir) = config.input_dir
+      && !input_dir.exists()
+    {
+      return Err(NdgError::Config(format!(
+        "Input directory does not exist: {}",
+        input_dir.display()
+      )));
     }
 
     // Validate all paths
@@ -633,6 +643,108 @@ impl Config {
           }
         },
 
+        // Nested postprocess.* - boolean fields for minification control
+        "postprocess.minify_html" => {
+          let value = Self::parse_bool(value, key)?;
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            pp.minify_html = value;
+          }
+        },
+        "postprocess.minify_css" => {
+          let value = Self::parse_bool(value, key)?;
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            pp.minify_css = value;
+          }
+        },
+        "postprocess.minify_js" => {
+          let value = Self::parse_bool(value, key)?;
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            pp.minify_js = value;
+          }
+        },
+
+        // Nested assets.* - asset copying configuration
+        key if key.starts_with("assets.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("assets.").expect(
+            "Key starts with 'assets.' prefix, strip_prefix cannot fail",
+          );
+          if self.assets.is_none() {
+            self.assets = Some(assets::AssetsConfig::default());
+          }
+          if let Some(ref mut assets_cfg) = self.assets {
+            match subkey {
+              "follow_symlinks" => {
+                assets_cfg.follow_symlinks = Self::parse_bool(value, key)?;
+              },
+              "max_depth" => {
+                assets_cfg.max_depth = if value.is_empty() {
+                  None
+                } else {
+                  Some(value.parse::<usize>().map_err(|_| {
+                    NdgError::Config(format!(
+                      "Invalid value for 'assets.max_depth': '{value}'. \
+                       Expected a positive integer"
+                    ))
+                  })?)
+                };
+              },
+              "skip_hidden" => {
+                assets_cfg.skip_hidden = Self::parse_bool(value, key)?;
+              },
+              _ => {
+                return Err(NdgError::Config(format!(
+                  "Unknown assets configuration key: '{key}'"
+                )));
+              },
+            }
+          }
+        },
+
+        // Nested postprocess.html.* - HTML minification options
+        key if key.starts_with("postprocess.html.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let subkey = key.strip_prefix("postprocess.html.").expect(
+            "Key starts with 'postprocess.html.' prefix, strip_prefix cannot \
+             fail",
+          );
+          if self.postprocess.is_none() {
+            self.postprocess = Some(postprocess::PostprocessConfig::default());
+          }
+          if let Some(ref mut pp) = self.postprocess {
+            if pp.html.is_none() {
+              pp.html = Some(postprocess::HtmlMinifyOptions::default());
+            }
+            if let Some(ref mut html_opts) = pp.html {
+              match subkey {
+                "remove_comments" => {
+                  html_opts.remove_comments = Self::parse_bool(value, key)?;
+                },
+                _ => {
+                  return Err(NdgError::Config(format!(
+                    "Unknown postprocess.html configuration key: '{key}'"
+                  )));
+                },
+              }
+            }
+          }
+        },
+
         // Deprecated: opengraph.* - redirect to meta.opengraph.*
         key if key.starts_with("opengraph.") => {
           #[allow(
@@ -756,6 +868,12 @@ impl Config {
     if other.meta.is_some() {
       self.meta = other.meta;
     }
+    if other.postprocess.is_some() {
+      self.postprocess = other.postprocess;
+    }
+    if other.assets.is_some() {
+      self.assets = other.assets;
+    }
 
     // Vec fields - append
     self.stylesheet_paths.extend(other.stylesheet_paths);
@@ -835,10 +953,10 @@ impl Config {
     }
 
     // Check if template_path is a directory
-    if let Some(ref path) = self.template_path {
-      if path.is_dir() {
-        return Some(path.clone());
-      }
+    if let Some(ref path) = self.template_path
+      && path.is_dir()
+    {
+      return Some(path.clone());
     }
 
     None
@@ -862,14 +980,12 @@ impl Config {
     }
 
     // Check if template_path is a single file matching the requested name
-    if let Some(ref path) = self.template_path {
-      if path.is_file() {
-        if let Some(filename) = path.file_name() {
-          if filename == name {
-            return Some(path.clone());
-          }
-        }
-      }
+    if let Some(ref path) = self.template_path
+      && path.is_file()
+      && let Some(filename) = path.file_name()
+      && filename == name
+    {
+      return Some(path.clone());
     }
 
     None
@@ -948,13 +1064,13 @@ impl Config {
     }
 
     // Template file should exist if specified
-    if let Some(ref template_path) = self.template_path {
-      if !template_path.exists() {
-        errors.push(format!(
-          "Template file does not exist: {}",
-          template_path.display()
-        ));
-      }
+    if let Some(ref template_path) = self.template_path
+      && !template_path.exists()
+    {
+      errors.push(format!(
+        "Template file does not exist: {}",
+        template_path.display()
+      ));
     }
 
     // Template directory should exist if specified
@@ -1174,6 +1290,13 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
+  #![allow(
+    clippy::useless_vec,
+    clippy::unwrap_used,
+    clippy::field_reassign_with_default,
+    reason = "Fine in tests"
+  )]
+
   use super::*;
 
   #[test]
@@ -1183,7 +1306,7 @@ mod tests {
     base.module_options = None;
 
     let mut override_config = Config::default();
-    override_config.input_dir = None; // Should not replace
+    override_config.input_dir = None; // should not replace
     override_config.module_options = Some(PathBuf::from("override-options"));
 
     base.merge(override_config);

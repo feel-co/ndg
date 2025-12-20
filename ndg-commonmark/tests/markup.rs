@@ -1,3 +1,9 @@
+#![allow(
+  clippy::expect_used,
+  clippy::unwrap_used,
+  clippy::panic,
+  reason = "Fine in tests"
+)]
 /// Check if HTML output contains all expected substrings or exact fragments.
 /// If `exact` is true, requires the fragment to appear exactly as-is (including
 /// order). If `exact` is false, checks for substring presence.

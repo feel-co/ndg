@@ -338,22 +338,22 @@ impl SidebarMatch {
   ///
   /// Returns an error if any regex pattern is invalid.
   pub fn compile_regexes(&mut self) -> Result<(), String> {
-    if let Some(ref mut path_match) = self.path {
-      if let Some(ref pattern) = path_match.regex {
-        path_match.compiled_regex = Some(
-          Regex::new(pattern)
-            .map_err(|e| format!("Invalid path regex '{pattern}': {e}"))?,
-        );
-      }
+    if let Some(ref mut path_match) = self.path
+      && let Some(ref pattern) = path_match.regex
+    {
+      path_match.compiled_regex = Some(
+        Regex::new(pattern)
+          .map_err(|e| format!("Invalid path regex '{pattern}': {e}"))?,
+      );
     }
 
-    if let Some(ref mut title_match) = self.title {
-      if let Some(ref pattern) = title_match.regex {
-        title_match.compiled_regex = Some(
-          Regex::new(pattern)
-            .map_err(|e| format!("Invalid title regex '{pattern}': {e}"))?,
-        );
-      }
+    if let Some(ref mut title_match) = self.title
+      && let Some(ref pattern) = title_match.regex
+    {
+      title_match.compiled_regex = Some(
+        Regex::new(pattern)
+          .map_err(|e| format!("Invalid title regex '{pattern}': {e}"))?,
+      );
     }
 
     Ok(())
@@ -373,10 +373,10 @@ impl SidebarMatch {
     // Check path matching
     if let Some(ref path_match) = self.path {
       // Check exact path match
-      if let Some(ref exact_path) = path_match.exact {
-        if path_str != exact_path {
-          return false;
-        }
+      if let Some(ref exact_path) = path_match.exact
+        && path_str != exact_path
+      {
+        return false;
       }
 
       // Check regex path match
@@ -395,10 +395,10 @@ impl SidebarMatch {
     // Check title matching
     if let Some(ref title_match) = self.title {
       // Check exact title match
-      if let Some(ref exact_title) = title_match.exact {
-        if title_str != exact_title {
-          return false;
-        }
+      if let Some(ref exact_title) = title_match.exact
+        && title_str != exact_title
+      {
+        return false;
       }
 
       // Check regex title match
@@ -588,13 +588,13 @@ impl OptionsMatch {
   ///
   /// Returns an error if any regex pattern is invalid.
   pub fn compile_regexes(&mut self) -> Result<(), String> {
-    if let Some(ref mut name_match) = self.name {
-      if let Some(ref pattern) = name_match.regex {
-        name_match.compiled_regex = Some(
-          Regex::new(pattern)
-            .map_err(|e| format!("Invalid name regex '{pattern}': {e}"))?,
-        );
-      }
+    if let Some(ref mut name_match) = self.name
+      && let Some(ref pattern) = name_match.regex
+    {
+      name_match.compiled_regex = Some(
+        Regex::new(pattern)
+          .map_err(|e| format!("Invalid name regex '{pattern}': {e}"))?,
+      );
     }
 
     Ok(())
@@ -614,10 +614,10 @@ impl OptionsMatch {
     // Check name matching
     if let Some(ref name_match) = self.name {
       // Check exact name match
-      if let Some(ref exact_name) = name_match.exact {
-        if option_name != exact_name {
-          return false;
-        }
+      if let Some(ref exact_name) = name_match.exact
+        && option_name != exact_name
+      {
+        return false;
       }
 
       // Check regex name match
@@ -666,6 +666,8 @@ impl OptionsMatch {
 
 #[cfg(test)]
 mod tests {
+  #![allow(clippy::expect_used, reason = "Fine in tests")]
+
   use super::*;
 
   #[test]

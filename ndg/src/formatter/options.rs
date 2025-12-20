@@ -12,7 +12,7 @@ use serde_json::{self, Value};
 use crate::{
   config::Config,
   html::template,
-  utils::{create_processor, json::extract_value},
+  utils::{create_processor, json::extract_value, postprocess},
 };
 
 /// Represents a `NixOS` configuration option.
@@ -154,12 +154,12 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
         }
 
         // Process declarations with location handling
-        if let Some(Value::Array(decls)) = option_data.get("declarations") {
-          if !decls.is_empty() {
-            let (display, url) = format_location(&decls[0], &config.revision);
-            option.declared_in = display;
-            option.declared_in_url = url;
-          }
+        if let Some(Value::Array(decls)) = option_data.get("declarations")
+          && !decls.is_empty()
+        {
+          let (display, url) = format_location(&decls[0], &config.revision);
+          option.declared_in = display;
+          option.declared_in_url = url;
         }
 
         // Read-only status
@@ -172,33 +172,32 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
           option.internal = *internal;
         }
 
-        if let Some(Value::Bool(visible)) = option_data.get("visible") {
-          if !visible {
-            option.internal = true;
-          }
+        if let Some(Value::Bool(visible)) = option_data.get("visible")
+          && !visible
+        {
+          option.internal = true;
         }
 
         // Use loc as fallback if no declaration
-        if option.declared_in.is_none() {
-          if let Some(Value::Array(loc_data)) = option_data.get("loc") {
-            if !loc_data.is_empty() {
-              // For loc data, join the parts to form a path
-              let parts: Vec<String> = loc_data
-                .iter()
-                .filter_map(|v| {
-                  if let Value::String(s) = v {
-                    Some(s.clone())
-                  } else {
-                    None
-                  }
-                })
-                .collect();
-
-              if !parts.is_empty() {
-                option.declared_in = Some(parts.join("."));
-                debug!("Set declared_in from loc: {}", parts.join("."));
+        if option.declared_in.is_none()
+          && let Some(Value::Array(loc_data)) = option_data.get("loc")
+          && !loc_data.is_empty()
+        {
+          // For loc data, join the parts to form a path
+          let parts: Vec<String> = loc_data
+            .iter()
+            .filter_map(|v| {
+              if let Value::String(s) = v {
+                Some(s.clone())
+              } else {
+                None
               }
-            }
+            })
+            .collect();
+
+          if !parts.is_empty() {
+            option.declared_in = Some(parts.join("."));
+            debug!("Set declared_in from loc: {}", parts.join("."));
           }
         }
 
@@ -253,8 +252,16 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 
   // Render options page
   let html = template::render_options(config, &customized_options)?;
+
+  // Apply postprocessing if requested
+  let processed_html = if let Some(ref postprocess) = config.postprocess {
+    postprocess::process_html(&html, postprocess)?
+  } else {
+    html
+  };
+
   let output_path = config.output_dir.join("options.html");
-  fs::write(&output_path, html).wrap_err_with(|| {
+  fs::write(&output_path, processed_html).wrap_err_with(|| {
     format!("Failed to write options file: {}", output_path.display())
   })?;
 
@@ -362,8 +369,7 @@ fn escape_html_in_markdown(text: &str) -> String {
       if backquote_counter == 3 && !in_inline_code {
         // Toggle fenced code block state
         in_code_block = !in_code_block;
-        backquote_counter = 0; // Reset counter after handling triple
-      // backticks
+        backquote_counter = 0; // reset counter after handling triple backticks
       } else if backquote_counter == 1 && !in_code_block {
         // Toggle inline code state
         in_inline_code = !in_inline_code;

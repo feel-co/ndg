@@ -18,21 +18,21 @@ use serde_json::Value;
 #[must_use]
 #[inline]
 pub fn extract_value(value: &Value, wrap_code: bool) -> Option<String> {
-  if let Value::Object(obj) = value {
-    if let Some(Value::String(type_name)) = obj.get("_type") {
-      match type_name.as_str() {
-        // literalDocBook and literalMD are deprecated as of 24.11
-        // and supported only for backwards compatibility
-        "literalExpression" | "literalDocBook" | "literalMD" => {
-          if let Some(Value::String(text)) = obj.get("text") {
-            if wrap_code && type_name.as_str() == "literalExpression" {
-              return Some(format!("`{}`", text.clone()));
-            }
-            return Some(text.clone());
+  if let Value::Object(obj) = value
+    && let Some(Value::String(type_name)) = obj.get("_type")
+  {
+    match type_name.as_str() {
+      // literalDocBook and literalMD are deprecated as of 24.11
+      // and supported only for backwards compatibility
+      "literalExpression" | "literalDocBook" | "literalMD" => {
+        if let Some(Value::String(text)) = obj.get("text") {
+          if wrap_code && type_name.as_str() == "literalExpression" {
+            return Some(format!("`{}`", text.clone()));
           }
-        },
-        _ => {},
-      }
+          return Some(text.clone());
+        }
+      },
+      _ => {},
     }
   }
 

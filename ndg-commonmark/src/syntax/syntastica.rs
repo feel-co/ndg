@@ -6,7 +6,7 @@
 //!
 //! ## Theme Support
 //!
-//! We programmaticall loads all available themes from `syntastica-themes`
+//! We programmatically load all available themes from `syntastica-themes`
 //! Some of the popular themes included are:
 //! - github (dark/light variants)
 //! - gruvbox (dark/light)
@@ -14,7 +14,7 @@
 //! - tokyo night, solarized, monokai
 //! - And many more...
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use syntastica::{Processor, render, renderer::HtmlRenderer};
 use syntastica_core::theme::ResolvedTheme;
@@ -27,9 +27,12 @@ use super::{
 
 /// Syntastica-based syntax highlighter.
 pub struct SyntasticaHighlighter {
+  #[allow(dead_code, reason = "Must be kept alive as processor holds reference to it")]
   language_set:  Arc<LanguageSetImpl>,
   themes:        HashMap<String, ResolvedTheme>,
   default_theme: ResolvedTheme,
+  processor:     Mutex<Processor<'static, LanguageSetImpl>>,
+  renderer:      Mutex<HtmlRenderer>,
 }
 
 impl SyntasticaHighlighter {
@@ -53,10 +56,20 @@ impl SyntasticaHighlighter {
 
     let default_theme = syntastica_themes::one::dark();
 
+    // Create processor with a static reference to the language set
+    // Safety: The Arc ensures the language set outlives the processor
+    let processor = unsafe {
+      let language_set_ref: &'static LanguageSetImpl =
+        &*std::ptr::from_ref::<LanguageSetImpl>(language_set.as_ref());
+      Processor::new(language_set_ref)
+    };
+
     Ok(Self {
       language_set,
       themes,
       default_theme,
+      processor: Mutex::new(processor),
+      renderer: Mutex::new(HtmlRenderer::new()),
     })
   }
 
@@ -77,10 +90,12 @@ impl SyntasticaHighlighter {
       "python" | "py" => Some(Lang::Python),
       "javascript" | "js" => Some(Lang::Javascript),
       "typescript" | "ts" => Some(Lang::Typescript),
+      "tsx" => Some(Lang::Tsx),
       "nix" => Some(Lang::Nix),
       "bash" | "sh" | "shell" => Some(Lang::Bash),
       "c" => Some(Lang::C),
       "cpp" | "c++" | "cxx" => Some(Lang::Cpp),
+      "c_sharp" | "csharp" | "cs" => Some(Lang::CSharp),
       "go" => Some(Lang::Go),
       "java" => Some(Lang::Java),
       "json" => Some(Lang::Json),
@@ -88,16 +103,24 @@ impl SyntasticaHighlighter {
       "html" => Some(Lang::Html),
       "css" => Some(Lang::Css),
       "markdown" | "md" => Some(Lang::Markdown),
+      "markdown_inline" => Some(Lang::MarkdownInline),
       "sql" => Some(Lang::Sql),
       "lua" => Some(Lang::Lua),
       "ruby" | "rb" => Some(Lang::Ruby),
       "php" => Some(Lang::Php),
+      "php_only" => Some(Lang::PhpOnly),
       "haskell" | "hs" => Some(Lang::Haskell),
-      "ocaml" | "ml" => Some(Lang::Ocaml),
       "scala" => Some(Lang::Scala),
       "swift" => Some(Lang::Swift),
       "makefile" | "make" => Some(Lang::Make),
       "cmake" => Some(Lang::Cmake),
+      "asm" | "assembly" => Some(Lang::Asm),
+      "diff" | "patch" => Some(Lang::Diff),
+      "elixir" | "ex" | "exs" => Some(Lang::Elixir),
+      "jsdoc" => Some(Lang::Jsdoc),
+      "printf" => Some(Lang::Printf),
+      "regex" | "regexp" => Some(Lang::Regex),
+      "zig" => Some(Lang::Zig),
       #[allow(clippy::match_same_arms, reason = "Explicit for documentation")]
       "text" | "txt" | "plain" => None, // use fallback for plain text
       _ => None,
@@ -127,6 +150,7 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
       "js",
       "typescript",
       "ts",
+      "tsx",
       "nix",
       "bash",
       "sh",
@@ -135,6 +159,9 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
       "cpp",
       "c++",
       "cxx",
+      "c_sharp",
+      "csharp",
+      "cs",
       "go",
       "java",
       "json",
@@ -144,20 +171,32 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
       "css",
       "markdown",
       "md",
+      "markdown_inline",
       "sql",
       "lua",
       "ruby",
       "rb",
       "php",
+      "php_only",
       "haskell",
       "hs",
-      "ocaml",
-      "ml",
       "scala",
       "swift",
       "makefile",
       "make",
       "cmake",
+      "asm",
+      "assembly",
+      "diff",
+      "patch",
+      "elixir",
+      "ex",
+      "exs",
+      "jsdoc",
+      "printf",
+      "regex",
+      "regexp",
+      "zig",
       "text",
       "txt",
       "plain",
@@ -184,17 +223,22 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
 
     let theme = self.get_theme(theme);
 
-    // Create a processor for this highlighting operation
-    let mut processor = Processor::new(self.language_set.as_ref());
-
-    // Process the code to get highlights
-    let highlights = processor
+    // Use the reusable processor via Mutex for thread-safe interior mutability
+    let highlights = self
+      .processor
+      .lock()
+      .map_err(|e| SyntaxError::HighlightingFailed(format!("Processor lock poisoned: {e}")))?
       .process(code, lang)
       .map_err(|e| SyntaxError::HighlightingFailed(e.to_string()))?;
 
-    // Render to HTML
-    let mut renderer = HtmlRenderer::new();
-    let html = render(&highlights, &mut renderer, theme.clone());
+    // Use the reusable renderer via Mutex for thread-safe interior mutability
+    let html = {
+      let mut renderer = self
+        .renderer
+        .lock()
+        .map_err(|e| SyntaxError::HighlightingFailed(format!("Renderer lock poisoned: {e}")))?;
+      render(&highlights, &mut *renderer, theme)
+    };
 
     Ok(html)
   }
@@ -205,10 +249,12 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
       "py" | "pyw" => Some("python".to_string()),
       "js" | "mjs" => Some("javascript".to_string()),
       "ts" => Some("typescript".to_string()),
+      "tsx" => Some("tsx".to_string()),
       "nix" => Some("nix".to_string()),
       "sh" | "bash" | "zsh" | "fish" => Some("bash".to_string()),
       "c" | "h" => Some("c".to_string()),
       "cpp" | "cxx" | "cc" | "hpp" | "hxx" | "hh" => Some("cpp".to_string()),
+      "cs" => Some("c_sharp".to_string()),
       "go" => Some("go".to_string()),
       "java" => Some("java".to_string()),
       "json" => Some("json".to_string()),
@@ -224,6 +270,10 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
       "ml" | "mli" => Some("ocaml".to_string()),
       "scala" => Some("scala".to_string()),
       "swift" => Some("swift".to_string()),
+      "s" | "asm" => Some("asm".to_string()),
+      "diff" | "patch" => Some("diff".to_string()),
+      "ex" | "exs" => Some("elixir".to_string()),
+      "zig" => Some("zig".to_string()),
       "txt" => Some("text".to_string()),
       _ => None,
     }

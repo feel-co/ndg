@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, reason = "Fine in tests")]
+#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use std::collections::HashSet;
 
 use ndg_commonmark::{

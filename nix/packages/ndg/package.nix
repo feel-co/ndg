@@ -4,6 +4,9 @@
   installShellFiles,
   versionCheckHook,
   stdenv,
+  rustc,
+  clang,
+  libclang,
 }: let
   fs = lib.fileset;
   s = ../../..;
@@ -14,16 +17,16 @@ in
     pname = "ndg";
     version = cargoTOML.workspace.package.version;
 
-    nativeBuildInputs = [installShellFiles];
-
     src = fs.toSource {
       root = s;
       fileset = fs.unions [
         (s + /.config)
         (s + /.cargo)
+
         (s + /ndg)
         (s + /ndg-commonmark)
         (s + /xtask)
+
         (s + /Cargo.lock)
         (s + /Cargo.toml)
       ];
@@ -32,6 +35,25 @@ in
     cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
     cargoBuildFlags = ["-p" "ndg" "-p" "xtask"];
     enableParallelBuilding = true;
+
+    nativeBuildInputs = [
+      installShellFiles
+
+      # Link with lld for faster and more optimized results. As of Rust 1.90 this
+      # is the default when lld is available in the system. This is not a problem
+      # for reasonable distros that package up-to-date toolchains, such as NixOS.
+      # Let's try it, users can always opt out anyway.
+      rustc.llvmPackages.lld
+      clang
+    ];
+    env = {
+      # lld is the default on Rust 1.90+, but we don't stand to lose anything from
+      # being more explicit. If anything, this makes errors clearer when lld is not
+      # available, instead of silently falling back.
+      RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=lld";
+
+      LIBCLANG_PATH = "${libclang.lib}/lib";
+    };
 
     nativeInstallCheckInputs = [versionCheckHook];
     doInstallCheck = true;
@@ -57,10 +79,11 @@ in
     '';
 
     meta = {
-      description = "not a docs generator";
+      description = "NDG: not a docs generator";
+      changelog = "https://github.com/feel-co/ndg/blob/${finalAttrs.version}/CHANGELOG.md";
       homepage = "https://github.com/feel-co/ndg";
       license = lib.licenses.mpl20;
-      maintainers = with lib.maintainers; [NotAShelf];
+      maintainers = [lib.maintainers.NotAShelf];
       mainProgram = "ndg";
     };
   })

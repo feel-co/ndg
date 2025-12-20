@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 /// Integration test to verify complete migration from legacy to new processor
