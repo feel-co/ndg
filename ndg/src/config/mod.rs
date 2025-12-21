@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod meta;
 pub mod postprocess;
+pub mod search;
 pub mod sidebar;
 pub mod templates;
 
@@ -66,7 +67,11 @@ pub struct Config {
   pub generate_anchors: bool,
 
   /// Whether to generate a search index.
+  #[deprecated(since = "2.5.0", note = "Use `search.enable` instead")]
   pub generate_search: bool,
+
+  /// Search configuration
+  pub search: Option<search::SearchConfig>,
 
   /// Text to be inserted in the footer.
   pub footer_text: String,
@@ -125,6 +130,7 @@ impl Default for Config {
       jobs:              None,
       generate_anchors:  true,
       generate_search:   true,
+      search:            None,
       footer_text:       "Generated with ndg".to_string(),
       options_toc_depth: 2,
       highlight_code:    true,
@@ -141,6 +147,27 @@ impl Default for Config {
 }
 
 impl Config {
+  /// Returns whether search is enabled, checking both new and deprecated
+  /// configs.
+  #[must_use]
+  pub const fn is_search_enabled(&self) -> bool {
+    // Priority: search.enable > deprecated generate_search > default true
+    if let Some(ref search) = self.search {
+      search.enable
+    } else {
+      #[allow(deprecated)]
+      {
+        self.generate_search
+      }
+    }
+  }
+
+  /// Returns the maximum heading level to index for search.
+  #[must_use]
+  pub fn search_max_heading_level(&self) -> u8 {
+    self.search.as_ref().map_or(3, |s| s.max_heading_level)
+  }
+
   /// Load configuration from a file (TOML or JSON).
   ///
   /// # Arguments
@@ -405,7 +432,17 @@ impl Config {
       // Handle the generate-search flag - only override if flag was explicitly
       // provided
       if *generate_search {
-        self.generate_search = true;
+        #[allow(deprecated)]
+        {
+          self.generate_search = true;
+        }
+        // Also set the new search.enable field
+        if self.search.is_none() {
+          self.search = Some(search::SearchConfig::default());
+        }
+        if let Some(ref mut search_cfg) = self.search {
+          search_cfg.enable = true;
+        }
       }
 
       // Handle the highlight-code flag - only override if flag was explicitly
@@ -534,7 +571,14 @@ impl Config {
           self.generate_anchors = Self::parse_bool(value, key)?;
         },
         "generate_search" => {
-          self.generate_search = Self::parse_bool(value, key)?;
+          log::warn!(
+            "The 'generate_search' config key is deprecated. Use \
+             'search.enable' instead."
+          );
+          #[allow(deprecated)]
+          {
+            self.generate_search = Self::parse_bool(value, key)?;
+          }
         },
         "highlight_code" => {
           self.highlight_code = Self::parse_bool(value, key)?;
@@ -564,6 +608,37 @@ impl Config {
                positive integer"
             ))
           })?;
+        },
+
+        // Nested search.* configuration
+        "search.enable" => {
+          let enable = Self::parse_bool(value, key)?;
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search {
+            search_cfg.enable = enable;
+          }
+        },
+        "search.max_heading_level" => {
+          let level = value.parse::<u8>().map_err(|_| {
+            NdgError::Config(format!(
+              "Invalid value for 'search.max_heading_level': '{value}'. \
+               Expected 1-6"
+            ))
+          })?;
+          if !(1..=6).contains(&level) {
+            return Err(NdgError::Config(format!(
+              "Invalid value for 'search.max_heading_level': '{value}'. Must \
+               be between 1 and 6"
+            )));
+          }
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search {
+            search_cfg.max_heading_level = level;
+          }
         },
 
         // Nested sidebar.options.depth
@@ -874,6 +949,9 @@ impl Config {
     if other.assets.is_some() {
       self.assets = other.assets;
     }
+    if other.search.is_some() {
+      self.search = other.search;
+    }
 
     // Vec fields - append
     self.stylesheet_paths.extend(other.stylesheet_paths);
@@ -903,7 +981,10 @@ impl Config {
     // value
     self.options_toc_depth = other.options_toc_depth;
     self.generate_anchors = other.generate_anchors;
-    self.generate_search = other.generate_search;
+    #[allow(deprecated)]
+    {
+      self.generate_search = other.generate_search;
+    }
     self.highlight_code = other.highlight_code;
 
     // Deprecated fields - merge if present, with warnings
@@ -933,7 +1014,8 @@ impl Config {
       }
     }
 
-    // excluded_files is runtime-only (#[serde(skip)]), so we don't merge it
+    // XXX: excluded_files is runtime-only (#[serde(skip)]), so we don't merge
+    // it
   }
 
   /// Get the template directory path, if available.

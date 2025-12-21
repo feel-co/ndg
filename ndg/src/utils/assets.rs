@@ -51,7 +51,7 @@ pub fn copy_assets(config: &Config) -> Result<()> {
   copy_script_files(config, &assets_dir)?;
 
   // Create search.js for search functionality
-  if config.generate_search {
+  if config.is_search_enabled() {
     copy_template_asset(config, &assets_dir, "search.js", SEARCH_JS)?;
 
     // Only copy search-worker.js if using default templates or if custom

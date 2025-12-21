@@ -14,6 +14,22 @@ use serde_json::Value;
 
 use crate::{config::Config, html, utils};
 
+/// Represents a searchable anchor/heading within a document
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchAnchor {
+  /// Anchor/heading text
+  pub text: String,
+
+  /// Anchor ID (e.g., "chapter-nixos-install")
+  pub id: String,
+
+  /// Heading level (1-6)
+  pub level: u8,
+
+  /// Tokenized anchor text for searching
+  tokens: Vec<String>,
+}
+
 /// Search document with tokenized content
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchDocument {
@@ -23,6 +39,9 @@ pub struct SearchDocument {
   pub path:     String,
   tokens:       Vec<String>,
   title_tokens: Vec<String>,
+
+  /// Searchable anchors/headings in this document
+  pub anchors: Vec<SearchAnchor>,
 }
 
 /// Search index
@@ -86,7 +105,7 @@ pub fn generate_search_index(
   config: &Config,
   markdown_files: &[PathBuf],
 ) -> Result<()> {
-  if !config.generate_search {
+  if !config.is_search_enabled() {
     return Ok(());
   }
 
@@ -99,6 +118,11 @@ pub fn generate_search_index(
   let mut search_index = SearchIndex::new();
   let mut doc_id = 0;
   let mut markdown_count = 0;
+
+  // Get max heading level for anchor indexing and create a markdown processor
+  // for extracting headers.
+  let max_heading_level = config.search_max_heading_level();
+  let base_processor = utils::create_processor(config, None);
 
   // Process standalone markdown files in parallel
   if !markdown_files.is_empty()
@@ -141,17 +165,37 @@ pub fn generate_search_index(
         html_path.set_extension("html");
         let path = html_path.to_string_lossy().to_string();
 
+        // Process markdown to extract headers
+        let base_dir = file_path.parent().unwrap_or(input_dir.as_path());
+        let processor = base_processor.clone().with_base_dir(base_dir);
+        let result = processor.render(&content);
+
+        // Extract anchors from headers, filtering by max level
+        let anchors: Vec<SearchAnchor> = result
+          .headers
+          .iter()
+          .filter(|h| h.level <= max_heading_level)
+          .map(|h| {
+            SearchAnchor {
+              text:   h.text.clone(),
+              id:     h.id.clone(),
+              level:  h.level,
+              tokens: tokenize(&h.text),
+            }
+          })
+          .collect();
+
         let tokens = tokenize(&plain_text);
         let title_tokens = tokenize(&title);
 
-        Ok((title, plain_text, path, tokens, title_tokens))
+        Ok((title, plain_text, path, tokens, title_tokens, anchors))
       })
       .collect();
 
     let documents = documents?;
     let documents_count = documents.len();
     markdown_count = documents_count;
-    for (index, (title, content, path, tokens, title_tokens)) in
+    for (index, (title, content, path, tokens, title_tokens, anchors)) in
       documents.into_iter().enumerate()
     {
       let current_doc_id = doc_id + index + 1;
@@ -162,6 +206,7 @@ pub fn generate_search_index(
         path,
         tokens,
         title_tokens,
+        anchors,
       };
       search_index.add_document(doc);
     }
@@ -188,9 +233,12 @@ pub fn generate_search_index(
         id: doc_id.to_string(),
         title,
         content: plain_description,
+        // XXX: this leads to breakage sometimes, I don't regret it
         path: format!("options.html#option-{}", key.replace('.', "-")),
         tokens,
         title_tokens,
+        // options don't have sub-anchors (or at least we hope they don't)
+        anchors: Vec::new(),
       });
 
       doc_id += 1;
@@ -234,7 +282,7 @@ fn extract_title_and_id(content: &str) -> Option<(String, Option<String>)> {
 ///
 /// Returns an error if the search page cannot be rendered or written.
 pub fn create_search_page(config: &Config) -> Result<()> {
-  if !config.generate_search {
+  if !config.is_search_enabled() {
     return Ok(());
   }
 

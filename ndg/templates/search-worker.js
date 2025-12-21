@@ -27,7 +27,7 @@ self.onmessage = function(e) {
         .match(/\b[a-zA-Z0-9_-]+\b/g) || []
         .filter(word => word.length > 2);
 
-      const docScores = new Map();
+      const pageMatches = new Map();
       
       // Pre-compute lower-case terms once
       const lowerSearchTerms = searchTerms.map(term => term.toLowerCase());
@@ -35,26 +35,53 @@ self.onmessage = function(e) {
       // Pre-compute lower-case strings for each document
       const processedDocs = documents.map((doc, docId) => ({
         docId,
-        title: doc.title,
-        content: doc.content,
+        doc,
         lowerTitle: doc.title.toLowerCase(),
         lowerContent: doc.content.toLowerCase()
       }));
 
+      // First pass: Score pages
       lowerSearchTerms.forEach(lowerTerm => {
-        processedDocs.forEach(({ docId, title, content, lowerTitle, lowerContent }) => {
-          if (lowerTitle.includes(lowerTerm) || lowerContent.includes(lowerTerm)) {
-            const score = lowerTitle === lowerTerm ? 30 :
-                         lowerTitle.includes(lowerTerm) ? 10 : 2;
-            docScores.set(docId, (docScores.get(docId) || 0) + score);
+        processedDocs.forEach(({ docId, doc, lowerTitle, lowerContent }) => {
+          let match = pageMatches.get(docId);
+          if (!match) {
+            match = { doc, pageScore: 0, matchingAnchors: [] };
+            pageMatches.set(docId, match);
+          }
+
+          if (lowerTitle.includes(lowerTerm)) {
+            match.pageScore += lowerTitle === lowerTerm ? 20 : 10;
+          }
+          if (lowerContent.includes(lowerTerm)) {
+            match.pageScore += 2;
           }
         });
       });
 
-      const results = Array.from(docScores.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, limit)
-        .map(([docId, score]) => ({ ...documents[docId], score }));
+      // Second pass: Find matching anchors
+      pageMatches.forEach((match, docId) => {
+        const doc = match.doc;
+        if (!doc.anchors || doc.anchors.length === 0) return;
+
+        doc.anchors.forEach(anchor => {
+          const anchorText = anchor.text.toLowerCase();
+          let anchorMatches = false;
+
+          lowerSearchTerms.forEach(term => {
+            if (anchorText.includes(term)) {
+              anchorMatches = true;
+            }
+          });
+
+          if (anchorMatches) {
+            match.matchingAnchors.push(anchor);
+          }
+        });
+      });
+
+      const results = Array.from(pageMatches.values())
+        .sort((a, b) => b.pageScore - a.pageScore)
+        .slice(0, limit);
 
       respond('results', results);
     }

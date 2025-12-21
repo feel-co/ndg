@@ -7,7 +7,7 @@ class SearchEngine {
     this.isLoaded = false;
     this.loadError = false;
     this.fullDocuments = null; // for lazy loading
-    this.rootPath = window.searchNamespace?.rootPath || '';
+    this.rootPath = window.searchNamespace?.rootPath || "";
   }
 
   // Check if we can use Web Worker
@@ -30,7 +30,7 @@ class SearchEngine {
       // to generate at this location, but we'll want to extend this in the future.
       const possiblePaths = [
         `${this.rootPath}assets/search-data.json`,
-        "/assets/search-data.json" // fallback for root-level sites
+        "/assets/search-data.json", // fallback for root-level sites
       ];
 
       let response = null;
@@ -58,8 +58,8 @@ class SearchEngine {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // Use optimized JSON parsing for large files
-      const documents = await this.parseLargeJSON(response);
+      // Use our "optimized" JSON parser for large files
+      const documents = await this.parseJSONChunked(response);
       if (!Array.isArray(documents)) {
         throw new Error("Invalid search data format");
       }
@@ -120,13 +120,17 @@ class SearchEngine {
 
             for (let i = startIndex; i < endIndex; i++) {
               const doc = this.documents[i];
-              if (!doc || typeof doc.title !== 'string' || typeof doc.content !== 'string') {
+              if (
+                !doc ||
+                typeof doc.title !== "string" ||
+                typeof doc.content !== "string"
+              ) {
                 console.warn(`Invalid document at index ${i}:`, doc);
                 continue;
               }
 
               const tokens = this.tokenize(doc.title + " " + doc.content);
-              tokens.forEach(token => {
+              tokens.forEach((token) => {
                 if (!this.tokenMap.has(token)) {
                   this.tokenMap.set(token, []);
                 }
@@ -140,7 +144,9 @@ class SearchEngine {
             if (endIndex < totalDocs) {
               setTimeout(() => processChunk(endIndex, chunkSize), 0);
             } else {
-              console.log(`Built token map with ${this.tokenMap.size} unique tokens from ${processedDocs} documents`);
+              console.log(
+                `Built token map with ${this.tokenMap.size} unique tokens from ${processedDocs} documents`,
+              );
               resolve();
             }
           } catch (error) {
@@ -161,7 +167,7 @@ class SearchEngine {
     const tokens = new Set();
     const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
 
-    words.forEach(word => {
+    words.forEach((word) => {
       if (word.length > 2) {
         tokens.add(word);
       }
@@ -197,59 +203,74 @@ class SearchEngine {
       return await this.searchWithWorker(query, limit);
     }
 
-    // For very large datasets, implement lazy loading with candidate docIds
+    // For very large datasets, we implement lazy loading with candidate docIds
+    // XXX: this is slightly similar to how NVF used to do it, but had to be
+    // revised to be more generic. Need to consider splitting this off.
     if (this.documents.length > 10000) {
       const candidateDocIds = new Set();
-      searchTerms.forEach(term => {
+      searchTerms.forEach((term) => {
         const docIds = this.tokenMap.get(term) || [];
-        docIds.forEach(id => candidateDocIds.add(id));
+        docIds.forEach((id) => candidateDocIds.add(id));
       });
       const docIds = Array.from(candidateDocIds);
       return await this.lazyLoadDocuments(docIds, limit);
     }
 
-    const docScores = new Map();
+    // Track page-level matches with their anchors
+    const pageMatches = new Map(); // docId -> { doc, pageScore, matchingAnchors }
 
-    searchTerms.forEach(term => {
+    // First pass: Score pages by title and content
+    searchTerms.forEach((term) => {
       const docIds = this.tokenMap.get(term) || [];
-      docIds.forEach(docId => {
+      docIds.forEach((docId) => {
         const doc = this.documents[docId];
         if (!doc) return;
 
-        const currentScore = docScores.get(docId) || 0;
+        let match = pageMatches.get(docId);
+        if (!match) {
+          match = { doc, pageScore: 0, matchingAnchors: [] };
+          pageMatches.set(docId, match);
+        }
 
-        // Calculate score based on term position and importance
-        let score = 1;
-
-        // Title matches get higher score
+        // Score page title
         if (doc.title.toLowerCase().includes(term)) {
-          score += 10;
-          // Exact title match gets even higher score
-          if (doc.title.toLowerCase() === term) {
-            score += 20;
-          }
+          match.pageScore += doc.title.toLowerCase() === term ? 20 : 10;
         }
 
-        // Content matches
+        // Score page content
         if (doc.content.toLowerCase().includes(term)) {
-          score += 2;
+          match.pageScore += 2;
         }
-
-        // Boost for multiple term matches
-        docScores.set(docId, currentScore + score);
       });
     });
 
-    // Sort by score and return top results
-    const scoredResults = Array.from(docScores.entries())
-      .sort((a, b) => b[1] - a[1])
+    // Second pass: Find matching anchors within pages
+    pageMatches.forEach((match, docId) => {
+      const doc = match.doc;
+      if (!doc.anchors || doc.anchors.length === 0) return;
+
+      doc.anchors.forEach((anchor) => {
+        const anchorText = anchor.text.toLowerCase();
+        let anchorMatches = false;
+
+        searchTerms.forEach((term) => {
+          if (anchorText.includes(term)) {
+            anchorMatches = true;
+          }
+        });
+
+        if (anchorMatches) {
+          match.matchingAnchors.push(anchor);
+        }
+      });
+    });
+
+    // Sort by page score and return top results
+    const results = Array.from(pageMatches.values())
+      .sort((a, b) => b.pageScore - a.pageScore)
       .slice(0, limit);
 
-    return scoredResults
-      .map(([docId, score]) => ({
-        ...this.documents[docId],
-        score
-      }));
+    return results;
   }
 
   // Generate search preview with highlighting
@@ -262,7 +283,7 @@ class SearchEngine {
 
     // Find the best match position
     const queryWords = this.tokenize(query);
-    queryWords.forEach(word => {
+    queryWords.forEach((word) => {
       const index = lowerContent.indexOf(word);
       if (index !== -1) {
         const score = word.length; // longer words get higher priority
@@ -293,8 +314,10 @@ class SearchEngine {
   }
 
   // Escape HTML to prevent XSS
+  // TODO: either handle this in the Rust side of things
+  // or improve the robustness of the implementation.
   escapeHtml(text) {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
@@ -306,9 +329,9 @@ class SearchEngine {
     // Sort terms by length (longer first) to avoid overlapping highlights
     const sortedTerms = [...terms].sort((a, b) => b.length - a.length);
 
-    sortedTerms.forEach(term => {
-      const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
-      highlighted = highlighted.replace(regex, '<mark>$1</mark>');
+    sortedTerms.forEach((term) => {
+      const regex = new RegExp(`(${this.escapeRegex(term)})`, "gi");
+      highlighted = highlighted.replace(regex, "<mark>$1</mark>");
     });
 
     return highlighted;
@@ -330,7 +353,7 @@ class SearchEngine {
       const messageId = `search_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       const timeout = setTimeout(() => {
         cleanup();
-        reject(new Error('Web Worker search timeout'));
+        reject(new Error("Web Worker search timeout"));
       }, 5000); // 5 second timeout
 
       const handleMessage = (e) => {
@@ -339,10 +362,10 @@ class SearchEngine {
         clearTimeout(timeout);
         cleanup();
 
-        if (e.data.type === 'results') {
+        if (e.data.type === "results") {
           resolve(e.data.data);
-        } else if (e.data.type === 'error') {
-          reject(new Error(e.data.error || 'Unknown worker error'));
+        } else if (e.data.type === "error") {
+          reject(new Error(e.data.error || "Unknown worker error"));
         }
       };
 
@@ -353,35 +376,35 @@ class SearchEngine {
       };
 
       const cleanup = () => {
-        worker.removeEventListener('message', handleMessage);
-        worker.removeEventListener('error', handleError);
+        worker.removeEventListener("message", handleMessage);
+        worker.removeEventListener("error", handleError);
       };
 
-      worker.addEventListener('message', handleMessage);
-      worker.addEventListener('error', handleError);
+      worker.addEventListener("message", handleMessage);
+      worker.addEventListener("error", handleError);
 
       worker.postMessage({
         messageId,
-        type: 'search',
-        data: { documents: this.documents, query, limit }
+        type: "search",
+        data: { documents: this.documents, query, limit },
       });
     });
   }
 
   // Escape regex special characters
   escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   // Resolve path relative to current page location
   resolvePath(path) {
     // If path already starts with '/', it's absolute from domain root
-    if (path.startsWith('/')) {
+    if (path.startsWith("/")) {
       return path;
     }
 
     // If path starts with '#', it's a fragment on current page
-    if (path.startsWith('#')) {
+    if (path.startsWith("#")) {
       return path;
     }
 
@@ -389,17 +412,22 @@ class SearchEngine {
     return this.rootPath + path;
   }
 
-  // Optimized JSON parser for large files
-  async parseLargeJSON(response) {
-    const contentLength = response.headers.get('content-length');
+  // Slightly optimized JSON parser for large files
+  // This is so that the search widgets can ACTUALLY deal with the search data
+  // which tends to be massive for medium-sized projects.
+  async parseJSONChunked(response) {
+    const contentLength = response.headers.get("content-length");
 
     // For small files, use regular JSON parsing
-    if (!contentLength || parseInt(contentLength) < 1024 * 1024) { // < 1MB
+    if (!contentLength || parseInt(contentLength) < 1024 * 1024) {
+      // < 1MB
       return await response.json();
     }
 
     // For large files, use streaming approach
-    console.log(`Large search file detected (${contentLength} bytes), using streaming parser`);
+    console.log(
+      `Large search file detected (${contentLength} bytes), using streaming parser`,
+    );
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
@@ -412,8 +440,9 @@ class SearchEngine {
       buffer += decoder.decode(value, { stream: true });
 
       // Process in chunks to avoid blocking main thread
-      if (buffer.length > 100 * 1024) { // 100KB chunks
-        await new Promise(resolve => setTimeout(resolve, 0));
+      if (buffer.length > 100 * 1024) {
+        // 100KB chunks
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
 
@@ -426,45 +455,57 @@ class SearchEngine {
       // Store full documents separately for memory efficiency
       this.fullDocuments = this.documents;
       // Create lightweight index documents
-      this.documents = this.documents.map(doc => ({
+      this.documents = this.documents.map((doc) => ({
         id: doc.id,
         title: doc.title,
-        path: doc.path
+        path: doc.path,
       }));
     }
 
-    return docIds.slice(0, limit).map(id => this.fullDocuments[id]);
+    return docIds.slice(0, limit).map((id) => this.fullDocuments[id]);
   }
 
-  // Fallback search method (simple string matching)
+  // Fallback search method via simple string matching
   fallbackSearch(query, limit = 10) {
     const lowerQuery = query.toLowerCase();
+    const searchTerms = this.tokenize(query);
+
     const results = this.documents
-      .map(doc => {
+      .map((doc) => {
         const titleMatch = doc.title.toLowerCase().indexOf(lowerQuery);
         const contentMatch = doc.content.toLowerCase().indexOf(lowerQuery);
-        let score = 0;
+        let pageScore = 0;
 
         if (titleMatch !== -1) {
-          score += 10;
+          pageScore += 10;
           if (doc.title.toLowerCase() === lowerQuery) {
-            score += 20;
+            pageScore += 20;
           }
         }
         if (contentMatch !== -1) {
-          score += 2;
+          pageScore += 2;
         }
 
-        return { doc, score, titleMatch, contentMatch };
+        // Find matching anchors
+        const matchingAnchors = [];
+        if (doc.anchors && doc.anchors.length > 0) {
+          doc.anchors.forEach((anchor) => {
+            const anchorText = anchor.text.toLowerCase();
+            if (anchorText.includes(lowerQuery)) {
+              matchingAnchors.push(anchor);
+            }
+          });
+        }
+
+        return { doc, pageScore, matchingAnchors, titleMatch, contentMatch };
       })
-      .filter(item => item.score > 0)
+      .filter((item) => item.pageScore > 0)
       .sort((a, b) => {
-        if (a.score !== b.score) return b.score - a.score;
+        if (a.pageScore !== b.pageScore) return b.pageScore - a.pageScore;
         if (a.titleMatch !== b.titleMatch) return a.titleMatch - b.titleMatch;
         return a.contentMatch - b.contentMatch;
       })
-      .slice(0, limit)
-      .map(item => ({ ...item.doc, score: item.score }));
+      .slice(0, limit);
 
     return results;
   }
@@ -475,18 +516,20 @@ class SearchEngine {
 let searchWorker = null;
 
 function initializeSearchWorker() {
-  if (searchWorker !== null || typeof Worker === 'undefined') {
+  if (searchWorker !== null || typeof Worker === "undefined") {
     return searchWorker;
   }
 
   try {
-    const rootPath = window.searchNamespace?.rootPath || '';
-    const workerPath = rootPath ? `${rootPath}assets/search-worker.js` : '/assets/search-worker.js';
+    const rootPath = window.searchNamespace?.rootPath || "";
+    const workerPath = rootPath
+      ? `${rootPath}assets/search-worker.js`
+      : "/assets/search-worker.js";
     searchWorker = new Worker(workerPath);
-    console.log('Web Worker initialized for background search');
+    console.log("Web Worker initialized for background search");
     return searchWorker;
   } catch (error) {
-    console.warn('Web Worker creation failed, using main thread:', error);
+    console.warn("Web Worker creation failed, using main thread:", error);
     searchWorker = false; // mark as failed so we don't retry
     return null;
   }
@@ -511,19 +554,22 @@ function filterSearchResults(data, searchTerm, limit = 10) {
     .slice(0, limit);
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
   // Initialize search engine immediately
-  window.searchNamespace.engine.loadData().then(() => {
-    console.log("Search data loaded successfully");
-  }).catch(error => {
-    console.error("Failed to initialize search:", error);
-  });
+  window.searchNamespace.engine
+    .loadData()
+    .then(() => {
+      console.log("Search data loaded successfully");
+    })
+    .catch((error) => {
+      console.error("Failed to initialize search:", error);
+    });
 
   // Search page specific functionality
   const searchPageInput = document.getElementById("search-page-input");
   if (searchPageInput) {
     // Set up event listener
-    searchPageInput.addEventListener("input", function() {
+    searchPageInput.addEventListener("input", function () {
       performSearch(this.value);
     });
 
@@ -540,69 +586,116 @@ document.addEventListener("DOMContentLoaded", function() {
   const searchInput = document.getElementById("search-input");
   if (searchInput) {
     const searchResults = document.getElementById("search-results");
+    const searchContainer = searchInput.closest(".search-container");
 
-    searchInput.addEventListener("input", async function() {
+    searchInput.addEventListener("input", async function () {
       const searchTerm = this.value.trim();
 
       if (searchTerm.length < 2) {
         searchResults.innerHTML = "";
         searchResults.style.display = "none";
+        if (searchContainer) searchContainer.classList.remove("has-results");
         return;
       }
 
       // Show loading state
-      searchResults.innerHTML = '<div class="search-result-item">Loading...</div>';
+      searchResults.innerHTML =
+        '<div class="search-result-item">Loading...</div>';
       searchResults.style.display = "block";
+      if (searchContainer) searchContainer.classList.add("has-results");
 
       try {
-        const results = await window.searchNamespace.engine.search(searchTerm, 8);
+        const results = await window.searchNamespace.engine.search(
+          searchTerm,
+          8,
+        );
 
         if (results.length > 0) {
           searchResults.innerHTML = results
-            .map(
-              (doc) => {
-                const highlightedTitle = window.searchNamespace.engine.highlightTerms(
+            .map((result) => {
+              const { doc, matchingAnchors } = result;
+              const queryTerms =
+                window.searchNamespace.engine.tokenize(searchTerm);
+              const highlightedTitle =
+                window.searchNamespace.engine.highlightTerms(
                   doc.title,
-                  window.searchNamespace.engine.tokenize(searchTerm)
+                  queryTerms,
                 );
-                const resolvedPath = window.searchNamespace.engine.resolvePath(doc.path);
-                return `
-                          <div class="search-result-item">
-                              <a href="${resolvedPath}">${highlightedTitle}</a>
-                          </div>
-                      `;
-              },
-            )
+              const resolvedPath = window.searchNamespace.engine.resolvePath(
+                doc.path,
+              );
+
+              // Build page result
+              let html = `
+                <div class="search-result-item search-result-page">
+                  <a href="${resolvedPath}">${highlightedTitle}</a>
+                </div>
+              `;
+
+              // Add anchor results if any
+              if (matchingAnchors && matchingAnchors.length > 0) {
+                matchingAnchors.forEach((anchor) => {
+                  const highlightedAnchor =
+                    window.searchNamespace.engine.highlightTerms(
+                      anchor.text,
+                      queryTerms,
+                    );
+                  const anchorPath = `${resolvedPath}#${anchor.id}`;
+                  html += `
+                    <div class="search-result-item search-result-anchor">
+                      <a href="${anchorPath}">${highlightedAnchor}</a>
+                    </div>
+                  `;
+                });
+              }
+
+              return html;
+            })
             .join("");
           searchResults.style.display = "block";
+          if (searchContainer) searchContainer.classList.add("has-results");
         } else {
           searchResults.innerHTML =
             '<div class="search-result-item">No results found</div>';
           searchResults.style.display = "block";
+          if (searchContainer) searchContainer.classList.add("has-results");
         }
       } catch (error) {
         console.error("Search error:", error);
         searchResults.innerHTML =
           '<div class="search-result-item">Search unavailable</div>';
         searchResults.style.display = "block";
+        if (searchContainer) searchContainer.classList.add("has-results");
       }
     });
 
     // Hide results when clicking outside
-    document.addEventListener("click", function(event) {
+    document.addEventListener("click", function (event) {
       if (
         !searchInput.contains(event.target) &&
         !searchResults.contains(event.target)
       ) {
         searchResults.style.display = "none";
+        if (searchContainer) searchContainer.classList.remove("has-results");
       }
     });
 
     // Focus search when pressing slash key
-    document.addEventListener("keydown", function(event) {
+    document.addEventListener("keydown", function (event) {
       if (event.key === "/" && document.activeElement !== searchInput) {
         event.preventDefault();
         searchInput.focus();
+      }
+
+      // Close search results on Escape key
+      if (
+        event.key === "Escape" &&
+        (document.activeElement === searchInput ||
+          searchResults.style.display === "block")
+      ) {
+        searchResults.style.display = "none";
+        if (searchContainer) searchContainer.classList.remove("has-results");
+        searchInput.blur();
       }
     });
   }
@@ -615,17 +708,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
   if (searchInput) {
     // Add mobile search behavior
-    searchInput.addEventListener("click", function(e) {
+    searchInput.addEventListener("click", function (e) {
       if (isMobile()) {
         e.preventDefault();
         e.stopPropagation();
         openMobileSearch();
       }
-      // On desktop, let the normal click behavior work (focus the input)
+      // On desktop, we let the normal click behavior work (focus the input)
     });
 
     // Prevent typing on mobile (input should only open popup)
-    searchInput.addEventListener("keydown", function(e) {
+    searchInput.addEventListener("keydown", function (e) {
       if (isMobile()) {
         e.preventDefault();
         openMobileSearch();
@@ -669,7 +762,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Close mobile search when clicking outside
-  document.addEventListener("click", function(event) {
+  document.addEventListener("click", function (event) {
     if (
       mobileSearchPopup &&
       mobileSearchPopup.classList.contains("active") &&
@@ -681,7 +774,7 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 
   // Close mobile search on escape key
-  document.addEventListener("keydown", function(event) {
+  document.addEventListener("keydown", function (event) {
     if (
       event.key === "Escape" &&
       mobileSearchPopup &&
@@ -707,30 +800,59 @@ document.addEventListener("DOMContentLoaded", function() {
         if (mobileSearchInput.value.trim() !== searchTerm) return;
 
         // Show loading state
-        mobileSearchResults.innerHTML = '<div class="search-result-item">Loading...</div>';
+        mobileSearchResults.innerHTML =
+          '<div class="search-result-item">Loading...</div>';
         mobileSearchResults.style.display = "block";
 
         try {
-          const results = await window.searchNamespace.engine.search(searchTerm, 8);
+          const results = await window.searchNamespace.engine.search(
+            searchTerm,
+            8,
+          );
           // Verify again after async operation
           if (mobileSearchInput.value.trim() !== searchTerm) return;
 
           if (results.length > 0) {
             mobileSearchResults.innerHTML = results
-              .map(
-                (doc) => {
-                  const highlightedTitle = window.searchNamespace.engine.highlightTerms(
+              .map((result) => {
+                const { doc, matchingAnchors } = result;
+                const queryTerms =
+                  window.searchNamespace.engine.tokenize(searchTerm);
+                const highlightedTitle =
+                  window.searchNamespace.engine.highlightTerms(
                     doc.title,
-                    window.searchNamespace.engine.tokenize(searchTerm)
+                    queryTerms,
                   );
-                  const resolvedPath = window.searchNamespace.engine.resolvePath(doc.path);
-                  return `
-                    <div class="search-result-item">
-                        <a href="${resolvedPath}">${highlightedTitle}</a>
-                    </div>
+                const resolvedPath = window.searchNamespace.engine.resolvePath(
+                  doc.path,
+                );
+
+                // Build page result
+                let html = `
+                  <div class="search-result-item search-result-page">
+                    <a href="${resolvedPath}">${highlightedTitle}</a>
+                  </div>
                 `;
-                },
-              )
+
+                // Add anchor results if any
+                if (matchingAnchors && matchingAnchors.length > 0) {
+                  matchingAnchors.forEach((anchor) => {
+                    const highlightedAnchor =
+                      window.searchNamespace.engine.highlightTerms(
+                        anchor.text,
+                        queryTerms,
+                      );
+                    const anchorPath = `${resolvedPath}#${anchor.id}`;
+                    html += `
+                      <div class="search-result-item search-result-anchor">
+                        <a href="${anchorPath}">${highlightedAnchor}</a>
+                      </div>
+                    `;
+                  });
+                }
+
+                return html;
+              })
               .join("");
             mobileSearchResults.style.display = "block";
           } else {
@@ -753,7 +875,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Handle window resize to update mobile behavior
-  window.addEventListener("resize", function() {
+  window.addEventListener("resize", function () {
     // Close mobile search if window is resized to desktop size
     if (
       !isMobile() &&
@@ -787,15 +909,43 @@ async function performSearch(query) {
       const queryTerms = window.searchNamespace.engine.tokenize(query);
 
       for (const result of results) {
-        const highlightedTitle = window.searchNamespace.engine.highlightTerms(result.title, queryTerms);
-        const preview = window.searchNamespace.engine.generatePreview(result.content, query);
-        const resolvedPath = window.searchNamespace.engine.resolvePath(result.path);
-        html += `<li class="search-result-item">
+        const { doc, matchingAnchors } = result;
+        const highlightedTitle = window.searchNamespace.engine.highlightTerms(
+          doc.title,
+          queryTerms,
+        );
+        const preview = window.searchNamespace.engine.generatePreview(
+          doc.content,
+          query,
+        );
+        const resolvedPath = window.searchNamespace.engine.resolvePath(
+          doc.path,
+        );
+
+        // Page result
+        html += `<li class="search-result-item search-result-page">
           <a href="${resolvedPath}">
             <div class="search-result-title">${highlightedTitle}</div>
             <div class="search-result-preview">${preview}</div>
           </a>
         </li>`;
+
+        // Anchor results
+        if (matchingAnchors && matchingAnchors.length > 0) {
+          matchingAnchors.forEach((anchor) => {
+            const highlightedAnchor =
+              window.searchNamespace.engine.highlightTerms(
+                anchor.text,
+                queryTerms,
+              );
+            const anchorPath = `${resolvedPath}#${anchor.id}`;
+            html += `<li class="search-result-item search-result-anchor">
+              <a href="${anchorPath}">
+                <div class="search-result-anchor-text">${highlightedAnchor}</div>
+              </a>
+            </li>`;
+          });
+        }
       }
       html += "</ul>";
       resultsContainer.innerHTML = html;
