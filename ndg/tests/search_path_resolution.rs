@@ -5,7 +5,7 @@ use std::{
 };
 
 use ndg::{
-  config::Config,
+  config::{Config, search::SearchConfig},
   formatter::options::process_options,
   html::{
     search::{SearchDocument, generate_search_index},
@@ -42,7 +42,10 @@ fn test_search_path_resolution_from_subdirectory() {
     output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
@@ -96,7 +99,10 @@ fn test_search_path_resolution_from_root() {
     output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
@@ -176,7 +182,10 @@ This file should be transitively included in `main.html`
     output_dir: output_dir.clone(),
     module_options: None,
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
@@ -300,7 +309,10 @@ This describes the Home Manager module installation.
     output_dir: output_dir.clone(),
     module_options: None,
     title: "Test Documentation".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 

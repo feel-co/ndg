@@ -1,9 +1,8 @@
 #![allow(clippy::expect_used, reason = "Fine in tests")]
-#![allow(deprecated, reason = "Required by tests, remove after 2.6.0")]
 use std::{collections::HashMap, fs, path::Path};
 
 use ndg::{
-  config::{Config, sidebar::SidebarConfig},
+  config::{Config, search::SearchConfig, sidebar::SidebarConfig},
   formatter::options::NixOption,
   html::template,
 };
@@ -20,7 +19,10 @@ fn minimal_config() -> Config {
   Config {
     title: "Test Site".to_string(),
     footer_text: "Footer".to_string(),
-    generate_search: false,
+    search: Some(SearchConfig {
+      enable: false,
+      ..Default::default()
+    }),
     ..Default::default()
   }
 }
@@ -190,7 +192,10 @@ fn render_options_page_with_multiple_options() {
 #[test]
 fn render_search_page_respects_flag() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
   let mut context = HashMap::new();
   context.insert("title", "Search Test".to_string());
   let html =
@@ -275,7 +280,10 @@ fn render_options_page_contains_footer() {
 #[test]
 fn render_search_page_contains_navbar() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
   let mut context = HashMap::new();
   context.insert("title", "Search Test".to_string());
   let html =
@@ -289,7 +297,10 @@ fn render_search_page_contains_navbar() {
 #[test]
 fn render_search_page_contains_footer() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
   config.footer_text = "Search Page Footer".to_string();
   let mut context = HashMap::new();
   context.insert("title", "Search Test".to_string());
@@ -438,7 +449,10 @@ fn render_page_falls_back_to_default_template() {
 #[test]
 fn navbar_respects_search_generation_flag() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
 
   let content = "<p>Test content</p>";
   let title = "Test Page";
@@ -452,7 +466,10 @@ fn navbar_respects_search_generation_flag() {
   assert!(html.contains("Search") || html.contains("search"));
 
   // Test with search disabled
-  config.generate_search = false;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: false,
+    ..Default::default()
+  });
   let html_no_search =
     template::render(&config, content, title, &headers, rel_path)
       .expect("Should render HTML");
@@ -713,7 +730,10 @@ This is a standalone page.
     footer_text: "Footer".to_string(),
     input_dir: Some(input_dir.to_path_buf()),
     output_dir: output_dir.clone(),
-    generate_search: false,
+    search: Some(ndg::config::search::SearchConfig {
+      enable: false,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 

@@ -2,7 +2,7 @@
 use std::{fs, path::PathBuf};
 
 use ndg::{
-  config::Config,
+  config::{Config, search::SearchConfig},
   formatter::options::process_options,
   html::{search::generate_search_index, template::render},
 };
@@ -34,7 +34,10 @@ fn test_search_widget_path_resolution() {
     output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
@@ -102,7 +105,10 @@ fn test_search_widget_at_root_level() {
     output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 

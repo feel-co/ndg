@@ -1424,17 +1424,23 @@ mod tests {
   #[test]
   fn test_config_merge_boolean_fields() {
     let mut base = Config::default();
-    base.generate_search = true;
+    base.search = Some(search::SearchConfig {
+      enable:         true,
+      ..Default::default()
+    });
     base.highlight_code = false;
 
     let mut override_config = Config::default();
-    override_config.generate_search = false;
+    override_config.search = Some(search::SearchConfig {
+      enable:         false,
+      ..Default::default()
+    });
     override_config.highlight_code = true;
 
     base.merge(override_config);
 
     // Boolean fields should take override's value
-    assert!(!base.generate_search);
+    assert!(!base.is_search_enabled());
     assert!(base.highlight_code);
   }
 
@@ -1444,12 +1450,12 @@ mod tests {
 
     config
       .apply_overrides(&vec![
-        "generate_search=false".to_string(),
+        "search.enable=false".to_string(),
         "highlight_code=yes".to_string(),
       ])
       .unwrap();
 
-    assert!(!config.generate_search);
+    assert!(!config.is_search_enabled());
     assert!(config.highlight_code);
   }
 
