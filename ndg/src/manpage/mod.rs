@@ -38,19 +38,19 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Map of characters that need to be escaped in manpages
-#[must_use]
-pub fn get_roff_escapes() -> HashMap<char, &'static str> {
-  let mut map = HashMap::new();
-  map.insert('"', "\\(dq");
-  map.insert('\'', "\\(aq");
-  map.insert('-', "\\-");
-  map.insert('.', "\\&.");
-  map.insert('\\', "\\\\");
-  map.insert('^', "\\(ha");
-  map.insert('`', "\\(ga");
-  map.insert('~', "\\(ti");
-  map
-}
+pub static ROFF_ESCAPES: LazyLock<HashMap<char, &'static str>> =
+  LazyLock::new(|| {
+    let mut map = HashMap::with_capacity(8);
+    map.insert('"', "\\(dq");
+    map.insert('\'', "\\(aq");
+    map.insert('-', "\\-");
+    map.insert('.', "\\&.");
+    map.insert('\\', "\\\\");
+    map.insert('^', "\\(ha");
+    map.insert('`', "\\(ga");
+    map.insert('~', "\\(ti");
+    map
+  });
 
 /// Escapes a string for use in manpages
 #[must_use]
@@ -58,11 +58,10 @@ pub fn man_escape(s: &str) -> String {
   process_safe(
     s,
     |text| {
-      let escapes = get_roff_escapes();
       let mut result = String::with_capacity(text.len() * 2);
 
       for c in text.chars() {
-        if let Some(escape) = escapes.get(&c) {
+        if let Some(escape) = ROFF_ESCAPES.get(&c) {
           result.push_str(escape);
         } else {
           result.push(c);
@@ -81,7 +80,11 @@ pub fn escape_leading_dot(text: &str) -> String {
   process_safe(
     text,
     |text| {
-      if text.starts_with('.') || text.starts_with('\'') {
+      if text.starts_with('.')
+        || text.starts_with('\'')
+        || text.starts_with("\\&'")
+        || text.starts_with("\\[aq]")
+      {
         format!("\\&{text}")
       } else {
         text.to_string()
@@ -89,4 +92,23 @@ pub fn escape_leading_dot(text: &str) -> String {
     },
     text,
   )
+}
+
+/// Escape lines except those starting with man macros we emit (e.g., .IP)
+#[must_use]
+pub fn escape_non_macro_lines(text: &str) -> String {
+  text
+    .lines()
+    .map(|line| {
+      if line.starts_with(".IP ")
+        || line.starts_with(".RS")
+        || line.starts_with(".RE")
+      {
+        line.to_string()
+      } else {
+        escape_leading_dot(line)
+      }
+    })
+    .collect::<Vec<_>>()
+    .join("\n")
 }

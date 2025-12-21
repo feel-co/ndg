@@ -2,7 +2,12 @@ use std::{fs, io::Write, path::Path, sync::LazyLock};
 
 use color_eyre::eyre::{Context, Result};
 use log::{error, info};
-use ndg_commonmark::utils::never_matching_regex;
+use ndg_commonmark::{
+  MarkdownOptions,
+  MarkdownProcessor,
+  process_role_markup,
+  utils::never_matching_regex,
+};
 use rayon::prelude::*;
 use regex::Regex;
 use serde_json::{self, Value};
@@ -10,81 +15,23 @@ use serde_json::{self, Value};
 use crate::{
   formatter::options::NixOption,
   manpage::{
+    ROFF_ESCAPES,
     TROFF_ESCAPE,
     TROFF_FORMATTING,
     escape_leading_dot,
-    get_roff_escapes,
+    escape_non_macro_lines,
     man_escape,
   },
   utils::json::extract_value,
 };
 
-// Define regex patterns for processing markdown in options
-// Role patterns
-#[allow(dead_code)]
-static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile ROLE_PATTERN regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
-
-// Terminal prompts
-#[allow(dead_code)]
-static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile COMMAND_PROMPT regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
-
-#[allow(dead_code)]
-static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile REPL_PROMPT regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
-
-// Inline code
-#[allow(dead_code)]
-static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
-  // Replace the problematic look-ahead pattern with a simpler pattern
-  // This captures single backtick code blocks but might need post-processing
-  // to filter out cases where there might be double backticks
-  Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile INLINE_CODE regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
+// Shared processor instance for manpage generation
+thread_local! {
+  static MANPAGE_PROCESSOR: MarkdownProcessor = {
+    let options = MarkdownOptions::default();
+    MarkdownProcessor::new(options)
+  };
+}
 
 // HTML tags
 static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
@@ -133,7 +80,7 @@ static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"^\s*\d+\.\s+(.+)$").unwrap_or_else(|e| {
+  Regex::new(r"^\s*(\d+)\.\s+(.+)$").unwrap_or_else(|e| {
     error!("Failed to compile NUMBERED_LIST_ITEM regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
       #[allow(
@@ -315,7 +262,7 @@ pub fn generate_manpage(
       if let Some(url) = &option.declared_in_url {
         writeln!(
           file,
-          "\\fB<{}> ({})</\\fB",
+          "\\fB<{}>\\fP (\\fI{}\\fP)",
           man_escape(declared_in),
           man_escape(url)
         )?;
@@ -475,9 +422,10 @@ fn process_description(text: &str) -> String {
               process_inline_markdown(line)
             },
             |captures| {
-              let content = &captures[1];
+              let number = &captures[1];
+              let content = &captures[2];
               format!(
-                ".sp\n.RS 4\n\\h'-2'\\fB1.\\fP\\h'1'\\c\n{}\n.RE",
+                ".IP \"{number}.\" 4\n{}",
                 process_inline_markdown(content)
               )
             },
@@ -485,10 +433,7 @@ fn process_description(text: &str) -> String {
         },
         |captures| {
           let content = &captures[1];
-          format!(
-            ".sp\n.RS 4\n\\h'-2'\\fB\\[u2022]\\fP\\h'1'\\c\n{}\n.RE",
-            process_inline_markdown(content)
-          )
+          format!(".IP \"\\[u2022]\" 4\n{}", process_inline_markdown(content))
         },
       )
     })
@@ -496,7 +441,13 @@ fn process_description(text: &str) -> String {
     .join("\n");
 
   // Process special admonitions and other block elements
-  process_admonitions(&processed_lines)
+  let with_admonitions = process_admonitions(&processed_lines);
+
+  // Escape only non-macro-leading lines so list markers stay active
+  let escaped = escape_non_macro_lines(&with_admonitions);
+
+  // Preserve explicit paragraph breaks so list items do not merge
+  escaped.replace("\n\n", "\n.br\n")
 }
 
 /// Preserve existing troff formatting codes so they don't get double-escaped
@@ -546,8 +497,22 @@ fn process_inline_markdown(text: &str) -> String {
   // Handle inline code
   let with_code = process_inline_code(&with_repl);
 
+  // Strip outer HTML wrappers produced by renderer for plain inline content
+  let without_wrappers = with_code
+    .replace("<html><head></head><body>", "")
+    .replace("</body></html>", "")
+    .replace("<p>", "")
+    .replace("</p>", "");
+
+  // Also strip wrappers in defaults/examples
+  let without_block_wrappers = without_wrappers
+    .replace("<html>", "")
+    .replace("</html>", "")
+    .replace("<body>", "")
+    .replace("</body>", "");
+
   // Restore any preserved troff formatting
-  let with_formatting_restored = restore_formatting(&with_code);
+  let with_formatting_restored = restore_formatting(&without_block_wrappers);
 
   // Escape any troff special characters and commands, but not existing troff
   // formatting
@@ -572,7 +537,6 @@ fn process_markdown_links(text: &str) -> String {
 
 /// Selectively escape text for troff
 fn selective_man_escape(text: &str) -> String {
-  let escapes = get_roff_escapes();
   let mut result = String::with_capacity(text.len() * 2);
 
   let mut i = 0;
@@ -619,7 +583,7 @@ fn selective_man_escape(text: &str) -> String {
     }
 
     // Otherwise escape normally
-    if let Some(escape) = escapes.get(&chars[i]) {
+    if let Some(escape) = ROFF_ESCAPES.get(&chars[i]) {
       result.push_str(escape);
     } else {
       result.push(chars[i]);
@@ -633,55 +597,37 @@ fn selective_man_escape(text: &str) -> String {
 
 /// Process all role-based formatting in text
 fn process_roles(text: &str) -> String {
-  // Using shared implementation for text role processing, specifically for
-  // troff output format
-  use ndg_commonmark::{
-    MarkdownOptions,
-    MarkdownProcessor,
-    process_role_markup,
-  };
-
-  let options = MarkdownOptions::default();
-  let processor = MarkdownProcessor::new(options);
-  process_role_markup(text, processor.manpage_urls(), true, None)
+  MANPAGE_PROCESSOR.with(|processor| {
+    process_role_markup(text, processor.manpage_urls(), true, None)
+  })
 }
 
 /// Process command prompts ($ command)
 fn process_command_prompts(text: &str) -> String {
-  // Use ndg-commonmark to process markdown, then convert HTML to troff
-  use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
-
-  let options = MarkdownOptions::default();
-  let processor = MarkdownProcessor::new(options);
-  let result = processor.render(text);
-
-  // Convert HTML command prompts to troff format
-  result
-    .html
-    .replace(
-      "<code class=\"terminal\"><span class=\"prompt\">$</span> ",
-      "\\fR\\fB$\\fP ",
-    )
-    .replace("</code>", "")
+  MANPAGE_PROCESSOR.with(|processor| {
+    let result = processor.render(text);
+    result
+      .html
+      .replace(
+        "<code class=\"terminal\"><span class=\"prompt\">$</span> ",
+        "\\fR\\fB$\\fP ",
+      )
+      .replace("</code>", "")
+  })
 }
 
 /// Process REPL prompts (nix-repl> command)
 fn process_repl_prompts(text: &str) -> String {
-  // Use ndg-commonmark to process markdown, then convert HTML to troff
-  use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
-
-  let options = MarkdownOptions::default();
-  let processor = MarkdownProcessor::new(options);
-  let result = processor.render(text);
-
-  // Convert HTML REPL prompts to troff format
-  result
-    .html
-    .replace(
-      "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> ",
-      "\\fR\\fBnix-repl>\\fP ",
-    )
-    .replace("</code>", "")
+  MANPAGE_PROCESSOR.with(|processor| {
+    let result = processor.render(text);
+    result
+      .html
+      .replace(
+        "<code class=\"nix-repl\"><span class=\"prompt\">nix-repl&gt;</span> ",
+        "\\fR\\fBnix-repl>\\fP ",
+      )
+      .replace("</code>", "")
+  })
 }
 
 /// Process admonition blocks (:::)
@@ -750,18 +696,13 @@ fn process_admonitions(text: &str) -> String {
 
 /// Process inline code blocks
 fn process_inline_code(text: &str) -> String {
-  // Use ndg-commonmark to process markdown, then convert HTML to troff
-  use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
-
-  let options = MarkdownOptions::default();
-  let processor = MarkdownProcessor::new(options);
-  let result = processor.render(text);
-
-  // Convert HTML code tags to troff format
-  result
-    .html
-    .replace("<code>", "\\fR\\(oq")
-    .replace("</code>", "\\(cq\\fP")
+  MANPAGE_PROCESSOR.with(|processor| {
+    let result = processor.render(text);
+    result
+      .html
+      .replace("<code>", "\\fR\\(oq")
+      .replace("</code>", "\\(cq\\fP")
+  })
 }
 
 /// Process option values (for defaults and examples)
@@ -773,11 +714,22 @@ fn process_value(text: &str) -> String {
   let with_roles = process_roles(&text);
   let with_code = process_inline_code(&with_roles);
 
-  // Restore formatting codes
-  let with_formatting_restored = restore_formatting(&with_code);
+  // Strip any residual HTML wrappers from renderer
+  let without_wrappers = with_code
+    .replace("<html><head></head><body>", "")
+    .replace("</body></html>", "")
+    .replace("<html>", "")
+    .replace("</html>", "")
+    .replace("<body>", "")
+    .replace("</body>", "")
+    .replace("<p>", "")
+    .replace("</p>", "");
 
-  // Escape any troff special characters
-  selective_man_escape(&with_formatting_restored)
+  // Restore formatting codes
+  let with_formatting_restored = restore_formatting(&without_wrappers);
+
+  // Escape any troff special characters and ensure leading dots are safe
+  escape_leading_dots(&selective_man_escape(&with_formatting_restored))
 }
 
 /// Process example text for troff format
@@ -790,10 +742,19 @@ fn process_example(text: &str) -> String {
   let with_prompts = process_command_prompts(&with_roles);
   let with_repl = process_repl_prompts(&with_prompts);
 
-  // Restore formatting codes
-  let with_formatting_restored = restore_formatting(&with_repl);
+  // Strip any residual HTML wrappers
+  let without_wrappers = with_repl
+    .replace("<html><head></head><body>", "")
+    .replace("</body></html>", "")
+    .replace("<html>", "")
+    .replace("</html>", "")
+    .replace("<body>", "")
+    .replace("</body>", "")
+    .replace("<p>", "")
+    .replace("</p>", "");
 
-  // Ensure every line doesn't start with a dot
+  // Restore formatting codes
+  let with_formatting_restored = restore_formatting(&without_wrappers);
 
   // Return the processed example
   escape_leading_dots(&selective_man_escape(&with_formatting_restored))

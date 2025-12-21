@@ -31,6 +31,28 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 
 ## [Unreleased]
 
+### Fixed
+
+- Manpage generation now properly formats lists, escapes special characters, and
+  strips HTML wrappers
+  - List items render as proper `.IP` macros instead of literal text
+  - Leading dots and apostrophes are correctly escaped to prevent troff command
+    interpretation
+  - Default/example values no longer include `<html>/<body>/<p>` tags
+  - "Declared by" sections use correct troff bold/italic formatting
+  - Fixed duplicate processor initialization (something around 30+ -> 1 as per
+    my testing)
+
+### Changed
+
+- Performance optimizations in manpage generation
+  - Replaced `get_roff_escapes()` function with static `ROFF_ESCAPES` HashMap
+    (eliminates thousands of allocations)
+  - Removed `ROLE_PATTERN`, `COMMAND_PROMPT`, `REPL_PROMPT`, and `INLINE_CODE`
+    regexes
+
+## [2.5.0]
+
 ### Added
 
 - Support for multiple configuration files via repeatable `--config-file` flag
@@ -189,6 +211,7 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 - Prevented panic in theme name fallback logic (ndg-commonmark)
 - Prevented panic on empty fence character extraction (ndg-commonmark)
 
-[Unreleased]: https://github.com/feel-co/ndg/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/feel-co/ndg/compare/v2.5.0...HEAD
 [2.4.0]: https://github.com/feel-co/ndg/compare/v2.3.2...v2.4.0
 [2.4.1]: https://github.com/feel-co/ndg/compare/v2.4.0...v2.4.1
+[2.5.0]: https://github.com/feel-co/ndg/compare/v2.4.1...v2.4.5
