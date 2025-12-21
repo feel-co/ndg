@@ -1425,14 +1425,14 @@ mod tests {
   fn test_config_merge_boolean_fields() {
     let mut base = Config::default();
     base.search = Some(search::SearchConfig {
-      enable:         true,
+      enable: true,
       ..Default::default()
     });
     base.highlight_code = false;
 
     let mut override_config = Config::default();
     override_config.search = Some(search::SearchConfig {
-      enable:         false,
+      enable: false,
       ..Default::default()
     });
     override_config.highlight_code = true;

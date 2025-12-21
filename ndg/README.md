@@ -232,8 +232,8 @@ available to override from the CLI.
 #### Configuration Files
 
 NDG accepts two distinct configuration formats, TOML and JSON, to allow setting
-your options persistently. Options like `generate_search` can be set in the
-config file, but CLI flags will override them _if provided_.
+your options persistently. Options like `search.enable` can be set in the config
+file, but CLI flags will override them _if provided_.
 
 TOML is the "blessed" format for NDG, though JSON is fully supported thanks to
 Serde. The default format for generated configuration files is TOML.
@@ -244,20 +244,25 @@ Example `ndg.toml`:
 input_dir = "docs"
 output_dir = "html"
 title = "My Project"
-generate_search = true  # Can be overridden by CLI
+
+[search]
+# Can be overridden by CLI
+enable = true
+max_heading_level = 3
 ```
 
 #### Interactions Between CLI and Config
 
 > [!NOTE]
 > CLI flags always take precedence over config file settings. For instance, if
-> your config file has `generate_search = false`, but you run
-> `ndg html --generate-search`, search will be enabled.
+your config file has `search.enable = false`, but you run `ndg html
+> --generate-search`, search will be enabled.
 
 If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
-`generate_search` defaults to `true` if omitted from both; CLI flags override
+`search.enable` defaults to `true` if omitted from both; CLI flags override
 config when present). For a full list of CLI options, see the help output with
 `ndg html --help`.
+
 
 #### Configuration Reference
 
@@ -274,7 +279,8 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 
 **Feature Toggles:**
 
-- `generate_search` - Enable search functionality (default: `true`)
+- `search.enable` - Enable search functionality (default: `true`)
+- `search.max_heading_level` - Maximum heading level to index (default: `6`)
 - `highlight_code` - Enable syntax highlighting (default: `true`)
 - `generate_anchors` - Generate heading anchors (default: `true`)
 
@@ -308,8 +314,12 @@ title = "My Project Documentation"
 footer_text = "© 2025 My Project"
 jobs = 4
 
+# Search configuration
+[search]
+enable = true
+max_heading_level = 3
+
 # Enable features
-generate_search = true
 highlight_code = true
 generate_anchors = true
 
