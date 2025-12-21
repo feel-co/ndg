@@ -12,7 +12,7 @@ license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/feel-co/ndg"
 rust-version = "1.90"
-version      = "2.5.0-beta5"
+version      = "2.5.0-beta6"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
