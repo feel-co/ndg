@@ -44,7 +44,7 @@ class SearchEngine {
             usedPath = path;
             break;
           }
-        } catch (e) {
+        } catch {
           // Continue to next path
         }
       }
@@ -245,7 +245,7 @@ class SearchEngine {
     });
 
     // Second pass: Find matching anchors within pages
-    pageMatches.forEach((match, docId) => {
+    pageMatches.forEach((match) => {
       const doc = match.doc;
       if (!doc.anchors || doc.anchors.length === 0) return;
 
@@ -343,7 +343,7 @@ class SearchEngine {
    * @param {number} limit - Maximum results
    * @returns {Promise<Array>} Search results
    */
-  async searchWithWorker(query, limit) {
+  searchWithWorker(query, limit) {
     const worker = initializeSearchWorker();
     if (!worker) {
       return this.fallbackSearch(query, limit);
@@ -450,7 +450,7 @@ class SearchEngine {
   }
 
   // Lazy loading for search results
-  async lazyLoadDocuments(docIds, limit = 10) {
+  lazyLoadDocuments(docIds, limit = 10) {
     if (!this.fullDocuments) {
       // Store full documents separately for memory efficiency
       this.fullDocuments = this.documents;
@@ -468,7 +468,6 @@ class SearchEngine {
   // Fallback search method via simple string matching
   fallbackSearch(query, limit = 10) {
     const lowerQuery = query.toLowerCase();
-    const searchTerms = this.tokenize(query);
 
     const results = this.documents
       .map((doc) => {
@@ -540,19 +539,6 @@ window.searchNamespace.engine = new SearchEngine();
 
 // Mobile search timeout for debouncing
 let mobileSearchTimeout = null;
-
-// Legacy search for backward compatibility
-// This could be removed, but I'm emotionally attached to it
-// and it could be used as a fallback.
-function filterSearchResults(data, searchTerm, limit = 10) {
-  return data
-    .filter(
-      (doc) =>
-        doc.title.toLowerCase().includes(searchTerm) ||
-        doc.content.toLowerCase().includes(searchTerm),
-    )
-    .slice(0, limit);
-}
 
 document.addEventListener("DOMContentLoaded", function () {
   // Initialize search engine immediately
@@ -727,9 +713,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Mobile search popup functionality
-  let mobileSearchPopup = document.getElementById("mobile-search-popup");
-  let mobileSearchInput = document.getElementById("mobile-search-input");
-  let mobileSearchResults = document.getElementById("mobile-search-results");
+  const mobileSearchPopup = document.getElementById("mobile-search-popup");
+  const mobileSearchInput = document.getElementById("mobile-search-input");
+  const mobileSearchResults = document.getElementById("mobile-search-results");
   const closeMobileSearchBtn = document.getElementById("close-mobile-search");
 
   function openMobileSearch() {

@@ -59,7 +59,7 @@ self.onmessage = function(e) {
       });
 
       // Second pass: Find matching anchors
-      pageMatches.forEach((match, docId) => {
+      pageMatches.forEach((match) => {
         const doc = match.doc;
         if (!doc.anchors || doc.anchors.length === 0) return;
 
