@@ -68,8 +68,13 @@ footer_text = "Generated with ndg"
 # Whether to generate anchors for headings
 generate_anchors = true
 
+# Search configuration
+[search]
 # Whether to generate a search index
-generate_search = true
+enable = true
+
+# Maximum heading level to index
+max_heading_level = 3
 
 # Depth of parent categories in options TOC
 options_toc_depth = 2
@@ -169,7 +174,10 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "title": "My Project Documentation",
   "footer_text": "Generated with ndg",
   "generate_anchors": true,
-  "generate_search": true,
+  "search": {
+    "enable": true,
+    "max_heading_level": 3
+  },
   "options_toc_depth": 2,
   "highlight_code": true,
   "tab_style": "none",
