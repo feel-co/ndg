@@ -5,7 +5,7 @@ use std::{
 };
 
 use ndg::{
-  config::Config,
+  config::{Config, search::SearchConfig},
   formatter::options::process_options,
   html::{
     search::{SearchDocument, generate_search_index},
@@ -42,7 +42,10 @@ fn test_search_path_resolution_from_subdirectory() {
     output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
@@ -96,7 +99,10 @@ fn test_search_path_resolution_from_root() {
     output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
@@ -176,7 +182,10 @@ This file should be transitively included in `main.html`
     output_dir: output_dir.clone(),
     module_options: None,
     title: "Test".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
@@ -300,19 +309,22 @@ This describes the Home Manager module installation.
     output_dir: output_dir.clone(),
     module_options: None,
     title: "Test Documentation".to_string(),
-    generate_search: true,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
     ..Default::default()
   };
 
   let processor = Some(create_processor(&config, None));
-  config.included_files = collect_included_files(&config, processor.as_ref())
-    .expect("Failed to collect include files");
 
   let all_markdown_files = collect_markdown_files(&input_dir);
 
-  // Process markdown files to generate HTML
-  ndg::utils::process_markdown_files(&config, processor.as_ref())
-    .expect("Failed to process markdown files");
+  // Process markdown files to generate HTML.
+  // This also populates config.included_files as a side effect.
+  let _processed_files =
+    ndg::utils::process_markdown_files(&mut config, processor.as_ref())
+      .expect("Failed to process markdown files");
 
   // Filter out included files - only standalone files should be in search index
   let searchable_files: Vec<_> = all_markdown_files

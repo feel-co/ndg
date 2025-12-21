@@ -139,11 +139,9 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     None
   };
 
-  // Collect all included files first
-  config.included_files =
-    utils::collect_included_files(config, processor.as_ref())?;
-
-  // Process markdown files
+  // Process markdown files and collect included files in one pass.
+  // As a side effect, this populates config.included_files so that the
+  // sidebar navigation can correctly filter out included files.
   let markdown_files =
     utils::process_markdown_files(config, processor.as_ref())?;
 
@@ -154,8 +152,9 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   utils::ensure_index(config, options_processed, &markdown_files)?;
 
   // Generate search index if enabled, regardless of whether there are markdown
-  // files
-  if config.generate_search {
+  // files. Even if there's only an options.html, search can continue to
+  // function.
+  if config.is_search_enabled() {
     // Filter out included files - they should not appear as standalone entries
     // in search results. Their content is indexed as part of the parent
     // document.

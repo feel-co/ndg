@@ -1,8 +1,8 @@
 // Polyfill for requestIdleCallback for Safari and unsupported browsers
 if (typeof window.requestIdleCallback === "undefined") {
   window.requestIdleCallback = function (cb) {
-    var start = Date.now();
-    var idlePeriod = 50;
+    const start = Date.now();
+    const idlePeriod = 50;
     return setTimeout(function () {
       cb({
         didTimeout: false,
@@ -144,7 +144,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       // Make the entire heading clickable
-      heading.addEventListener("click", function (e) {
+      heading.addEventListener("click", function () {
         const id = this.id;
         history.pushState(null, null, "#" + id);
 

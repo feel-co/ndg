@@ -1,0 +1,7 @@
+{
+  "lint": {
+    "rules": {
+      "exclude": ["no-window", "no-window-prefix", "no-inner-declarations", "no-this-alias"]
+    }
+  }
+}

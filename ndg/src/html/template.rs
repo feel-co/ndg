@@ -144,7 +144,7 @@ pub fn render(
   let navbar_html = tera.render("navbar", &{
     let mut ctx = tera::Context::new();
     ctx.insert("has_options", has_options);
-    ctx.insert("generate_search", &config.generate_search);
+    ctx.insert("generate_search", &config.is_search_enabled());
     ctx.insert(
       "options_path",
       asset_paths
@@ -178,7 +178,7 @@ pub fn render(
   tera_context.insert("doc_nav", &doc_nav);
   tera_context.insert("has_options", has_options);
   tera_context.insert("custom_scripts", &custom_scripts);
-  tera_context.insert("generate_search", &config.generate_search);
+  tera_context.insert("generate_search", &config.is_search_enabled());
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -282,7 +282,7 @@ pub fn render_options(
   let navbar_html = tera.render("navbar", &{
     let mut ctx = tera::Context::new();
     ctx.insert("has_options", "class=\"active\"");
-    ctx.insert("generate_search", &config.generate_search);
+    ctx.insert("generate_search", &config.is_search_enabled());
     ctx.insert(
       "options_path",
       asset_paths
@@ -317,7 +317,7 @@ pub fn render_options(
   tera_context.insert("doc_nav", &doc_nav);
   tera_context.insert("has_options", "class=\"active\"");
   tera_context.insert("toc", &options_toc);
-  tera_context.insert("generate_search", &config.generate_search);
+  tera_context.insert("generate_search", &config.is_search_enabled());
 
   // Add meta and opengraph tags
   let meta_tags_html =
@@ -599,7 +599,7 @@ fn generate_options_toc(
 
         // Sort by component count first
         match a_components.cmp(&b_components) {
-          std::cmp::Ordering::Equal => a_name.cmp(b_name), // Then alphabetically
+          std::cmp::Ordering::Equal => a_name.cmp(b_name), // then alphabetically
           other => other,
         }
       }
@@ -627,7 +627,6 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 }
 
 /// Render search page
-/// Render search page
 ///
 /// # Errors
 ///
@@ -642,7 +641,7 @@ pub fn render_search(
   context: &HashMap<&str, String>,
 ) -> Result<String> {
   // Skip rendering if search is disabled
-  if !config.generate_search {
+  if !config.is_search_enabled() {
     bail!("Search functionality is disabled");
   }
 
@@ -666,7 +665,8 @@ pub fn render_search(
     .cloned()
     .unwrap_or_else(|| format!("{} - Search", config.title));
 
-  // Generate document navigation for root level (search.html is always at root)
+  // Generate document navigation for root level (system-generated search.html
+  // is always at root)
   let root_path = Path::new("search.html");
   let doc_nav = generate_doc_nav(config, root_path);
 
@@ -691,7 +691,7 @@ pub fn render_search(
   let navbar_html = tera.render("navbar", &{
     let mut ctx = tera::Context::new();
     ctx.insert("has_options", has_options);
-    ctx.insert("generate_search", &config.generate_search);
+    ctx.insert("generate_search", &config.is_search_enabled());
     ctx.insert(
       "options_path",
       asset_paths
@@ -1129,7 +1129,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   }
 
   // Add search link only if search is enabled
-  if config.generate_search {
+  if config.is_search_enabled() {
     let _ = writeln!(
       doc_nav,
       "<li><a href=\"{root_prefix}search.html\">Search</a></li>"

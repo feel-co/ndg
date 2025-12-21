@@ -2,7 +2,7 @@
 use std::{collections::HashMap, fs, path::Path};
 
 use ndg::{
-  config::{Config, sidebar::SidebarConfig},
+  config::{Config, search::SearchConfig, sidebar::SidebarConfig},
   formatter::options::NixOption,
   html::template,
 };
@@ -19,7 +19,10 @@ fn minimal_config() -> Config {
   Config {
     title: "Test Site".to_string(),
     footer_text: "Footer".to_string(),
-    generate_search: false,
+    search: Some(SearchConfig {
+      enable: false,
+      ..Default::default()
+    }),
     ..Default::default()
   }
 }
@@ -189,7 +192,10 @@ fn render_options_page_with_multiple_options() {
 #[test]
 fn render_search_page_respects_flag() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
   let mut context = HashMap::new();
   context.insert("title", "Search Test".to_string());
   let html =
@@ -274,7 +280,10 @@ fn render_options_page_contains_footer() {
 #[test]
 fn render_search_page_contains_navbar() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
   let mut context = HashMap::new();
   context.insert("title", "Search Test".to_string());
   let html =
@@ -288,7 +297,10 @@ fn render_search_page_contains_navbar() {
 #[test]
 fn render_search_page_contains_footer() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
   config.footer_text = "Search Page Footer".to_string();
   let mut context = HashMap::new();
   context.insert("title", "Search Test".to_string());
@@ -437,7 +449,10 @@ fn render_page_falls_back_to_default_template() {
 #[test]
 fn navbar_respects_search_generation_flag() {
   let mut config = minimal_config();
-  config.generate_search = true;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: true,
+    ..Default::default()
+  });
 
   let content = "<p>Test content</p>";
   let title = "Test Page";
@@ -451,7 +466,10 @@ fn navbar_respects_search_generation_flag() {
   assert!(html.contains("Search") || html.contains("search"));
 
   // Test with search disabled
-  config.generate_search = false;
+  config.search = Some(ndg::config::search::SearchConfig {
+    enable: false,
+    ..Default::default()
+  });
   let html_no_search =
     template::render(&config, content, title, &headers, rel_path)
       .expect("Should render HTML");
@@ -661,5 +679,126 @@ fn sidebar_numbering_disabled_no_numbers() {
   assert!(
     !html.contains("2. ") && !html.contains("3. ") && !html.contains("4. "),
     "No numbered items should appear in sidebar"
+  );
+}
+
+// Regression test for bug where included files appeared in sidebar navigation.
+// Included files should never appear as standalone entries in the sidebar
+// because they don't have their own HTML pages generated
+#[test]
+fn sidebar_excludes_included_files() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let input_dir = temp_dir.path();
+  let output_dir = temp_dir.path().join("output");
+  let included_dir = input_dir.join("included");
+
+  fs::create_dir_all(&included_dir).expect("Failed to create included dir");
+  fs::create_dir_all(&output_dir).expect("Failed to create output dir");
+
+  // Create a main document that includes another file
+  let main_content = "# Main Document
+
+This is the main document.
+
+```{=include=}
+included/fragment.md
+```
+
+More content.
+";
+  fs::write(input_dir.join("main.md"), main_content)
+    .expect("Failed to write main.md");
+
+  // Create an included file that should NOT appear in sidebar
+  let included_content = "# Included Fragment
+
+This content is included in main.md and should not have its own sidebar entry.
+";
+  fs::write(included_dir.join("fragment.md"), included_content)
+    .expect("Failed to write included/fragment.md");
+
+  // Create another standalone file for comparison
+  let standalone_content = "# Standalone Page
+
+This is a standalone page.
+";
+  fs::write(input_dir.join("standalone.md"), standalone_content)
+    .expect("Failed to write standalone.md");
+
+  let mut config = Config {
+    title: "Test Site".to_string(),
+    footer_text: "Footer".to_string(),
+    input_dir: Some(input_dir.to_path_buf()),
+    output_dir: output_dir.clone(),
+    search: Some(ndg::config::search::SearchConfig {
+      enable: false,
+      ..Default::default()
+    }),
+    ..Default::default()
+  };
+
+  // Process markdown files, this should populate config.included_files
+  let processor = ndg::utils::create_processor(&config, None);
+  let _markdown_files =
+    ndg::utils::process_markdown_files(&mut config, Some(&processor))
+      .expect("Failed to process markdown files");
+
+  // Verify that included_files was populated
+  assert!(
+    !config.included_files.is_empty(),
+    "config.included_files should be populated after processing"
+  );
+  assert!(
+    config
+      .included_files
+      .contains_key(Path::new("included/fragment.md")),
+    "included/fragment.md should be tracked as an included file"
+  );
+
+  // Now render a page and check the sidebar
+  let content = "<p>Test content</p>";
+  let title = "Test Page";
+  let headers: Vec<Header> = vec![];
+  let rel_path = Path::new("test.html");
+
+  let html = template::render(&config, content, title, &headers, rel_path)
+    .expect("Should render HTML");
+
+  // The sidebar should contain links to main.md and standalone.md
+  assert!(
+    html.contains("main.html") || html.contains("Main Document"),
+    "Sidebar should contain main document"
+  );
+  assert!(
+    html.contains("standalone.html") || html.contains("Standalone Page"),
+    "Sidebar should contain standalone page"
+  );
+
+  // The sidebar should NOT contain any reference to the included file
+  assert!(
+    !html.contains("fragment.html"),
+    "Sidebar should NOT contain HTML link to included file (fragment.html)"
+  );
+  assert!(
+    !html.contains("Included Fragment") || html.contains("included/fragment"),
+    "Sidebar should NOT contain title of included file as a navigation item. \
+     If 'Included Fragment' appears, it must be in the context of the \
+     included path, not as a standalone nav link."
+  );
+
+  // Verify the included file's HTML was not generated
+  assert!(
+    !output_dir.join("included/fragment.html").exists(),
+    "HTML file should not be generated for included files"
+  );
+
+  // Verify standalone files WERE generated
+  assert!(
+    output_dir.join("main.html").exists(),
+    "HTML file should be generated for main.md"
+  );
+  assert!(
+    output_dir.join("standalone.html").exists(),
+    "HTML file should be generated for standalone.md"
   );
 }
