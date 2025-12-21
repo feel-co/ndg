@@ -43,6 +43,20 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   - Pattern-based matching for custom sidebar grouping
   - Configurable ordering algorithms (alphabetical, custom)
   - Support for read-only option badges in sidebar
+- Hierarchical search configuration via `search` section
+  - `search.enable` replaces deprecated `generate_search` boolean
+  - `search.max_heading_level` for controlling search depth
+  - **Deprecated** `generate_search` in favor of `search.enable`
+- Asset copying configuration
+  - Fine-grained control over custom asset processing
+  - Automatic minification of CSS/JS files during asset copying
+  - CSS and JavaScript minification support
+  - Configurable minification options for generated HTML assets
+  - Per-file minification for custom assets in subdirectories
+  - Support for multiple minification targets (CSS, JS, HTML)
+- Language support expansion in ndg-commonmark
+  - Added 11 new language parsers: `tsx`, `c_sharp`, `asm`, `diff`, `elixir`,
+    `jsdoc`, `printf`, `regex`, `zig`, `markdown_inline`, and `php_only`
 
 ### Changed
 
@@ -81,6 +95,13 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   opengraph = { "og:title" = "..." }
   tags = { description = "..." }
   ```
+- **Deprecated** `generate_search` boolean in favor of `search.enable`
+  - Old: `generate_search = true`
+  - New: `search.enable = true` (or `search = { enable = true }`)
+- Improved syntax highlighting performance in ndg-commonmark via resource reuse
+  - Processor and renderer instances are now reused across highlight operations
+  - Eliminated repeated initialization overhead
+- Template path logic simplified to remove confusing behavior
 
 ### Fixed
 
@@ -90,6 +111,16 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   messages
 - Regex compilation performance improved by caching compiled patterns during
   validation
+- Included files are now properly filtered from search index
+  - Files included via `{=include=}` directives no longer appear as standalone
+    search results
+  - Included content is indexed under the parent document with proper heading
+    anchors
+- Search result paths correctly resolve to included file parent documents
+- Non-deterministic sidebar ordering for special files (index.html, 404.html)
+  fixed
+- Heading text extraction now correctly handles inline elements (links,
+  emphasis) in ndg-commonmark
 
 ## [2.4.1]
 
