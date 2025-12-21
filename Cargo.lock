@@ -1529,7 +1529,7 @@ dependencies = [
 
 [[package]]
 name = "ndg"
-version = "2.5.0-beta6"
+version = "2.5.0"
 dependencies = [
  "clap",
  "color-eyre",
@@ -1563,7 +1563,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-commonmark"
-version = "2.5.0-beta6"
+version = "2.5.0"
 dependencies = [
  "comrak",
  "html-escape",
@@ -4531,7 +4531,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "2.5.0-beta6"
+version = "2.5.0"
 dependencies = [
  "anyhow",
  "clap",
