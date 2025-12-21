@@ -39,7 +39,7 @@ jobs:
           # Build documentation for public workspace members.
           # See:
           #  <https://doc.rust-lang.org/rustdoc/scraped-examples.html>
-          cargo doc --workspace --exclude --no-deps \
+          cargo doc --workspace --exclude xtask --no-deps \
             --document-private-items -Zunstable-options -Zrustdoc-scrape-examples
 
       - name: Prepare GitHub Pages Deployment
