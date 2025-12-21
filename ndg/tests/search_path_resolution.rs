@@ -305,14 +305,13 @@ This describes the Home Manager module installation.
   };
 
   let processor = Some(create_processor(&config, None));
-  config.included_files = collect_included_files(&config, processor.as_ref())
-    .expect("Failed to collect include files");
 
   let all_markdown_files = collect_markdown_files(&input_dir);
 
-  // Process markdown files to generate HTML
-  let (_processed_files, _included_files) =
-    ndg::utils::process_markdown_files(&config, processor.as_ref())
+  // Process markdown files to generate HTML.
+  // This also populates config.included_files as a side effect.
+  let _processed_files =
+    ndg::utils::process_markdown_files(&mut config, processor.as_ref())
       .expect("Failed to process markdown files");
 
   // Filter out included files - only standalone files should be in search index
