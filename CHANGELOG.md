@@ -43,6 +43,14 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   - Fixed duplicate processor initialization (something around 30+ -> 1 as per
     my testing)
 
+### Changed
+
+- Performance optimizations in manpage generation
+  - Replaced `get_roff_escapes()` function with static `ROFF_ESCAPES` HashMap
+    (eliminates thousands of allocations)
+  - Removed `ROLE_PATTERN`, `COMMAND_PROMPT`, `REPL_PROMPT`, and `INLINE_CODE`
+    regexes
+
 ## [2.5.0]
 
 ### Added
