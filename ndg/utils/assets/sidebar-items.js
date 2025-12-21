@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_CSS","MAIN_JS","SEARCH_JS","SEARCH_WORKER_JS"],"fn":["copy_assets","copy_custom_assets","copy_script_files","copy_template_asset","generate_css"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_CSS","MAIN_JS","SEARCH_JS","SEARCH_WORKER_JS"],"fn":["copy_assets","copy_custom_assets","copy_script_files","copy_template_asset","generate_css","process_asset_file"]};

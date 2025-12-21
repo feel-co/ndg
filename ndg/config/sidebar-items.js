@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["default_excluded_files","default_footer_text","default_input_dir","default_options_toc_depth","default_output_dir","default_revision","default_tab_style","default_title","default_true"],"mod":["templates"],"struct":["Config"]};
+window.SIDEBAR_ITEMS = {"mod":["assets","meta","postprocess","search","sidebar","templates"],"struct":["Config"]};
