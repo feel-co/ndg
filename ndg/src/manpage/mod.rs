@@ -81,7 +81,11 @@ pub fn escape_leading_dot(text: &str) -> String {
   process_safe(
     text,
     |text| {
-      if text.starts_with('.') || text.starts_with('\'') {
+      if text.starts_with('.')
+        || text.starts_with('\'')
+        || text.starts_with("\\&'")
+        || text.starts_with("\\[aq]")
+      {
         format!("\\&{text}")
       } else {
         text.to_string()
@@ -89,4 +93,23 @@ pub fn escape_leading_dot(text: &str) -> String {
     },
     text,
   )
+}
+
+/// Escape lines except those starting with man macros we emit (e.g., .IP)
+#[must_use]
+pub fn escape_non_macro_lines(text: &str) -> String {
+  text
+    .lines()
+    .map(|line| {
+      if line.starts_with(".IP ")
+        || line.starts_with(".RS")
+        || line.starts_with(".RE")
+      {
+        line.to_string()
+      } else {
+        escape_leading_dot(line)
+      }
+    })
+    .collect::<Vec<_>>()
+    .join("\n")
 }
