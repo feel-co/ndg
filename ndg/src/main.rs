@@ -139,10 +139,11 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     None
   };
 
-  // Process markdown files and collect included files in one pass
-  let (markdown_files, included_files) =
+  // Process markdown files and collect included files in one pass.
+  // As a side effect, this populates config.included_files so that the
+  // sidebar navigation can correctly filter out included files.
+  let markdown_files =
     utils::process_markdown_files(config, processor.as_ref())?;
-  config.included_files = included_files;
 
   // Process options if provided
   let options_processed = utils::process_module_options(config)?;

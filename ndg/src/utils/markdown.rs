@@ -101,6 +101,11 @@ pub fn collect_included_files(
 /// and writes the resulting HTML files to the output directory. Files that are
 /// included in other files are skipped unless they have custom output paths.
 ///
+/// As a side effect, this function populates `config.included_files` with the
+/// mapping of included files to their parent files. This must happen before
+/// rendering templates so that the sidebar can correctly filter out included
+/// files.
+///
 /// # Arguments
 ///
 /// * `config` - The loaded configuration for documentation generation.
@@ -109,9 +114,7 @@ pub fn collect_included_files(
 ///
 /// # Returns
 ///
-/// A tuple containing:
-/// - A vector of all processed markdown file paths
-/// - A mapping of included file paths to their parent files
+/// A vector of all processed markdown file paths.
 ///
 /// # Errors
 ///
@@ -121,9 +124,9 @@ pub fn collect_included_files(
 ///
 /// Panics if `config.input_dir` is `None` when processing markdown files.
 pub fn process_markdown_files(
-  config: &Config,
+  config: &mut Config,
   processor: Option<&MarkdownProcessor>,
-) -> Result<(Vec<PathBuf>, HashMap<PathBuf, PathBuf>)> {
+) -> Result<Vec<PathBuf>> {
   if let Some(ref input_dir) = config.input_dir {
     info!("Input directory: {}", input_dir.display());
     let files = collect_markdown_files(input_dir);
@@ -263,6 +266,10 @@ pub fn process_markdown_files(
       }
     }
 
+    // Populate config.included_files BEFORE rendering templates so that the
+    // sidebar navigation can correctly filter out included files
+    config.included_files.clone_from(&all_included_files);
+
     // Write outputs, skipping those marked as included, unless they have custom
     // output
     for (out_path, (html_content, headers, title, _src_md, is_included)) in
@@ -313,10 +320,10 @@ pub fn process_markdown_files(
       })?;
     }
 
-    Ok((files, all_included_files))
+    Ok(files)
   } else {
     info!("No input directory provided, skipping markdown processing");
-    Ok((Vec::new(), HashMap::new()))
+    Ok(Vec::new())
   }
 }
 
