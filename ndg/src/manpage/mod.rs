@@ -38,9 +38,8 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Map of characters that need to be escaped in manpages
-#[must_use]
-pub fn get_roff_escapes() -> HashMap<char, &'static str> {
-  let mut map = HashMap::new();
+pub static ROFF_ESCAPES: LazyLock<HashMap<char, &'static str>> = LazyLock::new(|| {
+  let mut map = HashMap::with_capacity(8);
   map.insert('"', "\\(dq");
   map.insert('\'', "\\(aq");
   map.insert('-', "\\-");
@@ -50,7 +49,7 @@ pub fn get_roff_escapes() -> HashMap<char, &'static str> {
   map.insert('`', "\\(ga");
   map.insert('~', "\\(ti");
   map
-}
+});
 
 /// Escapes a string for use in manpages
 #[must_use]
@@ -58,11 +57,10 @@ pub fn man_escape(s: &str) -> String {
   process_safe(
     s,
     |text| {
-      let escapes = get_roff_escapes();
       let mut result = String::with_capacity(text.len() * 2);
 
       for c in text.chars() {
-        if let Some(escape) = escapes.get(&c) {
+        if let Some(escape) = ROFF_ESCAPES.get(&c) {
           result.push_str(escape);
         } else {
           result.push(c);
