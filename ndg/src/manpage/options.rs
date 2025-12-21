@@ -15,11 +15,11 @@ use serde_json::{self, Value};
 use crate::{
   formatter::options::NixOption,
   manpage::{
+    ROFF_ESCAPES,
     TROFF_ESCAPE,
     TROFF_FORMATTING,
     escape_leading_dot,
     escape_non_macro_lines,
-    get_roff_escapes,
     man_escape,
   },
   utils::json::extract_value,
@@ -32,73 +32,6 @@ thread_local! {
     MarkdownProcessor::new(options)
   };
 }
-
-// Define regex patterns for processing markdown in options
-// Role patterns
-#[allow(dead_code)]
-static ROLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"\{([a-z]+)\}`([^`]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile ROLE_PATTERN regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
-
-// Terminal prompts
-#[allow(dead_code)]
-static COMMAND_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"`\s*\$\s+([^`]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile COMMAND_PROMPT regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
-
-#[allow(dead_code)]
-static REPL_PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"`nix-repl>\s*([^`]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile REPL_PROMPT regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
-
-// Inline code
-#[allow(dead_code)]
-static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| {
-  // Replace the problematic look-ahead pattern with a simpler pattern
-  // This captures single backtick code blocks but might need post-processing
-  // to filter out cases where there might be double backticks
-  Regex::new(r"`([^`\n]+)`").unwrap_or_else(|e| {
-    error!("Failed to compile INLINE_CODE regex in manpage/options.rs: {e}");
-    never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
-        clippy::expect_used,
-        reason = "This pattern is guaranteed to be valid"
-      )]
-      Regex::new(r"[^\s\S]")
-        .expect("regex pattern [^\\s\\S] should always compile")
-    })
-  })
-});
 
 // HTML tags
 static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
@@ -604,7 +537,6 @@ fn process_markdown_links(text: &str) -> String {
 
 /// Selectively escape text for troff
 fn selective_man_escape(text: &str) -> String {
-  let escapes = get_roff_escapes();
   let mut result = String::with_capacity(text.len() * 2);
 
   let mut i = 0;
@@ -651,7 +583,7 @@ fn selective_man_escape(text: &str) -> String {
     }
 
     // Otherwise escape normally
-    if let Some(escape) = escapes.get(&chars[i]) {
+    if let Some(escape) = ROFF_ESCAPES.get(&chars[i]) {
       result.push_str(escape);
     } else {
       result.push(chars[i]);
