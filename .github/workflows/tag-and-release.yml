@@ -65,13 +65,23 @@ jobs:
       release_id: ${{ steps.create_release.outputs.id }}
       tag_name: ${{ needs.tag.outputs.ndg_version }}
     steps:
+      - name: Detect pre-release
+        id: prerelease_check
+        run: |
+          VERSION="${{ needs.tag.outputs.ndg_version }}"
+          if [[ "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+-.*$ ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+      
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }}
           generate_release_notes: false
           name: Release ${{ needs.tag.outputs.ndg_version }}
           body: |
@@ -148,17 +158,63 @@ jobs:
     if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
-      - name: Update Release with Changelog
-        uses: softprops/action-gh-release@v2
+      - uses: actions/checkout@v6
         with:
-          tag_name: ${{ needs.create-release.outputs.tag_name }}
-          generate_release_notes: true
-          name: Release ${{ needs.create-release.outputs.tag_name }}
-          draft: false
-          prerelease: false
-          files: ""
-          body: |
-            ## Release ${{ needs.create-release.outputs.tag_name }}
+          fetch-depth: 0
+      
+      - name: Find previous stable release
+        id: prev_stable
+        run: |
+          CURRENT_TAG="${{ needs.create-release.outputs.tag_name }}"
+          
+          # Fetch all tags
+          git fetch --tags
+          
+          # Get all stable tags (pure semver: vX.Y.Z with no suffix)
+          STABLE_TAGS=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
+          
+          # Determine previous stable based on whether current is prerelease or stable
+          if [[ "$CURRENT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-.*$ ]]; then
+            # Current is prerelease - get latest stable
+            PREV_STABLE=$(echo "$STABLE_TAGS" | tail -n1)
+          else
+            # Current is stable - get the one before it
+            PREV_STABLE=$(echo "$STABLE_TAGS" | grep -B1 "^${CURRENT_TAG}$" | head -n1)
+            if [ "$PREV_STABLE" = "$CURRENT_TAG" ] || [ -z "$PREV_STABLE" ]; then
+              # First release or not found - use the previous stable
+              PREV_STABLE=$(echo "$STABLE_TAGS" | tail -n2 | head -n1)
+            fi
+          fi
+          
+          if [ -z "$PREV_STABLE" ]; then
+            echo "::warning::No previous stable release found. This may be the first release."
+          fi
+          
+          echo "previous_stable=${PREV_STABLE}" >> "$GITHUB_OUTPUT"
+          echo "Found previous stable release: ${PREV_STABLE}"
+      
+      - name: Generate and update release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CURRENT_TAG="${{ needs.create-release.outputs.tag_name }}"
+          PREV_TAG="${{ steps.prev_stable.outputs.previous_stable }}"
+          
+          # Generate release notes using GitHub API with custom previous tag
+          NOTES_JSON=$(gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name="${CURRENT_TAG}" \
+            -f target_commitish="${{ github.sha }}" \
+            -f previous_tag_name="${PREV_TAG}")
+          
+          # Extract the body from the JSON response
+          RELEASE_BODY=$(echo "$NOTES_JSON" | jq -r '.body')
+          
+          # Update the release with the generated notes
+          gh release edit "${CURRENT_TAG}" --notes "${RELEASE_BODY}"
 
 
 
