@@ -26,7 +26,7 @@ nixpkgs      = [  ]
 # relies on two-face (another crate that powers the Bat pager) for Nix syntax
 # highlighting. The default is Syntastica because of the more robust theme support
 # but Syntect *might* be chosen by end-users if theming is less important, and if
-# compile times are un-managable.
+# compile times are unmanageable.
 syntastica = [ "dep:syntastica", "dep:syntastica-core", "dep:syntastica-parsers", "dep:syntastica-themes" ]
 syntect    = [ "dep:syntect", "dep:two-face" ]
 
