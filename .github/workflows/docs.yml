@@ -53,7 +53,7 @@ jobs:
           cp -rvf ./ndg/README.md ./ndg/docs/index.md # index.md so it's the first entry
 
           # Generate NDG's own documentation using NDG itself
-          ./target/release/ndg html --config .github/ndg.toml
+          ./target/release/ndg --config-file .github/ndg.toml html
 
       - name: Prepare GitHub Pages Deployment
         run: |
