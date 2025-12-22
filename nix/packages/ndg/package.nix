@@ -5,13 +5,12 @@
   versionCheckHook,
   stdenv,
   rustc,
-  clang,
-  libclang,
 }: let
   fs = lib.fileset;
   s = ../../..;
 
   cargoTOML = lib.importTOML (s + /Cargo.toml);
+  inherit (rustc) llvmPackages;
 in
   rustPlatform.buildRustPackage (finalAttrs: {
     pname = "ndg";
@@ -25,7 +24,7 @@ in
 
         (s + /ndg)
         (s + /ndg-commonmark)
-        (s + /xtask)
+        (s + /crates)
 
         (s + /Cargo.lock)
         (s + /Cargo.toml)
@@ -43,16 +42,33 @@ in
       # is the default when lld is available in the system. This is not a problem
       # for reasonable distros that package up-to-date toolchains, such as NixOS.
       # Let's try it, users can always opt out anyway.
-      rustc.llvmPackages.lld
-      clang
+      llvmPackages.lld
+      llvmPackages.clang
     ];
+
     env = {
       # lld is the default on Rust 1.90+, but we don't stand to lose anything from
       # being more explicit. If anything, this makes errors clearer when lld is not
       # available, instead of silently falling back.
+      #
+      # We use Clang + lld as the Rust linker. This doesn't actually affect the
+      # codegen part, but *can* yield:
+      #  - significantly faster link times for large crate graphs
+      #  - slightly smaller binaries in some cases
+      # and makes our entire toolchain LLVM-based, which never hurts.
       RUSTFLAGS = "-C linker=clang -C link-arg=-fuse-ld=lld";
 
-      LIBCLANG_PATH = "${libclang.lib}/lib";
+      # Path to libclang for crates that require it (e.g. bindgen). We don't use
+      # bindgen yet for anything, but we *might* for my nix-bindings in the near
+      # future if we want to add, e.g., Nix eval.
+      LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
+
+      # Attempt to optimize the various Treesitter crates pulled by NDG to power
+      # syntax highlighting for codeblocks. Since those are data-heavy crates our
+      # options are limited, but we should still try. Unfortunately Cargo does
+      # not have a good way (e.g., build.rs doesn't help) that lets us propagate
+      # C/PP flags to builds so it has to be done on the packaging level.
+      CFLAGS = "-O2 -ffunction-sections -fdata-sections";
     };
 
     nativeInstallCheckInputs = [versionCheckHook];

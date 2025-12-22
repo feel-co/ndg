@@ -5,7 +5,7 @@
 # Packages
 !/ndg/
 !/ndg-commonmark/
-!/xtask/
+!/crates
 
 # Rust/Cargo
 !/Cargo.lock

@@ -1,7 +1,6 @@
 [workspace]
-default-members = [ "ndg" ]
-members         = [ "ndg", "ndg-commonmark", "xtask" ]
-resolver        = "3"
+members  = [ "ndg", "ndg-commonmark", "crates/*" ]
+resolver = "3"
 
 [workspace.package]
 authors      = [ "NotAShelf <raf@notashelf.dev>" ]
@@ -38,8 +37,6 @@ lightningcss = { version = "1.0.0-alpha.68", default-features = false }
 log = "0.4.29"
 markup5ever = "0.36.1"
 minify-html = "0.18.1"
-ndg = { path = "./ndg" }
-ndg-commonmark = { path = "./ndg-commonmark" }
 num_cpus = "1.17.0"
 oxc_allocator = "0.104.0"
 oxc_codegen = "0.104.0"
@@ -50,13 +47,16 @@ rayon = "1.11.0"
 regex = "1.12.2"
 serde = { version = "1.0.228", features = [ "derive" ] }
 serde_json = { version = "1.0.145", default-features = false, features = [ "preserve_order" ] }
-syntect = "5.3.0"
 tempfile = "3.23.0"
 tendril = "0.4.3"
 tera = { version = "1.20.1", default-features = false }
 thiserror = "2.0.17"
 toml = { version = "0.9.8", default-features = false, features = [ "parse", "serde" ] }
 walkdir = "2.5.0"
+
+# Workspace members
+ndg            = { path = "./ndg" }
+ndg-commonmark = { path = "./ndg-commonmark" }
 
 # See:
 #  <https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html>
