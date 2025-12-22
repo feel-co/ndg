@@ -1249,3 +1249,155 @@ fn test_file_include_recursion_depth_limit() {
     ndg_commonmark::process_file_includes(md, dir.path(), 0)
       .expect("file inclusion failed");
 }
+
+#[test]
+fn test_github_callout_multiline_content() {
+  // Regression test for lazy continuation syntax in GitHub callouts
+  // We test with the initial README bit from NDG's documentation that actually
+  // made me aware of the issue. It is not *too* comprehensive, but it does the
+  // job.
+  let md = r"> [!NOTE]
+> CLI flags always take precedence over config file settings. For instance, if
+> your config file has `search.enable = false`, but you run
+> `ndg html --generate-search`, search will be enabled.";
+
+  let html = ndg_html(md);
+
+  // Verify the admonition div exists
+  assert!(
+    html.contains(r#"<div class="admonition note">"#),
+    "Expected admonition div. Got:\n{html}"
+  );
+
+  // Verify ALL expected content is present in the HTML
+  // We don't extract the admonition scope because that's fragile with nested
+  // HTML. Instead, we verify the expected fragments exist and the admonition
+  // structure is correct.
+  let expected_fragments = [
+    "CLI flags always take precedence over config file settings",
+    "For instance, if",
+    "your config file has",
+    "<code>search.enable = false</code>",
+    "but you run",
+    "<code>ndg html --generate-search</code>",
+    "search will be enabled",
+  ];
+
+  for fragment in &expected_fragments {
+    assert!(
+      html.contains(fragment),
+      "Expected fragment '{fragment}' to be in the HTML, but it was \
+       not.\nFull HTML:\n{html}"
+    );
+  }
+}
+
+#[test]
+fn test_github_callout_lazy_continuation() {
+  // Test that lazy continuation (lines without >) works correctly
+  let md = r"> [!WARNING]
+> This is the first line.
+This line has no > prefix but should still be included.
+And this one too.
+
+This empty line above should end the callout.";
+
+  let html = ndg_html(md);
+
+  // Extract admonition content
+  let start = html
+    .find(r#"<div class="admonition warning">"#)
+    .expect("admonition div not found");
+  let end = html[start..].find("</div>").expect("closing div not found");
+  let admonition_content = &html[start..start + end + 6];
+
+  // Verify content that SHOULD be inside
+  assert!(
+    admonition_content.contains("This is the first line."),
+    "First line should be in admonition. Got:\n{admonition_content}"
+  );
+  assert!(
+    admonition_content.contains("This line has no &gt; prefix"),
+    "Lazy continuation line should be in admonition. \
+     Got:\n{admonition_content}"
+  );
+  assert!(
+    admonition_content.contains("And this one too."),
+    "Second lazy line should be in admonition. Got:\n{admonition_content}"
+  );
+
+  // Verify content that should NOT be inside
+  assert!(
+    !admonition_content.contains("This empty line above"),
+    "Content after blank line should NOT be in admonition. \
+     Got:\n{admonition_content}"
+  );
+
+  // Verify the excluded content exists elsewhere in HTML
+  assert!(
+    html.contains("This empty line above"),
+    "Content after blank line should exist in HTML. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_github_callout_stops_at_blank_line() {
+  // Test that blank lines properly terminate callouts
+  let md = r"> [!TIP]
+> Line 1
+> Line 2
+
+Outside the callout.";
+
+  let html = ndg_html(md);
+
+  let start = html
+    .find(r#"<div class="admonition tip">"#)
+    .expect("admonition div not found");
+  let end = html[start..].find("</div>").expect("closing div not found");
+  let admonition_content = &html[start..start + end + 6];
+
+  assert!(
+    admonition_content.contains("Line 1")
+      && admonition_content.contains("Line 2"),
+    "Lines 1-2 should be inside admonition. Got:\n{admonition_content}"
+  );
+
+  assert!(
+    !admonition_content.contains("Outside the callout"),
+    "Content after blank line should NOT be in admonition. \
+     Got:\n{admonition_content}"
+  );
+}
+
+#[test]
+fn test_github_callout_stops_at_new_block() {
+  // Test that new block elements (headers, code fences) terminate callouts
+  let md = r"> [!CAUTION]
+> This is in the callout.
+> Still in callout.
+
+# New Header
+
+Not in callout anymore.";
+
+  let html = ndg_html(md);
+
+  let start = html
+    .find(r#"<div class="admonition caution">"#)
+    .expect("admonition div not found");
+  let end = html[start..].find("</div>").expect("closing div not found");
+  let admonition_content = &html[start..start + end + 6];
+
+  assert!(
+    admonition_content.contains("This is in the callout"),
+    "Callout content should be inside. Got:\n{admonition_content}"
+  );
+
+  assert!(
+    !admonition_content.contains("New Header")
+      && !admonition_content.contains("Not in callout"),
+    "Header and following content should NOT be in admonition. \
+     Got:\n{admonition_content}"
+  );
+}
