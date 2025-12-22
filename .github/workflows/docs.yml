@@ -1,4 +1,4 @@
-name: Rust Documentation
+name: NDG Documentation
 
 on:
   workflow_dispatch:
@@ -34,6 +34,15 @@ jobs:
           cache-targets: false
           cache-on-failure: true
 
+      - name: Cache NDG Binary
+        id: cache-ndg
+        uses: actions/cache@v4
+        with:
+          path: target/release/ndg
+          key: ndg-binary-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-${{ hashFiles('Cargo.toml') }}
+          restore-keys: |
+            ndg-binary-${{ runner.os }}-
+
       - name: Build Rust Documentation
         run: |
           # Build documentation for public workspace members. This will create
@@ -45,6 +54,7 @@ jobs:
             --document-private-items -Zunstable-options -Zrustdoc-scrape-examples
 
       - name: Build NDG Binary
+        if: steps.cache-ndg.outputs.cache-hit != 'true'
         run: cargo build --release -p ndg
 
       - name: Generate NDG Documentation
