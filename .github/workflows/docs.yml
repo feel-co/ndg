@@ -36,7 +36,9 @@ jobs:
 
       - name: Build Rust Documentation
         run: |
-          # Build documentation for public workspace members.
+          # Build documentation for public workspace members. This will create
+          # the API documentation in target/doc with examples scraped as per
+          # the unstable cargo option.
           # See:
           #  <https://doc.rust-lang.org/rustdoc/scraped-examples.html>
           cargo doc --workspace --exclude xtask --no-deps \
@@ -47,6 +49,9 @@ jobs:
 
       - name: Generate NDG Documentation
         run: |
+          # We want to use NDG's readme in the index, so we should copy it
+          cp -rvf ./ndg/README.md ./ndg/docs/index.md # index.md so it's the first entry
+
           # Generate NDG's own documentation using NDG itself
           ./target/release/ndg html --config .github/ndg.toml
 
