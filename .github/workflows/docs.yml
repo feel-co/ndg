@@ -36,24 +36,38 @@ jobs:
 
       - name: Build Rust Documentation
         run: |
-          # Build documentation for public workspace members.
+          # Build documentation for public workspace members. This will create
+          # the API documentation in target/doc with examples scraped as per
+          # the unstable cargo option.
           # See:
           #  <https://doc.rust-lang.org/rustdoc/scraped-examples.html>
           cargo doc --workspace --exclude xtask --no-deps \
             --document-private-items -Zunstable-options -Zrustdoc-scrape-examples
 
+      - name: Build NDG Binary
+        run: cargo build --release -p ndg
+
+      - name: Generate NDG Documentation
+        run: |
+          # We want to use NDG's readme in the index, so we should copy it
+          cp -rvf ./ndg/README.md ./ndg/docs/index.md # index.md so it's the first entry
+
+          # Generate NDG's own documentation using NDG itself
+          ./target/release/ndg html --config .github/ndg.toml
+
       - name: Prepare GitHub Pages Deployment
         run: |
-          # By default the generated documentation will not have an index page.
-          # This makes it so that when we visit ndg.feel-co.org it takes us to
-          # the API documentation found in the ndg-commonmark section
-          mkdir -p ./target/doc
-          echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark" />' > ./target/doc/index.html
+          # - ndg.feel-co.org/     -> NDG user documentation
+          # - ndg.feel-co.org/api/ -> Rustdoc API documentation
+          mkdir -p ./deploy
+
+          mv ./build/* ./deploy/
+          mv ./target/doc ./deploy/api
 
       - name: Deploy Docs
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: ./target/doc
+          folder: ./deploy
           branch: gh-pages
           clean: false # keep existing files, i.e., badges
 
