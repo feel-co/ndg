@@ -2,6 +2,8 @@ name: NDG Documentation
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   workflow_run:
     workflows: ["Build and Test with Cargo"]  # must match the `name:` of rust.yml exactly
     types:
@@ -31,7 +33,7 @@ jobs:
       - name: Restore Cache
         uses: Swatinem/rust-cache@v2
         with:
-          cache-targets: false
+          cache-targets: true
           cache-on-failure: true
 
       - name: Cache NDG Binary
@@ -39,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/release/ndg
-          key: ndg-binary-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-${{ hashFiles('Cargo.toml') }}
+          key: ndg-binary-${{ runner.os }}-${{ hashFiles('Cargo.lock', '**/Cargo.toml', 'ndg/src/**', 'ndg-commonmark/src/**') }}
           restore-keys: |
             ndg-binary-${{ runner.os }}-
 
@@ -73,7 +75,7 @@ jobs:
 
           mv ./build/* ./deploy/
           mv ./target/doc ./deploy/api
-          
+
           # Create index redirect for API documentation
           echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark/" />' > ./deploy/api/index.html
 
