@@ -818,14 +818,43 @@ fn collect_github_callout_content(
 
   while let Some(line) = lines.peek() {
     let trimmed = line.trim_start();
-    if trimmed.starts_with('>') {
-      let content_part = trimmed.strip_prefix('>').unwrap_or("").trim_start();
-      content.push_str(content_part);
-      content.push('\n');
-      lines.next(); // consume the line
-    } else {
+
+    // Empty line ends the blockquote
+    if trimmed.is_empty() {
       break;
     }
+
+    // Check if this is a continuation line with `>`
+    let content_part = if trimmed.starts_with('>') {
+      trimmed.strip_prefix('>').unwrap_or("").trim_start()
+    } else {
+      // Check if this line starts a new block element that cannot be
+      // lazy-continued ATX headers, setext header underlines, code
+      // fences, and thematic breaks
+      let starts_new_block = trimmed.starts_with('#')
+        || trimmed.starts_with("```")
+        || trimmed.starts_with("~~~")
+        || (trimmed.starts_with("---")
+          && trimmed.chars().all(|c| c == '-' || c.is_whitespace()))
+        || (trimmed.starts_with("===")
+          && trimmed.chars().all(|c| c == '=' || c.is_whitespace()))
+        || (trimmed.starts_with("***")
+          && trimmed.chars().all(|c| c == '*' || c.is_whitespace()));
+
+      if starts_new_block {
+        break;
+      }
+
+      // Lazy continuation
+      // Mind yu, "lazy" doesn't refer to me being lazy but the GFM feature for
+      // a line without `>` that continues the blockquote
+      // paragraph
+      trimmed
+    };
+
+    content.push_str(content_part);
+    content.push('\n');
+    lines.next(); // consume the line
   }
 
   content.trim().to_string()
@@ -952,7 +981,9 @@ fn render_admonition(
 
   format!(
     "<div class=\"admonition {adm_type}\"{id_attr}>\n<p \
-     class=\"admonition-title\">{capitalized_type}</p>\n\n{content}\n\n</div>"
+     class=\"admonition-title\">{capitalized_type}</p>\n\n{content}\n\n</div>\\
+     \
+     n"
   )
 }
 
