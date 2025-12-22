@@ -804,6 +804,41 @@ fn parse_github_callout(line: &str) -> Option<(String, String)> {
   None
 }
 
+/// Check if a line starts with a valid ATX header (1-6 '#' followed by
+/// whitespace or EOL).
+///
+/// Per `CommonMark` spec, an ATX header requires 1-6 '#' characters followed by
+/// either:
+/// - A whitespace character (space, tab, etc.)
+/// - End of line (the string ends)
+///
+/// # Arguments
+/// * `line` - The line to check
+///
+/// # Returns
+/// `true` if the line starts with a valid ATX header marker
+fn is_atx_header(line: &str) -> bool {
+  let mut chars = line.chars();
+  let mut hash_count = 0;
+
+  // count leading '#' characters (max 6)
+  while let Some(c) = chars.next() {
+    if c == '#' {
+      hash_count += 1;
+      if hash_count > 6 {
+        return false;
+      }
+    } else {
+      // found a non-'#' character, check if it's whitespace or we're at EOL
+      return (1..=6).contains(&hash_count)
+        && (c.is_whitespace() || chars.as_str().is_empty());
+    }
+  }
+
+  // reached end of string, check if we have 1-6 hashes
+  (1..=6).contains(&hash_count)
+}
+
 /// Collect content for GitHub-style callouts
 fn collect_github_callout_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
@@ -831,7 +866,7 @@ fn collect_github_callout_content(
       // Check if this line starts a new block element that cannot be
       // lazy-continued ATX headers, setext header underlines, code
       // fences, and thematic breaks
-      let starts_new_block = trimmed.starts_with('#')
+      let starts_new_block = is_atx_header(trimmed)
         || trimmed.starts_with("```")
         || trimmed.starts_with("~~~")
         || (trimmed.starts_with("---")
@@ -979,12 +1014,11 @@ fn render_admonition(
   let capitalized_type = crate::utils::capitalize_first(adm_type);
   let id_attr = id.map_or(String::new(), |id| format!(" id=\"{id}\""));
 
-  format!(
+  let opening = format!(
     "<div class=\"admonition {adm_type}\"{id_attr}>\n<p \
-     class=\"admonition-title\">{capitalized_type}</p>\n\n{content}\n\n</div>\\
-     \
-     n"
-  )
+     class=\"admonition-title\">{capitalized_type}</p>"
+  );
+  format!("{opening}\n\n{content}\n\n</div>\n")
 }
 
 /// Render a figure as HTML
@@ -1200,4 +1234,106 @@ fn extract_url_from_html(url_or_html: &str) -> &str {
 
   // Return as-is if not HTML or if extraction fails
   url_or_html
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_is_atx_header_valid_headers() {
+    // valid ATX headers with 1-6 hashes followed by space
+    assert!(is_atx_header("# Header"));
+    assert!(is_atx_header("## Header"));
+    assert!(is_atx_header("### Header"));
+    assert!(is_atx_header("#### Header"));
+    assert!(is_atx_header("##### Header"));
+    assert!(is_atx_header("###### Header"));
+
+    // valid ATX headers with tab after hashes
+    assert!(is_atx_header("#\tHeader"));
+    assert!(is_atx_header("##\tHeader"));
+
+    // valid ATX headers with just hashes (no content after)
+    assert!(is_atx_header("#"));
+    assert!(is_atx_header("##"));
+    assert!(is_atx_header("###"));
+    assert!(is_atx_header("####"));
+    assert!(is_atx_header("#####"));
+    assert!(is_atx_header("######"));
+
+    // valid ATX headers with multiple spaces
+    assert!(is_atx_header("#  Header with multiple spaces"));
+    assert!(is_atx_header("##   Header"));
+  }
+
+  #[test]
+  fn test_is_atx_header_invalid_headers() {
+    // more than 6 hashes
+    assert!(!is_atx_header("####### Too many hashes"));
+    assert!(!is_atx_header("######## Even more"));
+
+    // no space after hash
+    assert!(!is_atx_header("#NoSpace"));
+    assert!(!is_atx_header("##NoSpace"));
+
+    // hash in the middle
+    assert!(!is_atx_header("Not # a header"));
+
+    // empty string
+    assert!(!is_atx_header(""));
+
+    // no hash at all
+    assert!(!is_atx_header("Regular text"));
+
+    // hash with non-whitespace immediately after
+    assert!(!is_atx_header("#hashtag"));
+    assert!(!is_atx_header("##hashtag"));
+    assert!(!is_atx_header("#123"));
+    assert!(!is_atx_header("##abc"));
+
+    // special characters immediately after hash
+    assert!(!is_atx_header("#!important"));
+    assert!(!is_atx_header("#@mention"));
+    assert!(!is_atx_header("#$variable"));
+  }
+
+  #[test]
+  fn test_is_atx_header_edge_cases() {
+    // whitespace before hash is handled by caller (trimmed)
+    // but testing it here to ensure robustness
+    assert!(!is_atx_header(" # Header"));
+    assert!(!is_atx_header("  ## Header"));
+
+    // only spaces after hash (should be valid)
+    assert!(is_atx_header("#     "));
+    assert!(is_atx_header("##    "));
+
+    // newline handling (string ends after valid header marker)
+    assert!(is_atx_header("# Header\n"));
+    assert!(is_atx_header("## Header\n"));
+
+    // mixed whitespace after hash
+    assert!(is_atx_header("# \t  Header"));
+    assert!(is_atx_header("##  \tHeader"));
+  }
+
+  #[test]
+  fn test_is_atx_header_blockquote_context() {
+    // these are the types of strings that would be passed from
+    // collect_github_callout_content after trim_start()
+    assert!(is_atx_header("# New Section"));
+    assert!(is_atx_header("## Subsection"));
+
+    // non-headers that should not break blockquote
+    assert!(!is_atx_header("#tag"));
+    assert!(!is_atx_header("##issue-123"));
+    assert!(!is_atx_header("###no-space"));
+
+    // edge case: exactly 6 hashes (valid)
+    assert!(is_atx_header("###### Level 6"));
+
+    // edge case: 7 hashes (invalid)
+    assert!(!is_atx_header("####### Not valid"));
+  }
 }
