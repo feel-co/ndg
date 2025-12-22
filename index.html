@@ -299,10 +299,9 @@ max_heading_level = 3
 <h4>Interactions Between CLI and Config</h4>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>CLI flags always take precedence over config file settings. For instance, if</p>
+<p>CLI flags always take precedence over config file settings. For instance, if
+your config file has <code>search.enable = false</code>, but you run <code>ndg html --generate-search</code>, search will be enabled.</p>
 </div>
-your config file has `search.enable = false`, but you run `ndg html
-&gt; --generate-search`, search will be enabled.
 <p>If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
 <code>search.enable</code> defaults to <code>true</code> if omitted from both; CLI flags override
 config when present). For a full list of CLI options, see the help output with
