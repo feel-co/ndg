@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Postprocessing</title>
+     
+    <script>
+      // Apply sidebar state immediately to prevent flash
+      (function () {
+        if (localStorage.getItem("sidebar-collapsed") === "true") {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/main.js"></script>
+    
+    <script>
+      window.searchNamespace = window.searchNamespace || {};
+      window.searchNamespace.rootPath = "";
+    </script>
+    <script defer src="assets/search.js"></script>
+    
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-left">
+          <h1 class="site-title">
+            <a href="index.html">NDG Documentation</a>
+          </h1>
+
+          <nav class="header-nav">
+  <ul>
+    <li style="display:none;">
+      <a href="options.html">Options</a>
+    </li>
+    
+    <li><a href="search.html">Search</a></li>
+    
+    <li><a href="/api/">API Documentation</a></li>
+  </ul>
+</nav>
+
+        </div>
+        
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+        
+      </header>
+
+      <div class="layout">
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </div>
+        <nav class="sidebar">
+          <div class="docs-nav">
+            <h2>Documents</h2>
+            <ul>
+              <li><a href="index.html">index</a></li>
+<li><a href="POSTPROCESSING.html">1. Postprocessing</a></li>
+<li><a href="SIDEBAR.html">2. SIDEBAR</a></li>
+<li><a href="SEARCH.html">3. Search</a></li>
+<li><a href="TEMPLATING.html">4. Templating Guide</a></li>
+<li><a href="search.html">Search</a></li>
+
+            </ul>
+          </div>
+
+          <div class="toc">
+            <h2>Contents</h2>
+            <ul class="toc-list">
+              <li><a href="#postprocessing">Postprocessing</a>
+<ul><li><a href="#configuration">Configuration</a>
+<li><a href="#options">Options</a>
+<ul><li><a href="#top-level-options">Top-Level Options</a>
+<li><a href="#html-options">HTML Options</a>
+</ul><li><a href="#minification">Minification</a>
+<ul><li><a href="#html-minification">HTML Minification</a>
+<li><a href="#css-minification">CSS Minification</a>
+<li><a href="#javascript-minification">JavaScript Minification</a>
+<li><a href="#complete-example">Complete Example</a>
+<li><a href="#performance-impact">Performance Impact</a>
+<li><a href="#error-handling">Error Handling</a>
+</ul><li><a href="#extensibility">Extensibility</a>
+</li></ul></li>
+            </ul>
+          </div>
+        </nav>
+
+        <main class="content"><html><head></head><body><h1>Postprocessing</h1>
+<p>NDG supports postprocessing of generated HTML, CSS, and JavaScript files to
+optimize output size and performance. Postprocessing is optional and disabled by
+default, however, testing and bug reports are welcome :)</p>
+<h2>Configuration</h2>
+<p>Postprocessing behaviour of NDG is configured either through the <code>[postprocess]</code>
+section in <code>ndg.toml</code>, or via CLI flags. To configure it in your <code>ndg.toml</code>:</p>
+<pre><code class="language-toml">[postprocess]
+minify_html = true
+minify_css = true
+minify_js = true
+
+[postprocess.html]
+remove_comments = true
+</code></pre>
+<p>Or, alternatively, by using CLI overrides:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Equivalent&nbsp;of&nbsp;setting&nbsp;`minify_html&nbsp;=&nbsp;true`&nbsp;under&nbsp;`[postprocess]`</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;as&nbsp;seen&nbsp;in&nbsp;the&nbsp;configuration&nbsp;example&nbsp;above.</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">postprocess.minify_html=true</span><br></code></pre>
+<h2>Options</h2>
+<h3>Top-Level Options</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>minify_html</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable HTML minification</td>
+</tr>
+<tr>
+<td><code>minify_css</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable CSS minification</td>
+</tr>
+<tr>
+<td><code>minify_js</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable JavaScript minification</td>
+</tr>
+</tbody>
+</table>
+<h3>HTML Options</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>remove_comments</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Remove HTML comments from output</td>
+</tr>
+</tbody>
+</table>
+<h2>Minification</h2>
+<p>NDG supports minification of HTML, CSS and Javascript files for smaller
+production documents at the cost of a tiny increase in generation time. In most
+cases the cost is negligible, and the decrease of the document size is well
+worth the penalty. However, this feature is completely optional.</p>
+<p>If you are deploying your documentation to production, and if bandwidth and file
+size matters you will almost certainly want to enable minification. This is a
+low-risk, high-reward feature that will likely yield faster page loads. You
+will, however, want to disable minification if you are developing locally and
+need readable source files. Additionally, you may wish to avoid minification if
+you are aiming for the absolutely fastest document generation.</p>
+<h3>HTML Minification</h3>
+<p>Uses <code>minify-html</code> for fast, spec-compliant HTML minification. While enabled,
+NDG:</p>
+<ul>
+<li>Removes unnecessary whitespace while preserving content</li>
+<li>Respects whitespace-sensitive elements (<code>&lt;pre&gt;</code>, <code>&lt;code&gt;</code>, etc.)</li>
+<li>Removes HTML comments (configurable)</li>
+<li>Removes optional closing tags where safe</li>
+<li>Collapses boolean attributes</li>
+</ul>
+<p>For example, for a given config:</p>
+<pre><code class="language-toml">[postprocess]
+minify_html = true
+
+[postprocess.html]
+remove_comments = false  # keep HTML comments
+</code></pre>
+<p>and the input:</p>
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;!</span><span style="color:rgb(209,154,102);">DOCTYPE&nbsp;html</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">html</span>&nbsp;<span style="color:rgb(229,192,123);">lang</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"en"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">head</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">meta</span>&nbsp;<span style="color:rgb(229,192,123);">charset</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"UTF-8"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">Sample&nbsp;Page</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">head</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">&lt;!--&nbsp;This&nbsp;is&nbsp;a&nbsp;comment&nbsp;--&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">div</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"container"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">Hello&nbsp;World</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;is&nbsp;a&nbsp;paragraph&nbsp;with&nbsp;lots&nbsp;of&nbsp;whitespace.<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">div</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">&lt;!--&nbsp;Another&nbsp;comment&nbsp;--&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">html</span><span style="color:rgb(198,120,221);">&gt;</span><br></code></pre>
+<p>You will receive the following output:</p>
+<!-- markdownlint-disable MD013 -->
+<!-- deno-fmt-ignore -->
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;!</span><span style="color:rgb(209,154,102);">doctype&nbsp;html</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">html</span>&nbsp;<span style="color:rgb(229,192,123);">lang</span><span style="color:rgb(171,178,191);">=</span>en<span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">meta</span>&nbsp;<span style="color:rgb(229,192,123);">charset</span><span style="color:rgb(171,178,191);">=</span>UTF-8<span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">Sample&nbsp;Page</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(92,99,112);font-style: italic;">&lt;!--&nbsp;This&nbsp;is&nbsp;a&nbsp;comment&nbsp;--&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">div</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span>container<span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">Hello&nbsp;World</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span>This&nbsp;is&nbsp;a&nbsp;paragraph&nbsp;with&nbsp;lots&nbsp;of&nbsp;whitespace.<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">div</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(92,99,112);font-style: italic;">&lt;!--&nbsp;Another&nbsp;comment&nbsp;--&gt;</span><br></code></pre>
+
+<h3>CSS Minification</h3>
+<p>We use the <code>lightningcss</code> crate pulled by the <code>minify-html</code> crate for
+production-grade CSS minification with parsing and optimization. This primarily
+affects large stylesheets, such as the ones provided by the default NDG
+template. While enabled, NDG:</p>
+<ul>
+<li>Removes unnecessary whitespace and comments</li>
+<li>Optimizes color values (<code>#ff0000</code> -&gt; <code>red</code>)</li>
+<li>Merges duplicate rules</li>
+<li>Removes unused prefixes</li>
+<li>Validates CSS syntax during processing</li>
+</ul>
+<p>For example, for a given config:</p>
+<pre><code class="language-toml">[postprocess]
+minify_css = true
+</code></pre>
+<p>and the input:</p>
+<pre class="highlight"><code class="language-css"><span style="color:rgb(198,120,221);">body</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">margin</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">padding</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">font-family</span><span style="color:rgb(132,139,152);">:</span>&nbsp;Arial<span style="color:rgb(132,139,152);">,</span>&nbsp;sans-serif<span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(132,139,152);">}</span><br><br><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(229,192,123);">container</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">max-width</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">1200</span><span style="color:rgb(152,195,121);">px</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">margin</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">0</span>&nbsp;auto<span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">padding</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">20</span><span style="color:rgb(152,195,121);">px</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(132,139,152);">}</span><br><br><span style="color:rgb(198,120,221);">h1</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">color</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">#</span><span style="color:rgb(152,195,121);">333333</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">font-size</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">2</span><span style="color:rgb(152,195,121);">em</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(132,139,152);">}</span><br><br><span style="color:rgb(198,120,221);">p</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">color</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">#</span><span style="color:rgb(152,195,121);">666666</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">line-height</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">1.6</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
+<p>You will receive the following output:</p>
+<!-- deno-fmt-ignore -->
+<pre class="highlight"><code class="language-css"><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">margin</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">padding</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">font-family</span><span style="color:rgb(132,139,152);">:</span>Arial<span style="color:rgb(132,139,152);">,</span>sans-serif<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(229,192,123);">container</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">max-width</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">1200</span><span style="color:rgb(152,195,121);">px</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">margin</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">0</span>&nbsp;auto<span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">padding</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">20</span><span style="color:rgb(152,195,121);">px</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">color</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(132,139,152);">#</span><span style="color:rgb(152,195,121);">333</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">font-size</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">2</span><span style="color:rgb(152,195,121);">em</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">color</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(132,139,152);">#</span><span style="color:rgb(152,195,121);">666</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">line-height</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">1.6</span><span style="color:rgb(132,139,152);">}</span><br></code></pre>
+<h3>JavaScript Minification</h3>
+<p>We rely on the relatively new, but battle-tested <code>oxc_minifier</code> crate for
+production-grade JavaScript minification with comprehensive optimizations and
+dead code elimination. Besides speed, it boasts 100% correctness. While enabled,
+NDG:</p>
+<ul>
+<li>Removes whitespace and comments</li>
+<li>Folds constants (<code>1 + 2</code> -&gt; <code>3</code>)</li>
+<li>Eliminates dead code (removes unused functions)</li>
+<li>Optimizes expressions (comma operators, etc.)</li>
+<li>Validates syntax during processing</li>
+</ul>
+<p>For example, for a given config:</p>
+<pre><code class="language-toml">[postprocess]
+minify_js = true
+</code></pre>
+<p>and the input:</p>
+<pre class="highlight"><code class="language-javascript"><span style="color:rgb(198,120,221);">function</span>&nbsp;<span style="color:rgb(97,175,239);">greet</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(232,102,113);">name</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">console</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">log</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"Hello,&nbsp;"</span>&nbsp;<span style="color:rgb(171,178,191);">+</span>&nbsp;<span style="color:rgb(232,102,113);">name</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">return</span>&nbsp;<span style="color:rgb(209,154,102);">true</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(132,139,152);">}</span><br><br><span style="color:rgb(198,120,221);">function</span>&nbsp;<span style="color:rgb(97,175,239);">calculateSum</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(232,102,113);">a</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">b</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Add&nbsp;two&nbsp;numbers</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">const</span>&nbsp;<span style="color:rgb(171,178,191);">result</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(232,102,113);">a</span>&nbsp;<span style="color:rgb(171,178,191);">+</span>&nbsp;<span style="color:rgb(232,102,113);">b</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">return</span>&nbsp;<span style="color:rgb(171,178,191);">result</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(132,139,152);">}</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Initialize</span><br><span style="color:rgb(97,175,239);">greet</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"World"</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<p>You will receive the following output:</p>
+<!-- deno-fmt-ignore -->
+<pre class="highlight"><code class="language-javascript"><span style="color:rgb(198,120,221);">function</span>&nbsp;<span style="color:rgb(97,175,239);">greet</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(232,102,113);">name</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(198,120,221);">return</span>&nbsp;<span style="color:rgb(232,102,113);">console</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">log</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">`Hello,&nbsp;`</span><span style="color:rgb(171,178,191);">+</span><span style="color:rgb(232,102,113);">name</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span><span style="color:rgb(171,178,191);">!</span><span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(97,175,239);">greet</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">`World`</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h3>Complete Example</h3>
+<pre><code class="language-toml"># ndg.toml
+input_dir = "docs"
+output_dir = "build"
+
+[postprocess]
+minify_html = true
+minify_css = true
+minify_js = true
+
+[postprocess.html]
+remove_comments = true
+</code></pre>
+<h3>Performance Impact</h3>
+<p>Postprocessing adds overhead to the build process but reduces output size:</p>
+<table>
+<thead>
+<tr>
+<th>File Type</th>
+<th>Typical Reduction</th>
+<th>Build Time Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTML</td>
+<td>10-20%</td>
+<td>Minimal</td>
+</tr>
+<tr>
+<td>CSS</td>
+<td>20-40%</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>JavaScript</td>
+<td>15-30%</td>
+<td>Low</td>
+</tr>
+</tbody>
+</table>
+<p>For most documentation sites, the build time impact is negligible (&lt; 1 second
+for typical projects).</p>
+<h3>Error Handling</h3>
+<p>If minification fails (e.g., invalid CSS or JavaScript syntax), NDG will report
+the error and stop the build. This helps catch syntax errors early:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">Error:</span>&nbsp;<span style="color:rgb(232,102,113);">Failed</span>&nbsp;<span style="color:rgb(232,102,113);">to</span>&nbsp;<span style="color:rgb(232,102,113);">parse</span>&nbsp;<span style="color:rgb(232,102,113);">CSS:</span>&nbsp;<span style="color:rgb(232,102,113);">Unexpected</span>&nbsp;<span style="color:rgb(232,102,113);">token</span>&nbsp;<span style="color:rgb(232,102,113);">at</span>&nbsp;<span style="color:rgb(232,102,113);">line</span>&nbsp;<span style="color:rgb(209,154,102);">5</span><br></code></pre>
+<p>To debug minification errors:</p>
+<ol>
+<li>Disable minification for the failing file type</li>
+<li>Fix the syntax error</li>
+<li>Re-enable minification</li>
+</ol>
+<h2>Extensibility</h2>
+<p>The postprocessing pipeline is quite new, but it is designed to be very
+extensible. Each file type has detailed processor function with its own
+configuration options. This design is obviously not for fun, as future
+postprocessing capabilities are planned. Though, do not expect anything crazy. I
+find postprocessing to be a little hacky, and it is only a last resort after
+actual feature implementations.</p>
+</body></html><!-- markdownlint-enable MD014 --></main>
+      </div>
+
+      <footer>
+  <p>Generated with NDG</p>
+</footer>
+
+    </div>
+
+    
+  </body>
+</html>

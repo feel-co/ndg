@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["assets","meta","postprocess","search","sidebar","templates"],"struct":["Config"]};

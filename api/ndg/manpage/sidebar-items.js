@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["escape_leading_dot","escape_non_macro_lines","generate_manpage","man_escape"],"mod":["options"],"static":["ROFF_ESCAPES","TROFF_ESCAPE","TROFF_FORMATTING"]};

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Search</title>
+     
+    <script>
+      // Apply sidebar state immediately to prevent flash
+      (function () {
+        if (localStorage.getItem("sidebar-collapsed") === "true") {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/main.js"></script>
+    
+    <script>
+      window.searchNamespace = window.searchNamespace || {};
+      window.searchNamespace.rootPath = "";
+    </script>
+    <script defer src="assets/search.js"></script>
+    
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-left">
+          <h1 class="site-title">
+            <a href="index.html">NDG Documentation</a>
+          </h1>
+
+          <nav class="header-nav">
+  <ul>
+    <li style="display:none;">
+      <a href="options.html">Options</a>
+    </li>
+    
+    <li><a href="search.html">Search</a></li>
+    
+    <li><a href="/api/">API Documentation</a></li>
+  </ul>
+</nav>
+
+        </div>
+        
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+        
+      </header>
+
+      <div class="layout">
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </div>
+        <nav class="sidebar">
+          <div class="docs-nav">
+            <h2>Documents</h2>
+            <ul>
+              <li><a href="index.html">index</a></li>
+<li><a href="POSTPROCESSING.html">1. Postprocessing</a></li>
+<li><a href="SIDEBAR.html">2. SIDEBAR</a></li>
+<li><a href="SEARCH.html">3. Search</a></li>
+<li><a href="TEMPLATING.html">4. Templating Guide</a></li>
+<li><a href="search.html">Search</a></li>
+
+            </ul>
+          </div>
+
+          <div class="toc">
+            <h2>Contents</h2>
+            <ul class="toc-list">
+              <li><a href="#search">Search</a>
+<ul><li><a href="#configuration">Configuration</a>
+<li><a href="#options">Options</a>
+<li><a href="#search-behavior">Search Behavior</a>
+<ul><li><a href="#hierarchical-results">Hierarchical Results</a>
+<li><a href="#scoring-algorithm">Scoring Algorithm</a>
+<li><a href="#tokenization">Tokenization</a>
+</ul><li><a href="#performance-considerations">Performance Considerations</a>
+<ul><li><a href="#index-size">Index Size</a>
+</li></ul></li></ul></li>
+            </ul>
+          </div>
+        </nav>
+
+        <main class="content"><html><head></head><body><h1>Search</h1>
+<p>NDG includes a built-in search system that indexes your documentation pages and
+their headings, enabling quick navigation through your content. Search is
+optional and can be configured to control indexing depth and behavior.</p>
+<h2>Configuration</h2>
+<p>Search behavior is configured through the <code>[search]</code> section in your <code>ndg.toml</code>
+file or via CLI flags.</p>
+<pre><code class="language-toml">[search]
+enable = true
+max_heading_level = 3
+</code></pre>
+<p>Or using CLI overrides:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.enable=true</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.max_heading_level=4</span><br></code></pre>
+<h2>Options</h2>
+<!-- markdownlint-disable MD013 -->
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enable</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable search functionality</td>
+</tr>
+<tr>
+<td><code>max_heading_level</code></td>
+<td>integer</td>
+<td><code>3</code></td>
+<td>Maximum heading level to index (1-6, H1 to H6)</td>
+</tr>
+</tbody>
+</table>
+<!-- markdownlinenablee MD013 -->
+<h2>Search Behavior</h2>
+<h3>Hierarchical Results</h3>
+<p>Search results are displayed hierarchically with pages as parent items and
+matching headings as nested children beneath them:</p>
+<pre><code class="language-plaintext">Getting Started                    (page result)
+  ↳ Installation Requirements      (H2 heading)
+  ↳ Quick Start Guide              (H2 heading)
+
+Configuration                      (page result)
+  ↳ Basic Configuration            (H2 heading)
+  ↳ Advanced Options               (H3 heading)
+</code></pre>
+<p>This structure helps you navigate directly to relevant sections within pages
+rather than just finding pages.</p>
+<h3>Scoring Algorithm</h3>
+<p>Search uses a two-pass scoring system:</p>
+<ol>
+<li><strong>Page scoring</strong> - Pages are scored based on title and content matches</li>
+<li><strong>Anchor scoring</strong> - Headings within high-scoring pages are scored based on
+heading text</li>
+</ol>
+<p>Only headings from pages with sufficient relevance to the search query are
+shown, preventing irrelevant section matches from cluttering results.</p>
+<h3>Tokenization</h3>
+<p>Search queries and content are tokenized (split into words) for matching:</p>
+<ul>
+<li>Case-insensitive matching</li>
+<li>Partial word matches supported</li>
+<li>Special characters are normalized</li>
+<li>Stop words (common words like "the", "a") are preserved</li>
+</ul>
+<p><strong>Example:</strong></p>
+<p>Query: <code>"config file"</code> matches:</p>
+<ul>
+<li>"Configuration Files"</li>
+<li>"<code>config.toml</code> file format"</li>
+<li>"Loading configuration from files"</li>
+</ul>
+<h2>Performance Considerations</h2>
+<h3>Index Size</h3>
+<p>Search index size increases with:</p>
+<ul>
+<li>Number of documentation pages</li>
+<li>Amount of text content per page</li>
+<li><code>max_heading_level</code> setting (higher = more headings indexed)</li>
+</ul>
+</body></html></main>
+      </div>
+
+      <footer>
+  <p>Generated with NDG</p>
+</footer>
+
+    </div>
+
+    
+  </body>
+</html>

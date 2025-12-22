@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Templating Guide</title>
+     
+    <script>
+      // Apply sidebar state immediately to prevent flash
+      (function () {
+        if (localStorage.getItem("sidebar-collapsed") === "true") {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/main.js"></script>
+    
+    <script>
+      window.searchNamespace = window.searchNamespace || {};
+      window.searchNamespace.rootPath = "";
+    </script>
+    <script defer src="assets/search.js"></script>
+    
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-left">
+          <h1 class="site-title">
+            <a href="index.html">NDG Documentation</a>
+          </h1>
+
+          <nav class="header-nav">
+  <ul>
+    <li style="display:none;">
+      <a href="options.html">Options</a>
+    </li>
+    
+    <li><a href="search.html">Search</a></li>
+    
+    <li><a href="/api/">API Documentation</a></li>
+  </ul>
+</nav>
+
+        </div>
+        
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+        
+      </header>
+
+      <div class="layout">
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </div>
+        <nav class="sidebar">
+          <div class="docs-nav">
+            <h2>Documents</h2>
+            <ul>
+              <li><a href="index.html">index</a></li>
+<li><a href="POSTPROCESSING.html">1. Postprocessing</a></li>
+<li><a href="SIDEBAR.html">2. SIDEBAR</a></li>
+<li><a href="SEARCH.html">3. Search</a></li>
+<li><a href="TEMPLATING.html">4. Templating Guide</a></li>
+<li><a href="search.html">Search</a></li>
+
+            </ul>
+          </div>
+
+          <div class="toc">
+            <h2>Contents</h2>
+            <ul class="toc-list">
+              <li><a href="#templating-guide">Templating Guide</a>
+<ul><li><a href="#template-types">Template Types</a>
+<ul><li><a href="#core-templates">Core Templates</a>
+<li><a href="#assets">Assets</a>
+</ul><li><a href="#using-custom-templates">Using Custom Templates</a>
+<ul><li><a href="#template-directory">Template Directory</a>
+<li><a href="#individual-template-file">Individual Template File</a>
+</ul><li><a href="#per-file-templates">Per-File Templates</a>
+<li><a href="#template-components">Template Components</a>
+<ul><li><a href="#navbar-template--navbar-html">Navbar Template (navbar.html)</a>
+<li><a href="#footer-template--footer-html">Footer Template (footer.html)</a>
+</ul><li><a href="#exporting-default-templates">Exporting Default Templates</a>
+<li><a href="#template-variables">Template Variables</a>
+<ul><li><a href="#common-variables--available-in-all-templates">Common Variables (Available in all templates)</a>
+<li><a href="#asset-paths">Asset Paths</a>
+<li><a href="#options-page-specific">Options Page Specific</a>
+</ul><li><a href="#template-syntax">Template Syntax</a>
+<ul><li><a href="#variables">Variables</a>
+<li><a href="#conditionals">Conditionals</a>
+<li><a href="#loops">Loops</a>
+</ul><li><a href="#example--custom-theme">Example: Custom Theme</a>
+<li><a href="#configuration-example">Configuration Example</a>
+<li><a href="#best-practices">Best Practices</a>
+<li><a href="#troubleshooting">Troubleshooting</a>
+<ul><li><a href="#template-not-found">Template not found</a>
+<li><a href="#variables-not-rendering">Variables not rendering</a>
+<li><a href="#styling-issues">Styling issues</a>
+<li><a href="#per-file-template-not-working">Per-file template not working</a>
+</li></ul></li></ul></li>
+            </ul>
+          </div>
+        </nav>
+
+        <main class="content"><html><head></head><body><h1>Templating Guide</h1>
+<p>NDG supports a flexible templating system powered by <a href="https://crates.io/crates/tera">Tera</a> and backed by our
+own templating logic. Using this system, you may customize the appearance and
+structure of your generated documentation while avoiding what could be referred
+to as a "vendor lock-in".</p>
+<h2>Template Types</h2>
+<p>There are several "special" templates that is expected during documentation
+generation. NDG bundles its own templates that will be used by default, but you
+may override them as you wish to make your documentation site truly unique.</p>
+<h3>Core Templates</h3>
+<ul>
+<li><strong><code>default.html</code></strong> - Main template for documentation pages</li>
+<li><strong><code>options.html</code></strong> - Template for NixOS module options page</li>
+<li><strong><code>search.html</code></strong> - Template for the search page</li>
+<li><strong><code>navbar.html</code></strong> - Navigation bar template (shared across all pages)</li>
+<li><strong><code>footer.html</code></strong> - Footer template (shared across all pages)</li>
+<li><strong><code>options_toc.html</code></strong> - Table of contents template for options page</li>
+</ul>
+<h3>Assets</h3>
+<ul>
+<li><strong><code>default.css</code></strong> - Default stylesheet</li>
+<li><strong><code>main.js</code></strong> - Scripts loaded for interactivity</li>
+<li><strong><code>search.js</code></strong> - Secondary script used for the search functionality</li>
+</ul>
+<h2>Using Custom Templates</h2>
+<p>As mentioned before, you may</p>
+<h3>Template Directory</h3>
+<p>Using the template directory is the recommended way of overriding default
+templates of NDG. In this method, you must use a template directory containing
+all your custom templates:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--template-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./my-templates</span><br></code></pre>
+<p>Or in your <code>ndg.toml</code>:</p>
+<pre><code class="language-toml">template_dir = "./my-templates"
+</code></pre>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The <code>ndg export-templates</code> command can be used to create a directory with the
+default templates, meant to be overridden by the user. ndg will prioritize
+templates provided by the user wherever provided. Missing page templates will
+cause ndg to use the default template for that page variant. E.g., providing a
+template directory with just <code>default.html</code> would use the <code>default.html</code>
+provided by the user, but the built-in templates for rest of the templatable
+components.</p>
+</div>
+<h3>Individual Template File</h3>
+<p>A dirty legacy method of quickly overriding <code>default.html</code> exists as
+<code>--template</code>. This allows providing a quick override for <strong>only the default
+template</strong>, which may be useful if you only want to override styles for
+arbitrary generated pages, and not special pages or components such as the
+navbar.</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--template</span>&nbsp;<span style="color:rgb(232,102,113);">./my-custom-template.html</span><br></code></pre>
+<p>This will use <code>my-custom-template.html</code> as the default.html template.</p>
+<h2>Per-File Templates</h2>
+<p>You can create file-specific templates that will be used instead of
+<code>default.html</code> for matching markdown files.</p>
+<p><strong>Example:</strong></p>
+<ul>
+<li><code>foo.md</code> -&gt; will use <code>foo.html</code> template if it exists, otherwise falls back to
+<code>default.html</code></li>
+<li><code>about.md</code> -&gt; will use <code>about.html</code> template if it exists, otherwise falls
+back to <code>default.html</code></li>
+</ul>
+<p>This is useful when you want different layouts for different sections of your
+documentation. It can also be used for, e.g., <code>404.html</code> to generate your own
+404 page with Markdown.</p>
+<h2>Template Components</h2>
+<h3>Navbar Template (<code>navbar.html</code>)</h3>
+<p>Customize the navigation bar that appears in the header of all pages.</p>
+<p><strong>Available Variables:</strong></p>
+<ul>
+<li><code>{{ has_options }}</code> - HTML attributes for options link styling (e.g.,
+<code>class="active"</code>)</li>
+<li><code>{{ generate_search }}</code> - Boolean indicating if search is enabled</li>
+<li><code>{{ options_path }}</code> - Relative path to options page</li>
+<li><code>{{ search_path }}</code> - Relative path to search page</li>
+</ul>
+<h4>Example</h4>
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">nav</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"header-nav"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">ul</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span>&nbsp;<span style="color:rgb(229,192,123);">{{</span>&nbsp;<span style="color:rgb(229,192,123);">has_options|safe</span>&nbsp;<span style="color:rgb(229,192,123);">}}</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">{{&nbsp;options_path&nbsp;}}</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Options</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;{%&nbsp;if&nbsp;generate_search&nbsp;%}<br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">{{&nbsp;search_path&nbsp;}}</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Search</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;{%&nbsp;endif&nbsp;%}<br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">/about.html</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">About</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">ul</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">nav</span><span style="color:rgb(198,120,221);">&gt;</span><br></code></pre>
+<h3>Footer Template (<code>footer.html</code>)</h3>
+<p>Customize the footer that appears at the bottom of all pages.</p>
+<p><strong>Available Variables:</strong></p>
+<ul>
+<li><code>{{ footer_text }}</code> - Footer text from configuration</li>
+</ul>
+<h4>Example</h4>
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">footer</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span>{{&nbsp;footer_text&nbsp;}}<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span>Built&nbsp;with&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">https://github.com/feel-co/ndg</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">ndg</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">footer</span><span style="color:rgb(198,120,221);">&gt;</span><br></code></pre>
+<h2>Exporting Default Templates</h2>
+<p>To export all default templates for customization:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export-templates</span>&nbsp;<span style="color:rgb(232,102,113);">--output</span>&nbsp;<span style="color:rgb(232,102,113);">./templates</span><br></code></pre>
+<p>This will create a directory with all default templates that you can then
+modify.</p>
+<p>Use <code>--force</code> to overwrite existing files:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export-templates</span>&nbsp;<span style="color:rgb(232,102,113);">--output</span>&nbsp;<span style="color:rgb(232,102,113);">./templates</span>&nbsp;<span style="color:rgb(232,102,113);">--force</span><br></code></pre>
+<h2>Template Variables</h2>
+<h3>Common Variables (Available in all templates)</h3>
+<ul>
+<li><code>{{ title }}</code> - Page title</li>
+<li><code>{{ site_title }}</code> - Site title from configuration</li>
+<li><code>{{ footer_text }}</code> - Footer text from configuration</li>
+<li><code>{{ content|safe }}</code> - Rendered markdown content</li>
+<li><code>{{ toc|safe }}</code> - Table of contents HTML</li>
+<li><code>{{ doc_nav|safe }}</code> - Document navigation HTML</li>
+<li><code>{{ navbar_html|safe }}</code> - Rendered navbar HTML</li>
+<li><code>{{ footer_html|safe }}</code> - Rendered footer HTML</li>
+<li><code>{{ has_options }}</code> - Options link styling attributes</li>
+<li><code>{{ generate_search }}</code> - Boolean for search feature</li>
+<li><code>{{ custom_scripts|safe }}</code> - Custom scripts HTML</li>
+<li><code>{{ meta_tags_html|safe }}</code> - Meta tags HTML</li>
+<li><code>{{ opengraph_html|safe }}</code> - OpenGraph tags HTML</li>
+</ul>
+<h3>Asset Paths</h3>
+<ul>
+<li><code>{{ stylesheet_path }}</code> - Path to stylesheet</li>
+<li><code>{{ main_js_path }}</code> - Path to main JavaScript file</li>
+<li><code>{{ search_js_path }}</code> - Path to search JavaScript file</li>
+<li><code>{{ index_path }}</code> - Path to index page</li>
+<li><code>{{ options_path }}</code> - Path to options page</li>
+<li><code>{{ search_path }}</code> - Path to search page</li>
+</ul>
+<h3>Options Page Specific</h3>
+<ul>
+<li><code>{{ heading }}</code> - Page heading</li>
+<li><code>{{ options|safe }}</code> - Rendered options HTML</li>
+</ul>
+<h2>Template Syntax</h2>
+<p>Templates use the <a href="https://crates.io/crates/tera">Tera</a> templating engine, which is similar to Jinja2/Django
+templates. Below are some examples provided for your convenience. Please refer
+to the <a href="https://keats.github.io/tera/docs/#templates">Tera's documentation</a> for more details. Everything supported by Tera is
+supported in NDG's templated documents.</p>
+<h3>Variables</h3>
+<pre class="highlight"><code class="language-html">{{&nbsp;variable_name&nbsp;}}<br></code></pre>
+<p>Use the <code>safe</code> filter to render HTML without escaping:</p>
+<pre class="highlight"><code class="language-html">{{&nbsp;html_content|safe&nbsp;}}<br></code></pre>
+<h3>Conditionals</h3>
+<pre class="highlight"><code class="language-html">{%&nbsp;if&nbsp;generate_search&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">div</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"search"</span><span style="color:rgb(198,120,221);">&gt;</span>...<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">div</span><span style="color:rgb(198,120,221);">&gt;</span><br>{%&nbsp;endif&nbsp;%}<br></code></pre>
+<h3>Loops</h3>
+<pre class="highlight"><code class="language-html">{%&nbsp;for&nbsp;item&nbsp;in&nbsp;items&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span>{{&nbsp;item&nbsp;}}<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>{%&nbsp;endfor&nbsp;%}<br></code></pre>
+<h2>Example: Custom Theme</h2>
+<p>Here's an example of creating a custom theme:</p>
+<ol>
+<li>
+<p>Export the default templates:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export-templates</span>&nbsp;<span style="color:rgb(232,102,113);">--output</span>&nbsp;<span style="color:rgb(232,102,113);">./my-theme</span><br></code></pre>
+</li>
+<li>
+<p>Customize the templates in <code>./my-theme/</code></p>
+</li>
+<li>
+<p>Modify <code>navbar.html</code> to add custom links:</p>
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">nav</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"header-nav"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">ul</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">/docs.html</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Docs</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span>&nbsp;<span style="color:rgb(229,192,123);">{{</span>&nbsp;<span style="color:rgb(229,192,123);">has_options|safe</span>&nbsp;<span style="color:rgb(229,192,123);">}}</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">{{&nbsp;options_path&nbsp;}}</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Options</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">/blog.html</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Blog</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;{%&nbsp;if&nbsp;generate_search&nbsp;%}<br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">{{&nbsp;search_path&nbsp;}}</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Search</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">li</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;{%&nbsp;endif&nbsp;%}<br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">ul</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">nav</span><span style="color:rgb(198,120,221);">&gt;</span><br></code></pre>
+</li>
+<li>
+<p>Update <code>footer.html</code>:</p>
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">footer</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">div</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"footer-content"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span>{{&nbsp;footer_text&nbsp;}}<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;©&nbsp;2025&nbsp;My&nbsp;Project&nbsp;|&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">/privacy.html</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Privacy</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span>&nbsp;|&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">href="/terms.html"</span><span style="color:rgb(198,120,221);">&gt;</span>Terms<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">div</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">footer</span><span style="color:rgb(198,120,221);">&gt;</span><br></code></pre>
+</li>
+<li>
+<p>Create a custom template for your homepage (<code>index.html</code>):</p>
+</li>
+</ol>
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;!</span><span style="color:rgb(209,154,102);">DOCTYPE&nbsp;html</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">html</span>&nbsp;<span style="color:rgb(229,192,123);">lang</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"en"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">head</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">meta</span>&nbsp;<span style="color:rgb(229,192,123);">charset</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"UTF-8"</span>&nbsp;<span style="color:rgb(198,120,221);">/&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">{{&nbsp;title&nbsp;}}</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">link</span>&nbsp;<span style="color:rgb(229,192,123);">rel</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"stylesheet"</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">{{&nbsp;stylesheet_path&nbsp;}}</span><span style="color:rgb(152,195,121);">"</span>&nbsp;<span style="color:rgb(198,120,221);">/&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">head</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">header</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">h1</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"site-title"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">{{&nbsp;index_path&nbsp;}}</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">{{&nbsp;site_title&nbsp;}}</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{&nbsp;navbar_html|safe&nbsp;}}<br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">header</span><span style="color:rgb(198,120,221);">&gt;</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">main</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"hero"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">Welcome&nbsp;to&nbsp;My&nbsp;Documentation</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{&nbsp;content|safe&nbsp;}}<br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">main</span><span style="color:rgb(198,120,221);">&gt;</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;{{&nbsp;footer_html|safe&nbsp;}}<br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">html</span><span style="color:rgb(198,120,221);">&gt;</span><br></code></pre>
+<p>Now you may use the custom theme freely using the <code>--template-dir</code> option.</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">option</span>&nbsp;<span style="color:rgb(232,102,113);">--template-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./my-theme</span><br></code></pre>
+<h2>Configuration Example</h2>
+<p>In <code>ndg.toml</code>:</p>
+<pre><code class="language-toml">title = "My Awesome Site"
+footer_text = "Built with ☕ and ♥️ "
+template_dir = "./templates"
+stylesheet_paths = ["./assets/custom.css"]
+script_paths = ["./assets/custom.js"]
+
+[opengraph]
+"og:title" = "My Documentation"
+"og:description" = "Comprehensive documentation for my project"
+"og:image" = "./assets/banner.png"
+
+[meta_tags]
+description = "My amazing documentation"
+keywords = "docs, markdown, documentation"
+</code></pre>
+<h2>Best Practices</h2>
+<p>For a clean(er) experience, we recommend that you:</p>
+<ol>
+<li><strong>Start with defaults</strong>: Export the default templates and modify them rather
+than starting from scratch</li>
+<li><strong>Keep it modular</strong>: Use the navbar and footer templates to keep common
+elements consistent</li>
+<li><strong>Preserve CSS classes</strong>: Keep the default CSS classes to maintain
+functionality (sidebar toggle, search, etc.)</li>
+</ol>
+<p>The nature of a mixed-approach that NDG supports may sometimes yield results
+that can be best described as annoying. Though it is perfectly possible to have
+a good design <em>and</em> keep your sanity.</p>
+<h2>Troubleshooting</h2>
+<h3>Template not found</h3>
+<p>Make sure your template directory contains the required templates or that
+fallback templates are available.</p>
+<h3>Variables not rendering</h3>
+<ul>
+<li>Check variable names match the documentation</li>
+<li>Use <code>{{ variable|safe }}</code> for HTML content</li>
+<li>Check for typos in variable names</li>
+</ul>
+<h3>Styling issues</h3>
+<ul>
+<li>Ensure your custom CSS doesn't conflict with default styles</li>
+<li>Check that CSS classes used by JavaScript features are preserved</li>
+<li>Test responsive design on mobile devices</li>
+</ul>
+<h3>Per-file template not working</h3>
+<ul>
+<li>Ensure the template filename matches the markdown filename (e.g., <code>foo.html</code>
+for <code>foo.md</code>)</li>
+<li>Check that the template is in the configured template directory</li>
+<li>Verify the template has valid <a href="https://crates.io/crates/tera">Tera</a> syntax</li>
+</ul>
+</body></html></main>
+      </div>
+
+      <footer>
+  <p>Generated with NDG</p>
+</footer>
+
+    </div>
+
+    
+  </body>
+</html>

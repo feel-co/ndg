@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_syntastica_manager"],"struct":["SyntasticaHighlighter"]};

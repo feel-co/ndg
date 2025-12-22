@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["ndg",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ndg/config/templates/enum.TemplateError.html\" title=\"enum ndg::config::templates::TemplateError\">TemplateError</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ndg/error/enum.NdgError.html\" title=\"enum ndg::error::NdgError\">NdgError</a>",0]]],["ndg_commonmark",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ndg_commonmark/processor/core/enum.DomError.html\" title=\"enum ndg_commonmark::processor::core::DomError\">DomError</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ndg_commonmark/syntax/error/enum.SyntaxError.html\" title=\"enum ndg_commonmark::syntax::error::SyntaxError\">SyntaxError</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"ndg_commonmark/utils/enum.UtilError.html\" title=\"enum ndg_commonmark::utils::UtilError\">UtilError</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[557,898]}
