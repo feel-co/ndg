@@ -29,6 +29,18 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   ignored.
 - Release date is not tracked
 
+## [Unreleased]
+
+### Fixed
+
+- Lazy continuation in GFM callouts (lines without `>` that continue a callout)
+  are now correctly included; callouts no longer terminate prematurely and lose
+  content. This fixes broken/missing admonition content in generated HTML.
+- ATX header detection in ndg-commonmark is now more robust; ATX headers (1–6
+  `#`) are strictly checked to avoid false block starts. Fixes malformed string
+  continuation in admonition rendering that previously produced literal `\\n` in
+  HTML output.
+
 ## [2.5.1]
 
 ### Fixed
@@ -211,7 +223,7 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 - Prevented panic in theme name fallback logic (ndg-commonmark)
 - Prevented panic on empty fence character extraction (ndg-commonmark)
 
-[Unreleased]: https://github.com/feel-co/ndg/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/feel-co/ndg/compare/v2.5.1...HEAD
 [2.4.0]: https://github.com/feel-co/ndg/compare/v2.3.2...v2.4.0
 [2.4.1]: https://github.com/feel-co/ndg/compare/v2.4.0...v2.4.1
 [2.5.0]: https://github.com/feel-co/ndg/compare/v2.4.1...v2.5.0
