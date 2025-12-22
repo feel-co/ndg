@@ -73,6 +73,9 @@ jobs:
 
           mv ./build/* ./deploy/
           mv ./target/doc ./deploy/api
+          
+          # Create index redirect for API documentation
+          echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark/" />' > ./deploy/api/index.html
 
       - name: Deploy Docs
         uses: JamesIves/github-pages-deploy-action@v4
