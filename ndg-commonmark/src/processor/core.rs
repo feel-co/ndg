@@ -521,19 +521,20 @@ impl MarkdownProcessor {
     Self::process_header_anchors_html(&html_output)
   }
 
-  /// Process header anchors in HTML by finding {#id} syntax and converting to
-  /// proper id attributes
+  /// Process header anchors in HTML by finding `{#id}` syntax and converting to
+  /// proper id attributes. Also adds auto-generated IDs to headers without
+  /// explicit anchors.
   fn process_header_anchors_html(html: &str) -> String {
     use std::sync::LazyLock;
 
     use regex::Regex;
 
+    // First pass: handle explicit {#id} syntax
     static HEADER_ANCHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
       Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h[1-6]>")
         .unwrap_or_else(|e| {
           log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
           utils::never_matching_regex().unwrap_or_else(|_| {
-            // As a last resort, create a regex that matches nothing
             #[allow(
               clippy::expect_used,
               reason = "This pattern is guaranteed to be valid"
@@ -544,13 +545,62 @@ impl MarkdownProcessor {
         })
     });
 
-    HEADER_ANCHOR_RE
+    // Second pass: add IDs to headers without attributes (no id yet)
+    // Matches <h1>content</h1> but not <h1 id="...">content</h1>
+    static HEADER_NO_ID_RE: LazyLock<Regex> = LazyLock::new(|| {
+      Regex::new(r"<h([1-6])>(.*?)</h[1-6]>").unwrap_or_else(|e| {
+        log::error!("Failed to compile HEADER_NO_ID_RE regex: {e}");
+        utils::never_matching_regex().unwrap_or_else(|_| {
+          #[allow(
+            clippy::expect_used,
+            reason = "This pattern is guaranteed to be valid"
+          )]
+          Regex::new(r"[^\s\S]")
+            .expect("regex pattern [^\\s\\S] should always compile")
+        })
+      })
+    });
+
+    // Regex to strip HTML tags for slugification
+    static HTML_TAG_RE: LazyLock<Regex> = LazyLock::new(|| {
+      Regex::new(r"<[^>]+>").unwrap_or_else(|e| {
+        log::error!("Failed to compile HTML_TAG_RE regex: {e}");
+        utils::never_matching_regex().unwrap_or_else(|_| {
+          #[allow(
+            clippy::expect_used,
+            reason = "This pattern is guaranteed to be valid"
+          )]
+          Regex::new(r"[^\s\S]")
+            .expect("regex pattern [^\\s\\S] should always compile")
+        })
+      })
+    });
+
+    // First pass: explicit {#id} syntax
+    let result = HEADER_ANCHOR_RE
       .replace_all(html, |caps: &regex::Captures| {
         let level = &caps[1];
         let prefix = &caps[2];
         let id = &caps[3];
         let suffix = &caps[4];
         format!("<h{level} id=\"{id}\">{prefix}{suffix}</h{level}>")
+      })
+      .to_string();
+
+    // Second pass: add auto-generated IDs to headers without id attribute
+    HEADER_NO_ID_RE
+      .replace_all(&result, |caps: &regex::Captures| {
+        let level = &caps[1];
+        let content = &caps[2];
+        // Strip HTML tags and slugify the text content
+        let text_only = HTML_TAG_RE.replace_all(content, "");
+        let id = utils::slugify(&text_only);
+        if id.is_empty() {
+          // If slugify produces empty string, keep header without id
+          format!("<h{level}>{content}</h{level}>")
+        } else {
+          format!("<h{level} id=\"{id}\">{content}</h{level}>")
+        }
       })
       .to_string()
   }
