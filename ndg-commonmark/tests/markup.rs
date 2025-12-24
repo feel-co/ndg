@@ -144,6 +144,40 @@ fn test_explicit_header_anchor_special_chars() {
   );
 }
 
+// Test auto-generated header IDs (headers without explicit {#id} syntax)
+#[test]
+fn test_auto_generated_header_id() {
+  let md = "## My Section Title";
+  let html = ndg_html(md);
+  assert!(
+    html.contains(r#"<h2 id="my-section-title">My Section Title</h2>"#),
+    "Expected header to have auto-generated id=\"my-section-title\", \
+     got:\n{html}"
+  );
+}
+
+#[test]
+fn test_auto_generated_header_id_with_special_chars() {
+  let md = "## Hello World! (2024)";
+  let html = ndg_html(md);
+  // Special chars get replaced with dashes, leading/trailing dashes trimmed
+  assert!(
+    html.contains(r#"<h2 id="hello-world---2024">"#),
+    "Expected header to have slugified ID, got:\n{html}"
+  );
+}
+
+#[test]
+fn test_auto_generated_header_id_with_inline_formatting() {
+  let md = "## Hello **World** and `code`";
+  let html = ndg_html(md);
+  // ID should be based on text content only, stripping HTML tags
+  assert!(
+    html.contains(r#"id="hello-world-and-code""#),
+    "Expected ID based on text content only, got:\n{html}"
+  );
+}
+
 // Edge case: inline anchor at start of line
 #[test]
 fn test_inline_anchor_start_of_line() {
@@ -982,7 +1016,7 @@ Here is `inline code` and {var}`myVariable`.
   );
 
   assert!(
-    html.contains("<h2>Header inside admonition</h2>"),
+    html.contains("<h2") && html.contains(">Header inside admonition</h2>"),
     "Headers should be parsed inside admonitions. Got:\n{html}"
   );
 
