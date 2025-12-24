@@ -47,17 +47,21 @@
           </svg>
         </div>
         <nav id="sidebar" class="sidebar">
-          <div class="docs-nav">
-            <h2>Documents</h2>
-            <ul>
-              {{ doc_nav|safe }}
-            </ul>
-          </div>
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                {{ doc_nav|safe }}
+              </ul>
+            </div>
+          </details>
 
-          <div class="toc">
-            <h2>Contents</h2>
-            {{ toc|safe }}
-          </div>
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              {{ toc|safe }}
+            </div>
+          </details>
         </nav>
 
         <main class="content">
