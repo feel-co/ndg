@@ -156,11 +156,12 @@ fn render_page_with_headers_toc() {
   assert!(html.contains("sec1"));
   assert!(html.contains("subsec"));
   // Should include a TOC container and list structure
-  let toc_container =
-    html.contains("id=\"toc\"") || html.contains("class=\"toc\"");
+  let toc_container = html.contains("data-section=\"toc\"")
+    || html.contains("class=\"toc-list\"");
   assert!(
     toc_container,
-    "TOC container (id or class) not found in HTML"
+    "TOC container (data-section=\"toc\" or class=\"toc-list\") not found in \
+     HTML"
   );
   assert!(
     html.contains("<ul>") && html.contains("<li>"),

@@ -31,6 +31,20 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 
 ## [Unreleased]
 
+### Added
+
+- Collapsible sidebar sections ("Documents" and "Contents") with smooth
+  open/close animation and localStorage state persistence. Toggle state syncs
+  between desktop sidebar and mobile drawer.
+- Right-side "On this page" table of contents that tracks scroll position. Shows
+  on wide screens (>=1400px), hidden on mobile. Only appears on regular
+  documentation pages, and not on options page.
+- Auto-generated `id` attributes on all HTML headers (h1-h6) without explicit
+  `{#custom-id}` syntax. Uses slugified text content, enabling scroll spy and
+  anchor navigation to work consistently.
+- Smooth scrolling behavior for anchor links (`scroll-behavior: smooth` on
+  `html`)
+
 ### Fixed
 
 - Lazy continuation in GFM callouts (lines without `>` that continue a callout)

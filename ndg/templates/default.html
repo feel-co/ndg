@@ -53,23 +53,36 @@
           </svg>
         </div>
         <nav class="sidebar">
-          <div class="docs-nav">
-            <h2>Documents</h2>
-            <ul>
-              {{ doc_nav|safe }}
-            </ul>
-          </div>
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                {{ doc_nav|safe }}
+              </ul>
+            </div>
+          </details>
 
-          <div class="toc">
-            <h2>Contents</h2>
-            <ul class="toc-list">
-              {{ toc|safe }}
-            </ul>
-          </div>
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                {{ toc|safe }}
+              </ul>
+            </div>
+          </details>
         </nav>
 
         <main class="content">{{ content|safe }}</main>
       </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            {{ toc|safe }}
+          </ul>
+        </nav>
+      </aside>
 
       {{ footer_html|safe }}
     </div>

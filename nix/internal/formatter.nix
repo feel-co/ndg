@@ -5,9 +5,14 @@ pkgs.writeShellApplication {
   runtimeInputs = [
     pkgs.alejandra
     pkgs.fd
+    pkgs.prettier
   ];
 
   text = ''
+    # Format Nix files with Alejandra
     fd "$@" -t f -e nix -x alejandra -q '{}'
+
+    # Format CSS files with Prettier
+    fd "$@" -t f -e css -x prettier -w '{}'
   '';
 }
