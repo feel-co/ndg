@@ -64,23 +64,26 @@
           </svg>
         </div>
         <nav class="sidebar">
-          <div class="docs-nav">
-            <h2>Documents</h2>
-            <ul>
-              <li><a href="index.html">1. Introduction</a></li>
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                <li><a href="index.html">1. Introduction</a></li>
 <li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
 <li><a href="search.html">Search</a></li>
 
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
 
-          <div class="toc">
-            <h2>Contents</h2>
-            <ul class="toc-list">
-              <li><a href="#sidebar-configuration">Sidebar Configuration</a>
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                <li><a href="#sidebar-configuration">Sidebar Configuration</a>
 <ul><li><a href="#configuration-structure">Configuration Structure</a>
 <li><a href="#top-level-options">Top-Level Options</a>
 <ul><li><a href="#numbered">numbered</a>
@@ -104,15 +107,16 @@
 <li><a href="#options-examples">Options Examples</a>
 </ul><li><a href="#json-configuration">JSON Configuration</a>
 </li></ul></li>
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
         </nav>
 
-        <main class="content"><!-- markdownlint-disable MD024 --><html><head></head><body><h1>Sidebar Configuration</h1>
+        <main class="content"><!-- markdownlint-disable MD024 --><html><head></head><body><h1 id="sidebar-configuration">Sidebar Configuration</h1>
 <p>NDG supports flexible sidebar customization through the <code>sidebar</code> configuration
 section, allowing you to control the appearance, ordering, and content of
 navigation items in your generated documentation.</p>
-<h2>Configuration Structure</h2>
+<h2 id="configuration-structure">Configuration Structure</h2>
 <p>Sidebar behavior is configured through the <code>[sidebar]</code> section in your
 <code>ndg.toml</code> file or via the equivalent JSON structure.</p>
 <pre><code class="language-toml">[sidebar]
@@ -126,8 +130,8 @@ ordering = "alphabetical"
 [sidebar.options]
 # NixOS options-specific configuration
 </code></pre>
-<h2>Top-Level Options</h2>
-<h3><code>numbered</code></h3>
+<h2 id="top-level-options">Top-Level Options</h2>
+<h3 id="numbered"><code>numbered</code></h3>
 <p>Controls whether sidebar items are numbered sequentially.</p>
 <ul>
 <li><strong>Type</strong>: Boolean</li>
@@ -146,7 +150,7 @@ numbered = true
 2. Configuration
 3. Usage
 </code></pre>
-<h3><code>number_special_files</code></h3>
+<h3 id="number_special_files"><code>number_special_files</code></h3>
 <p>Controls whether special files (<code>index.md</code>, <code>README.md</code>) are included in the
 numbering sequence. Only has effect when <code>numbered = true</code>.</p>
 <ul>
@@ -163,7 +167,7 @@ numbering sequence. Only has effect when <code>numbered = true</code>.</p>
 2. Installation
 3. Configuration
 </code></pre>
-<h3><code>ordering</code></h3>
+<h3 id="ordering"><code>ordering</code></h3>
 <p>Determines how sidebar items are sorted.</p>
 <ul>
 <li><strong>Type</strong>: String</li>
@@ -176,13 +180,13 @@ numbering sequence. Only has effect when <code>numbered = true</code>.</p>
 </ul>
 </li>
 </ul>
-<h2>Pattern Matching</h2>
+<h2 id="pattern-matching">Pattern Matching</h2>
 <p>The <code>matches</code> array contains pattern-based rules for customizing specific
 sidebar items. Rules are evaluated in order, and the <strong>first matching rule
 wins</strong>.</p>
-<h3>Match Rule Structure</h3>
+<h3 id="match-rule-structure">Match Rule Structure</h3>
 <p>Each <code>[[sidebar.matches]]</code> entry supports:</p>
-<h4>Matching Fields</h4>
+<h4 id="matching-fields">Matching Fields</h4>
 <!-- markdownlint-disable MD013 -->
 <table>
 <thead>
@@ -226,7 +230,7 @@ wins</strong>.</p>
 </tbody>
 </table>
 <!-- markdownlint-enable MD013 -->
-<h4>Action Fields</h4>
+<h4 id="action-fields">Action Fields</h4>
 <table>
 <thead>
 <tr>
@@ -248,14 +252,14 @@ wins</strong>.</p>
 </tr>
 </tbody>
 </table>
-<h3>Matching Logic</h3>
+<h3 id="matching-logic">Matching Logic</h3>
 <ul>
 <li>All specified matching conditions must be satisfied (AND logic)</li>
 <li>If both <code>path</code> and <code>title</code> are specified, both must match</li>
 <li>If both <code>exact</code> and <code>regex</code> are specified for the same field, both must match</li>
 <li>Only the first matching rule is applied to each item</li>
 </ul>
-<h3>Shorthand Syntax</h3>
+<h3 id="shorthand-syntax">Shorthand Syntax</h3>
 <p>For exact matches, shorthand syntax is available:</p>
 <pre><code class="language-toml"># Shorthand (recommended for exact matches)
 [[sidebar.matches]]
@@ -273,12 +277,12 @@ path = "getting-started.md"
 title.regex = ".*Guide.*"
 new_title = "Setup Guide"
 </code></pre>
-<h2>Examples</h2>
-<h3>Basic Numbering</h3>
+<h2 id="examples">Examples</h2>
+<h3 id="basic-numbering">Basic Numbering</h3>
 <pre><code class="language-toml">[sidebar]
 numbered = true
 </code></pre>
-<h3>Custom Ordering</h3>
+<h3 id="custom-ordering">Custom Ordering</h3>
 <pre><code class="language-toml">[sidebar]
 numbered = true
 ordering = "custom"
@@ -295,7 +299,7 @@ position = 2
 path = "api-reference.md"
 position = 3
 </code></pre>
-<h3>Custom Titles</h3>
+<h3 id="custom-titles">Custom Titles</h3>
 <pre><code class="language-toml">[sidebar]
 numbered = false
 
@@ -307,7 +311,7 @@ new_title = "🚀 Quick Start"
 path = "api-reference.md"
 new_title = "📚 API Reference"
 </code></pre>
-<h3>Regex Pattern Matching</h3>
+<h3 id="regex-pattern-matching">Regex Pattern Matching</h3>
 <pre><code class="language-toml">[sidebar]
 ordering = "custom"
 
@@ -323,7 +327,7 @@ title.regex = "^Release.*"
 new_title = "What's New"
 position = 999
 </code></pre>
-<h3>Combined Conditions</h3>
+<h3 id="combined-conditions">Combined Conditions</h3>
 <pre><code class="language-toml">[[sidebar.matches]]
 path.regex = "^api/.*\\.md$"
 title = "API Functions"
@@ -332,10 +336,10 @@ position = 50
 </code></pre>
 <p>This rule matches files that are both in the <code>api/</code> directory AND have the exact
 title "API Functions".</p>
-<h2>Options Sidebar</h2>
+<h2 id="options-sidebar">Options Sidebar</h2>
 <p>The <code>sidebar.options</code> section provides specialized configuration for NixOS
 module options, controlling how options appear in the options table of contents.</p>
-<h3>Structure</h3>
+<h3 id="structure">Structure</h3>
 <pre><code class="language-toml">[sidebar.options]
 depth = 2
 ordering = "alphabetical"
@@ -343,8 +347,8 @@ ordering = "alphabetical"
 [[sidebar.options.matches]]
 # Option-specific matching rules
 </code></pre>
-<h3>Options Fields</h3>
-<h4><code>depth</code></h4>
+<h3 id="options-fields">Options Fields</h3>
+<h4 id="depth"><code>depth</code></h4>
 <p>Controls the grouping depth for option categories.</p>
 <ul>
 <li><strong>Type</strong>: Integer</li>
@@ -360,16 +364,16 @@ ordering = "alphabetical"
 <pre><code class="language-plaintext">- services.nginx.virtualHosts (contains only virtualHosts.* options)
 - services.nginx (contains nginx.enable, nginx.package)
 </code></pre>
-<h4><code>ordering</code></h4>
+<h4 id="ordering"><code>ordering</code></h4>
 <p>Determines how options are sorted in the table of contents.</p>
 <ul>
 <li><strong>Type</strong>: String</li>
 <li><strong>Default</strong>: <code>"alphabetical"</code></li>
 <li><strong>Options</strong>: <code>"alphabetical"</code>, <code>"custom"</code>, <code>"filesystem"</code></li>
 </ul>
-<h3>Option Pattern Matching</h3>
+<h3 id="option-pattern-matching">Option Pattern Matching</h3>
 <p>Each <code>[[sidebar.options.matches]]</code> entry supports:</p>
-<h4>Matching Fields</h4>
+<h4 id="matching-fields">Matching Fields</h4>
 <!-- markdownlint-disable MD013 -->
 <table>
 <thead>
@@ -398,7 +402,7 @@ ordering = "alphabetical"
 </tbody>
 </table>
 <!-- markdownlint-enable MD013 -->
-<h4>Action Fields</h4>
+<h4 id="action-fields">Action Fields</h4>
 <table>
 <thead>
 <tr>
@@ -430,7 +434,7 @@ ordering = "alphabetical"
 </tr>
 </tbody>
 </table>
-<h3>Shorthand Syntax</h3>
+<h3 id="shorthand-syntax">Shorthand Syntax</h3>
 <pre><code class="language-toml"># Shorthand for exact matches
 [[sidebar.options.matches]]
 name = "services.nginx.enable"
@@ -441,8 +445,8 @@ position = 1
 name.regex = "^internal\\..*"
 hidden = true
 </code></pre>
-<h3>Options Examples</h3>
-<h4>Hiding Internal Options</h4>
+<h3 id="options-examples">Options Examples</h3>
+<h4 id="hiding-internal-options">Hiding Internal Options</h4>
 <pre><code class="language-toml">[sidebar.options]
 depth = 2
 
@@ -456,7 +460,7 @@ hidden = true
 name = "_module.args"
 hidden = true
 </code></pre>
-<h4>Custom Display Names</h4>
+<h4 id="custom-display-names">Custom Display Names</h4>
 <pre><code class="language-toml">[sidebar.options]
 depth = 2
 
@@ -468,7 +472,7 @@ new_name = "Git Configuration"
 name = "services.nginx"
 new_name = "NGINX Web Server"
 </code></pre>
-<h4>Custom Ordering</h4>
+<h4 id="custom-ordering">Custom Ordering</h4>
 <pre><code class="language-toml">[sidebar.options]
 ordering = "custom"
 depth = 2
@@ -489,7 +493,7 @@ position = 2
 name.regex = "^services\\..*"
 position = 100
 </code></pre>
-<h4>Per-Option Depth Override</h4>
+<h4 id="per-option-depth-override">Per-Option Depth Override</h4>
 <pre><code class="language-toml">[sidebar.options]
 depth = 2
 
@@ -515,7 +519,7 @@ depth = 1
 # With depth = 1 override:
 - programs (all programs.* options together)
 </code></pre>
-<h4>Combined Example</h4>
+<h4 id="combined-example">Combined Example</h4>
 <pre><code class="language-toml">[sidebar.options]
 depth = 2
 ordering = "custom"
@@ -548,7 +552,7 @@ position = 10
 name.regex = "^services\\..*"
 position = 50
 </code></pre>
-<h2>JSON Configuration</h2>
+<h2 id="json-configuration">JSON Configuration</h2>
 <p>The sidebar configuration can be specified in JSON format with either shorthand
 or nested syntax:</p>
 <p><strong>Shorthand syntax:</strong></p>
@@ -559,6 +563,38 @@ or nested syntax:</p>
 <pre class="highlight"><code class="language-json"><span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"sidebar"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"options"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"depth"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">2</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"ordering"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"custom"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"matches"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">[</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"name"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"regex"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"^internal</span><span style="color:rgb(232,102,113);">\\</span><span style="color:rgb(152,195,121);">..*"</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"hidden"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">true</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"name"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"programs.git"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"new_name"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"Git&nbsp;Configuration"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"position"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">5</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">]</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br>&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
 </body></html></main>
       </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            <li><a href="#sidebar-configuration">Sidebar Configuration</a>
+<ul><li><a href="#configuration-structure">Configuration Structure</a>
+<li><a href="#top-level-options">Top-Level Options</a>
+<ul><li><a href="#numbered">numbered</a>
+<li><a href="#number_special_files">number_special_files</a>
+<li><a href="#ordering">ordering</a>
+</ul><li><a href="#pattern-matching">Pattern Matching</a>
+<ul><li><a href="#match-rule-structure">Match Rule Structure</a>
+<li><a href="#matching-logic">Matching Logic</a>
+<li><a href="#shorthand-syntax">Shorthand Syntax</a>
+</ul><li><a href="#examples">Examples</a>
+<ul><li><a href="#basic-numbering">Basic Numbering</a>
+<li><a href="#custom-ordering">Custom Ordering</a>
+<li><a href="#custom-titles">Custom Titles</a>
+<li><a href="#regex-pattern-matching">Regex Pattern Matching</a>
+<li><a href="#combined-conditions">Combined Conditions</a>
+</ul><li><a href="#options-sidebar">Options Sidebar</a>
+<ul><li><a href="#structure">Structure</a>
+<li><a href="#options-fields">Options Fields</a>
+<li><a href="#option-pattern-matching">Option Pattern Matching</a>
+<li><a href="#shorthand-syntax">Shorthand Syntax</a>
+<li><a href="#options-examples">Options Examples</a>
+</ul><li><a href="#json-configuration">JSON Configuration</a>
+</li></ul></li>
+          </ul>
+        </nav>
+      </aside>
 
       <footer>
   <p>Generated with NDG</p>

@@ -64,23 +64,26 @@
           </svg>
         </div>
         <nav class="sidebar">
-          <div class="docs-nav">
-            <h2>Documents</h2>
-            <ul>
-              <li><a href="index.html">1. Introduction</a></li>
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                <li><a href="index.html">1. Introduction</a></li>
 <li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
 <li><a href="search.html">Search</a></li>
 
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
 
-          <div class="toc">
-            <h2>Contents</h2>
-            <ul class="toc-list">
-              <ul><li><a href="#what-is-it">What is it?</a>
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                <ul><li><a href="#what-is-it">What is it?</a>
 <ul><li><a href="#features">Features</a>
 </ul><li><a href="#usage">Usage</a>
 <ul><li><a href="#quickstart">Quickstart</a>
@@ -104,8 +107,9 @@
 </ul><li><a href="#my-epic-installation">## Installation</a>
 <li><a href="#license">License</a>
 </li></ul></li>
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
         </nav>
 
         <main class="content"><!-- markdownlint-disable MD013 MD033 MD041 --><html><head></head><body><div id="doc-begin" align="center">
@@ -118,7 +122,7 @@
   <a href="#pro-tips--best-practices">Best Practices</a>
   <br>
 </div>
-<h2>What is it?</h2>
+<h2 id="what-is-it">What is it?</h2>
 <p><strong>NDG</strong> is a fast, customizable and convenient utility for generating HTML
 documents and manpages for your Nix related projects from Markdown inputs, and
 Nix module options. It can be considered a more opinionated and more specialized
@@ -127,7 +131,7 @@ project is designed for <a href="https://hjem.feel-co.org">Hjem</a> in mind, it 
 perfectly possible to use NDG outside of Nix contexts. All Nix-specific
 features, such as module options page and Nixpkgs-flavored <a href="https://commonmark.org/">CommonMark</a> parsing
 are optional and can be controlled via various knobs.</p>
-<h3>Features</h3>
+<h3 id="features">Features</h3>
 <p>We would like for NDG to be fast, but also flexible and powerful. It boasts
 several features such as</p>
 <ul>
@@ -157,7 +161,7 @@ ordering, and depth of option categories</li>
 </ul>
 </li>
 </ul>
-<h2>Usage</h2>
+<h2 id="usage">Usage</h2>
 <p>The primary interface of NDG is the <code>ndg</code> CLI utility. There are several
 subcommands to handle different documentation tasks.</p>
 <pre><code class="language-console">$ ndg --help 
@@ -182,7 +186,7 @@ ier ones
 </code></pre>
 <p>You can review <code>ndg html</code> and <code>ndg manpage</code> commands' help texts to get more
 insight.</p>
-<h3>Quickstart</h3>
+<h3 id="quickstart">Quickstart</h3>
 <p>The easiest and fastest way to get started with NDG is using the <code>init</code>
 subcommand to generate a configuration file, and tweak it per your needs.</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Generate&nbsp;a&nbsp;default&nbsp;ndg.toml&nbsp;configuration&nbsp;file</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">init</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Generate&nbsp;a&nbsp;JSON&nbsp;configuration&nbsp;file&nbsp;instead</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">init</span>&nbsp;<span style="color:rgb(232,102,113);">--format</span>&nbsp;<span style="color:rgb(232,102,113);">json</span>&nbsp;<span style="color:rgb(232,102,113);">--output</span>&nbsp;<span style="color:rgb(232,102,113);">ndg.json</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Generate&nbsp;in&nbsp;a&nbsp;specific&nbsp;location</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">init</span>&nbsp;<span style="color:rgb(232,102,113);">--output</span>&nbsp;<span style="color:rgb(232,102,113);">configs/ndg.toml</span><br></code></pre>
@@ -216,7 +220,7 @@ the same directory. Though if you want to move the configuration file to a
 nonstandard location, you may specify a path to the configuration file using the
 <code>--config-file</code> option.</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;automatically&nbsp;detected&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;explicitly&nbsp;specified&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">nested/path/to/ndg.toml</span><br></code></pre>
-<h3>Generating Your First Documents</h3>
+<h3 id="generating-your-first-documents">Generating Your First Documents</h3>
 <p>To generate your documents, NDG requires one of two things: <strong>Markdown Sources</strong>
 or <strong><code>options.json</code></strong>. Alternatively, for more comprehensive documents, you can
 provide both. The latter will be used for an <code>options.html</code> with your module
@@ -254,8 +258,8 @@ documentation, right?</p>
 <p>We'll continue talking about HTML generation in
 <a href="#generating-html-documents">the relevant section</a>. For now, let's take a look
 at how to configure NDG to fit your needs.</p>
-<h2>Detailed Usage</h2>
-<h3>CLI Flags and Configuration Options</h3>
+<h2 id="detailed-usage">Detailed Usage</h2>
+<h3 id="cli-flags-and-configuration-options">CLI Flags and Configuration Options</h3>
 <p>The CLI flags are the alternative method of configuring NDG, and can be used in
 conjunction with the configuration file. While used together, the CLI flags can
 be used to provide ad-hoc overrides of specific NDG behaviour provided by the
@@ -280,7 +284,7 @@ simply use the flags above to generate a complete documentation site without
 ever needing to create your configuration. Do note, however, that some
 configuration options are ONLY available in <code>ndg.toml</code>, and will not be
 available to override from the CLI.</p>
-<h4>Configuration Files</h4>
+<h4 id="configuration-files">Configuration Files</h4>
 <p>NDG accepts two distinct configuration formats, TOML and JSON, to allow setting
 your options persistently. Options like <code>search.enable</code> can be set in the config
 file, but CLI flags will override them <em>if provided</em>.</p>
@@ -296,7 +300,7 @@ title = "My Project"
 enable = true
 max_heading_level = 3
 </code></pre>
-<h4>Interactions Between CLI and Config</h4>
+<h4 id="interactions-between-cli-and-config">Interactions Between CLI and Config</h4>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>CLI flags always take precedence over config file settings. For instance, if
@@ -306,7 +310,7 @@ your config file has <code>search.enable = false</code>, but you run <code>ndg h
 <code>search.enable</code> defaults to <code>true</code> if omitted from both; CLI flags override
 config when present). For a full list of CLI options, see the help output with
 <code>ndg html --help</code>.</p>
-<h4>Configuration Reference</h4>
+<h4 id="configuration-reference">Configuration Reference</h4>
 <p>Below is a comprehensive list of configuration options available in <code>ndg.toml</code>:</p>
 <p><strong>Basic Options:</strong></p>
 <ul>
@@ -383,7 +387,7 @@ description = "Complete guide to My Project"
 keywords = "documentation,nix,tutorial"
 author = "My Name"
 </code></pre>
-<h4>Advanced Configuration Details</h4>
+<h4 id="advanced-configuration-details">Advanced Configuration Details</h4>
 <p><strong>Parallel Processing (<code>jobs</code>):</strong></p>
 <p>The <code>jobs</code> option controls how many threads NDG uses for processing files. By
 default, NDG auto-detects the number of CPU cores. For large documentation sets,
@@ -429,7 +433,7 @@ keywords = "documentation,tutorial,guide,nix"
 author = "Jane Developer"
 robots = "index,follow"
 </code></pre>
-<h3>Generating HTML Documents</h3>
+<h3 id="generating-html-documents">Generating HTML Documents</h3>
 <p>As of <code>v2.0.0</code>, NDG features a more compartmentalized architechture with a focus
 on distinguishing between output formats more carefully. Prior to version 2.0.0,
 HTML was the "default" output format, and the only "blessed" one.</p>
@@ -486,7 +490,7 @@ Optionally you may pass an <code>options.json</code> to also render an <code>opt
 page for a listing of your module options. See the
 <a href="#nixos-options">NixOS Options</a> section below for more details.</p>
 </blockquote>
-<h3>Generating Manpages</h3>
+<h3 id="generating-manpages">Generating Manpages</h3>
 <p>NDG allows generating manual pages for your project using your <code>options.json</code>.
 Due to the shortcomings of Troff, manpage generation is not as robust or mature
 as HTML. Nevertheless, the <code>manpage</code> subcommand allows generating a manpage from
@@ -498,7 +502,7 @@ your options:</p>
 or <code>-j</code>. Since we do not convert arbitrary pages in the Manpages mode, this is
 necessary to generate the main page containing module options.</p>
 </div>
-<h2>Customization</h2>
+<h2 id="customization">Customization</h2>
 <p>NDG is an opinionated CLI utility due to the reasons that warranted its
 existence, but it still aims to support various colorful customization options
 to tailor the output to your needs, regardless of how immodest they may be.</p>
@@ -570,7 +574,7 @@ when ndg is upgraded. Though, ndg will fall back to internal templates when none
 are provided.</p>
 <p>See the <a href="./docs/TEMPLATING">templating documentation</a> for details about the
 templating. If your use-case is not supported, feel free to request a feature!</p>
-<h3>Sidebar Customization</h3>
+<h3 id="sidebar-customization">Sidebar Customization</h3>
 <p>NDG allows you to customize the sidebar navigation through flexible
 configuration options. You can control item ordering, add numbering, and
 customize titles using pattern-based matching:</p>
@@ -601,9 +605,9 @@ categories. This is particularly useful for large module systems like NixOS or
 Home Manager configurations.</p>
 <p>See the <a href="./docs/SIDEBAR">sidebar configuration guide</a> for complete documentation
 including examples, use cases, and best practices.</p>
-<h3>Template Customization Made Easy</h3>
+<h3 id="template-customization-made-easy">Template Customization Made Easy</h3>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Export&nbsp;default&nbsp;templates&nbsp;to&nbsp;a&nbsp;'templates'&nbsp;directory</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Export&nbsp;to&nbsp;a&nbsp;custom&nbsp;directory</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export</span>&nbsp;<span style="color:rgb(232,102,113);">--output-dir</span>&nbsp;<span style="color:rgb(232,102,113);">my-custom-templates</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Overwrite&nbsp;existing&nbsp;files&nbsp;if&nbsp;they&nbsp;exist</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export</span>&nbsp;<span style="color:rgb(232,102,113);">--force</span><br></code></pre>
-<h4>Custom Stylesheet</h4>
+<h4 id="custom-stylesheet">Custom Stylesheet</h4>
 <p>NDG also bundles its own stylesheet as a part of the default templates. This is
 meant to be a simple starting point, but you may easily override it with your
 own stylesheets if you are not satisfied with the defaults. The <code>--stylesheet</code>
@@ -620,7 +624,7 @@ should consider exporting the default template, and overriding it in full.</p>
 <p>NDG is able to compile SCSS as well, should you choose to pass it a file with
 the <code>.scss</code> extension. The stylesheet will be compiled in runtime, and placed as
 a <code>.css</code> file in the output directory.</p>
-<h4>NixOS Options</h4>
+<h4 id="nixos-options">NixOS Options</h4>
 <p>One of the many purposes of NDG is to document options provided by the Nix
 module system. This behaviour is similar to <code>nixos-render-docs</code> used in the
 Nixpkgs manual, and is fully backwards compatible in terms of the file format
@@ -638,7 +642,7 @@ CLI, module evaluation is done for you automatically.</p>
 <p>An example from <a href="https://github.com/notashelf/nvf">nvf</a>, created via <code>pkgs.nixosOptionsDoc</code>.</p>
 <pre class="highlight"><code class="language-json"><span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"vim.withRuby"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"declarations"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">[</span><br><span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"name"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"&lt;nvf/modules/wrapper/environment/options.nix&gt;"</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"url"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"</span><br><span style="color:rgb(132,139,152);">}</span><br><span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"default"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"_type"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"literalExpression"</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"text"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"true"</span><br><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"description"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"Whether&nbsp;to&nbsp;enable&nbsp;Ruby&nbsp;support&nbsp;in&nbsp;the&nbsp;Neovim&nbsp;wrapper.</span><span style="color:rgb(232,102,113);">\n</span><span style="color:rgb(152,195,121);">."</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"example"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"_type"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"literalExpression"</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"text"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"true"</span><br><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"loc"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">[</span><span style="color:rgb(152,195,121);">"vim"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(152,195,121);">"withRuby"</span><span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"readOnly"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">false</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"type"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"boolean"</span><br><span style="color:rgb(132,139,152);">}</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
 </div>
-<h4>Search Configuration</h4>
+<h4 id="search-configuration">Search Configuration</h4>
 <p>Your documentation may get convoluted as it grows more comprehensive (because
 you write such good docs!) so NDG includes the option to generate</p>
 <ol>
@@ -652,16 +656,16 @@ generating by passing the <code>--generate-search</code> flag to <code>ndg html<
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;not&nbsp;be&nbsp;generated</span><br><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--generate-search</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;be&nbsp;generated</span><br></code></pre>
 <p>While the search is disabled, all search-related functionality will be skipped
 during runtime.</p>
-<h2>Using &amp; Integrating with Nix</h2>
+<h2 id="using--amp--integrating-with-nix">Using &amp; Integrating with Nix</h2>
 <p>Besides the CLI, NDG provides a simple but handy interface to interact
 <em>directly</em> with your Nix modules. While we recommend <a href="https://github.com/feel-co/hjem/blob/main/docs/package.nix">writing your own package</a>
 to work with NDG, a very basic <em>builder</em> is provided under the NDG repository to
 wrap and configure NDG for you. This is done by the <code>ndg-builder</code> package,
 available from our flake outputs.</p>
-<h3>Using NDG with Nix</h3>
+<h3 id="using-ndg-with-nix">Using NDG with Nix</h3>
 <p>Installing NDG with Nix is the recommended way of generating documentation for
 your Nix projects. There are several ways to use NDG with Nix:</p>
-<h4>Installing from the Flake</h4>
+<h4 id="installing-from-the-flake">Installing from the Flake</h4>
 <p>The simplest and fastest way of using NDG is getting it directly from our Nix
 flake. A <code>ndg</code> package is exported, and it can be consumed in one of two ways:</p>
 <ol>
@@ -679,20 +683,20 @@ fetched each time the input is updated even if NDG is not actually in use. Using
 Nixpkgs fetchers and npins allows benefiting from laziness.</p>
 <p>See how <a href="https://github.com/feel-co/hjem/blob/main/docs/package.nix">Hjem</a> does
 it for an example of utilizing Npins for this task.</p>
-<h4>Using ndg-builder</h4>
+<h4 id="using-ndg-builder">Using ndg-builder</h4>
 <p>We provide a <code>ndg-builder</code> function, meant as an escape hatch when you are not
 interested in customizing NDG yourself. This abstracts away some of NDG's
 complexities at the cost of some performance overhead, and a more limited
 interface. In the case your needs are modest, you may be interested in using
 this option.</p>
 <pre class="highlight"><code class="language-nix"><span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">inputs</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">nixpkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">url</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">"</span><span style="color:rgb(152,195,121);">github:NixOS/nixpkgs/nixos-unstable</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">ndg</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">url</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">"</span><span style="color:rgb(152,195,121);">github:feel-co/ndg</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><br>&nbsp;&nbsp;<span style="color:rgb(97,175,239);">outputs</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">{</span>&nbsp;<span style="color:rgb(232,102,113);">self</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">nixpkgs</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">ndg</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">...</span>&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">:</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">let</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;system&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">"</span><span style="color:rgb(152,195,121);">x86_64-linux</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pkgs&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">nixpkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">legacyPackages</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(232,102,113);">${</span><span style="color:rgb(171,178,191);">system</span><span style="color:rgb(232,102,113);">}</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">in</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">packages</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(232,102,113);">${</span><span style="color:rgb(171,178,191);">system</span><span style="color:rgb(232,102,113);">}</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">docs</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">packages</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(232,102,113);">${</span><span style="color:rgb(171,178,191);">system</span><span style="color:rgb(232,102,113);">}</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">ndg-builder</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">override</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">title</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">"</span><span style="color:rgb(152,195,121);">My&nbsp;Project&nbsp;Documentation</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">inputDir</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">stylesheet</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(232,102,113);">./assets/style.css</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">scripts</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">[</span>&nbsp;<span style="color:rgb(232,102,113);">./assets/custom.js</span>&nbsp;<span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">;</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;For&nbsp;module&nbsp;options</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">rawModules</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">[</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;From&nbsp;a&nbsp;path</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(232,102,113);">./modules/options.nix</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;From&nbsp;options</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">options</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">example</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">option</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">pkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">lib</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">mkOption</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">type</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">pkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">lib</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">types</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">str</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">default</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">"</span><span style="color:rgb(152,195,121);">value</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">description</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">"</span><span style="color:rgb(152,195,121);">An&nbsp;example&nbsp;option</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">)</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">;</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Optional:&nbsp;set&nbsp;the&nbsp;depth&nbsp;of&nbsp;options&nbsp;TOC</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">optionsDepth</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">3</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
-<h4>Manual Approach Using <code>runCommandLocal</code></h4>
+<h4 id="manual-approach-using-runcommandlocal">Manual Approach Using <code>runCommandLocal</code></h4>
 <p>If you need more control, you can use <code>runCommandLocal</code> directly:</p>
 <pre class="highlight"><code class="language-nix"><span style="color:rgb(198,120,221);">let</span><br>&nbsp;&nbsp;pkgs&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(198,120,221);">import</span>&nbsp;<span style="color:rgb(232,102,113);">&lt;nixpkgs&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span>&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><br>&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Generate&nbsp;options&nbsp;JSON&nbsp;properly</span><br>&nbsp;&nbsp;optionsJSON&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">pkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">nixosOptionsDoc</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">options</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">pkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">lib</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">evalModules</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">modules</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">[</span>&nbsp;<span style="color:rgb(232,102,113);">./modules/options.nix</span>&nbsp;<span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">options</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">optionsJSON</span><span style="color:rgb(132,139,152);">;</span><br><br>&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Generate&nbsp;documentation</span><br>&nbsp;&nbsp;docs&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">pkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">runCommandLocal</span>&nbsp;<span style="color:rgb(152,195,121);">"</span><span style="color:rgb(152,195,121);">project-docs</span><span style="color:rgb(152,195,121);">"</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">nativeBuildInputs</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(132,139,152);">[</span>&nbsp;<span style="color:rgb(171,178,191);">pkgs</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">ndg</span>&nbsp;<span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span>&nbsp;<span style="color:rgb(152,195,121);">''</span><span style="color:rgb(152,195,121);"></span><br><span style="color:rgb(152,195,121);">&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:rgb(97,175,239);">mkdir</span><span style="color:rgb(152,195,121);">&nbsp;</span><span style="color:rgb(232,102,113);">-p</span><span style="color:rgb(152,195,121);">&nbsp;</span><span style="color:rgb(232,102,113);">$</span><span style="color:rgb(171,178,191);">out</span><span style="color:rgb(152,195,121);"></span><br><span style="color:rgb(152,195,121);">&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:rgb(97,175,239);">ndg</span><span style="color:rgb(152,195,121);">&nbsp;</span><span style="color:rgb(232,102,113);">html</span><span style="color:rgb(152,195,121);">&nbsp;\</span><br><span style="color:rgb(152,195,121);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:rgb(232,102,113);">--input-dir</span><span style="color:rgb(152,195,121);">&nbsp;</span><span style="color:rgb(232,102,113);">${</span><span style="color:rgb(232,102,113);">./docs</span><span style="color:rgb(232,102,113);">}</span><span style="color:rgb(152,195,121);">&nbsp;\</span><br><span style="color:rgb(152,195,121);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:rgb(232,102,113);">--output-dir</span><span style="color:rgb(152,195,121);">&nbsp;</span><span style="color:rgb(232,102,113);">$</span><span style="color:rgb(171,178,191);">out</span><span style="color:rgb(152,195,121);">&nbsp;\</span><br><span style="color:rgb(152,195,121);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:rgb(232,102,113);">--title</span><span style="color:rgb(152,195,121);">&nbsp;</span><span style="color:rgb(152,195,121);">"My&nbsp;Project&nbsp;Documentation"</span><span style="color:rgb(152,195,121);">&nbsp;\</span><br><span style="color:rgb(152,195,121);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:rgb(232,102,113);">--module-options</span><span style="color:rgb(152,195,121);">&nbsp;</span><span style="color:rgb(232,102,113);">${</span><span style="color:rgb(171,178,191);">optionsJSON</span><span style="color:rgb(232,102,113);">}</span><span style="color:rgb(152,195,121);">/share/doc/nixos/options.json</span><span style="color:rgb(232,102,113);">&nbsp;\</span><br><span style="color:rgb(232,102,113);">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:rgb(232,102,113);">--jobs</span><span style="color:rgb(232,102,113);">&nbsp;</span><span style="color:rgb(232,102,113);">$</span><span style="color:rgb(209,154,102);">NIX_BUILD_CORES</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&nbsp;&nbsp;</span><span style="color:rgb(152,195,121);">''</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(198,120,221);">in</span><br>&nbsp;&nbsp;<span style="color:rgb(171,178,191);">docs</span><br></code></pre>
 <p>This approach correctly handles the generation of options documentation using
 <code>nixosOptionsDoc</code> and properly passes the result to NDG.</p>
-<h2>Pro Tips &amp; Best Practices</h2>
-<h3>Performance Optimization</h3>
+<h2 id="pro-tips--amp--best-practices">Pro Tips &amp; Best Practices</h2>
+<h3 id="performance-optimization">Performance Optimization</h3>
 <ul>
 <li>
 <p><strong>Use multi-threading</strong> for large documentation sets:</p>
@@ -703,7 +707,7 @@ this option.</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Omit&nbsp;flags&nbsp;to&nbsp;disable&nbsp;features&nbsp;(disabled&nbsp;by&nbsp;default&nbsp;if&nbsp;not&nbsp;provided)</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Search&nbsp;and&nbsp;highlighting&nbsp;disabled</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Enable&nbsp;via&nbsp;CLI&nbsp;flags</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--generate-search</span>&nbsp;<span style="color:rgb(232,102,113);">--highlight-code</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Or&nbsp;enable&nbsp;in&nbsp;config&nbsp;file&nbsp;(CLI&nbsp;flags&nbsp;override&nbsp;config)</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;ndg.toml:</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;generate_search&nbsp;=&nbsp;true</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;highlight_code&nbsp;=&nbsp;true</span><br></code></pre>
 </li>
 </ul>
-<h3>Styling Tips</h3>
+<h3 id="styling-tips">Styling Tips</h3>
 <ul>
 <li>
 <p><strong>Use SCSS for complex stylesheets</strong>: ndg automatically compiles SCSS files,
@@ -724,7 +728,7 @@ different templates for different page types:</p>
   options.html    # For the options page
   search.html     # For the search page
 </code></pre>
-<h3>Content Organization</h3>
+<h3 id="content-organization">Content Organization</h3>
 <ul>
 <li>
 <p><strong>Use consistent header levels</strong>: ndg generates the table of contents based on
@@ -741,7 +745,7 @@ logical hierarchy.</p>
 to serve as the landing page.</p>
 </li>
 </ul>
-<h4>Special Files</h4>
+<h4 id="special-files">Special Files</h4>
 <p>NDG treats certain files specially to maintain clear navigation hierarchy and
 ensure proper site structure. These files have behaviors that differ from
 regular documentation pages.</p>
@@ -813,7 +817,7 @@ README.md         (unnumbered, appears second)
 4. Installation
 5. Usage
 </code></pre>
-<h3>GitHub Integration</h3>
+<h3 id="github-integration">GitHub Integration</h3>
 <ul>
 <li>
 <p><strong>Link to source with revision</strong>: Use the <code>--revision</code> option to specify a
@@ -821,7 +825,7 @@ GitHub revision for source links:</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--revision</span>&nbsp;<span style="color:rgb(152,195,121);">"main"</span><br></code></pre>
 </li>
 </ul>
-<h3>Configuration Management</h3>
+<h3 id="configuration-management">Configuration Management</h3>
 <ul>
 <li>
 <p><strong>Create per-project config files</strong>: For projects with complex documentation,
@@ -840,7 +844,7 @@ module_options = "generated/options.json"
 </code></pre>
 </li>
 </ul>
-<h3>Content Enhancement</h3>
+<h3 id="content-enhancement">Content Enhancement</h3>
 <ul>
 <li>
 <p><strong>Use admonitions for important content</strong>:</p>
@@ -858,7 +862,7 @@ This is a critical warning that users should pay attention to!
 <pre class="highlight"><code class="language-markdown"><span style="color:rgb(209,154,102);font-weight: bold;">##&nbsp;Installation&nbsp;{#my-epic-installation}</span><br><br>Refer&nbsp;to&nbsp;the&nbsp;<span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">installation&nbsp;instructions</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(97,175,239);">(</span><span style="color:rgb(86,182,194);text-decoration: underline;">#my-epic-installation</span><span style="color:rgb(97,175,239);">)</span>&nbsp;above.<br></code></pre>
 </li>
 </ul>
-<h2>Building from Source</h2>
+<h2 id="building-from-source">Building from Source</h2>
 <p>NDG is a tool written in Rust, and a Nix package is available for easily
 building and consuming it.</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Build&nbsp;from&nbsp;cloned&nbsp;directory</span><br><span style="color:rgb(97,175,239);">nix</span>&nbsp;<span style="color:rgb(232,102,113);">build</span>&nbsp;<span style="color:rgb(232,102,113);">.#ndg</span>&nbsp;<span style="color:rgb(232,102,113);">-Lv</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Install&nbsp;on&nbsp;your&nbsp;system&nbsp;profile,&nbsp;only&nbsp;viable&nbsp;on&nbsp;non-NixOS</span><br><span style="color:rgb(97,175,239);">nix</span>&nbsp;<span style="color:rgb(232,102,113);">profile</span>&nbsp;<span style="color:rgb(232,102,113);">add</span>&nbsp;<span style="color:rgb(232,102,113);">github:feel-co/ndg</span><br></code></pre>
@@ -866,7 +870,7 @@ building and consuming it.</p>
 integration and you may use <code>cargo build</code> inside a dev shell, e.g., by using
 <code>nix develop</code>.</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Result&nbsp;will&nbsp;be&nbsp;available&nbsp;in&nbsp;target/debug</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">cargo</span>&nbsp;<span style="color:rgb(232,102,113);">build</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;You&nbsp;may&nbsp;also&nbsp;build&nbsp;and&nbsp;test&nbsp;the&nbsp;documentation</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">cargo</span>&nbsp;<span style="color:rgb(232,102,113);">doc</span>&nbsp;<span style="color:rgb(232,102,113);">--workspace</span>&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;target/doc</span><br></code></pre>
-<h2>License</h2>
+<h2 id="license">License</h2>
 <!-- markdownlint-disable MD059 -->
 <p>This project is made available under Mozilla Public License (MPL) version 2.0.
 See <a href="LICENSE">LICENSE</a> for more details on the exact conditions. An online copy
@@ -887,6 +891,38 @@ Please open an issue if this is the case for you. <a href="#fnref-1" class="foot
 </section>
 </body></html></main>
       </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            <ul><li><a href="#what-is-it">What is it?</a>
+<ul><li><a href="#features">Features</a>
+</ul><li><a href="#usage">Usage</a>
+<ul><li><a href="#quickstart">Quickstart</a>
+<li><a href="#generating-your-first-documents">Generating Your First Documents</a>
+</ul><li><a href="#detailed-usage">Detailed Usage</a>
+<ul><li><a href="#cli-flags-and-configuration-options">CLI Flags and Configuration Options</a>
+<li><a href="#generating-html-documents">Generating HTML Documents</a>
+<li><a href="#generating-manpages">Generating Manpages</a>
+</ul><li><a href="#customization">Customization</a>
+<ul><li><a href="#sidebar-customization">Sidebar Customization</a>
+<li><a href="#template-customization-made-easy">Template Customization Made Easy</a>
+</ul><li><a href="#using---integrating-with-nix">Using &amp; Integrating with Nix</a>
+<ul><li><a href="#using-ndg-with-nix">Using NDG with Nix</a>
+</ul><li><a href="#pro-tips---best-practices">Pro Tips &amp; Best Practices</a>
+<ul><li><a href="#performance-optimization">Performance Optimization</a>
+<li><a href="#styling-tips">Styling Tips</a>
+<li><a href="#content-organization">Content Organization</a>
+<li><a href="#github-integration">GitHub Integration</a>
+<li><a href="#configuration-management">Configuration Management</a>
+<li><a href="#content-enhancement">Content Enhancement</a>
+</ul><li><a href="#my-epic-installation">## Installation</a>
+<li><a href="#license">License</a>
+</li></ul></li>
+          </ul>
+        </nav>
+      </aside>
 
       <footer>
   <p>Generated with NDG</p>

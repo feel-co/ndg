@@ -64,23 +64,26 @@
           </svg>
         </div>
         <nav class="sidebar">
-          <div class="docs-nav">
-            <h2>Documents</h2>
-            <ul>
-              <li><a href="index.html">1. Introduction</a></li>
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                <li><a href="index.html">1. Introduction</a></li>
 <li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
 <li><a href="search.html">Search</a></li>
 
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
 
-          <div class="toc">
-            <h2>Contents</h2>
-            <ul class="toc-list">
-              <li><a href="#search">Search</a>
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                <li><a href="#search">Search</a>
 <ul><li><a href="#configuration">Configuration</a>
 <li><a href="#options">Options</a>
 <li><a href="#search-behavior">Search Behavior</a>
@@ -90,15 +93,16 @@
 </ul><li><a href="#performance-considerations">Performance Considerations</a>
 <ul><li><a href="#index-size">Index Size</a>
 </li></ul></li></ul></li>
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
         </nav>
 
-        <main class="content"><html><head></head><body><h1>Search</h1>
+        <main class="content"><html><head></head><body><h1 id="search">Search</h1>
 <p>NDG includes a built-in search system that indexes your documentation pages and
 their headings, enabling quick navigation through your content. Search is
 optional and can be configured to control indexing depth and behavior.</p>
-<h2>Configuration</h2>
+<h2 id="configuration">Configuration</h2>
 <p>Search behavior is configured through the <code>[search]</code> section in your <code>ndg.toml</code>
 file or via CLI flags.</p>
 <pre><code class="language-toml">[search]
@@ -107,7 +111,7 @@ max_heading_level = 3
 </code></pre>
 <p>Or using CLI overrides:</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.enable=true</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.max_heading_level=4</span><br></code></pre>
-<h2>Options</h2>
+<h2 id="options">Options</h2>
 <!-- markdownlint-disable MD013 -->
 <table>
 <thead>
@@ -134,8 +138,8 @@ max_heading_level = 3
 </tbody>
 </table>
 <!-- markdownlinenablee MD013 -->
-<h2>Search Behavior</h2>
-<h3>Hierarchical Results</h3>
+<h2 id="search-behavior">Search Behavior</h2>
+<h3 id="hierarchical-results">Hierarchical Results</h3>
 <p>Search results are displayed hierarchically with pages as parent items and
 matching headings as nested children beneath them:</p>
 <pre><code class="language-plaintext">Getting Started                    (page result)
@@ -148,7 +152,7 @@ Configuration                      (page result)
 </code></pre>
 <p>This structure helps you navigate directly to relevant sections within pages
 rather than just finding pages.</p>
-<h3>Scoring Algorithm</h3>
+<h3 id="scoring-algorithm">Scoring Algorithm</h3>
 <p>Search uses a two-pass scoring system:</p>
 <ol>
 <li><strong>Page scoring</strong> - Pages are scored based on title and content matches</li>
@@ -157,7 +161,7 @@ heading text</li>
 </ol>
 <p>Only headings from pages with sufficient relevance to the search query are
 shown, preventing irrelevant section matches from cluttering results.</p>
-<h3>Tokenization</h3>
+<h3 id="tokenization">Tokenization</h3>
 <p>Search queries and content are tokenized (split into words) for matching:</p>
 <ul>
 <li>Case-insensitive matching</li>
@@ -172,8 +176,8 @@ shown, preventing irrelevant section matches from cluttering results.</p>
 <li>"<code>config.toml</code> file format"</li>
 <li>"Loading configuration from files"</li>
 </ul>
-<h2>Performance Considerations</h2>
-<h3>Index Size</h3>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<h3 id="index-size">Index Size</h3>
 <p>Search index size increases with:</p>
 <ul>
 <li>Number of documentation pages</li>
@@ -182,6 +186,24 @@ shown, preventing irrelevant section matches from cluttering results.</p>
 </ul>
 </body></html></main>
       </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            <li><a href="#search">Search</a>
+<ul><li><a href="#configuration">Configuration</a>
+<li><a href="#options">Options</a>
+<li><a href="#search-behavior">Search Behavior</a>
+<ul><li><a href="#hierarchical-results">Hierarchical Results</a>
+<li><a href="#scoring-algorithm">Scoring Algorithm</a>
+<li><a href="#tokenization">Tokenization</a>
+</ul><li><a href="#performance-considerations">Performance Considerations</a>
+<ul><li><a href="#index-size">Index Size</a>
+</li></ul></li></ul></li>
+          </ul>
+        </nav>
+      </aside>
 
       <footer>
   <p>Generated with NDG</p>

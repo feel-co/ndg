@@ -64,23 +64,26 @@
           </svg>
         </div>
         <nav class="sidebar">
-          <div class="docs-nav">
-            <h2>Documents</h2>
-            <ul>
-              <li><a href="index.html">1. Introduction</a></li>
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                <li><a href="index.html">1. Introduction</a></li>
 <li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
 <li><a href="search.html">Search</a></li>
 
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
 
-          <div class="toc">
-            <h2>Contents</h2>
-            <ul class="toc-list">
-              <li><a href="#postprocessing">Postprocessing</a>
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                <li><a href="#postprocessing">Postprocessing</a>
 <ul><li><a href="#configuration">Configuration</a>
 <li><a href="#options">Options</a>
 <ul><li><a href="#top-level-options">Top-Level Options</a>
@@ -94,15 +97,16 @@
 <li><a href="#error-handling">Error Handling</a>
 </ul><li><a href="#extensibility">Extensibility</a>
 </li></ul></li>
-            </ul>
-          </div>
+              </ul>
+            </div>
+          </details>
         </nav>
 
-        <main class="content"><html><head></head><body><h1>Postprocessing</h1>
+        <main class="content"><html><head></head><body><h1 id="postprocessing">Postprocessing</h1>
 <p>NDG supports postprocessing of generated HTML, CSS, and JavaScript files to
 optimize output size and performance. Postprocessing is optional and disabled by
 default, however, testing and bug reports are welcome :)</p>
-<h2>Configuration</h2>
+<h2 id="configuration">Configuration</h2>
 <p>Postprocessing behaviour of NDG is configured either through the <code>[postprocess]</code>
 section in <code>ndg.toml</code>, or via CLI flags. To configure it in your <code>ndg.toml</code>:</p>
 <pre><code class="language-toml">[postprocess]
@@ -115,8 +119,8 @@ remove_comments = true
 </code></pre>
 <p>Or, alternatively, by using CLI overrides:</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Equivalent&nbsp;of&nbsp;setting&nbsp;`minify_html&nbsp;=&nbsp;true`&nbsp;under&nbsp;`[postprocess]`</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;as&nbsp;seen&nbsp;in&nbsp;the&nbsp;configuration&nbsp;example&nbsp;above.</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">postprocess.minify_html=true</span><br></code></pre>
-<h2>Options</h2>
-<h3>Top-Level Options</h3>
+<h2 id="options">Options</h2>
+<h3 id="top-level-options">Top-Level Options</h3>
 <table>
 <thead>
 <tr>
@@ -147,7 +151,7 @@ remove_comments = true
 </tr>
 </tbody>
 </table>
-<h3>HTML Options</h3>
+<h3 id="html-options">HTML Options</h3>
 <table>
 <thead>
 <tr>
@@ -166,7 +170,7 @@ remove_comments = true
 </tr>
 </tbody>
 </table>
-<h2>Minification</h2>
+<h2 id="minification">Minification</h2>
 <p>NDG supports minification of HTML, CSS and Javascript files for smaller
 production documents at the cost of a tiny increase in generation time. In most
 cases the cost is negligible, and the decrease of the document size is well
@@ -177,7 +181,7 @@ low-risk, high-reward feature that will likely yield faster page loads. You
 will, however, want to disable minification if you are developing locally and
 need readable source files. Additionally, you may wish to avoid minification if
 you are aiming for the absolutely fastest document generation.</p>
-<h3>HTML Minification</h3>
+<h3 id="html-minification">HTML Minification</h3>
 <p>Uses <code>minify-html</code> for fast, spec-compliant HTML minification. While enabled,
 NDG:</p>
 <ul>
@@ -201,7 +205,7 @@ remove_comments = false  # keep HTML comments
 <!-- deno-fmt-ignore -->
 <pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;!</span><span style="color:rgb(209,154,102);">doctype&nbsp;html</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">html</span>&nbsp;<span style="color:rgb(229,192,123);">lang</span><span style="color:rgb(171,178,191);">=</span>en<span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">meta</span>&nbsp;<span style="color:rgb(229,192,123);">charset</span><span style="color:rgb(171,178,191);">=</span>UTF-8<span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">Sample&nbsp;Page</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">title</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(92,99,112);font-style: italic;">&lt;!--&nbsp;This&nbsp;is&nbsp;a&nbsp;comment&nbsp;--&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">div</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span>container<span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(209,154,102);font-weight: bold;">Hello&nbsp;World</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(198,120,221);">&gt;</span>This&nbsp;is&nbsp;a&nbsp;paragraph&nbsp;with&nbsp;lots&nbsp;of&nbsp;whitespace.<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">div</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(92,99,112);font-style: italic;">&lt;!--&nbsp;Another&nbsp;comment&nbsp;--&gt;</span><br></code></pre>
 
-<h3>CSS Minification</h3>
+<h3 id="css-minification">CSS Minification</h3>
 <p>We use the <code>lightningcss</code> crate pulled by the <code>minify-html</code> crate for
 production-grade CSS minification with parsing and optimization. This primarily
 affects large stylesheets, such as the ones provided by the default NDG
@@ -222,7 +226,7 @@ minify_css = true
 <p>You will receive the following output:</p>
 <!-- deno-fmt-ignore -->
 <pre class="highlight"><code class="language-css"><span style="color:rgb(198,120,221);">body</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">margin</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">padding</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">font-family</span><span style="color:rgb(132,139,152);">:</span>Arial<span style="color:rgb(132,139,152);">,</span>sans-serif<span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(229,192,123);">container</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">max-width</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">1200</span><span style="color:rgb(152,195,121);">px</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">margin</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">0</span>&nbsp;auto<span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">padding</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">20</span><span style="color:rgb(152,195,121);">px</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(198,120,221);">h1</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">color</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(132,139,152);">#</span><span style="color:rgb(152,195,121);">333</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">font-size</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">2</span><span style="color:rgb(152,195,121);">em</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(198,120,221);">p</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(86,182,194);">color</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(132,139,152);">#</span><span style="color:rgb(152,195,121);">666</span><span style="color:rgb(132,139,152);">;</span><span style="color:rgb(86,182,194);">line-height</span><span style="color:rgb(132,139,152);">:</span><span style="color:rgb(209,154,102);">1.6</span><span style="color:rgb(132,139,152);">}</span><br></code></pre>
-<h3>JavaScript Minification</h3>
+<h3 id="javascript-minification">JavaScript Minification</h3>
 <p>We rely on the relatively new, but battle-tested <code>oxc_minifier</code> crate for
 production-grade JavaScript minification with comprehensive optimizations and
 dead code elimination. Besides speed, it boasts 100% correctness. While enabled,
@@ -243,7 +247,7 @@ minify_js = true
 <p>You will receive the following output:</p>
 <!-- deno-fmt-ignore -->
 <pre class="highlight"><code class="language-javascript"><span style="color:rgb(198,120,221);">function</span>&nbsp;<span style="color:rgb(97,175,239);">greet</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(232,102,113);">name</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(198,120,221);">return</span>&nbsp;<span style="color:rgb(232,102,113);">console</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">log</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">`Hello,&nbsp;`</span><span style="color:rgb(171,178,191);">+</span><span style="color:rgb(232,102,113);">name</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span><span style="color:rgb(171,178,191);">!</span><span style="color:rgb(209,154,102);">0</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(97,175,239);">greet</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">`World`</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
-<h3>Complete Example</h3>
+<h3 id="complete-example">Complete Example</h3>
 <pre><code class="language-toml"># ndg.toml
 input_dir = "docs"
 output_dir = "build"
@@ -256,7 +260,7 @@ minify_js = true
 [postprocess.html]
 remove_comments = true
 </code></pre>
-<h3>Performance Impact</h3>
+<h3 id="performance-impact">Performance Impact</h3>
 <p>Postprocessing adds overhead to the build process but reduces output size:</p>
 <table>
 <thead>
@@ -286,7 +290,7 @@ remove_comments = true
 </table>
 <p>For most documentation sites, the build time impact is negligible (&lt; 1 second
 for typical projects).</p>
-<h3>Error Handling</h3>
+<h3 id="error-handling">Error Handling</h3>
 <p>If minification fails (e.g., invalid CSS or JavaScript syntax), NDG will report
 the error and stop the build. This helps catch syntax errors early:</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">Error:</span>&nbsp;<span style="color:rgb(232,102,113);">Failed</span>&nbsp;<span style="color:rgb(232,102,113);">to</span>&nbsp;<span style="color:rgb(232,102,113);">parse</span>&nbsp;<span style="color:rgb(232,102,113);">CSS:</span>&nbsp;<span style="color:rgb(232,102,113);">Unexpected</span>&nbsp;<span style="color:rgb(232,102,113);">token</span>&nbsp;<span style="color:rgb(232,102,113);">at</span>&nbsp;<span style="color:rgb(232,102,113);">line</span>&nbsp;<span style="color:rgb(209,154,102);">5</span><br></code></pre>
@@ -296,7 +300,7 @@ the error and stop the build. This helps catch syntax errors early:</p>
 <li>Fix the syntax error</li>
 <li>Re-enable minification</li>
 </ol>
-<h2>Extensibility</h2>
+<h2 id="extensibility">Extensibility</h2>
 <p>The postprocessing pipeline is quite new, but it is designed to be very
 extensible. Each file type has detailed processor function with its own
 configuration options. This design is obviously not for fun, as future
@@ -305,6 +309,28 @@ find postprocessing to be a little hacky, and it is only a last resort after
 actual feature implementations.</p>
 </body></html><!-- markdownlint-enable MD014 --></main>
       </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            <li><a href="#postprocessing">Postprocessing</a>
+<ul><li><a href="#configuration">Configuration</a>
+<li><a href="#options">Options</a>
+<ul><li><a href="#top-level-options">Top-Level Options</a>
+<li><a href="#html-options">HTML Options</a>
+</ul><li><a href="#minification">Minification</a>
+<ul><li><a href="#html-minification">HTML Minification</a>
+<li><a href="#css-minification">CSS Minification</a>
+<li><a href="#javascript-minification">JavaScript Minification</a>
+<li><a href="#complete-example">Complete Example</a>
+<li><a href="#performance-impact">Performance Impact</a>
+<li><a href="#error-handling">Error Handling</a>
+</ul><li><a href="#extensibility">Extensibility</a>
+</li></ul></li>
+          </ul>
+        </nav>
+      </aside>
 
       <footer>
   <p>Generated with NDG</p>
