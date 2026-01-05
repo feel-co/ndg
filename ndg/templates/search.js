@@ -162,7 +162,160 @@ class SearchEngine {
     });
   }
 
-  // Tokenize text into searchable terms
+  isWordBoundary(char) {
+    return /[A-Z]/.test(char) || /[-_\/.]/.test(char) || /\s/.test(char);
+  }
+
+  isCaseTransition(prev, curr) {
+    return (
+      prev.toLowerCase() !== prev &&
+      curr.toLowerCase() !== curr &&
+      prev.toLowerCase() !== curr.toLowerCase()
+    );
+  }
+
+  fuzzyMatch(query, target) {
+    const lowerQuery = query.toLowerCase();
+    const lowerTarget = target.toLowerCase();
+
+    if (lowerQuery.length === 0) return null;
+    if (lowerTarget.length === 0) return null;
+
+    if (lowerTarget === lowerQuery) {
+      return 1.0;
+    }
+
+    if (lowerTarget.includes(lowerQuery)) {
+      const ratio = lowerQuery.length / lowerTarget.length;
+      return 0.8 + ratio * 0.2;
+    }
+
+    const matches = this.findBestSubsequenceMatch(lowerQuery, lowerTarget);
+    if (!matches) {
+      return null;
+    }
+
+    return Math.min(1.0, matches.score);
+  }
+
+  findBestSubsequenceMatch(query, target) {
+    const n = query.length;
+    const m = target.length;
+
+    if (n === 0 || m === 0) return null;
+
+    const positions = [];
+
+    const memo = new Map();
+    const key = (qIdx, tIdx) => `${qIdx}:${tIdx}`;
+
+    const findBest = (qIdx, tIdx, currentGap) => {
+      if (qIdx === n) {
+        return { done: true, positions: [...positions], gap: currentGap };
+      }
+
+      const memoKey = key(qIdx, tIdx);
+      if (memo.has(memoKey)) {
+        return memo.get(memoKey);
+      }
+
+      let bestResult = null;
+
+      for (let i = tIdx; i < m; i++) {
+        if (target[i] === query[qIdx]) {
+          positions.push(i);
+          const gap = qIdx === 0 ? 0 : i - positions[positions.length - 2] - 1;
+          const newGap = currentGap + gap;
+
+          if (newGap > m) {
+            positions.pop();
+            continue;
+          }
+
+          const result = findBest(qIdx + 1, i + 1, newGap);
+          positions.pop();
+
+          if (result && (!bestResult || result.gap < bestResult.gap)) {
+            bestResult = result;
+            if (result.gap === 0) break;
+          }
+        }
+      }
+
+      memo.set(memoKey, bestResult);
+      return bestResult;
+    };
+
+    const result = findBest(0, 0, 0);
+    if (!result) return null;
+
+    const consecutive = (() => {
+      let c = 1;
+      for (let i = 1; i < result.positions.length; i++) {
+        if (result.positions[i] === result.positions[i - 1] + 1) {
+          c++;
+        }
+      }
+      return c;
+    })();
+
+    return {
+      positions: result.positions,
+      consecutive,
+      score: this.calculateMatchScore(
+        query,
+        target,
+        result.positions,
+        consecutive,
+      ),
+    };
+  }
+
+  calculateMatchScore(query, target, positions, consecutive) {
+    const n = positions.length;
+    const m = target.length;
+
+    if (n === 0) return 0;
+
+    let score = 1.0;
+
+    const startBonus = (m - positions[0]) / m;
+    score += startBonus * 0.5;
+
+    let gapPenalty = 0;
+    for (let i = 1; i < n; i++) {
+      const gap = positions[i] - positions[i - 1] - 1;
+      if (gap > 0) {
+        gapPenalty += Math.min(gap / m, 1.0) * 0.3;
+      }
+    }
+    score -= gapPenalty;
+
+    const consecutiveBonus = consecutive / n;
+    score += consecutiveBonus * 0.3;
+
+    let boundaryBonus = 0;
+    for (let i = 0; i < n; i++) {
+      const char = target[positions[i]];
+      if (i === 0 || this.isWordBoundary(char)) {
+        boundaryBonus += 0.05;
+      }
+      if (i > 0) {
+        const prevChar = target[positions[i - 1]];
+        if (this.isCaseTransition(prevChar, char)) {
+          boundaryBonus += 0.03;
+        }
+      }
+    }
+    score = Math.min(1.0, score + boundaryBonus);
+
+    const lengthPenalty =
+      Math.abs(query.length - n) / Math.max(query.length, m);
+    score -= lengthPenalty * 0.2;
+
+    return Math.max(0, Math.min(1.0, score));
+  }
+
   tokenize(text) {
     const tokens = new Set();
     const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
@@ -177,12 +330,20 @@ class SearchEngine {
   }
 
   // Advanced search with ranking
-  async search(query, limit = 10) {
+  async search(query, limit = 10, options = {}) {
     if (!query.trim()) return [];
+
+    if (options.signal?.aborted) {
+      return [];
+    }
 
     // Wait for data to be loaded
     if (!this.isLoaded) {
       await this.loadData();
+    }
+
+    if (options.signal?.aborted) {
+      return [];
     }
 
     if (!this.isLoaded || this.documents.length === 0) {
@@ -191,60 +352,74 @@ class SearchEngine {
     }
 
     const searchTerms = this.tokenize(query);
-    if (searchTerms.length === 0) return [];
+    const rawQuery = query.toLowerCase();
 
-    // Fallback to basic search if token map is empty
-    if (this.tokenMap.size === 0) {
-      return this.fallbackSearch(query, limit);
-    }
+    if (searchTerms.length === 0 && rawQuery.length < 3) return [];
 
-    // Use Web Worker for large datasets to avoid blocking UI
-    if (this.useWebWorker && this.documents.length > 1000) {
-      return await this.searchWithWorker(query, limit);
-    }
+    const useFuzzySearch = rawQuery.length >= 3;
 
-    // For very large datasets, we implement lazy loading with candidate docIds
-    // XXX: this is slightly similar to how NVF used to do it, but had to be
-    // revised to be more generic. Need to consider splitting this off.
-    if (this.documents.length > 10000) {
-      const candidateDocIds = new Set();
+    const pageMatches = new Map();
+    const totalDocs = this.documents.length;
+    let lastCheckTime = Date.now();
+    const CHECK_INTERVAL = 16; // Check every ~16ms (one frame)
+
+    for (let docIdx = 0; docIdx < totalDocs; docIdx++) {
+      // Check for abort periodically
+      if (Date.now() - lastCheckTime > CHECK_INTERVAL) {
+        if (options.signal?.aborted) {
+          return [];
+        }
+        // Yield to main thread
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        lastCheckTime = Date.now();
+
+        if (options.signal?.aborted) {
+          return [];
+        }
+      }
+
+      const doc = this.documents[docIdx];
+      let match = pageMatches.get(docIdx);
+      if (!match) {
+        match = { doc, pageScore: 0, matchingAnchors: [] };
+        pageMatches.set(docIdx, match);
+      }
+
+      const lowerTitle = (
+        typeof doc.title === "string" ? doc.title : ""
+      ).toLowerCase();
+      const lowerContent = (
+        typeof doc.content === "string" ? doc.content : ""
+      ).toLowerCase();
+
+      if (useFuzzySearch) {
+        const fuzzyTitleScore = this.fuzzyMatch(rawQuery, lowerTitle);
+
+        if (fuzzyTitleScore !== null) {
+          match.pageScore += fuzzyTitleScore * 100;
+        }
+
+        const fuzzyContentScore = this.fuzzyMatch(rawQuery, lowerContent);
+
+        if (fuzzyContentScore !== null) {
+          match.pageScore += fuzzyContentScore * 30;
+        }
+      }
+
       searchTerms.forEach((term) => {
-        const docIds = this.tokenMap.get(term) || [];
-        docIds.forEach((id) => candidateDocIds.add(id));
-      });
-      const docIds = Array.from(candidateDocIds);
-      return await this.lazyLoadDocuments(docIds, limit);
-    }
-
-    // Track page-level matches with their anchors
-    const pageMatches = new Map(); // docId -> { doc, pageScore, matchingAnchors }
-
-    // First pass: Score pages by title and content
-    searchTerms.forEach((term) => {
-      const docIds = this.tokenMap.get(term) || [];
-      docIds.forEach((docId) => {
-        const doc = this.documents[docId];
-        if (!doc) return;
-
-        let match = pageMatches.get(docId);
-        if (!match) {
-          match = { doc, pageScore: 0, matchingAnchors: [] };
-          pageMatches.set(docId, match);
+        if (lowerTitle.includes(term)) {
+          match.pageScore += lowerTitle === term ? 20 : 10;
         }
-
-        // Score page title
-        if (doc.title.toLowerCase().includes(term)) {
-          match.pageScore += doc.title.toLowerCase() === term ? 20 : 10;
-        }
-
-        // Score page content
-        if (doc.content.toLowerCase().includes(term)) {
+        if (lowerContent.includes(term)) {
           match.pageScore += 2;
         }
       });
-    });
+    }
 
-    // Second pass: Find matching anchors within pages
+    if (options.signal?.aborted) {
+      return [];
+    }
+
     pageMatches.forEach((match) => {
       const doc = match.doc;
       if (!doc.anchors || doc.anchors.length === 0) return;
@@ -253,11 +428,20 @@ class SearchEngine {
         const anchorText = anchor.text.toLowerCase();
         let anchorMatches = false;
 
-        searchTerms.forEach((term) => {
-          if (anchorText.includes(term)) {
+        if (useFuzzySearch) {
+          const fuzzyScore = this.fuzzyMatch(rawQuery, anchorText);
+          if (fuzzyScore !== null && fuzzyScore >= 0.4) {
             anchorMatches = true;
           }
-        });
+        }
+
+        if (!anchorMatches) {
+          searchTerms.forEach((term) => {
+            if (anchorText.includes(term)) {
+              anchorMatches = true;
+            }
+          });
+        }
 
         if (anchorMatches) {
           match.matchingAnchors.push(anchor);
@@ -265,8 +449,8 @@ class SearchEngine {
       });
     });
 
-    // Sort by page score and return top results
     const results = Array.from(pageMatches.values())
+      .filter((m) => m.pageScore > 5)
       .sort((a, b) => b.pageScore - a.pageScore)
       .slice(0, limit);
 
@@ -354,7 +538,7 @@ class SearchEngine {
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error("Web Worker search timeout"));
-      }, 5000); // 5 second timeout
+      }, 5000);
 
       const handleMessage = (e) => {
         if (e.data.messageId !== messageId) return;
@@ -383,11 +567,20 @@ class SearchEngine {
       worker.addEventListener("message", handleMessage);
       worker.addEventListener("error", handleError);
 
-      worker.postMessage({
-        messageId,
-        type: "search",
-        data: { documents: this.documents, query, limit },
-      });
+      const docsString = JSON.stringify(this.documents);
+      const encoder = new TextEncoder();
+      const uint8Array = encoder.encode(docsString);
+
+      worker.postMessage(
+        {
+          messageId,
+          type: "search",
+          data: { query, limit },
+          documents: docsString,
+          transferables: [uint8Array.buffer],
+        },
+        [uint8Array.buffer],
+      );
     });
   }
 
@@ -418,13 +611,10 @@ class SearchEngine {
   async parseJSONChunked(response) {
     const contentLength = response.headers.get("content-length");
 
-    // For small files, use regular JSON parsing
     if (!contentLength || parseInt(contentLength) < 1024 * 1024) {
-      // < 1MB
       return await response.json();
     }
 
-    // For large files, use streaming approach
     console.log(
       `Large search file detected (${contentLength} bytes), using streaming parser`,
     );
@@ -432,6 +622,17 @@ class SearchEngine {
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+    let arrayDepth = 0;
+    let currentArray = null;
+    let currentKey = null;
+    let currentValue = "";
+    let expectKey = true;
+    let result = [];
+    let currentObject = null;
+    let lastNonWhitespace = "";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -439,14 +640,121 @@ class SearchEngine {
 
       buffer += decoder.decode(value, { stream: true });
 
-      // Process in chunks to avoid blocking main thread
-      if (buffer.length > 100 * 1024) {
-        // 100KB chunks
-        await new Promise((resolve) => setTimeout(resolve, 0));
+      let i = 0;
+      while (i < buffer.length) {
+        const char = buffer[i];
+
+        if (escapeNext) {
+          escapeNext = false;
+          i++;
+          continue;
+        }
+
+        if (char === "\\" && inString) {
+          escapeNext = true;
+          i++;
+          continue;
+        }
+
+        if (char === '"') {
+          inString = !inString;
+          if (!inString && depth > 0 && expectKey && currentValue) {
+            currentKey = currentValue;
+            expectKey = false;
+          } else if (!inString && !expectKey) {
+            currentValue = currentValue
+              .replace(/\\"/g, '"')
+              .replace(/\\\\/g, "\\");
+            if (currentKey === "title") {
+              currentObject = { ...currentObject, title: currentValue };
+            } else if (currentKey === "content") {
+              currentObject = { ...currentObject, content: currentValue };
+            } else if (currentKey === "path") {
+              currentObject = { ...currentObject, path: currentValue };
+            } else if (currentKey === "id") {
+              currentObject = { ...currentObject, id: currentValue };
+            } else if (currentKey === "anchors") {
+              currentObject = {
+                ...currentObject,
+                anchors: JSON.parse(currentValue),
+              };
+            }
+            currentKey = null;
+            currentValue = "";
+          }
+          i++;
+          continue;
+        }
+
+        if (inString) {
+          currentValue += char;
+          i++;
+          continue;
+        }
+
+        if (char === "{" || char === "[") {
+          depth++;
+          if (char === "[" && arrayDepth === 0) {
+            arrayDepth = depth;
+          }
+          if (char === "{" && depth >= 1) {
+            currentObject = {};
+          }
+          i++;
+          continue;
+        }
+
+        if (char === "}" || char === "]") {
+          if (depth === arrayDepth) {
+            if (currentObject) {
+              result.push(currentObject);
+              currentObject = null;
+            }
+            arrayDepth = 0;
+          }
+          depth--;
+          expectKey = depth === 1;
+          i++;
+          continue;
+        }
+
+        if (char === ":") {
+          expectKey = false;
+          i++;
+          continue;
+        }
+
+        if (char === ",") {
+          if (depth === 1) {
+            if (currentObject) {
+              result.push(currentObject);
+              currentObject = null;
+            }
+            expectKey = true;
+          }
+          i++;
+          continue;
+        }
+
+        if (!/\s/.test(char)) {
+          currentValue += char;
+        }
+
+        if (currentValue.length > 100000 || buffer.length > 500000) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
+        i++;
       }
+
+      buffer = buffer.slice(i);
     }
 
-    return JSON.parse(buffer);
+    if (currentObject) {
+      result.push(currentObject);
+    }
+
+    return result;
   }
 
   // Lazy loading for search results
@@ -514,6 +822,14 @@ class SearchEngine {
 // Create Web Worker if supported - initialized lazily to use rootPath
 let searchWorker = null;
 
+function debounce(func, wait) {
+  let timeout = null;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
 function initializeSearchWorker() {
   if (searchWorker !== null || typeof Worker === "undefined") {
     return searchWorker;
@@ -539,6 +855,9 @@ window.searchNamespace.engine = new SearchEngine();
 
 // Mobile search timeout for debouncing
 let mobileSearchTimeout = null;
+let desktopSearchTimeout = null;
+let searchPageTimeout = null;
+let searchPageController = null;
 
 document.addEventListener("DOMContentLoaded", function () {
   // Initialize search engine immediately
@@ -554,10 +873,24 @@ document.addEventListener("DOMContentLoaded", function () {
   // Search page specific functionality
   const searchPageInput = document.getElementById("search-page-input");
   if (searchPageInput) {
-    // Set up event listener
-    searchPageInput.addEventListener("input", function () {
-      performSearch(this.value);
-    });
+    // Set up event listener with debouncing
+    searchPageInput.addEventListener(
+      "input",
+      debounce(function () {
+        const query = this.value.trim();
+        if (query.length >= 2) {
+          performSearch(query);
+        } else {
+          const resultsContainer = document.getElementById(
+            "search-page-results",
+          );
+          if (resultsContainer) {
+            resultsContainer.innerHTML =
+              "<p>Please enter at least 3 characters to search</p>";
+          }
+        }
+      }, 200),
+    );
 
     // Perform search if URL has query
     const params = new URLSearchParams(window.location.search);
@@ -574,86 +907,90 @@ document.addEventListener("DOMContentLoaded", function () {
     const searchResults = document.getElementById("search-results");
     const searchContainer = searchInput.closest(".search-container");
 
-    searchInput.addEventListener("input", async function () {
-      const searchTerm = this.value.trim();
+    searchInput.addEventListener(
+      "input",
+      debounce(async function () {
+        const searchTerm = this.value.trim();
+        clearTimeout(desktopSearchTimeout);
+        const currentSearchTerm = searchTerm;
 
-      if (searchTerm.length < 2) {
-        searchResults.innerHTML = "";
-        searchResults.style.display = "none";
-        if (searchContainer) searchContainer.classList.remove("has-results");
-        return;
-      }
+        if (searchTerm.length < 2) {
+          searchResults.innerHTML = "";
+          searchResults.style.display = "none";
+          if (searchContainer) searchContainer.classList.remove("has-results");
+          return;
+        }
 
-      // Show loading state
-      searchResults.innerHTML =
-        '<div class="search-result-item">Loading...</div>';
-      searchResults.style.display = "block";
-      if (searchContainer) searchContainer.classList.add("has-results");
+        searchResults.innerHTML =
+          '<div class="search-result-item">Loading...</div>';
+        searchResults.style.display = "block";
+        if (searchContainer) searchContainer.classList.add("has-results");
 
-      try {
-        const results = await window.searchNamespace.engine.search(
-          searchTerm,
-          8,
-        );
+        try {
+          const results = await window.searchNamespace.engine.search(
+            searchTerm,
+            8,
+          );
 
-        if (results.length > 0) {
-          searchResults.innerHTML = results
-            .map((result) => {
-              const { doc, matchingAnchors } = result;
-              const queryTerms =
-                window.searchNamespace.engine.tokenize(searchTerm);
-              const highlightedTitle =
-                window.searchNamespace.engine.highlightTerms(
-                  doc.title,
-                  queryTerms,
+          if (currentSearchTerm !== searchTerm) return;
+
+          if (results.length > 0) {
+            searchResults.innerHTML = results
+              .map((result) => {
+                const { doc, matchingAnchors } = result;
+                const queryTerms =
+                  window.searchNamespace.engine.tokenize(searchTerm);
+                const highlightedTitle =
+                  window.searchNamespace.engine.highlightTerms(
+                    doc.title,
+                    queryTerms,
+                  );
+                const resolvedPath = window.searchNamespace.engine.resolvePath(
+                  doc.path,
                 );
-              const resolvedPath = window.searchNamespace.engine.resolvePath(
-                doc.path,
-              );
 
-              // Build page result
-              let html = `
+                let html = `
                 <div class="search-result-item search-result-page">
                   <a href="${resolvedPath}">${highlightedTitle}</a>
                 </div>
               `;
 
-              // Add anchor results if any
-              if (matchingAnchors && matchingAnchors.length > 0) {
-                matchingAnchors.forEach((anchor) => {
-                  const highlightedAnchor =
-                    window.searchNamespace.engine.highlightTerms(
-                      anchor.text,
-                      queryTerms,
-                    );
-                  const anchorPath = `${resolvedPath}#${anchor.id}`;
-                  html += `
+                if (matchingAnchors && matchingAnchors.length > 0) {
+                  matchingAnchors.forEach((anchor) => {
+                    const highlightedAnchor =
+                      window.searchNamespace.engine.highlightTerms(
+                        anchor.text,
+                        queryTerms,
+                      );
+                    const anchorPath = `${resolvedPath}#${anchor.id}`;
+                    html += `
                     <div class="search-result-item search-result-anchor">
                       <a href="${anchorPath}">${highlightedAnchor}</a>
                     </div>
                   `;
-                });
-              }
+                  });
+                }
 
-              return html;
-            })
-            .join("");
-          searchResults.style.display = "block";
-          if (searchContainer) searchContainer.classList.add("has-results");
-        } else {
+                return html;
+              })
+              .join("");
+            searchResults.style.display = "block";
+            if (searchContainer) searchContainer.classList.add("has-results");
+          } else {
+            searchResults.innerHTML =
+              '<div class="search-result-item">No results found</div>';
+            searchResults.style.display = "block";
+            if (searchContainer) searchContainer.classList.add("has-results");
+          }
+        } catch (error) {
+          console.error("Search error:", error);
           searchResults.innerHTML =
-            '<div class="search-result-item">No results found</div>';
+            '<div class="search-result-item">Search unavailable</div>';
           searchResults.style.display = "block";
           if (searchContainer) searchContainer.classList.add("has-results");
         }
-      } catch (error) {
-        console.error("Search error:", error);
-        searchResults.innerHTML =
-          '<div class="search-result-item">Search unavailable</div>';
-        searchResults.style.display = "block";
-        if (searchContainer) searchContainer.classList.add("has-results");
-      }
-    });
+      }, 150),
+    );
 
     // Hide results when clicking outside
     document.addEventListener("click", function (event) {
@@ -682,6 +1019,62 @@ document.addEventListener("DOMContentLoaded", function () {
         searchResults.style.display = "none";
         if (searchContainer) searchContainer.classList.remove("has-results");
         searchInput.blur();
+      }
+    });
+
+    setupDocumentEventHandlers(searchInput, searchResults, searchContainer);
+  }
+
+  function setupDocumentEventHandlers(
+    searchInput,
+    searchResults,
+    searchContainer,
+  ) {
+    document.addEventListener("click", function (event) {
+      const isMobileSearchActive =
+        mobileSearchPopup && mobileSearchPopup.classList.contains("active");
+      const isDesktopResultsVisible = searchResults.style.display === "block";
+
+      if (
+        isMobileSearchActive &&
+        !mobileSearchPopup.contains(event.target) &&
+        !searchInput.contains(event.target)
+      ) {
+        closeMobileSearch();
+      }
+
+      if (
+        isDesktopResultsVisible &&
+        !searchInput.contains(event.target) &&
+        !searchResults.contains(event.target)
+      ) {
+        searchResults.style.display = "none";
+        if (searchContainer) searchContainer.classList.remove("has-results");
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "/" && document.activeElement !== searchInput) {
+        event.preventDefault();
+        searchInput.focus();
+      }
+
+      if (
+        event.key === "Escape" &&
+        (document.activeElement === searchInput ||
+          searchResults.style.display === "block")
+      ) {
+        searchResults.style.display = "none";
+        if (searchContainer) searchContainer.classList.remove("has-results");
+        searchInput.blur();
+      }
+
+      if (
+        event.key === "Escape" &&
+        mobileSearchPopup &&
+        mobileSearchPopup.classList.contains("active")
+      ) {
+        closeMobileSearch();
       }
     });
   }
@@ -746,29 +1139,6 @@ document.addEventListener("DOMContentLoaded", function () {
   if (closeMobileSearchBtn) {
     closeMobileSearchBtn.addEventListener("click", closeMobileSearch);
   }
-
-  // Close mobile search when clicking outside
-  document.addEventListener("click", function (event) {
-    if (
-      mobileSearchPopup &&
-      mobileSearchPopup.classList.contains("active") &&
-      !mobileSearchPopup.contains(event.target) &&
-      !searchInput.contains(event.target)
-    ) {
-      closeMobileSearch();
-    }
-  });
-
-  // Close mobile search on escape key
-  document.addEventListener("keydown", function (event) {
-    if (
-      event.key === "Escape" &&
-      mobileSearchPopup &&
-      mobileSearchPopup.classList.contains("active")
-    ) {
-      closeMobileSearch();
-    }
-  });
 
   // Mobile search input
   if (mobileSearchInput && mobileSearchResults) {
@@ -879,15 +1249,28 @@ async function performSearch(query) {
 
   if (query.length < 2) {
     resultsContainer.innerHTML =
-      "<p>Please enter at least 2 characters to search</p>";
+      "<p>Please enter at least 3 characters to search</p>";
     return;
   }
+
+  // Cancel any pending search
+  if (searchPageController) {
+    searchPageController.abort();
+  }
+  searchPageController = new AbortController();
 
   // Show loading state
   resultsContainer.innerHTML = "<p>Searching...</p>";
 
   try {
-    const results = await window.searchNamespace.engine.search(query, 50);
+    const results = await window.searchNamespace.engine.search(query, 50, {
+      signal: searchPageController.signal,
+    });
+
+    // Check if aborted before rendering
+    if (searchPageController.signal.aborted) {
+      return;
+    }
 
     // Display results
     if (results.length > 0) {
@@ -944,6 +1327,9 @@ async function performSearch(query) {
     url.searchParams.set("q", query);
     window.history.replaceState({}, "", url.toString());
   } catch (error) {
+    if (error.name === "AbortError") {
+      return;
+    }
     console.error("Search error:", error);
     resultsContainer.innerHTML = "<p>Search temporarily unavailable</p>";
   }
