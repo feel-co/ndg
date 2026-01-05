@@ -162,6 +162,98 @@ class SearchEngine {
     });
   }
 
+  // Fuzzy match function.
+  // Returns score and match indices
+  fuzzyMatch(query, target) {
+    const lowerQuery = query.toLowerCase();
+    const lowerTarget = target.toLowerCase();
+
+    let queryIdx = 0;
+    let targetIdx = 0;
+    let score = 0;
+    const matches = [];
+
+    while (queryIdx < lowerQuery.length && targetIdx < lowerTarget.length) {
+      if (lowerQuery[queryIdx] === lowerTarget[targetIdx]) {
+        matches.push(targetIdx);
+        score += 10;
+
+        if (queryIdx > 0 && targetIdx > 0) {
+          const prevMatchIdx = matches[matches.length - 2];
+          const distance = targetIdx - prevMatchIdx - 1;
+
+          if (distance === 1) {
+            score += 15;
+          } else if (distance === 2) {
+            score += 5;
+          } else if (distance === 3) {
+            score += 2;
+          }
+        }
+
+        queryIdx++;
+        targetIdx++;
+      } else {
+        targetIdx++;
+      }
+    }
+
+    if (queryIdx !== lowerQuery.length) {
+      return null;
+    }
+
+    const lengthRatio = lowerQuery.length / lowerTarget.length;
+    score *= lengthRatio;
+
+    if (lowerTarget === lowerQuery) {
+      score += 100;
+    } else if (lowerTarget.startsWith(lowerQuery)) {
+      score += 50;
+    } else if (lowerTarget.includes(lowerQuery)) {
+      score += 30;
+    }
+
+    const maxScore = lowerQuery.length * 15 + 100;
+    const normalizedScore = score / maxScore;
+
+    return normalizedScore >= 0.3 ? normalizedScore : null;
+  }
+
+  // Levenshtein distance for typo tolerance
+  // XXX: This is probably not the best option to do this but it is pretty
+  // much the only way I know how to do this. Obviously I've researched how
+  // to do fuzzy searching and the above implementation *is* that, but this
+  // can be kept as a fallback.
+  levenshteinDistance(str1, str2) {
+    const m = str1.length;
+    const n = str2.length;
+
+    if (m === 0) return n;
+    if (n === 0) return m;
+    if (Math.abs(m - n) > 3) return 999;
+
+    const dp = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1];
+        } else {
+          dp[i][j] =
+            1 +
+            Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
+      }
+    }
+
+    return dp[m][n];
+  }
+
   // Tokenize text into searchable terms
   tokenize(text) {
     const tokens = new Set();
@@ -191,60 +283,71 @@ class SearchEngine {
     }
 
     const searchTerms = this.tokenize(query);
-    if (searchTerms.length === 0) return [];
+    const rawQuery = query.toLowerCase();
 
-    // Fallback to basic search if token map is empty
-    if (this.tokenMap.size === 0) {
-      return this.fallbackSearch(query, limit);
-    }
+    if (searchTerms.length === 0 && rawQuery.length < 2) return [];
 
-    // Use Web Worker for large datasets to avoid blocking UI
-    if (this.useWebWorker && this.documents.length > 1000) {
-      return await this.searchWithWorker(query, limit);
-    }
+    const useFuzzySearch = rawQuery.length >= 3;
 
-    // For very large datasets, we implement lazy loading with candidate docIds
-    // XXX: this is slightly similar to how NVF used to do it, but had to be
-    // revised to be more generic. Need to consider splitting this off.
-    if (this.documents.length > 10000) {
-      const candidateDocIds = new Set();
+    const pageMatches = new Map();
+
+    this.documents.forEach((doc, docId) => {
+      let match = pageMatches.get(docId);
+      if (!match) {
+        match = { doc, pageScore: 0, matchingAnchors: [] };
+        pageMatches.set(docId, match);
+      }
+
+      const lowerTitle = doc.title.toLowerCase();
+      const lowerContent = doc.content.toLowerCase();
+
+      if (useFuzzySearch) {
+        const fuzzyTitleScore = this.fuzzyMatch(rawQuery, lowerTitle);
+        const fuzzyContentScore = this.fuzzyMatch(rawQuery, lowerContent);
+
+        if (fuzzyTitleScore !== null) {
+          match.pageScore += fuzzyTitleScore * 100;
+        } else {
+          const editDist = this.levenshteinDistance(
+            rawQuery,
+            lowerTitle,
+          );
+          if (
+            editDist <= Math.max(1, Math.floor(rawQuery.length * 0.3)) &&
+            editDist < rawQuery.length
+          ) {
+            const typoScore = (1 - editDist / rawQuery.length) * 50;
+            match.pageScore += typoScore;
+          }
+        }
+
+        if (fuzzyContentScore !== null) {
+          match.pageScore += fuzzyContentScore * 30;
+        } else {
+          const editDist = this.levenshteinDistance(
+            rawQuery,
+            lowerContent,
+          );
+          if (
+            editDist <= Math.max(1, Math.floor(rawQuery.length * 0.3)) &&
+            editDist < rawQuery.length
+          ) {
+            const typoScore = (1 - editDist / rawQuery.length) * 15;
+            match.pageScore += typoScore;
+          }
+        }
+      }
+
       searchTerms.forEach((term) => {
-        const docIds = this.tokenMap.get(term) || [];
-        docIds.forEach((id) => candidateDocIds.add(id));
-      });
-      const docIds = Array.from(candidateDocIds);
-      return await this.lazyLoadDocuments(docIds, limit);
-    }
-
-    // Track page-level matches with their anchors
-    const pageMatches = new Map(); // docId -> { doc, pageScore, matchingAnchors }
-
-    // First pass: Score pages by title and content
-    searchTerms.forEach((term) => {
-      const docIds = this.tokenMap.get(term) || [];
-      docIds.forEach((docId) => {
-        const doc = this.documents[docId];
-        if (!doc) return;
-
-        let match = pageMatches.get(docId);
-        if (!match) {
-          match = { doc, pageScore: 0, matchingAnchors: [] };
-          pageMatches.set(docId, match);
+        if (lowerTitle.includes(term)) {
+          match.pageScore += lowerTitle === term ? 20 : 10;
         }
-
-        // Score page title
-        if (doc.title.toLowerCase().includes(term)) {
-          match.pageScore += doc.title.toLowerCase() === term ? 20 : 10;
-        }
-
-        // Score page content
-        if (doc.content.toLowerCase().includes(term)) {
+        if (lowerContent.includes(term)) {
           match.pageScore += 2;
         }
       });
     });
 
-    // Second pass: Find matching anchors within pages
     pageMatches.forEach((match) => {
       const doc = match.doc;
       if (!doc.anchors || doc.anchors.length === 0) return;
@@ -253,11 +356,20 @@ class SearchEngine {
         const anchorText = anchor.text.toLowerCase();
         let anchorMatches = false;
 
-        searchTerms.forEach((term) => {
-          if (anchorText.includes(term)) {
+        if (useFuzzySearch) {
+          const fuzzyScore = this.fuzzyMatch(rawQuery, anchorText);
+          if (fuzzyScore !== null && fuzzyScore >= 0.4) {
             anchorMatches = true;
           }
-        });
+        }
+
+        if (!anchorMatches) {
+          searchTerms.forEach((term) => {
+            if (anchorText.includes(term)) {
+              anchorMatches = true;
+            }
+          });
+        }
 
         if (anchorMatches) {
           match.matchingAnchors.push(anchor);
@@ -265,8 +377,8 @@ class SearchEngine {
       });
     });
 
-    // Sort by page score and return top results
     const results = Array.from(pageMatches.values())
+      .filter((m) => m.pageScore > 5)
       .sort((a, b) => b.pageScore - a.pageScore)
       .slice(0, limit);
 
@@ -540,7 +652,7 @@ window.searchNamespace.engine = new SearchEngine();
 // Mobile search timeout for debouncing
 let mobileSearchTimeout = null;
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function() {
   // Initialize search engine immediately
   window.searchNamespace.engine
     .loadData()
@@ -555,7 +667,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const searchPageInput = document.getElementById("search-page-input");
   if (searchPageInput) {
     // Set up event listener
-    searchPageInput.addEventListener("input", function () {
+    searchPageInput.addEventListener("input", function() {
       performSearch(this.value);
     });
 
@@ -574,7 +686,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const searchResults = document.getElementById("search-results");
     const searchContainer = searchInput.closest(".search-container");
 
-    searchInput.addEventListener("input", async function () {
+    searchInput.addEventListener("input", async function() {
       const searchTerm = this.value.trim();
 
       if (searchTerm.length < 2) {
@@ -656,7 +768,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Hide results when clicking outside
-    document.addEventListener("click", function (event) {
+    document.addEventListener("click", function(event) {
       if (
         !searchInput.contains(event.target) &&
         !searchResults.contains(event.target)
@@ -667,7 +779,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Focus search when pressing slash key
-    document.addEventListener("keydown", function (event) {
+    document.addEventListener("keydown", function(event) {
       if (event.key === "/" && document.activeElement !== searchInput) {
         event.preventDefault();
         searchInput.focus();
@@ -694,7 +806,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (searchInput) {
     // Add mobile search behavior
-    searchInput.addEventListener("click", function (e) {
+    searchInput.addEventListener("click", function(e) {
       if (isMobile()) {
         e.preventDefault();
         e.stopPropagation();
@@ -704,7 +816,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Prevent typing on mobile (input should only open popup)
-    searchInput.addEventListener("keydown", function (e) {
+    searchInput.addEventListener("keydown", function(e) {
       if (isMobile()) {
         e.preventDefault();
         openMobileSearch();
@@ -748,7 +860,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Close mobile search when clicking outside
-  document.addEventListener("click", function (event) {
+  document.addEventListener("click", function(event) {
     if (
       mobileSearchPopup &&
       mobileSearchPopup.classList.contains("active") &&
@@ -760,7 +872,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // Close mobile search on escape key
-  document.addEventListener("keydown", function (event) {
+  document.addEventListener("keydown", function(event) {
     if (
       event.key === "Escape" &&
       mobileSearchPopup &&
@@ -861,7 +973,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Handle window resize to update mobile behavior
-  window.addEventListener("resize", function () {
+  window.addEventListener("resize", function() {
     // Close mobile search if window is resized to desktop size
     if (
       !isMobile() &&
