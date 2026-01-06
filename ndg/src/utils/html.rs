@@ -35,19 +35,46 @@ pub fn generate_asset_paths(
   paths
 }
 
-/// Process content through the markdown pipeline and extract plain text
+/// Process content through the markdown pipeline and extract plain text.
+///
+/// Converts markdown to plain text while preserving document structure:
+///
+/// - Headings and paragraphs are separated by newlines
+/// - Multiple consecutive blank lines are collapsed to single blank lines
+/// - Whitespace within lines is normalized to single spaces
+/// - Anchor markers like {#id} are removed
 #[must_use]
 pub fn content_to_plaintext(content: &str) -> String {
-  // For search indexing, we want plain text from markdown, not full HTML with
-  // templates Use the basic strip_markdown function which processes markdown
-  // AST directly
   let plain_text = strip_markdown(content);
 
-  // Clean up whitespace while preserving readability
-  plain_text
-    .split_whitespace()
-    .collect::<Vec<_>>()
-    .join(" ")
-    .trim()
-    .to_string()
+  // Normalize whitespace: collapse multiple blank lines and trim lines
+  let lines: Vec<String> = plain_text
+    .lines()
+    .map(|line| {
+      // Remove anchor markers {#id} and collapse whitespace
+      line
+        .split_whitespace()
+        .filter(|word| !(word.starts_with("{#") && word.ends_with('}')))
+        .collect::<Vec<_>>()
+        .join(" ")
+    })
+    .collect();
+
+  // Remove consecutive empty lines
+  let mut result = Vec::new();
+  let mut prev_empty = false;
+
+  for line in lines {
+    if line.is_empty() {
+      if !prev_empty && !result.is_empty() {
+        result.push(line);
+      }
+      prev_empty = true;
+    } else {
+      result.push(line);
+      prev_empty = false;
+    }
+  }
+
+  result.join("\n").trim().to_string()
 }

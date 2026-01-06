@@ -58,8 +58,7 @@ class SearchEngine {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // Use our "optimized" JSON parser for large files
-      const documents = await this.parseJSONChunked(response);
+      const documents = await response.json();
       if (!Array.isArray(documents)) {
         throw new Error("Invalid search data format");
       }
@@ -167,10 +166,10 @@ class SearchEngine {
   }
 
   isCaseTransition(prev, curr) {
+    const prevIsUpper = prev.toLowerCase() !== prev;
+    const currIsUpper = curr.toLowerCase() !== curr;
     return (
-      prev.toLowerCase() !== prev &&
-      curr.toLowerCase() !== curr &&
-      prev.toLowerCase() !== curr.toLowerCase()
+      prevIsUpper && currIsUpper && prev.toLowerCase() !== curr.toLowerCase()
     );
   }
 
@@ -317,21 +316,18 @@ class SearchEngine {
   }
 
   tokenize(text) {
-    const tokens = new Set();
+    if (!text || typeof text !== "string") return [];
+
     const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
-
-    words.forEach((word) => {
-      if (word.length > 2) {
-        tokens.add(word);
-      }
-    });
-
-    return Array.from(tokens);
+    const tokens = words.filter((word) => word.length > 2);
+    return Array.from(new Set(tokens));
   }
 
   // Advanced search with ranking
   async search(query, limit = 10, options = {}) {
-    if (!query.trim()) return [];
+    if (!query || typeof query !== "string" || !query.trim()) {
+      return [];
+    }
 
     if (options.signal?.aborted) {
       return [];
@@ -354,7 +350,10 @@ class SearchEngine {
     const searchTerms = this.tokenize(query);
     const rawQuery = query.toLowerCase();
 
-    if (searchTerms.length === 0 && rawQuery.length < 3) return [];
+    // Require at least 2 characters for search
+    if (searchTerms.length === 0 && rawQuery.length < 2) {
+      return [];
+    }
 
     const useFuzzySearch = rawQuery.length >= 3;
 
@@ -422,9 +421,20 @@ class SearchEngine {
 
     pageMatches.forEach((match) => {
       const doc = match.doc;
-      if (!doc.anchors || doc.anchors.length === 0) return;
+      if (
+        !doc.anchors ||
+        !Array.isArray(doc.anchors) ||
+        doc.anchors.length === 0
+      ) {
+        return;
+      }
 
+      const anchorSet = new Set();
+
+      // Check for anchor text matches
       doc.anchors.forEach((anchor) => {
+        if (!anchor || !anchor.text) return;
+
         const anchorText = anchor.text.toLowerCase();
         let anchorMatches = false;
 
@@ -444,6 +454,34 @@ class SearchEngine {
         }
 
         if (anchorMatches) {
+          anchorSet.add(anchor.id);
+        }
+      });
+
+      // Check for content matches and find their containing sections
+      if (doc.content && typeof doc.content === "string") {
+        const lowerContent = doc.content.toLowerCase();
+
+        searchTerms.forEach((term) => {
+          let searchPos = 0;
+          let matchIndex;
+
+          while ((matchIndex = lowerContent.indexOf(term, searchPos)) !== -1) {
+            const containingAnchor = this.findContainingSection(
+              doc,
+              matchIndex,
+            );
+            if (containingAnchor && !anchorSet.has(containingAnchor.id)) {
+              anchorSet.add(containingAnchor.id);
+            }
+            searchPos = matchIndex + term.length;
+          }
+        });
+      }
+
+      // Convert set back to anchor objects
+      doc.anchors.forEach((anchor) => {
+        if (anchorSet.has(anchor.id)) {
           match.matchingAnchors.push(anchor);
         }
       });
@@ -458,62 +496,118 @@ class SearchEngine {
   }
 
   // Generate search preview with highlighting
-  generatePreview(content, query, maxLength = 150) {
-    const lowerContent = content.toLowerCase();
-
-    let bestIndex = -1;
-    let bestScore = 0;
-    let bestMatch = "";
-
-    // Find the best match position
-    const queryWords = this.tokenize(query);
-    queryWords.forEach((word) => {
-      const index = lowerContent.indexOf(word);
-      if (index !== -1) {
-        const score = word.length; // longer words get higher priority
-        if (score > bestScore) {
-          bestScore = score;
-          bestIndex = index;
-          bestMatch = word;
-        }
-      }
-    });
-
-    if (bestIndex === -1) {
-      return this.escapeHtml(content.slice(0, maxLength)) + "...";
+  generatePreview(content, query, maxLength = 200) {
+    if (!content || typeof content !== "string") {
+      return "";
     }
 
-    const start = Math.max(0, bestIndex - 50);
-    const end = Math.min(content.length, bestIndex + bestMatch.length + 50);
-    let preview = content.slice(start, end);
+    const lowerContent = content.toLowerCase();
+    const queryWords = this.tokenize(query);
 
-    if (start > 0) preview = "..." + preview;
-    if (end < content.length) preview += "...";
+    // Find the best match position
+    let bestIndex = -1;
+    let bestMatch = "";
 
-    // Escape HTML first, then highlight
-    preview = this.escapeHtml(preview);
-    preview = this.highlightTerms(preview, queryWords);
+    for (const word of queryWords) {
+      const index = lowerContent.indexOf(word);
+      if (index !== -1 && word.length > bestMatch.length) {
+        bestIndex = index;
+        bestMatch = word;
+      }
+    }
 
-    return preview;
+    // If no match found, show beginning
+    if (bestIndex === -1) {
+      const preview = content.slice(0, maxLength).trim();
+      const escaped = this.escapeHtml(preview);
+      return escaped + (content.length > maxLength ? "..." : "");
+    }
+
+    // Find paragraph boundaries around the match
+    const paragraphs = content.split("\n").filter((p) => p.trim());
+    let currentPos = 0;
+    let matchParagraphIndex = -1;
+
+    for (let i = 0; i < paragraphs.length; i++) {
+      const paragraphEnd = currentPos + paragraphs[i].length;
+      if (bestIndex >= currentPos && bestIndex < paragraphEnd) {
+        matchParagraphIndex = i;
+        break;
+      }
+      currentPos = paragraphEnd + 1;
+    }
+
+    if (matchParagraphIndex === -1) {
+      matchParagraphIndex = 0;
+    }
+
+    // If matching paragraph is very short (likely a title/heading),
+    // prefer showing the next paragraph if it also contains the search term
+    if (
+      matchParagraphIndex < paragraphs.length - 1 &&
+      paragraphs[matchParagraphIndex].length < 50
+    ) {
+      const nextParagraph = paragraphs[matchParagraphIndex + 1];
+      if (nextParagraph.toLowerCase().includes(bestMatch)) {
+        matchParagraphIndex++;
+      }
+    }
+
+    // Get the matching paragraph
+    let preview = paragraphs[matchParagraphIndex];
+
+    // If paragraph is too long, extract context around match
+    if (preview.length > maxLength) {
+      const matchInParagraph = preview.toLowerCase().indexOf(bestMatch);
+      if (matchInParagraph !== -1) {
+        const contextBefore = 60;
+        const contextAfter = 100;
+        const start = Math.max(0, matchInParagraph - contextBefore);
+        const end = Math.min(
+          preview.length,
+          matchInParagraph + bestMatch.length + contextAfter,
+        );
+        preview = preview.slice(start, end).trim();
+        if (start > 0) preview = "..." + preview;
+        if (end < paragraphs[matchParagraphIndex].length) preview += "...";
+      } else {
+        preview = preview.slice(0, maxLength) + "...";
+      }
+    }
+
+    return this.escapeHtml(preview);
   }
 
   // Escape HTML to prevent XSS
-  // TODO: either handle this in the Rust side of things
-  // or improve the robustness of the implementation.
   escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
+    if (!text || typeof text !== "string") return "";
+
+    const escapeMap = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#x27;",
+      "/": "&#x2F;",
+    };
+
+    return text.replace(/[&<>"'\/]/g, (char) => escapeMap[char]);
   }
 
   // Highlight search terms in text
   highlightTerms(text, terms) {
-    let highlighted = text;
+    if (!text || typeof text !== "string") return "";
+    if (!Array.isArray(terms) || terms.length === 0)
+      return this.escapeHtml(text);
+
+    // Escape HTML first
+    let highlighted = this.escapeHtml(text);
 
     // Sort terms by length (longer first) to avoid overlapping highlights
     const sortedTerms = [...terms].sort((a, b) => b.length - a.length);
 
     sortedTerms.forEach((term) => {
+      if (!term || typeof term !== "string") return;
       const regex = new RegExp(`(${this.escapeRegex(term)})`, "gi");
       highlighted = highlighted.replace(regex, "<mark>$1</mark>");
     });
@@ -584,6 +678,105 @@ class SearchEngine {
     });
   }
 
+  // Normalize text for comparison
+  normalizeForComparison(text) {
+    if (!text || typeof text !== "string") return "";
+    return text
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[.,!?;:'"…—–-]+$/g, "")
+      .trim();
+  }
+
+  // Find which section/heading a content match belongs to
+  findContainingSection(doc, matchIndex) {
+    if (!doc.content || !doc.anchors || doc.anchors.length === 0) {
+      return null;
+    }
+
+    const paragraphs = doc.content.split("\n").filter((p) => p.trim());
+
+    // Find which paragraph contains the match
+    let currentPos = 0;
+    let matchParagraphIndex = -1;
+
+    for (let i = 0; i < paragraphs.length; i++) {
+      const paragraphEnd = currentPos + paragraphs[i].length;
+      if (matchIndex >= currentPos && matchIndex < paragraphEnd) {
+        matchParagraphIndex = i;
+        break;
+      }
+      currentPos = paragraphEnd + 1;
+    }
+
+    if (matchParagraphIndex === -1) {
+      return null;
+    }
+
+    // Find the last heading that appears before this paragraph
+    let containingAnchor = null;
+
+    for (let i = 0; i <= matchParagraphIndex; i++) {
+      const para = paragraphs[i].trim();
+      const matchingAnchor = doc.anchors.find((a) => {
+        const normalizedAnchor = this.normalizeForComparison(a.text);
+        const normalizedPara = this.normalizeForComparison(para);
+        return normalizedAnchor === normalizedPara;
+      });
+
+      if (matchingAnchor) {
+        containingAnchor = matchingAnchor;
+      }
+    }
+
+    return containingAnchor;
+  }
+
+  // Generate preview for a specific section
+  generateSectionPreview(doc, anchor, query, maxLength = 200) {
+    if (!doc.content || !anchor) {
+      return "";
+    }
+
+    const paragraphs = doc.content.split("\n").filter((p) => p.trim());
+
+    // Find where this section starts and ends
+    let sectionStart = -1;
+    let sectionEnd = paragraphs.length;
+
+    for (let i = 0; i < paragraphs.length; i++) {
+      const para = paragraphs[i].trim();
+      const normalizedPara = this.normalizeForComparison(para);
+      const normalizedAnchor = this.normalizeForComparison(anchor.text);
+
+      if (normalizedPara === normalizedAnchor) {
+        sectionStart = i;
+      } else if (sectionStart !== -1 && doc.anchors) {
+        // Check if this is another heading
+        const isHeading = doc.anchors.some((a) => {
+          const norm = this.normalizeForComparison(a.text);
+          return norm === normalizedPara;
+        });
+
+        if (isHeading) {
+          sectionEnd = i;
+          break;
+        }
+      }
+    }
+
+    if (sectionStart === -1) {
+      return "";
+    }
+
+    // Get content of this section (excluding the heading itself)
+    const sectionParagraphs = paragraphs.slice(sectionStart + 1, sectionEnd);
+    const sectionContent = sectionParagraphs.join("\n");
+
+    // Use existing generatePreview on just this section's content
+    return this.generatePreview(sectionContent, query, maxLength);
+  }
+
   // Escape regex special characters
   escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -605,158 +798,6 @@ class SearchEngine {
     return this.rootPath + path;
   }
 
-  // Slightly optimized JSON parser for large files
-  // This is so that the search widgets can ACTUALLY deal with the search data
-  // which tends to be massive for medium-sized projects.
-  async parseJSONChunked(response) {
-    const contentLength = response.headers.get("content-length");
-
-    if (!contentLength || parseInt(contentLength) < 1024 * 1024) {
-      return await response.json();
-    }
-
-    console.log(
-      `Large search file detected (${contentLength} bytes), using streaming parser`,
-    );
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-    let depth = 0;
-    let inString = false;
-    let escapeNext = false;
-    let arrayDepth = 0;
-    let currentArray = null;
-    let currentKey = null;
-    let currentValue = "";
-    let expectKey = true;
-    let result = [];
-    let currentObject = null;
-    let lastNonWhitespace = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      let i = 0;
-      while (i < buffer.length) {
-        const char = buffer[i];
-
-        if (escapeNext) {
-          escapeNext = false;
-          i++;
-          continue;
-        }
-
-        if (char === "\\" && inString) {
-          escapeNext = true;
-          i++;
-          continue;
-        }
-
-        if (char === '"') {
-          inString = !inString;
-          if (!inString && depth > 0 && expectKey && currentValue) {
-            currentKey = currentValue;
-            expectKey = false;
-          } else if (!inString && !expectKey) {
-            currentValue = currentValue
-              .replace(/\\"/g, '"')
-              .replace(/\\\\/g, "\\");
-            if (currentKey === "title") {
-              currentObject = { ...currentObject, title: currentValue };
-            } else if (currentKey === "content") {
-              currentObject = { ...currentObject, content: currentValue };
-            } else if (currentKey === "path") {
-              currentObject = { ...currentObject, path: currentValue };
-            } else if (currentKey === "id") {
-              currentObject = { ...currentObject, id: currentValue };
-            } else if (currentKey === "anchors") {
-              currentObject = {
-                ...currentObject,
-                anchors: JSON.parse(currentValue),
-              };
-            }
-            currentKey = null;
-            currentValue = "";
-          }
-          i++;
-          continue;
-        }
-
-        if (inString) {
-          currentValue += char;
-          i++;
-          continue;
-        }
-
-        if (char === "{" || char === "[") {
-          depth++;
-          if (char === "[" && arrayDepth === 0) {
-            arrayDepth = depth;
-          }
-          if (char === "{" && depth >= 1) {
-            currentObject = {};
-          }
-          i++;
-          continue;
-        }
-
-        if (char === "}" || char === "]") {
-          if (depth === arrayDepth) {
-            if (currentObject) {
-              result.push(currentObject);
-              currentObject = null;
-            }
-            arrayDepth = 0;
-          }
-          depth--;
-          expectKey = depth === 1;
-          i++;
-          continue;
-        }
-
-        if (char === ":") {
-          expectKey = false;
-          i++;
-          continue;
-        }
-
-        if (char === ",") {
-          if (depth === 1) {
-            if (currentObject) {
-              result.push(currentObject);
-              currentObject = null;
-            }
-            expectKey = true;
-          }
-          i++;
-          continue;
-        }
-
-        if (!/\s/.test(char)) {
-          currentValue += char;
-        }
-
-        if (currentValue.length > 100000 || buffer.length > 500000) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
-
-        i++;
-      }
-
-      buffer = buffer.slice(i);
-    }
-
-    if (currentObject) {
-      result.push(currentObject);
-    }
-
-    return result;
-  }
-
   // Lazy loading for search results
   lazyLoadDocuments(docIds, limit = 10) {
     if (!this.fullDocuments) {
@@ -775,10 +816,17 @@ class SearchEngine {
 
   // Fallback search method via simple string matching
   fallbackSearch(query, limit = 10) {
+    if (!query || typeof query !== "string") return [];
+
     const lowerQuery = query.toLowerCase();
+    if (lowerQuery.length < 2) return [];
 
     const results = this.documents
       .map((doc) => {
+        if (!doc || !doc.title || !doc.content) {
+          return null;
+        }
+
         const titleMatch = doc.title.toLowerCase().indexOf(lowerQuery);
         const contentMatch = doc.content.toLowerCase().indexOf(lowerQuery);
         let pageScore = 0;
@@ -795,8 +843,13 @@ class SearchEngine {
 
         // Find matching anchors
         const matchingAnchors = [];
-        if (doc.anchors && doc.anchors.length > 0) {
+        if (
+          doc.anchors &&
+          Array.isArray(doc.anchors) &&
+          doc.anchors.length > 0
+        ) {
           doc.anchors.forEach((anchor) => {
+            if (!anchor || !anchor.text) return;
             const anchorText = anchor.text.toLowerCase();
             if (anchorText.includes(lowerQuery)) {
               matchingAnchors.push(anchor);
@@ -806,7 +859,7 @@ class SearchEngine {
 
         return { doc, pageScore, matchingAnchors, titleMatch, contentMatch };
       })
-      .filter((item) => item.pageScore > 0)
+      .filter((item) => item !== null && item.pageScore > 0)
       .sort((a, b) => {
         if (a.pageScore !== b.pageScore) return b.pageScore - a.pageScore;
         if (a.titleMatch !== b.titleMatch) return a.titleMatch - b.titleMatch;
@@ -855,9 +908,6 @@ window.searchNamespace.engine = new SearchEngine();
 
 // Mobile search timeout for debouncing
 let mobileSearchTimeout = null;
-let desktopSearchTimeout = null;
-let searchPageTimeout = null;
-let searchPageController = null;
 
 document.addEventListener("DOMContentLoaded", function () {
   // Initialize search engine immediately
@@ -886,7 +936,7 @@ document.addEventListener("DOMContentLoaded", function () {
           );
           if (resultsContainer) {
             resultsContainer.innerHTML =
-              "<p>Please enter at least 3 characters to search</p>";
+              "<p>Please enter at least 2 characters to search</p>";
           }
         }
       }, 200),
@@ -911,7 +961,6 @@ document.addEventListener("DOMContentLoaded", function () {
       "input",
       debounce(async function () {
         const searchTerm = this.value.trim();
-        clearTimeout(desktopSearchTimeout);
         const currentSearchTerm = searchTerm;
 
         if (searchTerm.length < 2) {
@@ -957,6 +1006,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 if (matchingAnchors && matchingAnchors.length > 0) {
                   matchingAnchors.forEach((anchor) => {
+                    // Skip anchors that duplicate the page title
+                    const normalizedAnchor =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        anchor.text,
+                      );
+                    const normalizedTitle =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        doc.title,
+                      );
+                    if (normalizedAnchor === normalizedTitle) {
+                      return;
+                    }
+
                     const highlightedAnchor =
                       window.searchNamespace.engine.highlightTerms(
                         anchor.text,
@@ -1193,15 +1255,38 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Add anchor results if any
                 if (matchingAnchors && matchingAnchors.length > 0) {
                   matchingAnchors.forEach((anchor) => {
+                    // Skip anchors that duplicate the page title
+                    const normalizedAnchor =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        anchor.text,
+                      );
+                    const normalizedTitle =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        doc.title,
+                      );
+                    if (normalizedAnchor === normalizedTitle) {
+                      return;
+                    }
+
                     const highlightedAnchor =
                       window.searchNamespace.engine.highlightTerms(
                         anchor.text,
                         queryTerms,
                       );
+                    const sectionPreview =
+                      window.searchNamespace.engine.generateSectionPreview(
+                        doc,
+                        anchor,
+                        searchTerm,
+                        100,
+                      );
                     const anchorPath = `${resolvedPath}#${anchor.id}`;
                     html += `
                       <div class="search-result-item search-result-anchor">
-                        <a href="${anchorPath}">${highlightedAnchor}</a>
+                        <a href="${anchorPath}">
+                          <div class="search-result-anchor-text">${highlightedAnchor}</div>
+                          <div class="search-result-preview">${sectionPreview}</div>
+                        </a>
                       </div>
                     `;
                   });
@@ -1249,7 +1334,7 @@ async function performSearch(query) {
 
   if (query.length < 2) {
     resultsContainer.innerHTML =
-      "<p>Please enter at least 3 characters to search</p>";
+      "<p>Please enter at least 2 characters to search</p>";
     return;
   }
 
@@ -1302,15 +1387,31 @@ async function performSearch(query) {
         // Anchor results
         if (matchingAnchors && matchingAnchors.length > 0) {
           matchingAnchors.forEach((anchor) => {
+            // Skip anchors that have the same text as the page title to avoid duplication
+            const normalizedAnchor =
+              window.searchNamespace.engine.normalizeForComparison(anchor.text);
+            const normalizedTitle =
+              window.searchNamespace.engine.normalizeForComparison(doc.title);
+            if (normalizedAnchor === normalizedTitle) {
+              return;
+            }
+
             const highlightedAnchor =
               window.searchNamespace.engine.highlightTerms(
                 anchor.text,
                 queryTerms,
               );
+            const sectionPreview =
+              window.searchNamespace.engine.generateSectionPreview(
+                doc,
+                anchor,
+                query,
+              );
             const anchorPath = `${resolvedPath}#${anchor.id}`;
             html += `<li class="search-result-item search-result-anchor">
               <a href="${anchorPath}">
                 <div class="search-result-anchor-text">${highlightedAnchor}</div>
+                <div class="search-result-preview">${sectionPreview}</div>
               </a>
             </li>`;
           });

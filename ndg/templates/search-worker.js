@@ -1,12 +1,11 @@
-const isWordBoundary = (char) => {
-  return /[A-Z]/.test(char) || /[-_\/.]/.test(char) || /\s/.test(char);
-};
+const isWordBoundary = (char) =>
+  /[A-Z]/.test(char) || /[-_\/.]/.test(char) || /\s/.test(char);
 
 const isCaseTransition = (prev, curr) => {
+  const prevIsUpper = prev.toLowerCase() !== prev;
+  const currIsUpper = curr.toLowerCase() !== curr;
   return (
-    prev.toLowerCase() !== prev &&
-    curr.toLowerCase() !== curr &&
-    prev.toLowerCase() !== curr.toLowerCase()
+    prevIsUpper && currIsUpper && prev.toLowerCase() !== curr.toLowerCase()
   );
 };
 
@@ -163,20 +162,23 @@ self.onmessage = function (e) {
 
   try {
     if (type === "tokenize") {
-      const tokens =
-        (typeof data === "string" ? data : "")
-          .toLowerCase()
-          .match(/\b[a-zA-Z0-9_-]+\b/g) || [].filter((word) => word.length > 2);
-
+      const text = typeof data === "string" ? data : "";
+      const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
+      const tokens = words.filter((word) => word.length > 2);
       const uniqueTokens = Array.from(new Set(tokens));
       respond("tokens", uniqueTokens);
     } else if (type === "search") {
-      let { query, limit } = data;
+      const { query, limit = 10 } = data;
+
+      if (!query || typeof query !== "string") {
+        respond("results", []);
+        return;
+      }
+
       const rawQuery = query.toLowerCase();
-      const searchTerms =
-        (typeof query === "string" ? query : "")
-          .toLowerCase()
-          .match(/\b[a-zA-Z0-9_-]+\b/g) || [].filter((word) => word.length > 2);
+      const text = typeof query === "string" ? query : "";
+      const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
+      const searchTerms = words.filter((word) => word.length > 2);
 
       let documents = [];
       if (typeof data.documents === "string") {
@@ -202,18 +204,17 @@ self.onmessage = function (e) {
       const pageMatches = new Map();
 
       // Pre-compute lower-case strings for each document
-      const processedDocs = documents.map((doc, docId) => ({
-        docId,
-        doc,
-        lowerTitle: (typeof doc.title === "string"
-          ? doc.title
-          : ""
-        ).toLowerCase(),
-        lowerContent: (typeof doc.content === "string"
-          ? doc.content
-          : ""
-        ).toLowerCase(),
-      }));
+      const processedDocs = documents.map((doc, docId) => {
+        const title = typeof doc.title === "string" ? doc.title : "";
+        const content = typeof doc.content === "string" ? doc.content : "";
+
+        return {
+          docId,
+          doc,
+          lowerTitle: title.toLowerCase(),
+          lowerContent: content.toLowerCase(),
+        };
+      });
 
       // First pass: Score pages with fuzzy matching
       processedDocs.forEach(({ docId, doc, lowerTitle, lowerContent }) => {
@@ -225,13 +226,11 @@ self.onmessage = function (e) {
 
         if (useFuzzySearch) {
           const fuzzyTitleScore = fuzzyMatch(rawQuery, lowerTitle);
-
           if (fuzzyTitleScore !== null) {
             match.pageScore += fuzzyTitleScore * 100;
           }
 
           const fuzzyContentScore = fuzzyMatch(rawQuery, lowerContent);
-
           if (fuzzyContentScore !== null) {
             match.pageScore += fuzzyContentScore * 30;
           }
@@ -251,9 +250,17 @@ self.onmessage = function (e) {
       // Second pass: Find matching anchors
       pageMatches.forEach((match) => {
         const doc = match.doc;
-        if (!doc.anchors || doc.anchors.length === 0) return;
+        if (
+          !doc.anchors ||
+          !Array.isArray(doc.anchors) ||
+          doc.anchors.length === 0
+        ) {
+          return;
+        }
 
         doc.anchors.forEach((anchor) => {
+          if (!anchor || !anchor.text) return;
+
           const anchorText = anchor.text.toLowerCase();
           let anchorMatches = false;
 
