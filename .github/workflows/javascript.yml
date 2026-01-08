@@ -46,4 +46,4 @@ jobs:
       # just lint all Javascript files no matter the path.
       - name: Lint JavaScript files
         run: |
-          deno lint --config=.github/deno.json **/*.js
+          deno lint **/*.js

@@ -22,6 +22,8 @@
 !/.gitignore
 !/.github
 !/.editorconfig
+!/deno.json
+!/deno.lock
 
 # Nix
 !/nix/
