@@ -1,13 +1,8 @@
 use std::{fmt::Write, path::PathBuf};
 
-use color_eyre::eyre::Result;
-use log::info;
+use ndg_config::Config;
 
-use crate::{
-  config::Config,
-  formatter::options,
-  utils::markdown::extract_page_title,
-};
+use crate::markdown::extract_page_title;
 
 /// Creates a fallback index page listing available documents.
 ///
@@ -68,29 +63,4 @@ pub fn create_fallback_index(
   }
 
   content
-}
-
-/// Process the options page for a given JSON file if configured, and generate
-/// options documentation for the processed Nix module options.
-///
-/// # Arguments
-///
-/// * `config` - The loaded configuration for documentation generation.
-///
-/// # Returns
-///
-/// Returns `Ok(true)` if options were processed, `Ok(false)` otherwise.
-///
-/// # Errors
-///
-/// Returns an error if processing fails.
-pub fn process_module_options(config: &Config) -> Result<bool> {
-  if let Some(options_path) = &config.module_options {
-    info!("Processing options.json from {}", options_path.display());
-    options::process_options(config, options_path)?;
-    Ok(true)
-  } else {
-    info!("Module options were not set, skipping options processing");
-    Ok(false)
-  }
 }

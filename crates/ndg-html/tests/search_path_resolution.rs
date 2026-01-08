@@ -4,16 +4,14 @@ use std::{
   path::PathBuf,
 };
 
-use ndg::{
-  config::{Config, search::SearchConfig},
-  formatter::options::process_options,
-  html::{
-    search::{SearchDocument, generate_search_index},
-    template::render,
-  },
-  utils::{collect_included_files, create_processor},
-};
 use ndg_commonmark::collect_markdown_files;
+use ndg_config::{Config, search::SearchConfig};
+use ndg_html::{
+  options::process_options,
+  search::{SearchDocument, generate_search_index},
+  template::render,
+};
+use ndg_utils::{collect_included_files, markdown::create_processor};
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -323,7 +321,7 @@ This describes the Home Manager module installation.
   // Process markdown files to generate HTML.
   // This also populates config.included_files as a side effect.
   let _processed_files =
-    ndg::utils::process_markdown_files(&mut config, processor.as_ref())
+    ndg_utils::process_markdown_files(&mut config, processor.as_ref())
       .expect("Failed to process markdown files");
 
   // Filter out included files - only standalone files should be in search index

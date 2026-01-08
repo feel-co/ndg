@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use ndg::manpage::generate_manpage;
+use ndg_manpage::generate_manpage;
 use serde_json::json;
 use tempfile::tempdir;
 

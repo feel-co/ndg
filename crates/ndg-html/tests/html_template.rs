@@ -1,12 +1,10 @@
 #![allow(clippy::expect_used, reason = "Fine in tests")]
 use std::{collections::HashMap, fs, path::Path};
 
-use ndg::{
-  config::{Config, search::SearchConfig, sidebar::SidebarConfig},
-  formatter::options::NixOption,
-  html::template,
-};
 use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
+use ndg_config::{Config, search::SearchConfig, sidebar::SidebarConfig};
+use ndg_html::template;
+use ndg_manpage::types::NixOption;
 use tempfile::TempDir;
 
 /// Checks for highlighted code HTML
@@ -193,7 +191,7 @@ fn render_options_page_with_multiple_options() {
 #[test]
 fn render_search_page_respects_flag() {
   let mut config = minimal_config();
-  config.search = Some(ndg::config::search::SearchConfig {
+  config.search = Some(ndg_config::search::SearchConfig {
     enable: true,
     ..Default::default()
   });
@@ -281,7 +279,7 @@ fn render_options_page_contains_footer() {
 #[test]
 fn render_search_page_contains_navbar() {
   let mut config = minimal_config();
-  config.search = Some(ndg::config::search::SearchConfig {
+  config.search = Some(ndg_config::search::SearchConfig {
     enable: true,
     ..Default::default()
   });
@@ -298,7 +296,7 @@ fn render_search_page_contains_navbar() {
 #[test]
 fn render_search_page_contains_footer() {
   let mut config = minimal_config();
-  config.search = Some(ndg::config::search::SearchConfig {
+  config.search = Some(ndg_config::search::SearchConfig {
     enable: true,
     ..Default::default()
   });
@@ -450,7 +448,7 @@ fn render_page_falls_back_to_default_template() {
 #[test]
 fn navbar_respects_search_generation_flag() {
   let mut config = minimal_config();
-  config.search = Some(ndg::config::search::SearchConfig {
+  config.search = Some(ndg_config::search::SearchConfig {
     enable: true,
     ..Default::default()
   });
@@ -467,7 +465,7 @@ fn navbar_respects_search_generation_flag() {
   assert!(html.contains("Search") || html.contains("search"));
 
   // Test with search disabled
-  config.search = Some(ndg::config::search::SearchConfig {
+  config.search = Some(ndg_config::search::SearchConfig {
     enable: false,
     ..Default::default()
   });
@@ -538,7 +536,7 @@ fn sidebar_numbering_excludes_special_files() {
   config.sidebar = Some(SidebarConfig {
     numbered:             true,
     number_special_files: false, // Default behavior
-    ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
+    ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
     matches:              vec![],
     options:              None,
   });
@@ -594,7 +592,7 @@ fn sidebar_numbering_special_files_included() {
   config.sidebar = Some(SidebarConfig {
     numbered:             true,
     number_special_files: true, // Enable numbering for special files
-    ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
+    ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
     matches:              vec![],
     options:              None,
   });
@@ -656,7 +654,7 @@ fn sidebar_numbering_disabled_no_numbers() {
   config.sidebar = Some(SidebarConfig {
     numbered:             false, // Numbering disabled
     number_special_files: false,
-    ordering:             ndg::config::sidebar::SidebarOrdering::Alphabetical,
+    ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
     matches:              vec![],
     options:              None,
   });
@@ -731,7 +729,7 @@ This is a standalone page.
     footer_text: "Footer".to_string(),
     input_dir: Some(input_dir.to_path_buf()),
     output_dir: output_dir.clone(),
-    search: Some(ndg::config::search::SearchConfig {
+    search: Some(ndg_config::search::SearchConfig {
       enable: false,
       ..Default::default()
     }),
@@ -739,10 +737,32 @@ This is a standalone page.
   };
 
   // Process markdown files, this should populate config.included_files
-  let processor = ndg::utils::create_processor(&config, None);
-  let _markdown_files =
-    ndg::utils::process_markdown_files(&mut config, Some(&processor))
+  let processor = ndg_utils::markdown::create_processor(&config, None);
+  let processed =
+    ndg_utils::process_markdown_files(&mut config, Some(&processor))
       .expect("Failed to process markdown files");
+
+  // Write HTML files for non-included files
+  for item in &processed {
+    if item.is_included {
+      continue;
+    }
+    let rel_path = Path::new(&item.output_path);
+    let html = template::render(
+      &config,
+      &item.html_content,
+      item.title.as_deref().unwrap_or(&config.title),
+      &item.headers,
+      rel_path,
+    )
+    .expect("Failed to render HTML");
+
+    let output_path = output_dir.join(rel_path);
+    if let Some(parent) = output_path.parent() {
+      fs::create_dir_all(parent).expect("Failed to create parent dir");
+    }
+    fs::write(&output_path, html).expect("Failed to write HTML file");
+  }
 
   // Verify that included_files was populated
   assert!(

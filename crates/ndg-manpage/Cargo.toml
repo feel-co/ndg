@@ -1,0 +1,33 @@
+[package]
+name        = "ndg-manpage"
+description = "Manpage output generation for NDG"
+publish     = false
+
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+keywords.workspace     = true
+license.workspace      = true
+readme.workspace       = true
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ndg-commonmark = { workspace = true }
+ndg-utils      = { path = "../ndg-utils" }
+
+color-eyre.workspace = true
+jiff.workspace       = true
+log.workspace        = true
+rayon.workspace      = true
+regex.workspace      = true
+serde.workspace      = true
+serde_json.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace   = true

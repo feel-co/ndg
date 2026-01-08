@@ -2,15 +2,17 @@ use std::{fs, path::Path};
 
 use color_eyre::eyre::{self, Context, Result};
 use log::debug;
+use ndg_config::Config;
 use walkdir::WalkDir;
 
-use crate::{config::Config, utils::postprocess};
+use crate::postprocess;
 
 /// Template constants for default assets
-const DEFAULT_CSS: &str = include_str!("../../templates/default.css");
-const SEARCH_JS: &str = include_str!("../../templates/search.js");
-const SEARCH_WORKER_JS: &str = include_str!("../../templates/search-worker.js");
-const MAIN_JS: &str = include_str!("../../templates/main.js");
+const DEFAULT_CSS: &str = include_str!("../../../ndg/templates/default.css");
+const SEARCH_JS: &str = include_str!("../../../ndg/templates/search.js");
+const SEARCH_WORKER_JS: &str =
+  include_str!("../../../ndg/templates/search-worker.js");
+const MAIN_JS: &str = include_str!("../../../ndg/templates/main.js");
 
 /// Copies all required assets (CSS, JS, custom assets, scripts) to the output
 /// directory.

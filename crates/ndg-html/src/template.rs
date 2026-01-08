@@ -3,23 +3,26 @@ use std::{collections::HashMap, fmt::Write, fs, path::Path, string::String};
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
 use ndg_commonmark::Header;
+use ndg_config::{Config, sidebar::SidebarOrdering};
+use ndg_manpage::types::NixOption;
+use ndg_utils::html::{calculate_root_relative_path, generate_asset_paths};
 use serde_json::Value;
 use tera::Tera;
 
-use crate::{
-  config::{Config, sidebar::SidebarOrdering},
-  formatter::options::NixOption,
-  utils::html::{calculate_root_relative_path, generate_asset_paths},
-};
-
-// Template constants - these serve as fallbacks
-const DEFAULT_TEMPLATE: &str = include_str!("../../templates/default.html");
-const OPTIONS_TEMPLATE: &str = include_str!("../../templates/options.html");
-const SEARCH_TEMPLATE: &str = include_str!("../../templates/search.html");
+// Templates will be embedded in this crate
+// These paths are now relative to ndg-html crate location
+const DEFAULT_TEMPLATE: &str =
+  include_str!("../../../ndg/templates/default.html");
+const OPTIONS_TEMPLATE: &str =
+  include_str!("../../../ndg/templates/options.html");
+const SEARCH_TEMPLATE: &str =
+  include_str!("../../../ndg/templates/search.html");
 const OPTIONS_TOC_TEMPLATE: &str =
-  include_str!("../../templates/options_toc.html");
-const NAVBAR_TEMPLATE: &str = include_str!("../../templates/navbar.html");
-const FOOTER_TEMPLATE: &str = include_str!("../../templates/footer.html");
+  include_str!("../../../ndg/templates/options_toc.html");
+const NAVBAR_TEMPLATE: &str =
+  include_str!("../../../ndg/templates/navbar.html");
+const FOOTER_TEMPLATE: &str =
+  include_str!("../../../ndg/templates/footer.html");
 
 /// Render a documentation page
 ///
@@ -681,11 +684,11 @@ pub fn render_search(
   };
 
   // Generate asset and navigation paths (search page is at root)
-  let asset_paths = crate::utils::html::generate_asset_paths(root_path);
+  let asset_paths = ndg_utils::html::generate_asset_paths(root_path);
 
   // Calculate root prefix for JavaScript path resolution (search page is at
   // root)
-  let root_prefix = crate::utils::html::calculate_root_relative_path(root_path);
+  let root_prefix = ndg_utils::html::calculate_root_relative_path(root_path);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -967,7 +970,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
 
       // Sort items based on sidebar ordering configuration
       if let Some(sidebar_config) = &config.sidebar {
-        use crate::config::sidebar::SidebarOrdering;
+        use ndg_config::sidebar::SidebarOrdering;
         match sidebar_config.ordering {
           SidebarOrdering::Alphabetical => {
             nav_items.sort_by(|a, b| a.title.cmp(&b.title));
@@ -1146,7 +1149,7 @@ fn generate_custom_scripts(
 ) -> Result<String> {
   let mut custom_scripts = String::new();
   let root_prefix =
-    crate::utils::html::calculate_root_relative_path(current_file_rel_path);
+    ndg_utils::html::calculate_root_relative_path(current_file_rel_path);
 
   // Add any user scripts from script_paths. This is additive, not replacing. To
   // replace default content, the user should specify `--template-dir` or

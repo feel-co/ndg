@@ -1,11 +1,7 @@
-mod options;
-
 use std::{collections::HashMap, sync::LazyLock};
 
 use ndg_commonmark::{process_safe, utils::never_matching_regex};
 use regex::Regex;
-
-pub use crate::manpage::options::generate_manpage;
 
 // These patterns need to be applied sequentially to preserve troff formatting
 // codes

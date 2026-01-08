@@ -7,12 +7,14 @@ use std::{
 
 use color_eyre::eyre::{Context, Result};
 use log::info;
+use ndg_config::Config;
+use ndg_utils::{create_processor, html, postprocess};
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{config::Config, html, utils};
+use crate::template;
 
 /// Represents a searchable anchor/heading within a document
 #[derive(Debug, Serialize, Deserialize)]
@@ -122,7 +124,7 @@ pub fn generate_search_index(
   // Get max heading level for anchor indexing and create a markdown processor
   // for extracting headers.
   let max_heading_level = config.search_max_heading_level();
-  let base_processor = utils::create_processor(config, None);
+  let base_processor = create_processor(config, None);
 
   // Process standalone markdown files in parallel
   if !markdown_files.is_empty()
@@ -150,7 +152,7 @@ pub fn generate_search_index(
             )
           });
 
-        let plain_text = utils::html::content_to_plaintext(&content);
+        let plain_text = html::content_to_plaintext(&content);
 
         let rel_path =
           file_path.strip_prefix(input_dir).wrap_err_with(|| {
@@ -222,8 +224,7 @@ pub fn generate_search_index(
   {
     for (key, option_value) in options_obj {
       let raw_description = option_value["description"].as_str().unwrap_or("");
-      let plain_description =
-        utils::html::content_to_plaintext(raw_description);
+      let plain_description = html::content_to_plaintext(raw_description);
 
       let title = format!("Option: {}", html_escape::encode_text(key));
       let tokens = tokenize(&plain_description);
@@ -291,11 +292,11 @@ pub fn create_search_page(config: &Config) -> Result<()> {
   let mut context = HashMap::new();
   context.insert("title", format!("{} - Search", config.title));
 
-  let html = html::template::render_search(config, &context)?;
+  let html = template::render_search(config, &context)?;
 
   // Apply postprocessing if configured
   let processed_html = if let Some(ref postprocess) = config.postprocess {
-    utils::postprocess::process_html(&html, postprocess)?
+    postprocess::process_html(&html, postprocess)?
   } else {
     html
   };

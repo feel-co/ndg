@@ -1,11 +1,10 @@
 use color_eyre::{Result, eyre::eyre};
+use ndg_config::postprocess::PostprocessConfig;
 use oxc_allocator::Allocator;
 use oxc_codegen::{Codegen, CodegenOptions};
 use oxc_minifier::{CompressOptions, MangleOptions, Minifier, MinifierOptions};
 use oxc_parser::Parser;
 use oxc_span::SourceType;
-
-use crate::config::postprocess::PostprocessConfig;
 
 /// Apply HTML minification if enabled
 ///
@@ -208,7 +207,7 @@ mod tests {
   fn test_html_remove_comments_option() {
     let config = PostprocessConfig {
       minify_html: true,
-      html: Some(crate::config::postprocess::HtmlMinifyOptions {
+      html: Some(ndg_config::postprocess::HtmlMinifyOptions {
         remove_comments: false,
       }),
       ..Default::default()
@@ -262,7 +261,7 @@ body {
     let css = "body {\n  color: red;\n}";
     let config_minify = PostprocessConfig {
       minify_css: true,
-      css: Some(crate::config::postprocess::CssMinifyOptions {
+      css: Some(ndg_config::postprocess::CssMinifyOptions {
         minify:       true,
         project_root: None,
       }),
@@ -275,7 +274,7 @@ body {
 
     let config_no_minify = PostprocessConfig {
       minify_css: true,
-      css: Some(crate::config::postprocess::CssMinifyOptions {
+      css: Some(ndg_config::postprocess::CssMinifyOptions {
         minify:       false,
         project_root: None,
       }),
@@ -343,7 +342,7 @@ window.addEventListener('load', function() {
     let js = "const unused = 1; const x = 5 + 10; console.log(x);";
     let config_compress = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: true,
         mangle:   false,
       }),
@@ -356,7 +355,7 @@ window.addEventListener('load', function() {
 
     let config_no_compress = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: false,
         mangle:   false,
       }),
@@ -373,7 +372,7 @@ window.addEventListener('load', function() {
     let js = "function test() { const localVar = 1; return localVar + 1; }";
     let config = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: false,
         mangle:   true,
       }),
@@ -422,7 +421,7 @@ window.addEventListener('load', function() {
   fn test_js_commonjs_syntax() {
     let config = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: false,
         mangle:   false,
       }),
@@ -446,7 +445,7 @@ module.exports = { processFile };
   fn test_js_es_module_syntax() {
     let config = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: false,
         mangle:   false,
       }),
@@ -470,7 +469,7 @@ export default { processFile };
   fn test_js_browser_apis() {
     let config = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: false,
         mangle:   false,
       }),
@@ -491,7 +490,7 @@ document.addEventListener('click', function(e) {
   fn test_js_modern_syntax() {
     let config = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: false,
         mangle:   false,
       }),
@@ -514,7 +513,7 @@ async function getData() {
   fn test_js_template_literals() {
     let config = PostprocessConfig {
       minify_js: true,
-      js: Some(crate::config::postprocess::JsMinifyOptions {
+      js: Some(ndg_config::postprocess::JsMinifyOptions {
         compress: false,
         mangle:   false,
       }),

@@ -31,10 +31,12 @@
 //! NDG is primarily designed as a CLI utility, and its documentation is located
 //! in the [Github repository]. Please refer to the project README for more
 //! information about the project, installing NDG, and CLI usage.
+
 pub mod cli;
-pub mod config;
 pub mod error;
-pub mod formatter;
-pub mod html;
-pub mod manpage;
-pub mod utils;
+
+// Re-export internal crates for backward compatibility
+pub use ndg_config as config;
+pub use ndg_html as html;
+pub use ndg_manpage as manpage;
+pub use ndg_utils as utils;

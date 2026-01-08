@@ -1,10 +1,11 @@
 #![allow(clippy::expect_used, reason = "Fine in tests")]
 use std::{fs, path::PathBuf};
 
-use ndg::{
-  config::{Config, search::SearchConfig},
-  formatter::options::process_options,
-  html::{search::generate_search_index, template::render},
+use ndg_config::{Config, search::SearchConfig};
+use ndg_html::{
+  options::process_options,
+  search::generate_search_index,
+  template::render,
 };
 use serde_json::json;
 use tempfile::TempDir;

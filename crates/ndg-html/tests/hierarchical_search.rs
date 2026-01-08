@@ -7,11 +7,9 @@
 
 use std::fs;
 
-use ndg::{
-  config::{Config, search::SearchConfig},
-  html::search::generate_search_index,
-};
 use ndg_commonmark::collect_markdown_files;
+use ndg_config::{Config, search::SearchConfig};
+use ndg_html::search::generate_search_index;
 use serde_json::Value;
 use tempfile::TempDir;
 

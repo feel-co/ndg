@@ -1530,27 +1530,22 @@ dependencies = [
 
 [[package]]
 name = "ndg"
-version = "2.5.1"
+version = "2.6.0"
 dependencies = [
  "clap",
  "color-eyre",
  "comrak",
  "criterion",
  "env_logger",
- "fs_extra",
- "grass",
  "html-escape",
  "jiff",
- "lightningcss",
  "log",
- "minify-html",
  "ndg-commonmark",
+ "ndg-config",
+ "ndg-html",
+ "ndg-manpage",
+ "ndg-utils",
  "num_cpus",
- "oxc_allocator 0.104.0",
- "oxc_codegen 0.104.0",
- "oxc_minifier 0.104.0",
- "oxc_parser 0.104.0",
- "oxc_span 0.104.0",
  "rayon",
  "regex",
  "serde",
@@ -1559,12 +1554,11 @@ dependencies = [
  "tera",
  "thiserror",
  "toml 0.9.10+spec-1.1.0",
- "walkdir",
 ]
 
 [[package]]
 name = "ndg-commonmark"
-version = "2.5.1"
+version = "2.6.0"
 dependencies = [
  "comrak",
  "html-escape",
@@ -1583,6 +1577,81 @@ dependencies = [
  "tendril",
  "thiserror",
  "two-face",
+ "walkdir",
+]
+
+[[package]]
+name = "ndg-config"
+version = "2.6.0"
+dependencies = [
+ "log",
+ "ndg-commonmark",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "toml 0.9.10+spec-1.1.0",
+]
+
+[[package]]
+name = "ndg-html"
+version = "2.6.0"
+dependencies = [
+ "color-eyre",
+ "grass",
+ "html-escape",
+ "log",
+ "ndg-commonmark",
+ "ndg-config",
+ "ndg-manpage",
+ "ndg-utils",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tera",
+ "walkdir",
+]
+
+[[package]]
+name = "ndg-manpage"
+version = "2.6.0"
+dependencies = [
+ "color-eyre",
+ "jiff",
+ "log",
+ "ndg-commonmark",
+ "ndg-utils",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "ndg-utils"
+version = "2.6.0"
+dependencies = [
+ "color-eyre",
+ "fs_extra",
+ "grass",
+ "html-escape",
+ "lightningcss",
+ "log",
+ "minify-html",
+ "ndg-commonmark",
+ "ndg-config",
+ "oxc_allocator 0.104.0",
+ "oxc_codegen 0.104.0",
+ "oxc_minifier 0.104.0",
+ "oxc_parser 0.104.0",
+ "oxc_span 0.104.0",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
  "walkdir",
 ]
 
@@ -4547,7 +4616,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "2.5.1"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "clap",

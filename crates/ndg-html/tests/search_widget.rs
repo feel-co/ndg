@@ -1,11 +1,8 @@
 #![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use std::fs;
 
-use ndg::{
-  config::{Config, search::SearchConfig},
-  formatter::options::process_options,
-  html::search::generate_search_index,
-};
+use ndg_config::{Config, search::SearchConfig};
+use ndg_html::{options::process_options, search::generate_search_index};
 use serde_json::json;
 use tempfile::TempDir;
 

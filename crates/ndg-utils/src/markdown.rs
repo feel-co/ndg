@@ -13,11 +13,17 @@ use ndg_commonmark::{
   collect_markdown_files,
   processor::types::TabStyle,
 };
+use ndg_config::Config;
 
-use crate::{config::Config, html::template, utils::postprocess};
-
-/// Output entry for processed markdown files.
-type OutputEntry = (String, Vec<Header>, Option<String>, PathBuf, bool);
+/// Output entry for processed markdown files
+pub struct ProcessedMarkdown {
+  pub html_content: String,
+  pub headers:      Vec<Header>,
+  pub title:        Option<String>,
+  pub source_path:  PathBuf,
+  pub output_path:  String,
+  pub is_included:  bool,
+}
 
 /// Collects all included files from markdown documents in the input directory.
 ///
@@ -95,16 +101,15 @@ pub fn collect_included_files(
   Ok(all_included_files)
 }
 
-/// Processes all markdown files in the input directory and writes HTML output.
+/// Processes all markdown files in the input directory and returns processed
+/// data.
 ///
 /// This function renders all markdown files, handles custom output paths,
-/// and writes the resulting HTML files to the output directory. Files that are
-/// included in other files are skipped unless they have custom output paths.
+/// and returns structured data for each file. Files that are included in other
+/// files are marked but still returned (caller decides whether to skip them).
 ///
 /// As a side effect, this function populates `config.included_files` with the
-/// mapping of included files to their parent files. This must happen before
-/// rendering templates so that the sidebar can correctly filter out included
-/// files.
+/// mapping of included files to their parent files.
 ///
 /// # Arguments
 ///
@@ -114,11 +119,11 @@ pub fn collect_included_files(
 ///
 /// # Returns
 ///
-/// A vector of all processed markdown file paths.
+/// A vector of `ProcessedMarkdown` entries.
 ///
 /// # Errors
 ///
-/// Returns an error if any file cannot be read, rendered, or written.
+/// Returns an error if any file cannot be read or rendered.
 ///
 /// # Panics
 ///
@@ -126,14 +131,17 @@ pub fn collect_included_files(
 pub fn process_markdown_files(
   config: &mut Config,
   processor: Option<&MarkdownProcessor>,
-) -> Result<Vec<PathBuf>> {
+) -> Result<Vec<ProcessedMarkdown>> {
   if let Some(ref input_dir) = config.input_dir {
     info!("Input directory: {}", input_dir.display());
     let files = collect_markdown_files(input_dir);
     info!("Found {} markdown files", files.len());
 
-    // Map: output html path -> OutputEntry
-    let mut output_map: HashMap<String, OutputEntry> = HashMap::new();
+    // Map: output html path -> (html, headers, title, source_path, is_included)
+    let mut output_map: HashMap<
+      String,
+      (String, Vec<Header>, Option<String>, PathBuf, bool),
+    > = HashMap::new();
 
     // Track custom outputs keyed by included file path
     let mut pending_custom_outputs: HashMap<PathBuf, Vec<String>> =
@@ -266,61 +274,33 @@ pub fn process_markdown_files(
       }
     }
 
-    // Populate config.included_files BEFORE rendering templates so that the
-    // sidebar navigation can correctly filter out included files
+    // Populate config.included_files so caller can use it
     config.included_files.clone_from(&all_included_files);
 
-    // Write outputs, skipping those marked as included, unless they have custom
-    // output
-    for (out_path, (html_content, headers, title, _src_md, is_included)) in
-      &output_map
-    {
-      if *is_included {
-        continue;
-      }
+    // Convert output_map to Vec<ProcessedMarkdown>
+    let mut results: Vec<ProcessedMarkdown> = output_map
+      .into_iter()
+      .map(
+        |(
+          output_path,
+          (html_content, headers, title, source_path, is_included),
+        )| {
+          ProcessedMarkdown {
+            html_content,
+            headers,
+            title,
+            source_path,
+            output_path,
+            is_included,
+          }
+        },
+      )
+      .collect();
 
-      let rel_path = Path::new(out_path);
-      if rel_path.is_absolute() {
-        log::warn!(
-          "Output path '{out_path}' is absolute (would write to '{}'). \
-           Attempting to normalize to relative.",
-          rel_path.display()
-        );
-      }
+    // Sort for deterministic output
+    results.sort_by(|a, b| a.output_path.cmp(&b.output_path));
 
-      // Always force rel_path to be relative, never absolute
-      let rel_path = rel_path
-        .strip_prefix(std::path::MAIN_SEPARATOR_STR)
-        .unwrap_or(rel_path);
-
-      let html = template::render(
-        config,
-        html_content,
-        title.as_deref().unwrap_or(&config.title),
-        headers,
-        rel_path,
-      )?;
-
-      // Apply postprocessing if requested
-      let processed_html = if let Some(ref postprocess) = config.postprocess {
-        postprocess::process_html(&html, postprocess)?
-      } else {
-        html
-      };
-
-      let output_path = config.output_dir.join(rel_path);
-      if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).wrap_err_with(|| {
-          format!("Failed to create output directory: {}", parent.display())
-        })?;
-      }
-
-      fs::write(&output_path, processed_html).wrap_err_with(|| {
-        format!("Failed to write output HTML: {}", output_path.display())
-      })?;
-    }
-
-    Ok(files)
+    Ok(results)
   } else {
     info!("No input directory provided, skipping markdown processing");
     Ok(Vec::new())
@@ -387,7 +367,8 @@ pub fn extract_page_title(file_path: &Path, html_path: &Path) -> String {
 
   match fs::read_to_string(file_path) {
     Ok(content) => {
-      ndg_commonmark::utils::extract_markdown_title(&content)
+      ndg_commonmark::utils::extract_markdown_title_and_id(&content)
+        .map(|(title, _)| title)
         .unwrap_or(default_title)
     },
     Err(_) => default_title,

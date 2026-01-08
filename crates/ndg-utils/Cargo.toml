@@ -1,0 +1,39 @@
+[package]
+name        = "ndg-utils"
+description = "Utilities for NDG"
+publish     = false
+
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+keywords.workspace     = true
+license.workspace      = true
+readme.workspace       = true
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ndg-commonmark = { workspace = true }
+ndg-config     = { path = "../ndg-config" }
+
+color-eyre.workspace    = true
+fs_extra.workspace      = true
+grass.workspace         = true
+html-escape.workspace   = true
+lightningcss.workspace  = true
+log.workspace           = true
+minify-html.workspace   = true
+oxc_allocator.workspace = true
+oxc_codegen.workspace   = true
+oxc_minifier.workspace  = true
+oxc_parser.workspace    = true
+oxc_span.workspace      = true
+rayon.workspace         = true
+regex.workspace         = true
+serde.workspace         = true
+serde_json.workspace    = true
+walkdir.workspace       = true

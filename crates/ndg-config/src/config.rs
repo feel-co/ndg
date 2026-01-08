@@ -1,10 +1,3 @@
-pub mod assets;
-pub mod meta;
-pub mod postprocess;
-pub mod search;
-pub mod sidebar;
-pub mod templates;
-
 use std::{
   collections::HashMap,
   fs,
@@ -13,10 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-  cli::{Cli, Commands},
-  error::NdgError,
-};
+use crate::{assets, error::ConfigError, meta, postprocess, search, sidebar};
 
 /// Configuration for the NDG documentation generator.
 ///
@@ -52,7 +42,7 @@ pub struct Config {
   pub assets_dir: Option<PathBuf>,
 
   /// Options for copying custom assets.
-  pub assets: Option<crate::config::assets::AssetsConfig>,
+  pub assets: Option<assets::AssetsConfig>,
 
   /// Path to manpage URL mappings JSON file.
   pub manpage_urls_path: Option<PathBuf>,
@@ -182,10 +172,10 @@ impl Config {
     clippy::option_if_let_else,
     reason = "Clearer with explicit match on extension"
   )]
-  pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, NdgError> {
+  pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
     let path = path.as_ref();
     let content = fs::read_to_string(path).map_err(|e| {
-      NdgError::Config(format!(
+      ConfigError::Config(format!(
         "Failed to read config file: {}: {}",
         path.display(),
         e
@@ -197,9 +187,9 @@ impl Config {
         match ext.to_lowercase().as_str() {
           "json" => {
             serde_json::from_str(&content)
-              .map_err(NdgError::from)
+              .map_err(ConfigError::from)
               .map_err(|e| {
-                NdgError::Config(format!(
+                ConfigError::Config(format!(
                   "Failed to parse JSON config from {}: {}",
                   path.display(),
                   e
@@ -208,9 +198,9 @@ impl Config {
           },
           "toml" => {
             toml::from_str(&content)
-              .map_err(NdgError::from)
+              .map_err(ConfigError::from)
               .map_err(|e| {
-                NdgError::Config(format!(
+                ConfigError::Config(format!(
                   "Failed to parse TOML config from {}: {}",
                   path.display(),
                   e
@@ -218,7 +208,7 @@ impl Config {
               })
           },
           _ => {
-            Err(NdgError::Config(format!(
+            Err(ConfigError::Config(format!(
               "Unsupported config file format: {}",
               path.display()
             )))
@@ -226,7 +216,7 @@ impl Config {
         }
       },
       None => {
-        Err(NdgError::Config(format!(
+        Err(ConfigError::Config(format!(
           "Config file has no extension: {}",
           path.display()
         )))
@@ -246,23 +236,26 @@ impl Config {
   /// # Errors
   ///
   /// Returns an error if required fields are missing or paths are invalid.
-  pub fn load(cli: &Cli) -> Result<Self, NdgError> {
-    let mut config = if !cli.config_files.is_empty() {
+  pub fn load(
+    config_files: &[PathBuf],
+    config_overrides: &[String],
+  ) -> Result<Self, ConfigError> {
+    let mut config = if !config_files.is_empty() {
       // Config file(s) explicitly specified via CLI
       // Load and merge them in order
       let mut merged_config =
-        Self::from_file(&cli.config_files[0]).map_err(|e| {
-          NdgError::Config(format!(
+        Self::from_file(&config_files[0]).map_err(|e| {
+          ConfigError::Config(format!(
             "Failed to load config from {}: {}",
-            cli.config_files[0].display(),
+            config_files[0].display(),
             e
           ))
         })?;
 
       // Merge additional config files if provided
-      for config_path in &cli.config_files[1..] {
+      for config_path in &config_files[1..] {
         let additional_config = Self::from_file(config_path).map_err(|e| {
-          NdgError::Config(format!(
+          ConfigError::Config(format!(
             "Failed to load config from {}: {}",
             config_path.display(),
             e
@@ -271,8 +264,8 @@ impl Config {
         merged_config.merge(additional_config);
       }
 
-      if cli.config_files.len() > 1 {
-        log::info!("Loaded and merged {} config files", cli.config_files.len());
+      if config_files.len() > 1 {
+        log::info!("Loaded and merged {} config files", config_files.len());
       }
 
       merged_config
@@ -283,7 +276,7 @@ impl Config {
         discovered_config.display()
       );
       Self::from_file(&discovered_config).map_err(|e| {
-        NdgError::Config(format!(
+        ConfigError::Config(format!(
           "Failed to load discovered config from {}: {}",
           discovered_config.display(),
           e
@@ -293,168 +286,42 @@ impl Config {
       Self::default()
     };
 
-    // Merge CLI arguments
-    config.merge_with_cli(cli);
-
     // Apply config overrides from --config KEY=VALUE flags
-    if !cli.config_overrides.is_empty() {
-      config.apply_overrides(&cli.config_overrides)?;
+    if !config_overrides.is_empty() {
+      config.apply_overrides(config_overrides)?;
     }
 
-    // Get options from command if present
-    if let Some(Commands::Html { .. }) = &cli.command {
-      // Validation is handled in merge_with_cli
-    } else {
-      // No Html command, validate required fields if no config file was
-      // specified
-      if cli.config_files.is_empty() && Self::find_config_file().is_none() {
-        // If there's no config file (explicit or discovered) and no Html
-        // command, we're missing required data
-        return Err(NdgError::Config(
-          "Neither config file nor 'html' subcommand provided. Use 'ndg html' \
-           or provide a config file with --config-file."
-            .to_string(),
-        ));
-      }
+    // Validate required fields if no config file was specified
+    if config_files.is_empty() && Self::find_config_file().is_none() {
+      // If there's no config file (explicit or discovered), we're missing
+      // required data
+      return Err(ConfigError::Config(
+        "No config file provided. Use --config-file to specify a config file."
+          .to_string(),
+      ));
     }
 
     // We need *at least one* source of content
     if config.input_dir.is_none() && config.module_options.is_none() {
-      return Err(NdgError::Config(
+      return Err(ConfigError::Config(
         "At least one of input directory or module options must be provided."
           .to_string(),
       ));
     }
 
-    // Validate input_dir if it's provided
-    if let Some(ref input_dir) = config.input_dir
-      && !input_dir.exists()
-    {
-      return Err(NdgError::Config(format!(
-        "Input directory does not exist: {}",
-        input_dir.display()
-      )));
-    }
-
-    // Validate all paths
-    config.validate_paths()?;
+    // Note: Path validation is deferred to after CLI merge to allow CLI args
+    // to override config file values
 
     // Validate and compile sidebar configuration if present
     if let Some(ref mut sidebar) = config.sidebar {
       sidebar.validate().map_err(|e| {
-        NdgError::Config(format!(
+        ConfigError::Config(format!(
           "Sidebar configuration validation failed: {e}"
         ))
       })?;
     }
 
     Ok(config)
-  }
-
-  /// Merge CLI arguments into this config, prioritizing CLI values when
-  /// present
-  pub fn merge_with_cli(&mut self, cli: &Cli) {
-    // Handle options from the Html subcommand if present
-    if let Some(Commands::Html {
-      input_dir,
-      output_dir,
-      jobs,
-      template,
-      template_dir,
-      stylesheet,
-      script,
-      title,
-      footer,
-      module_options,
-      options_toc_depth,
-      manpage_urls,
-      generate_search,
-      highlight_code,
-
-      revision,
-    }) = &cli.command
-    {
-      // Set input directory from CLI if provided
-      if let Some(input_dir) = input_dir {
-        self.input_dir = Some(input_dir.clone());
-      }
-
-      if let Some(output_dir) = output_dir {
-        self.output_dir.clone_from(output_dir);
-      }
-
-      self.jobs = jobs.or(self.jobs);
-
-      if let Some(template) = template {
-        self.template_path = Some(template.clone());
-      }
-
-      if let Some(template_dir) = template_dir {
-        self.template_dir = Some(template_dir.clone());
-      }
-
-      // Append stylesheet paths rather than replacing them
-      if !stylesheet.is_empty() {
-        self.stylesheet_paths.extend(stylesheet.iter().cloned());
-      }
-
-      // Append script paths rather than replacing them
-      if !script.is_empty() {
-        // Append CLI scripts to existing ones rather than replacing
-        self.script_paths.extend(script.iter().cloned());
-      }
-
-      if let Some(title) = title {
-        self.title.clone_from(title);
-      }
-
-      if let Some(footer) = footer {
-        self.footer_text.clone_from(footer);
-      }
-
-      if let Some(module_options) = module_options {
-        self.module_options = Some(module_options.clone());
-      }
-
-      if let Some(toc_depth) = options_toc_depth {
-        log::warn!(
-          "The --options-depth flag is deprecated and will be removed in a \
-           future release. Use '--config sidebar.options.depth={toc_depth}' \
-           or set 'sidebar.options.depth' in your config file instead."
-        );
-        self.options_toc_depth = *toc_depth;
-      }
-
-      if let Some(manpage_urls) = manpage_urls {
-        self.manpage_urls_path = Some(manpage_urls.clone());
-      }
-
-      // Handle the generate-search flag - only override if flag was explicitly
-      // provided
-      if *generate_search {
-        #[allow(deprecated)]
-        {
-          self.generate_search = true;
-        }
-        // Also set the new search.enable field
-        if self.search.is_none() {
-          self.search = Some(search::SearchConfig::default());
-        }
-        if let Some(ref mut search_cfg) = self.search {
-          search_cfg.enable = true;
-        }
-      }
-
-      // Handle the highlight-code flag - only override if flag was explicitly
-      // provided
-      if *highlight_code {
-        self.highlight_code = true;
-      }
-
-      if let Some(revision) = revision {
-        self.revision.clone_from(revision);
-      }
-    }
   }
 
   /// Apply configuration overrides from KEY=VALUE strings.
@@ -492,10 +359,10 @@ impl Config {
   pub fn apply_overrides(
     &mut self,
     overrides: &[String],
-  ) -> Result<(), NdgError> {
+  ) -> Result<(), ConfigError> {
     for override_str in overrides {
       let (key, value) = override_str.split_once('=').ok_or_else(|| {
-        NdgError::Config(format!(
+        ConfigError::Config(format!(
           "Invalid config override format: '{override_str}'. Expected \
            KEY=VALUE"
         ))
@@ -590,7 +457,7 @@ impl Config {
             None
           } else {
             Some(value.parse::<usize>().map_err(|_| {
-              NdgError::Config(format!(
+              ConfigError::Config(format!(
                 "Invalid value for 'jobs': '{value}'. Expected a positive \
                  integer"
               ))
@@ -603,7 +470,7 @@ impl Config {
              'sidebar.options.depth' instead."
           );
           self.options_toc_depth = value.parse::<usize>().map_err(|_| {
-            NdgError::Config(format!(
+            ConfigError::Config(format!(
               "Invalid value for 'options_toc_depth': '{value}'. Expected a \
                positive integer"
             ))
@@ -622,13 +489,13 @@ impl Config {
         },
         "search.max_heading_level" => {
           let level = value.parse::<u8>().map_err(|_| {
-            NdgError::Config(format!(
+            ConfigError::Config(format!(
               "Invalid value for 'search.max_heading_level': '{value}'. \
                Expected 1-6"
             ))
           })?;
           if !(1..=6).contains(&level) {
-            return Err(NdgError::Config(format!(
+            return Err(ConfigError::Config(format!(
               "Invalid value for 'search.max_heading_level': '{value}'. Must \
                be between 1 and 6"
             )));
@@ -644,7 +511,7 @@ impl Config {
         // Nested sidebar.options.depth
         "sidebar.options.depth" => {
           let depth = value.parse::<usize>().map_err(|_| {
-            NdgError::Config(format!(
+            ConfigError::Config(format!(
               "Invalid value for 'sidebar.options.depth': '{value}'. Expected \
                a positive integer"
             ))
@@ -769,7 +636,7 @@ impl Config {
                   None
                 } else {
                   Some(value.parse::<usize>().map_err(|_| {
-                    NdgError::Config(format!(
+                    ConfigError::Config(format!(
                       "Invalid value for 'assets.max_depth': '{value}'. \
                        Expected a positive integer"
                     ))
@@ -780,7 +647,7 @@ impl Config {
                 assets_cfg.skip_hidden = Self::parse_bool(value, key)?;
               },
               _ => {
-                return Err(NdgError::Config(format!(
+                return Err(ConfigError::Config(format!(
                   "Unknown assets configuration key: '{key}'"
                 )));
               },
@@ -811,7 +678,7 @@ impl Config {
                   html_opts.remove_comments = Self::parse_bool(value, key)?;
                 },
                 _ => {
-                  return Err(NdgError::Config(format!(
+                  return Err(ConfigError::Config(format!(
                     "Unknown postprocess.html configuration key: '{key}'"
                   )));
                 },
@@ -869,7 +736,7 @@ impl Config {
         },
 
         _ => {
-          return Err(NdgError::Config(format!(
+          return Err(ConfigError::Config(format!(
             "Unknown configuration key: '{key}'. See documentation for \
              supported keys."
           )));
@@ -883,12 +750,12 @@ impl Config {
   /// Parse a boolean value from a string.
   ///
   /// Accepts: true/false, yes/no, 1/0 (case-insensitive)
-  fn parse_bool(value: &str, key: &str) -> Result<bool, NdgError> {
+  fn parse_bool(value: &str, key: &str) -> Result<bool, ConfigError> {
     match value.to_lowercase().as_str() {
       "true" | "yes" | "1" => Ok(true),
       "false" | "no" | "0" => Ok(false),
       _ => {
-        Err(NdgError::Config(format!(
+        Err(ConfigError::Config(format!(
           "Invalid boolean value for '{key}': '{value}'. Expected true/false, \
            yes/no, or 1/0"
         )))
@@ -1127,7 +994,7 @@ impl Config {
   /// # Errors
   ///
   /// Returns an error if any configured path does not exist or is invalid.
-  pub fn validate_paths(&self) -> Result<(), NdgError> {
+  pub fn validate_paths(&self) -> Result<(), ConfigError> {
     let mut errors = Vec::new();
 
     // Module options file should exist if specified
@@ -1237,7 +1104,7 @@ impl Config {
     // Return error if we found any issues
     if !errors.is_empty() {
       let error_message = errors.join("\n");
-      return Err(NdgError::Config(format!(
+      return Err(ConfigError::Config(format!(
         "Configuration path validation errors:\n{error_message}"
       )));
     }
@@ -1254,13 +1121,13 @@ impl Config {
   pub fn generate_default_config(
     format: &str,
     path: &Path,
-  ) -> Result<(), NdgError> {
+  ) -> Result<(), ConfigError> {
     // Get template from the templates module
-    let config_content = crate::config::templates::get_template(format)
-      .map_err(|e| NdgError::Template(e.to_string()))?;
+    let config_content = crate::templates::get_template(format)
+      .map_err(|e| ConfigError::Template(e.to_string()))?;
 
     fs::write(path, config_content).map_err(|e| {
-      NdgError::Config(format!(
+      ConfigError::Config(format!(
         "Failed to write default config to {}: {}",
         path.display(),
         e
@@ -1281,10 +1148,10 @@ impl Config {
     output_dir: &Path,
     force: bool,
     templates: Option<Vec<String>>,
-  ) -> Result<(), NdgError> {
+  ) -> Result<(), ConfigError> {
     // Create output directory if it doesn't exist
     fs::create_dir_all(output_dir).map_err(|e| {
-      NdgError::Config(format!(
+      ConfigError::Config(format!(
         "Failed to create template directory: {}: {}",
         output_dir.display(),
         e
@@ -1323,7 +1190,7 @@ impl Config {
       }
 
       fs::write(&file_path, content).map_err(|e| {
-        NdgError::Config(format!(
+        ConfigError::Config(format!(
           "Failed to write template file: {}: {}",
           file_path.display(),
           e
@@ -1341,30 +1208,45 @@ impl Config {
     let mut templates = std::collections::HashMap::new();
 
     // HTML templates
-    templates
-      .insert("default.html", include_str!("../../templates/default.html"));
-    templates
-      .insert("options.html", include_str!("../../templates/options.html"));
-    templates
-      .insert("search.html", include_str!("../../templates/search.html"));
+    templates.insert(
+      "default.html",
+      include_str!("../../../ndg/templates/default.html"),
+    );
+    templates.insert(
+      "options.html",
+      include_str!("../../../ndg/templates/options.html"),
+    );
+    templates.insert(
+      "search.html",
+      include_str!("../../../ndg/templates/search.html"),
+    );
     templates.insert(
       "options_toc.html",
-      include_str!("../../templates/options_toc.html"),
+      include_str!("../../../ndg/templates/options_toc.html"),
     );
-    templates
-      .insert("navbar.html", include_str!("../../templates/navbar.html"));
-    templates
-      .insert("footer.html", include_str!("../../templates/footer.html"));
+    templates.insert(
+      "navbar.html",
+      include_str!("../../../ndg/templates/navbar.html"),
+    );
+    templates.insert(
+      "footer.html",
+      include_str!("../../../ndg/templates/footer.html"),
+    );
 
     // CSS and JS assets
-    templates
-      .insert("default.css", include_str!("../../templates/default.css"));
-    templates.insert("search.js", include_str!("../../templates/search.js"));
+    templates.insert(
+      "default.css",
+      include_str!("../../../ndg/templates/default.css"),
+    );
+    templates.insert(
+      "search.js",
+      include_str!("../../../ndg/templates/search.js"),
+    );
     templates.insert(
       "search-worker.js",
-      include_str!("../../templates/search-worker.js"),
+      include_str!("../../../ndg/templates/search-worker.js"),
     );
-    templates.insert("main.js", include_str!("../../templates/main.js"));
+    templates.insert("main.js", include_str!("../../../ndg/templates/main.js"));
 
     templates
   }

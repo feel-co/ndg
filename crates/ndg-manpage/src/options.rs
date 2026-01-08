@@ -8,13 +8,13 @@ use ndg_commonmark::{
   process_role_markup,
   utils::never_matching_regex,
 };
+use ndg_utils::json::extract_value;
 use rayon::prelude::*;
 use regex::Regex;
 use serde_json::{self, Value};
 
 use crate::{
-  formatter::options::NixOption,
-  manpage::{
+  escape::{
     ROFF_ESCAPES,
     TROFF_ESCAPE,
     TROFF_FORMATTING,
@@ -22,7 +22,7 @@ use crate::{
     escape_non_macro_lines,
     man_escape,
   },
-  utils::json::extract_value,
+  types::NixOption,
 };
 
 // Shared processor instance for manpage generation
