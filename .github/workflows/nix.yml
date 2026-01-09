@@ -83,7 +83,7 @@ jobs:
       # inside the cache to achieve less wasted CI time. Unfortunately
       # Nix *really* sucks for incremental builds :(
       - name: Restore and save Nix store
-        uses: nix-community/cache-nix-action@v6
+        uses: nix-community/cache-nix-action@v7
         with:
           # Restore and save a cache using this key
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/*.lock', '**/*.rs') }}
