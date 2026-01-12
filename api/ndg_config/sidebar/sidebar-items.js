@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SidebarOrdering"],"fn":["deserialize_match_field"],"struct":["OptionNameMatch","OptionsConfig","OptionsMatch","PathMatch","SidebarConfig","SidebarMatch","TitleMatch"],"trait":["MatchField"]};

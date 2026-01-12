@@ -31,11 +31,13 @@
 <a href=#31 id=31 data-nosnippet>31</a>//! NDG is primarily designed as a CLI utility, and its documentation is located
 <a href=#32 id=32 data-nosnippet>32</a>//! in the [Github repository]. Please refer to the project README for more
 <a href=#33 id=33 data-nosnippet>33</a>//! information about the project, installing NDG, and CLI usage.
-<a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">pub mod </span>cli;
-<a href=#35 id=35 data-nosnippet>35</a><span class="kw">pub mod </span>config;
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a></span><span class="kw">pub mod </span>cli;
 <a href=#36 id=36 data-nosnippet>36</a><span class="kw">pub mod </span>error;
-<a href=#37 id=37 data-nosnippet>37</a><span class="kw">pub mod </span>formatter;
-<a href=#38 id=38 data-nosnippet>38</a><span class="kw">pub mod </span>html;
-<a href=#39 id=39 data-nosnippet>39</a><span class="kw">pub mod </span>manpage;
-<a href=#40 id=40 data-nosnippet>40</a><span class="kw">pub mod </span>utils;
+<a href=#37 id=37 data-nosnippet>37</a>
+<a href=#38 id=38 data-nosnippet>38</a><span class="comment">// Re-export internal crates for backward compatibility
+<a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub use </span>ndg_config <span class="kw">as </span>config;
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">pub use </span>ndg_html <span class="kw">as </span>html;
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">pub use </span>ndg_manpage <span class="kw">as </span>manpage;
+<a href=#42 id=42 data-nosnippet>42</a><span class="kw">pub use </span>ndg_utils <span class="kw">as </span>utils;
 </code></pre></div></section></main></body></html>
