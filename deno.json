@@ -1,0 +1,15 @@
+{
+  "nodeModulesDir": "auto",
+  "lint": {
+    "include": ["ndg/templates/*.js"],
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": [
+        "no-window",
+        "no-window-prefix",
+        "no-inner-declarations",
+        "no-this-alias"
+      ]
+    }
+  }
+}

@@ -1,18 +1,11 @@
 use std::{fs, path::PathBuf};
 
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::{Context, Result, bail};
 use log::{LevelFilter, info};
+use ndg::{config, html, manpage, utils};
 
 mod cli;
-mod config;
-mod error;
-mod formatter;
-mod html;
-mod manpage;
-mod utils;
-
 use cli::{Cli, Commands};
-use color_eyre::eyre::bail;
 use config::Config;
 
 fn main() -> Result<()> {
@@ -104,21 +97,106 @@ fn main() -> Result<()> {
         );
       },
 
-      // The Html command is handled in Config::load and merge_with_cli
+      // Html command handled below via merge_cli_into_config
       Commands::Html { .. } => {},
     }
   }
 
   // Create configuration from CLI and/or config file
-  let mut config = Config::load(&cli)?;
+  let mut config = Config::load(&cli.config_files, &cli.config_overrides)?;
+
+  // Merge CLI command options into config
+  merge_cli_into_config(&mut config, &cli);
 
   // Run the main documentation generation process
   generate_documentation(&mut config)
 }
 
+/// Merge CLI command options into the configuration
+fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
+  // Handle options from the Html subcommand if present
+  if let Some(Commands::Html {
+    input_dir,
+    output_dir,
+    jobs,
+    template,
+    template_dir,
+    stylesheet,
+    script,
+    title,
+    footer,
+    module_options,
+    options_toc_depth,
+    manpage_urls,
+    generate_search,
+    highlight_code,
+    revision,
+  }) = &cli.command
+  {
+    if let Some(input_dir) = input_dir {
+      config.input_dir = Some(input_dir.clone());
+    }
+    if let Some(output_dir) = output_dir {
+      config.output_dir.clone_from(output_dir);
+    }
+    config.jobs = jobs.or(config.jobs);
+    if let Some(template) = template {
+      config.template_path = Some(template.clone());
+    }
+    if let Some(template_dir) = template_dir {
+      config.template_dir = Some(template_dir.clone());
+    }
+    if !stylesheet.is_empty() {
+      config.stylesheet_paths.extend(stylesheet.iter().cloned());
+    }
+    if !script.is_empty() {
+      config.script_paths.extend(script.iter().cloned());
+    }
+    if let Some(title) = title {
+      config.title.clone_from(title);
+    }
+    if footer.is_some() {
+      // Config may not have footer field anymore, skip it
+    }
+    if let Some(module_options) = module_options {
+      config.module_options = Some(module_options.clone());
+    }
+    if let Some(depth) = options_toc_depth {
+      config.options_toc_depth = *depth;
+    }
+    if let Some(manpage_urls) = manpage_urls {
+      config.manpage_urls_path = Some(manpage_urls.clone());
+    }
+    if *generate_search {
+      #[allow(deprecated)]
+      {
+        config.generate_search = true;
+      }
+    }
+    if *highlight_code {
+      config.highlight_code = true;
+    }
+    if let Some(revision) = revision {
+      config.revision.clone_from(revision);
+    }
+  }
+}
+
 /// Main documentation generation process
 fn generate_documentation(config: &mut Config) -> Result<()> {
   info!("Starting documentation generation...");
+
+  // Validate required paths after CLI merge
+  if let Some(ref input_dir) = config.input_dir
+    && !input_dir.exists()
+  {
+    bail!("Input directory does not exist: {}", input_dir.display());
+  }
+
+  // Validate other paths (module_options, template_path, etc.)
+  config
+    .validate_paths()
+    .map_err(|e| color_eyre::eyre::eyre!("Configuration error: {e}"))?;
 
   // Ensure output directory exists
   fs::create_dir_all(&config.output_dir)?;
@@ -142,14 +220,90 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   // Process markdown files and collect included files in one pass.
   // As a side effect, this populates config.included_files so that the
   // sidebar navigation can correctly filter out included files.
-  let markdown_files =
+  let processed_markdown =
     utils::process_markdown_files(config, processor.as_ref())?;
 
+  // Render templates and write HTML files
+  for item in &processed_markdown {
+    // Skip included files unless they have custom output paths
+    if item.is_included {
+      continue;
+    }
+
+    let rel_path = std::path::Path::new(&item.output_path);
+    if rel_path.is_absolute() {
+      log::warn!(
+        "Output path '{}' is absolute. Normalizing to relative.",
+        item.output_path
+      );
+    }
+
+    // Force rel_path to be relative
+    let rel_path = rel_path
+      .strip_prefix(std::path::MAIN_SEPARATOR_STR)
+      .unwrap_or(rel_path);
+
+    let html = html::template::render(
+      config,
+      &item.html_content,
+      item.title.as_deref().unwrap_or(&config.title),
+      &item.headers,
+      rel_path,
+    )?;
+
+    // Apply postprocessing if requested
+    let processed_html =
+      if let Some(ref postprocess_config) = config.postprocess {
+        utils::postprocess::process_html(&html, postprocess_config)?
+      } else {
+        html
+      };
+
+    let output_path = config.output_dir.join(rel_path);
+    if let Some(parent) = output_path.parent() {
+      fs::create_dir_all(parent).wrap_err_with(|| {
+        format!("Failed to create output directory: {}", parent.display())
+      })?;
+    }
+
+    fs::write(&output_path, processed_html).wrap_err_with(|| {
+      format!("Failed to write output HTML: {}", output_path.display())
+    })?;
+  }
+
+  // Extract source file paths for later use
+  let markdown_files: Vec<PathBuf> = processed_markdown
+    .iter()
+    .map(|item| item.source_path.clone())
+    .collect();
+
   // Process options if provided
-  let options_processed = utils::process_module_options(config)?;
+  let options_processed = if let Some(options_path) = &config.module_options {
+    info!("Processing options.json from {}", options_path.display());
+    html::options::process_options(config, options_path)?;
+    true
+  } else {
+    info!("Module options were not set, skipping options processing");
+    false
+  };
 
   // Check if we need to create a fallback index.html
-  utils::ensure_index(config, options_processed, &markdown_files)?;
+  let index_path = config.output_dir.join("index.html");
+  if !index_path.exists() && (options_processed || !markdown_files.is_empty()) {
+    info!("Creating fallback index.html");
+    let fallback_content =
+      utils::create_fallback_index(config, &markdown_files);
+    let html = html::template::render(
+      config,
+      &fallback_content,
+      &config.title,
+      &[],
+      std::path::Path::new("index.html"),
+    )?;
+    fs::write(&index_path, html).wrap_err_with(|| {
+      format!("Failed to write index.html to {}", index_path.display())
+    })?;
+  }
 
   // Generate search index if enabled, regardless of whether there are markdown
   // files. Even if there's only an options.html, search can continue to

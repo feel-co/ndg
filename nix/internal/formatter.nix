@@ -12,7 +12,7 @@ pkgs.writeShellApplication {
     # Format Nix files with Alejandra
     fd "$@" -t f -e nix -x alejandra -q '{}'
 
-    # Format CSS files with Prettier
-    fd "$@" -t f -e css -x prettier -w '{}'
+    # Format CSS & Javascript files with Prettier
+    fd "$@" -t f -e css -e js -x prettier -w '{}'
   '';
 }

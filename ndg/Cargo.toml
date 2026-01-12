@@ -12,40 +12,34 @@ categories.workspace   = true
 keywords.workspace     = true
 
 [dependencies]
-clap.workspace           = true
-color-eyre.workspace     = true
-comrak.workspace         = true
-env_logger.workspace     = true
-fs_extra.workspace       = true
-grass.workspace          = true
-html-escape.workspace    = true
-jiff.workspace           = true
-log.workspace            = true
-ndg-commonmark.workspace = true
-num_cpus.workspace       = true
-
+# CLI and core dependencies
+clap.workspace       = true
+color-eyre.workspace = true
+env_logger.workspace = true
+jiff.workspace       = true
+log.workspace        = true
+num_cpus.workspace   = true
 rayon.workspace      = true
-regex.workspace      = true
-serde.workspace      = true
-serde_json.workspace = true
-tera.workspace       = true
-thiserror.workspace  = true
-toml.workspace       = true
-walkdir.workspace    = true
 
-# Minification dependencies
-# OXC dependencies are already pulled by minify-html, so it is mostly fine
-# that we pull 5 crates just to minify Javscript. Not really, yikes.
-lightningcss.workspace  = true
-minify-html.workspace   = true
-oxc_allocator.workspace = true
-oxc_codegen.workspace   = true
-oxc_minifier.workspace  = true
-oxc_parser.workspace    = true
-oxc_span.workspace      = true
+# Internal crate dependencies
+ndg-commonmark.workspace = true
+ndg-config.workspace     = true
+ndg-html.workspace       = true
+ndg-manpage.workspace    = true
+ndg-utils.workspace      = true
+
+# Re-export some dependencies that are used in public API
+html-escape.workspace = true
+regex.workspace       = true
+serde.workspace       = true
+serde_json.workspace  = true
+tera.workspace        = true
+thiserror.workspace   = true
+toml.workspace        = true
 
 
 [dev-dependencies]
+comrak.workspace   = true
 criterion          = { version = "0.8.1", features = [ "html_reports" ] }
 tempfile.workspace = true
 

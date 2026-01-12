@@ -215,6 +215,7 @@ pub fn strip_markdown(content: &str) -> String {
   let root = parse_document(&arena, content, &options);
 
   let mut plain_text = String::new();
+
   #[allow(clippy::items_after_statements, reason = "Helper scoped for clarity")]
   fn extract_text<'a>(
     node: &'a AstNode<'a>,
@@ -222,14 +223,36 @@ pub fn strip_markdown(content: &str) -> String {
     in_code_block: &mut bool,
   ) {
     match &node.data.borrow().value {
+      NodeValue::Document => {
+        for child in node.children() {
+          extract_text(child, plain_text, in_code_block);
+        }
+      },
+      NodeValue::Paragraph => {
+        for child in node.children() {
+          extract_text(child, plain_text, in_code_block);
+        }
+        // Add paragraph break after each paragraph
+        plain_text.push('\n');
+      },
+      NodeValue::Heading(_) => {
+        for child in node.children() {
+          extract_text(child, plain_text, in_code_block);
+        }
+        // Add line break after heading
+        plain_text.push('\n');
+      },
       NodeValue::Text(t) => {
         if !*in_code_block {
           plain_text.push_str(t);
-          plain_text.push(' ');
         }
       },
       NodeValue::CodeBlock(_) => {
         *in_code_block = true;
+        for child in node.children() {
+          extract_text(child, plain_text, in_code_block);
+        }
+        *in_code_block = false;
       },
       NodeValue::SoftBreak => {
         plain_text.push(' ');
@@ -237,15 +260,30 @@ pub fn strip_markdown(content: &str) -> String {
       NodeValue::LineBreak => {
         plain_text.push('\n');
       },
-      _ => {},
-    }
-    for child in node.children() {
-      extract_text(child, plain_text, in_code_block);
-    }
-    if let NodeValue::CodeBlock(_) = &node.data.borrow().value {
-      *in_code_block = false;
+      NodeValue::List(_) => {
+        for child in node.children() {
+          extract_text(child, plain_text, in_code_block);
+        }
+        plain_text.push('\n');
+      },
+      NodeValue::Item(_) => {
+        for child in node.children() {
+          extract_text(child, plain_text, in_code_block);
+        }
+      },
+      NodeValue::Code(c) => {
+        if !*in_code_block {
+          plain_text.push_str(&c.literal);
+        }
+      },
+      _ => {
+        for child in node.children() {
+          extract_text(child, plain_text, in_code_block);
+        }
+      },
     }
   }
+
   let mut in_code_block = false;
   extract_text(root, &mut plain_text, &mut in_code_block);
   plain_text

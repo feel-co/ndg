@@ -255,14 +255,13 @@ max_heading_level = 3
 
 > [!NOTE]
 > CLI flags always take precedence over config file settings. For instance, if
-your config file has `search.enable = false`, but you run `ndg html
-> --generate-search`, search will be enabled.
+> your config file has `search.enable = false`, but you run
+> `ndg html --generate-search`, search will be enabled.
 
 If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
 `search.enable` defaults to `true` if omitted from both; CLI flags override
 config when present). For a full list of CLI options, see the help output with
 `ndg html --help`.
-
 
 #### Configuration Reference
 

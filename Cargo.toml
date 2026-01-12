@@ -11,7 +11,7 @@ license      = "MPL-2.0"
 readme       = true
 repository   = "https://github.com/feel-co/ndg"
 rust-version = "1.90"
-version      = "2.5.1"
+version      = "2.6.0"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
@@ -57,6 +57,10 @@ walkdir = "2.5.0"
 # Workspace members
 ndg            = { path = "./ndg" }
 ndg-commonmark = { path = "./ndg-commonmark" }
+ndg-config     = { path = "./crates/ndg-config" }
+ndg-html       = { path = "./crates/ndg-html" }
+ndg-manpage    = { path = "./crates/ndg-manpage" }
+ndg-utils      = { path = "./crates/ndg-utils" }
 
 # See:
 #  <https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html>
