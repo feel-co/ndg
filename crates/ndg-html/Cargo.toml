@@ -17,10 +17,10 @@ version.workspace      = true
 workspace = true
 
 [dependencies]
-ndg-commonmark = { workspace = true }
-ndg-config     = { path = "../ndg-config" }
-ndg-manpage    = { path = "../ndg-manpage" }
-ndg-utils      = { path = "../ndg-utils" }
+ndg-commonmark.workspace = true
+ndg-config.workspace     = true
+ndg-manpage.workspace    = true
+ndg-utils.workspace      = true
 
 color-eyre.workspace  = true
 grass.workspace       = true

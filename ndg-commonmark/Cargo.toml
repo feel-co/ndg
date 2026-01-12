@@ -2,7 +2,7 @@
 name                   = "ndg-commonmark"
 description            = "Flavored CommonMark processor for Nix-related projects, with support for CommonMark, GFM, and Nixpkgs extensions."
 authors.workspace      = true
-version       = "2.6.0" # should not track workspace
+version                = "2.6.0"                                                                                                             # should not track workspace
 edition.workspace      = true
 rust-version.workspace = true
 readme                 = true

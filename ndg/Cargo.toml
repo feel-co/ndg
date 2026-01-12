@@ -22,11 +22,11 @@ num_cpus.workspace   = true
 rayon.workspace      = true
 
 # Internal crate dependencies
-ndg-commonmark = { workspace = true }
-ndg-config     = { path = "../crates/ndg-config" }
-ndg-html       = { path = "../crates/ndg-html" }
-ndg-manpage    = { path = "../crates/ndg-manpage" }
-ndg-utils      = { path = "../crates/ndg-utils" }
+ndg-commonmark.workspace = true
+ndg-config.workspace     = true
+ndg-html.workspace       = true
+ndg-manpage.workspace    = true
+ndg-utils.workspace      = true
 
 # Re-export some dependencies that are used in public API
 html-escape.workspace = true
