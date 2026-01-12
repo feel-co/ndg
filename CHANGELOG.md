@@ -29,7 +29,7 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   ignored.
 - Release date is not tracked
 
-## [Unreleased]
+## [2.6.0]
 
 ### Added
 
@@ -54,6 +54,9 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   `#`) are strictly checked to avoid false block starts. Fixes malformed string
   continuation in admonition rendering that previously produced literal `\\n` in
   HTML output.
+- Fallback index page no longer displays inline anchor syntax literally (e.g.,
+  `{#extending-hjem}`). The title extraction now properly strips `{#anchor-id}`
+  patterns.
 
 ## [2.5.1]
 
@@ -237,8 +240,7 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 - Prevented panic in theme name fallback logic (ndg-commonmark)
 - Prevented panic on empty fence character extraction (ndg-commonmark)
 
-[Unreleased]: https://github.com/feel-co/ndg/compare/v2.5.1...HEAD
-[2.4.0]: https://github.com/feel-co/ndg/compare/v2.3.2...v2.4.0
-[2.4.1]: https://github.com/feel-co/ndg/compare/v2.4.0...v2.4.1
+[Unreleased]: https://github.com/feel-co/ndg/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/feel-co/ndg/compare/v2.5.1...v2.6.0
 [2.5.0]: https://github.com/feel-co/ndg/compare/v2.4.1...v2.5.0
 [2.5.1]: https://github.com/feel-co/ndg/compare/v2.5.0...v2.5.1
