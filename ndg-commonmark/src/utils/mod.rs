@@ -271,6 +271,11 @@ pub fn strip_markdown(content: &str) -> String {
           extract_text(child, plain_text, in_code_block);
         }
       },
+      NodeValue::Code(c) => {
+        if !*in_code_block {
+          plain_text.push_str(&c.literal);
+        }
+      },
       _ => {
         for child in node.children() {
           extract_text(child, plain_text, in_code_block);

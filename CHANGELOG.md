@@ -57,6 +57,9 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 - Fallback index page no longer displays inline anchor syntax literally (e.g.,
   `{#extending-hjem}`). The title extraction now properly strips `{#anchor-id}`
   patterns.
+- `strip_markdown()` in ndg-commonmark now preserves inline code content. The
+  function previously silently dropped inline code like `` `grep` `` because
+  `NodeValue::Code` stores text in `.literal` rather than as child nodes.
 
 ## [2.5.1]
 
