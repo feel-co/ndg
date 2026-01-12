@@ -18,14 +18,14 @@ const findBestSubsequenceMatch = (query, target) => {
   const positions = [];
 
   const memo = new Map();
-  const key = (qIdx, tIdx) => `${qIdx}:${tIdx}`;
+  const key = (qIdx, tIdx, gap) => `${qIdx}:${tIdx}:${gap}`;
 
   const findBest = (qIdx, tIdx, currentGap) => {
     if (qIdx === n) {
       return { done: true, positions: [...positions], gap: currentGap };
     }
 
-    const memoKey = key(qIdx, tIdx);
+    const memoKey = key(qIdx, tIdx, currentGap);
     if (memo.has(memoKey)) {
       return memo.get(memoKey);
     }

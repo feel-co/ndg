@@ -308,8 +308,8 @@ class SearchEngine {
     }
     score = Math.min(1.0, score + boundaryBonus);
 
-    const lengthPenalty =
-      Math.abs(query.length - n) / Math.max(query.length, m);
+    const lengthPenalty = Math.abs(query.length - n) /
+      Math.max(query.length, m);
     score -= lengthPenalty * 0.2;
 
     return Math.max(0, Math.min(1.0, score));
@@ -597,8 +597,9 @@ class SearchEngine {
   // Highlight search terms in text
   highlightTerms(text, terms) {
     if (!text || typeof text !== "string") return "";
-    if (!Array.isArray(terms) || terms.length === 0)
+    if (!Array.isArray(terms) || terms.length === 0) {
       return this.escapeHtml(text);
+    }
 
     // Escape HTML first
     let highlighted = this.escapeHtml(text);
@@ -628,7 +629,9 @@ class SearchEngine {
     }
 
     return new Promise((resolve, reject) => {
-      const messageId = `search_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const messageId = `search_${Date.now()}_${
+        Math.random().toString(36).substring(2, 11)
+      }`;
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error("Web Worker search timeout"));
@@ -661,19 +664,13 @@ class SearchEngine {
       worker.addEventListener("message", handleMessage);
       worker.addEventListener("error", handleError);
 
-      const docsString = JSON.stringify(this.documents);
-      const encoder = new TextEncoder();
-      const uint8Array = encoder.encode(docsString);
-
       worker.postMessage(
         {
           messageId,
           type: "search",
           data: { query, limit },
-          documents: docsString,
-          transferables: [uint8Array.buffer],
+          documents: this.documents,
         },
-        [uint8Array.buffer],
       );
     });
   }
@@ -909,6 +906,9 @@ window.searchNamespace.engine = new SearchEngine();
 // Mobile search timeout for debouncing
 let mobileSearchTimeout = null;
 
+// AbortController for cancelling pending search requests
+let searchPageController = null;
+
 document.addEventListener("DOMContentLoaded", function () {
   // Initialize search engine immediately
   window.searchNamespace.engine
@@ -987,10 +987,11 @@ document.addEventListener("DOMContentLoaded", function () {
             searchResults.innerHTML = results
               .map((result) => {
                 const { doc, matchingAnchors } = result;
-                const queryTerms =
-                  window.searchNamespace.engine.tokenize(searchTerm);
-                const highlightedTitle =
-                  window.searchNamespace.engine.highlightTerms(
+                const queryTerms = window.searchNamespace.engine.tokenize(
+                  searchTerm,
+                );
+                const highlightedTitle = window.searchNamespace.engine
+                  .highlightTerms(
                     doc.title,
                     queryTerms,
                   );
@@ -1007,20 +1008,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (matchingAnchors && matchingAnchors.length > 0) {
                   matchingAnchors.forEach((anchor) => {
                     // Skip anchors that duplicate the page title
-                    const normalizedAnchor =
-                      window.searchNamespace.engine.normalizeForComparison(
+                    const normalizedAnchor = window.searchNamespace.engine
+                      .normalizeForComparison(
                         anchor.text,
                       );
-                    const normalizedTitle =
-                      window.searchNamespace.engine.normalizeForComparison(
+                    const normalizedTitle = window.searchNamespace.engine
+                      .normalizeForComparison(
                         doc.title,
                       );
                     if (normalizedAnchor === normalizedTitle) {
                       return;
                     }
 
-                    const highlightedAnchor =
-                      window.searchNamespace.engine.highlightTerms(
+                    const highlightedAnchor = window.searchNamespace.engine
+                      .highlightTerms(
                         anchor.text,
                         queryTerms,
                       );
@@ -1093,8 +1094,8 @@ document.addEventListener("DOMContentLoaded", function () {
     searchContainer,
   ) {
     document.addEventListener("click", function (event) {
-      const isMobileSearchActive =
-        mobileSearchPopup && mobileSearchPopup.classList.contains("active");
+      const isMobileSearchActive = mobileSearchPopup &&
+        mobileSearchPopup.classList.contains("active");
       const isDesktopResultsVisible = searchResults.style.display === "block";
 
       if (
@@ -1234,10 +1235,11 @@ document.addEventListener("DOMContentLoaded", function () {
             mobileSearchResults.innerHTML = results
               .map((result) => {
                 const { doc, matchingAnchors } = result;
-                const queryTerms =
-                  window.searchNamespace.engine.tokenize(searchTerm);
-                const highlightedTitle =
-                  window.searchNamespace.engine.highlightTerms(
+                const queryTerms = window.searchNamespace.engine.tokenize(
+                  searchTerm,
+                );
+                const highlightedTitle = window.searchNamespace.engine
+                  .highlightTerms(
                     doc.title,
                     queryTerms,
                   );
@@ -1256,25 +1258,25 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (matchingAnchors && matchingAnchors.length > 0) {
                   matchingAnchors.forEach((anchor) => {
                     // Skip anchors that duplicate the page title
-                    const normalizedAnchor =
-                      window.searchNamespace.engine.normalizeForComparison(
+                    const normalizedAnchor = window.searchNamespace.engine
+                      .normalizeForComparison(
                         anchor.text,
                       );
-                    const normalizedTitle =
-                      window.searchNamespace.engine.normalizeForComparison(
+                    const normalizedTitle = window.searchNamespace.engine
+                      .normalizeForComparison(
                         doc.title,
                       );
                     if (normalizedAnchor === normalizedTitle) {
                       return;
                     }
 
-                    const highlightedAnchor =
-                      window.searchNamespace.engine.highlightTerms(
+                    const highlightedAnchor = window.searchNamespace.engine
+                      .highlightTerms(
                         anchor.text,
                         queryTerms,
                       );
-                    const sectionPreview =
-                      window.searchNamespace.engine.generateSectionPreview(
+                    const sectionPreview = window.searchNamespace.engine
+                      .generateSectionPreview(
                         doc,
                         anchor,
                         searchTerm,
@@ -1388,21 +1390,21 @@ async function performSearch(query) {
         if (matchingAnchors && matchingAnchors.length > 0) {
           matchingAnchors.forEach((anchor) => {
             // Skip anchors that have the same text as the page title to avoid duplication
-            const normalizedAnchor =
-              window.searchNamespace.engine.normalizeForComparison(anchor.text);
-            const normalizedTitle =
-              window.searchNamespace.engine.normalizeForComparison(doc.title);
+            const normalizedAnchor = window.searchNamespace.engine
+              .normalizeForComparison(anchor.text);
+            const normalizedTitle = window.searchNamespace.engine
+              .normalizeForComparison(doc.title);
             if (normalizedAnchor === normalizedTitle) {
               return;
             }
 
-            const highlightedAnchor =
-              window.searchNamespace.engine.highlightTerms(
+            const highlightedAnchor = window.searchNamespace.engine
+              .highlightTerms(
                 anchor.text,
                 queryTerms,
               );
-            const sectionPreview =
-              window.searchNamespace.engine.generateSectionPreview(
+            const sectionPreview = window.searchNamespace.engine
+              .generateSectionPreview(
                 doc,
                 anchor,
                 query,
