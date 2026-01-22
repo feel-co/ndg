@@ -1,11 +1,16 @@
 use std::{collections::HashMap, fmt::Write, fs, path::Path, string::String};
 
 use color_eyre::eyre::{Context, Result, bail};
-use html_escape::encode_text;
+use html_escape::{
+  encode_text,
+  encode_text_minimal_to_writer,
+  encode_text_to_writer,
+};
 use ndg_commonmark::Header;
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
 use ndg_utils::html::{calculate_root_relative_path, generate_asset_paths};
+use serde::de::IntoDeserializer;
 use serde_json::Value;
 use tera::Tera;
 
@@ -1325,14 +1330,14 @@ fn add_default_value(html: &mut String, option: &NixOption) {
     // Writing to String is infallible
     let _ = writeln!(
       html,
-      "  <div class=\"option-default\">Default: \
-       <code>{clean_default}</code></div>"
+      "  <div class=\"option-default\">Default: <code>{}</code></div>",
+      html_escape::encode_text(clean_default)
     );
   } else if let Some(default_val) = &option.default {
     let _ = writeln!(
       html,
-      "  <div class=\"option-default\">Default: \
-       <code>{default_val}</code></div>"
+      "  <div class=\"option-default\">Default: <code>{}</code></div>",
+      html_escape::encode_text(&default_val.to_string()),
     );
   }
 }
