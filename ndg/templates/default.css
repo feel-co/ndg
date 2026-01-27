@@ -1702,7 +1702,7 @@ h6:hover .copy-link {
 .toc-list details summary {
   cursor: pointer;
   padding: var(--space-2) var(--space-3);
-  font-weight: 500;
+  font-weight: 400;
   font-size: 0.875rem;
   color: var(--text-color);
   display: flex;
@@ -1727,11 +1727,10 @@ h6:hover .copy-link {
   display: none;
 }
 
-.toc-list details summary::after {
+.toc-list details summary::before {
   content: "▶";
   font-size: 0.65rem;
-  margin-left: auto;
-  margin-right: var(--space-1);
+  margin-right: var(--space-2);
   flex-shrink: 0;
   color: var(--text-muted);
   transition:
@@ -1739,7 +1738,7 @@ h6:hover .copy-link {
     color var(--transition-fast);
 }
 
-.toc-list details[open] summary::after {
+.toc-list details[open] summary::before {
   transform: rotate(90deg);
   color: var(--link-color);
 }
@@ -1757,7 +1756,7 @@ h6:hover .copy-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: var(--space-2);
+  margin-left: auto;
   flex-shrink: 0;
 }
 
@@ -2049,7 +2048,8 @@ h6:hover .copy-link {
   margin-bottom: var(--space-2);
 }
 
-.sidebar-section summary {
+/* Only target direct child summary (section headers like "Documents", "Contents") */
+.sidebar-section > summary {
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2067,24 +2067,24 @@ h6:hover .copy-link {
     background-color var(--transition-fast);
 }
 
-.sidebar-section summary:hover {
+.sidebar-section > summary:hover {
   background-color: var(--sidebar-hover);
   color: var(--text-color);
 }
 
-.sidebar-section summary::before {
+.sidebar-section > summary::before {
   content: "▶";
   font-size: 0.625rem;
   transition: transform var(--transition-fast);
   flex-shrink: 0;
 }
 
-.sidebar-section[open] summary::before {
+.sidebar-section[open] > summary::before {
   transform: rotate(90deg);
 }
 
 /* Hide default marker */
-.sidebar-section summary::-webkit-details-marker {
+.sidebar-section > summary::-webkit-details-marker {
   display: none;
 }
 

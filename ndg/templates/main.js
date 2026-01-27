@@ -228,12 +228,86 @@ document.addEventListener("DOMContentLoaded", function () {
     createMobileElements();
   }
 
-  // Initialize collapsible sidebar sections
-  // after mobile elements are created
-  initCollapsibleSections();
-
   // Initialize scroll spy for page TOC
   initScrollSpy();
+
+  // Template container for collapsed sidebar content (prevents Ctrl+F from finding hidden content)
+  const sidebarHiddenContainer = document.createElement("template");
+
+  // Handle sidebar section toggles - move content to template when collapsed
+  document.querySelectorAll(".sidebar-section > .sidebar-section-content")
+    .forEach((content) => {
+      const details = content.parentElement;
+      const toggleContent = () => {
+        if (details.hasAttribute("open")) {
+          // Section opened - move content back to DOM
+          if (sidebarHiddenContainer.content.contains(content)) {
+            const summary = details.querySelector("summary");
+            details.insertBefore(
+              content,
+              summary ? summary.nextSibling : details.firstChild,
+            );
+          }
+        } else {
+          // Section closed - move content to template (removes from DOM, Ctrl+F won't find it)
+          if (content.parentElement === details) {
+            sidebarHiddenContainer.content.appendChild(content);
+          }
+        }
+      };
+
+      // Use MutationObserver to detect open/close changes
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.attributeName === "open") {
+            toggleContent();
+          }
+        });
+      });
+
+      observer.observe(details, { attributes: true });
+
+      // Initial state check
+      if (!details.hasAttribute("open")) {
+        sidebarHiddenContainer.content.appendChild(content);
+      }
+    });
+
+  // Handle sidebar collapse/expand - move entire sidebar to template when collapsed
+  const sidebar = document.querySelector(".sidebar");
+  const sidebarObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === "class") {
+        const isCollapsed = document.documentElement.classList.contains(
+          "sidebar-collapsed",
+        );
+        if (isCollapsed) {
+          // Sidebar collapsed - move to template
+          if (sidebar.parentElement) {
+            sidebarHiddenContainer.content.appendChild(sidebar);
+          }
+        } else {
+          // Sidebar expanded - move back to DOM
+          if (sidebarHiddenContainer.content.contains(sidebar)) {
+            const layout = document.querySelector(".layout");
+            const contentEl = document.querySelector(".content");
+            if (layout) {
+              layout.insertBefore(sidebar, contentEl);
+            }
+          }
+        }
+      }
+    });
+  });
+
+  if (sidebar) {
+    sidebarObserver.observe(document.documentElement, { attributes: true });
+
+    // Initial state - if collapsed, move sidebar to template
+    if (document.documentElement.classList.contains("sidebar-collapsed")) {
+      sidebarHiddenContainer.content.appendChild(sidebar);
+    }
+  }
 
   // Desktop Sidebar Toggle
   const sidebarToggle = document.querySelector(".sidebar-toggle");
@@ -250,8 +324,9 @@ document.addEventListener("DOMContentLoaded", function () {
       document.body.classList.toggle("sidebar-collapsed");
 
       // Use documentElement to check state and save to localStorage
-      const isCollapsed =
-        document.documentElement.classList.contains("sidebar-collapsed");
+      const isCollapsed = document.documentElement.classList.contains(
+        "sidebar-collapsed",
+      );
       localStorage.setItem("sidebar-collapsed", isCollapsed);
     });
   }
@@ -515,13 +590,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const optionsContainer = document.querySelector(".options-container");
     if (!optionsContainer) return;
 
-    // Only inject the style if it doesn't already exist
-    if (!document.head.querySelector("style[data-options-hidden]")) {
-      const styleEl = document.createElement("style");
-      styleEl.setAttribute("data-options-hidden", "");
-      styleEl.textContent = ".option-hidden{display:none!important}";
-      document.head.appendChild(styleEl);
-    }
+    // Template container for hidden options
+    const hiddenOptionsContainer = document.createElement("template");
+    hiddenOptionsContainer.id = "hidden-options-container";
+    document.body.appendChild(hiddenOptionsContainer);
 
     // Create filter results counter
     const filterResults = document.createElement("div");
@@ -532,8 +604,8 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     // Detect if we're on a mobile device
-    const isMobile =
-      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+    const isMobile = window.innerWidth < 768 ||
+      /Mobi|Android/i.test(navigator.userAgent);
 
     // Cache all option elements and their searchable content
     const options = Array.from(document.querySelectorAll(".option"));
@@ -590,28 +662,27 @@ document.addEventListener("DOMContentLoaded", function () {
       const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
 
       if (startIdx < itemsToProcess.length) {
-        // Process current chunk
+        // Move visible items to container, hide others
         for (let i = startIdx; i < endIdx; i++) {
           const item = itemsToProcess[i];
           if (item.visible) {
-            item.element.classList.remove("option-hidden");
+            optionsContainer.appendChild(item.element);
           } else {
-            item.element.classList.add("option-hidden");
+            hiddenOptionsContainer.content.appendChild(item.element);
           }
         }
 
         currentChunk++;
         pendingRender = requestAnimationFrame(processNextChunk);
       } else {
-        // Finished processing all chunks
         pendingRender = null;
         currentChunk = 0;
         itemsToProcess = [];
 
-        // Update counter at the very end for best performance
         if (filterResults.visibleCount !== undefined) {
           if (filterResults.visibleCount < totalCount) {
-            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} options`;
+            filterResults.textContent =
+              `Showing ${filterResults.visibleCount} of ${totalCount} options`;
             filterResults.style.display = "block";
           } else {
             filterResults.style.display = "none";
@@ -620,8 +691,16 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
+    // Initialize: keep all options visible by default
+    // They will be moved to hidden container only when filtering
     function filterOptions() {
       const searchTerm = optionsFilter.value.toLowerCase().trim();
+
+      // Skip if search term hasn't changed
+      if (filterOptions.lastTerm === searchTerm) {
+        return;
+      }
+      filterOptions.lastTerm = searchTerm;
 
       if (pendingRender) {
         cancelAnimationFrame(pendingRender);
@@ -631,12 +710,14 @@ document.addEventListener("DOMContentLoaded", function () {
       itemsToProcess = [];
 
       if (searchTerm === "") {
-        // Restore original DOM order when filter is cleared
+        // Restore to original order
         const fragment = document.createDocumentFragment();
         originalOptionOrder.forEach((option) => {
-          option.classList.remove("option-hidden");
-          fragment.appendChild(option);
+          hiddenOptionsContainer.content.appendChild(option);
         });
+        while (hiddenOptionsContainer.content.firstChild) {
+          fragment.appendChild(hiddenOptionsContainer.content.firstChild);
+        }
         optionsContainer.appendChild(fragment);
         filterResults.style.display = "none";
         return;
@@ -649,56 +730,51 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const titleMatches = [];
       const descMatches = [];
-      optionsData.forEach((data) => {
-        let isTitleMatch = false;
-        let isDescMatch = false;
-        if (searchTerms.length === 1) {
-          const term = searchTerms[0];
-          isTitleMatch = data.name.includes(term);
-          isDescMatch = !isTitleMatch && data.description.includes(term);
-        } else {
-          isTitleMatch = searchTerms.every((term) => data.name.includes(term));
-          isDescMatch =
-            !isTitleMatch &&
-            searchTerms.every((term) => data.description.includes(term));
-        }
+      const term = searchTerms[0];
+
+      for (let i = 0; i < optionsData.length; i++) {
+        const data = optionsData[i];
+        const isTitleMatch = data.name.includes(term);
+        const isDescMatch = !isTitleMatch && data.description.includes(term);
+
         if (isTitleMatch) {
+          visibleCount++;
           titleMatches.push(data);
         } else if (isDescMatch) {
+          visibleCount++;
           descMatches.push(data);
         }
-      });
-
-      if (searchTerms.length === 1) {
-        const term = searchTerms[0];
-        titleMatches.sort(
-          (a, b) => a.name.indexOf(term) - b.name.indexOf(term),
-        );
-        descMatches.sort(
-          (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
-        );
       }
 
+      titleMatches.sort((a, b) => a.name.indexOf(term) - b.name.indexOf(term));
+      descMatches.sort(
+        (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
+      );
+
+      const visibleElements = new Set();
       itemsToProcess = [];
-      titleMatches.forEach((data) => {
-        visibleCount++;
+      for (let i = 0; i < titleMatches.length; i++) {
+        const data = titleMatches[i];
+        visibleElements.add(data.element);
         itemsToProcess.push({ element: data.element, visible: true });
-      });
-      descMatches.forEach((data) => {
-        visibleCount++;
+      }
+      for (let i = 0; i < descMatches.length; i++) {
+        const data = descMatches[i];
+        visibleElements.add(data.element);
         itemsToProcess.push({ element: data.element, visible: true });
-      });
-      optionsData.forEach((data) => {
-        if (!itemsToProcess.some((item) => item.element === data.element)) {
+      }
+      for (let i = 0; i < optionsData.length; i++) {
+        const data = optionsData[i];
+        if (!visibleElements.has(data.element)) {
           itemsToProcess.push({ element: data.element, visible: false });
         }
-      });
+      }
 
       // Reorder DOM so all title matches, then desc matches, then hidden
       const fragment = document.createDocumentFragment();
-      itemsToProcess.forEach((item) => {
-        fragment.appendChild(item.element);
-      });
+      for (let i = 0; i < itemsToProcess.length; i++) {
+        fragment.appendChild(itemsToProcess[i].element);
+      }
       optionsContainer.appendChild(fragment);
 
       filterResults.visibleCount = visibleCount;
@@ -710,7 +786,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Set up event listeners
     optionsFilter.addEventListener("input", debouncedFilter);
-    optionsFilter.addEventListener("change", filterOptions);
 
     // Allow clearing with Escape key
     optionsFilter.addEventListener("keydown", function (e) {
@@ -727,7 +802,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 
-    // Initially trigger filter if there's a value
+    // Run initial filter if there's a value
     if (optionsFilter.value) {
       filterOptions();
     }
