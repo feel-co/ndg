@@ -8,6 +8,14 @@ class SearchEngine {
     this.loadError = false;
     this.fullDocuments = null; // for lazy loading
     this.rootPath = window.searchNamespace?.rootPath || "";
+    // Search configuration (loaded from search data)
+    this.config = {
+      minWordLength: 2,
+      stopwords: [],
+      boostTitle: 100.0,
+      boostContent: 30.0,
+      boostAnchor: 10.0,
+    };
   }
 
   // Check if we can use Web Worker
@@ -60,10 +68,23 @@ class SearchEngine {
 
       const documents = await response.json();
       if (!Array.isArray(documents)) {
-        throw new Error("Invalid search data format");
+        // New format with config
+        if (documents.documents && Array.isArray(documents.documents)) {
+          this.config = {
+            minWordLength: documents.min_word_length || 2,
+            stopwords: documents.stopwords || [],
+            boostTitle: documents.boost_title || 100.0,
+            boostContent: documents.boost_content || 30.0,
+            boostAnchor: documents.boost_anchor || 10.0,
+          };
+          this.initializeFromDocuments(documents.documents);
+        } else {
+          throw new Error("Invalid search data format");
+        }
+      } else {
+        // Legacy format - just an array of documents
+        this.initializeFromDocuments(documents);
       }
-
-      this.initializeFromDocuments(documents);
       this.isLoaded = true;
       console.log(`Loaded ${documents.length} documents for search`);
     } catch (error) {
@@ -308,8 +329,8 @@ class SearchEngine {
     }
     score = Math.min(1.0, score + boundaryBonus);
 
-    const lengthPenalty = Math.abs(query.length - n) /
-      Math.max(query.length, m);
+    const lengthPenalty =
+      Math.abs(query.length - n) / Math.max(query.length, m);
     score -= lengthPenalty * 0.2;
 
     return Math.max(0, Math.min(1.0, score));
@@ -319,7 +340,13 @@ class SearchEngine {
     if (!text || typeof text !== "string") return [];
 
     const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
-    const tokens = words.filter((word) => word.length > 2);
+    const stopwordsSet = new Set(
+      this.config.stopwords.map((w) => w.toLowerCase()),
+    );
+    const tokens = words.filter(
+      (word) =>
+        word.length >= this.config.minWordLength && !stopwordsSet.has(word),
+    );
     return Array.from(new Set(tokens));
   }
 
@@ -395,22 +422,25 @@ class SearchEngine {
         const fuzzyTitleScore = this.fuzzyMatch(rawQuery, lowerTitle);
 
         if (fuzzyTitleScore !== null) {
-          match.pageScore += fuzzyTitleScore * 100;
+          match.pageScore += fuzzyTitleScore * this.config.boostTitle;
         }
 
         const fuzzyContentScore = this.fuzzyMatch(rawQuery, lowerContent);
 
         if (fuzzyContentScore !== null) {
-          match.pageScore += fuzzyContentScore * 30;
+          match.pageScore += fuzzyContentScore * this.config.boostContent;
         }
       }
 
       searchTerms.forEach((term) => {
         if (lowerTitle.includes(term)) {
-          match.pageScore += lowerTitle === term ? 20 : 10;
+          match.pageScore +=
+            lowerTitle === term
+              ? this.config.boostTitle / 5
+              : this.config.boostTitle / 10;
         }
         if (lowerContent.includes(term)) {
-          match.pageScore += 2;
+          match.pageScore += this.config.boostContent / 15;
         }
       });
     }
@@ -629,9 +659,9 @@ class SearchEngine {
     }
 
     return new Promise((resolve, reject) => {
-      const messageId = `search_${Date.now()}_${
-        Math.random().toString(36).substring(2, 11)
-      }`;
+      const messageId = `search_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 11)}`;
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error("Web Worker search timeout"));
@@ -664,14 +694,12 @@ class SearchEngine {
       worker.addEventListener("message", handleMessage);
       worker.addEventListener("error", handleError);
 
-      worker.postMessage(
-        {
-          messageId,
-          type: "search",
-          data: { query, limit },
-          documents: this.documents,
-        },
-      );
+      worker.postMessage({
+        messageId,
+        type: "search",
+        data: { query, limit },
+        documents: this.documents,
+      });
     });
   }
 
@@ -829,13 +857,13 @@ class SearchEngine {
         let pageScore = 0;
 
         if (titleMatch !== -1) {
-          pageScore += 10;
+          pageScore += this.config.boostTitle / 10;
           if (doc.title.toLowerCase() === lowerQuery) {
-            pageScore += 20;
+            pageScore += this.config.boostTitle / 5;
           }
         }
         if (contentMatch !== -1) {
-          pageScore += 2;
+          pageScore += this.config.boostContent / 15;
         }
 
         // Find matching anchors
@@ -871,6 +899,79 @@ class SearchEngine {
 // Web Worker for background search processing
 // Create Web Worker if supported - initialized lazily to use rootPath
 let searchWorker = null;
+
+// Keyboard navigation helper class
+class SearchKeyboardNav {
+  constructor(container, selector) {
+    this.container = container;
+    this.selector = selector;
+    this.activeIndex = -1;
+    this.items = [];
+  }
+
+  updateItems() {
+    this.items = Array.from(this.container.querySelectorAll(this.selector));
+    if (this.activeIndex >= this.items.length) {
+      this.activeIndex = -1;
+    }
+  }
+
+  clear() {
+    this.setActive(-1);
+    this.items = [];
+  }
+
+  setActive(index) {
+    // Remove active class from previous item
+    if (this.activeIndex >= 0 && this.activeIndex < this.items.length) {
+      this.items[this.activeIndex].classList.remove("search-result-active");
+    }
+
+    this.activeIndex = index;
+
+    // Add active class to new item
+    if (this.activeIndex >= 0 && this.activeIndex < this.items.length) {
+      this.items[this.activeIndex].classList.add("search-result-active");
+      this.items[this.activeIndex].scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    }
+  }
+
+  moveDown() {
+    if (this.items.length === 0) return;
+    const newIndex = Math.min(this.activeIndex + 1, this.items.length - 1);
+    this.setActive(newIndex);
+  }
+
+  moveUp() {
+    if (this.items.length === 0) return;
+    const newIndex = Math.max(this.activeIndex - 1, -1);
+    this.setActive(newIndex);
+  }
+
+  select() {
+    if (this.activeIndex >= 0 && this.activeIndex < this.items.length) {
+      const link = this.items[this.activeIndex].querySelector("a");
+      if (link) {
+        // Add search query to URL if it's a result link
+        const currentQuery =
+          this.container.closest(".search-container")?.querySelector("input")
+            ?.value || document.getElementById("search-page-input")?.value;
+        if (currentQuery) {
+          const url = new URL(link.href, window.location.origin);
+          url.searchParams.set("highlight", currentQuery);
+          window.location.href = url.toString();
+        } else {
+          link.click();
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+}
 
 function debounce(func, wait) {
   let timeout = null;
@@ -923,13 +1024,47 @@ document.addEventListener("DOMContentLoaded", function () {
   // Search page specific functionality
   const searchPageInput = document.getElementById("search-page-input");
   if (searchPageInput) {
+    // Initialize keyboard navigation for search page
+    const searchPageResults = document.getElementById("search-page-results");
+    const searchPageKeyboardNav = new SearchKeyboardNav(
+      searchPageResults,
+      ".search-result-item",
+    );
+
+    // Keyboard navigation for search page
+    searchPageInput.addEventListener("keydown", function (event) {
+      const hasResults =
+        searchPageResults &&
+        searchPageResults.querySelector(".search-result-item");
+
+      if (!hasResults) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        searchPageKeyboardNav.moveDown();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        searchPageKeyboardNav.moveUp();
+      } else if (
+        event.key === "Enter" &&
+        searchPageKeyboardNav.activeIndex >= 0
+      ) {
+        event.preventDefault();
+        searchPageKeyboardNav.select();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        searchPageKeyboardNav.clear();
+        searchPageInput.blur();
+      }
+    });
+
     // Set up event listener with debouncing
     searchPageInput.addEventListener(
       "input",
       debounce(function () {
         const query = this.value.trim();
         if (query.length >= 2) {
-          performSearch(query);
+          performSearch(query, searchPageKeyboardNav);
         } else {
           const resultsContainer = document.getElementById(
             "search-page-results",
@@ -938,6 +1073,7 @@ document.addEventListener("DOMContentLoaded", function () {
             resultsContainer.innerHTML =
               "<p>Please enter at least 2 characters to search</p>";
           }
+          searchPageKeyboardNav.clear();
         }
       }, 200),
     );
@@ -947,7 +1083,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const query = params.get("q");
     if (query) {
       searchPageInput.value = query;
-      performSearch(query);
+      performSearch(query, searchPageKeyboardNav);
     }
   }
 
@@ -956,6 +1092,11 @@ document.addEventListener("DOMContentLoaded", function () {
   if (searchInput) {
     const searchResults = document.getElementById("search-results");
     const searchContainer = searchInput.closest(".search-container");
+    // Initialize keyboard navigation for desktop search
+    const desktopKeyboardNav = new SearchKeyboardNav(
+      searchResults,
+      ".search-result-item",
+    );
 
     searchInput.addEventListener(
       "input",
@@ -967,6 +1108,7 @@ document.addEventListener("DOMContentLoaded", function () {
           searchResults.innerHTML = "";
           searchResults.style.display = "none";
           if (searchContainer) searchContainer.classList.remove("has-results");
+          desktopKeyboardNav.clear();
           return;
         }
 
@@ -987,11 +1129,10 @@ document.addEventListener("DOMContentLoaded", function () {
             searchResults.innerHTML = results
               .map((result) => {
                 const { doc, matchingAnchors } = result;
-                const queryTerms = window.searchNamespace.engine.tokenize(
-                  searchTerm,
-                );
-                const highlightedTitle = window.searchNamespace.engine
-                  .highlightTerms(
+                const queryTerms =
+                  window.searchNamespace.engine.tokenize(searchTerm);
+                const highlightedTitle =
+                  window.searchNamespace.engine.highlightTerms(
                     doc.title,
                     queryTerms,
                   );
@@ -1008,20 +1149,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (matchingAnchors && matchingAnchors.length > 0) {
                   matchingAnchors.forEach((anchor) => {
                     // Skip anchors that duplicate the page title
-                    const normalizedAnchor = window.searchNamespace.engine
-                      .normalizeForComparison(
+                    const normalizedAnchor =
+                      window.searchNamespace.engine.normalizeForComparison(
                         anchor.text,
                       );
-                    const normalizedTitle = window.searchNamespace.engine
-                      .normalizeForComparison(
+                    const normalizedTitle =
+                      window.searchNamespace.engine.normalizeForComparison(
                         doc.title,
                       );
                     if (normalizedAnchor === normalizedTitle) {
                       return;
                     }
 
-                    const highlightedAnchor = window.searchNamespace.engine
-                      .highlightTerms(
+                    const highlightedAnchor =
+                      window.searchNamespace.engine.highlightTerms(
                         anchor.text,
                         queryTerms,
                       );
@@ -1039,6 +1180,7 @@ document.addEventListener("DOMContentLoaded", function () {
               .join("");
             searchResults.style.display = "block";
             if (searchContainer) searchContainer.classList.add("has-results");
+            desktopKeyboardNav.updateItems();
           } else {
             searchResults.innerHTML =
               '<div class="search-result-item">No results found</div>';
@@ -1063,6 +1205,29 @@ document.addEventListener("DOMContentLoaded", function () {
       ) {
         searchResults.style.display = "none";
         if (searchContainer) searchContainer.classList.remove("has-results");
+        desktopKeyboardNav.clear();
+      }
+    });
+
+    // Keyboard navigation for desktop search
+    searchInput.addEventListener("keydown", function (event) {
+      if (searchResults.style.display !== "block") return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        desktopKeyboardNav.moveDown();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        desktopKeyboardNav.moveUp();
+      } else if (event.key === "Enter" && desktopKeyboardNav.activeIndex >= 0) {
+        event.preventDefault();
+        desktopKeyboardNav.select();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        searchResults.style.display = "none";
+        if (searchContainer) searchContainer.classList.remove("has-results");
+        desktopKeyboardNav.clear();
+        searchInput.blur();
       }
     });
 
@@ -1071,17 +1236,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (event.key === "/" && document.activeElement !== searchInput) {
         event.preventDefault();
         searchInput.focus();
-      }
-
-      // Close search results on Escape key
-      if (
-        event.key === "Escape" &&
-        (document.activeElement === searchInput ||
-          searchResults.style.display === "block")
-      ) {
-        searchResults.style.display = "none";
-        if (searchContainer) searchContainer.classList.remove("has-results");
-        searchInput.blur();
       }
     });
 
@@ -1094,8 +1248,8 @@ document.addEventListener("DOMContentLoaded", function () {
     searchContainer,
   ) {
     document.addEventListener("click", function (event) {
-      const isMobileSearchActive = mobileSearchPopup &&
-        mobileSearchPopup.classList.contains("active");
+      const isMobileSearchActive =
+        mobileSearchPopup && mobileSearchPopup.classList.contains("active");
       const isDesktopResultsVisible = searchResults.style.display === "block";
 
       if (
@@ -1235,11 +1389,10 @@ document.addEventListener("DOMContentLoaded", function () {
             mobileSearchResults.innerHTML = results
               .map((result) => {
                 const { doc, matchingAnchors } = result;
-                const queryTerms = window.searchNamespace.engine.tokenize(
-                  searchTerm,
-                );
-                const highlightedTitle = window.searchNamespace.engine
-                  .highlightTerms(
+                const queryTerms =
+                  window.searchNamespace.engine.tokenize(searchTerm);
+                const highlightedTitle =
+                  window.searchNamespace.engine.highlightTerms(
                     doc.title,
                     queryTerms,
                   );
@@ -1258,25 +1411,25 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (matchingAnchors && matchingAnchors.length > 0) {
                   matchingAnchors.forEach((anchor) => {
                     // Skip anchors that duplicate the page title
-                    const normalizedAnchor = window.searchNamespace.engine
-                      .normalizeForComparison(
+                    const normalizedAnchor =
+                      window.searchNamespace.engine.normalizeForComparison(
                         anchor.text,
                       );
-                    const normalizedTitle = window.searchNamespace.engine
-                      .normalizeForComparison(
+                    const normalizedTitle =
+                      window.searchNamespace.engine.normalizeForComparison(
                         doc.title,
                       );
                     if (normalizedAnchor === normalizedTitle) {
                       return;
                     }
 
-                    const highlightedAnchor = window.searchNamespace.engine
-                      .highlightTerms(
+                    const highlightedAnchor =
+                      window.searchNamespace.engine.highlightTerms(
                         anchor.text,
                         queryTerms,
                       );
-                    const sectionPreview = window.searchNamespace.engine
-                      .generateSectionPreview(
+                    const sectionPreview =
+                      window.searchNamespace.engine.generateSectionPreview(
                         doc,
                         anchor,
                         searchTerm,
@@ -1330,13 +1483,14 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
-async function performSearch(query) {
+async function performSearch(query, keyboardNav = null) {
   query = query.trim();
   const resultsContainer = document.getElementById("search-page-results");
 
   if (query.length < 2) {
     resultsContainer.innerHTML =
       "<p>Please enter at least 2 characters to search</p>";
+    if (keyboardNav) keyboardNav.clear();
     return;
   }
 
@@ -1348,6 +1502,7 @@ async function performSearch(query) {
 
   // Show loading state
   resultsContainer.innerHTML = "<p>Searching...</p>";
+  if (keyboardNav) keyboardNav.clear();
 
   try {
     const results = await window.searchNamespace.engine.search(query, 50, {
@@ -1390,21 +1545,21 @@ async function performSearch(query) {
         if (matchingAnchors && matchingAnchors.length > 0) {
           matchingAnchors.forEach((anchor) => {
             // Skip anchors that have the same text as the page title to avoid duplication
-            const normalizedAnchor = window.searchNamespace.engine
-              .normalizeForComparison(anchor.text);
-            const normalizedTitle = window.searchNamespace.engine
-              .normalizeForComparison(doc.title);
+            const normalizedAnchor =
+              window.searchNamespace.engine.normalizeForComparison(anchor.text);
+            const normalizedTitle =
+              window.searchNamespace.engine.normalizeForComparison(doc.title);
             if (normalizedAnchor === normalizedTitle) {
               return;
             }
 
-            const highlightedAnchor = window.searchNamespace.engine
-              .highlightTerms(
+            const highlightedAnchor =
+              window.searchNamespace.engine.highlightTerms(
                 anchor.text,
                 queryTerms,
               );
-            const sectionPreview = window.searchNamespace.engine
-              .generateSectionPreview(
+            const sectionPreview =
+              window.searchNamespace.engine.generateSectionPreview(
                 doc,
                 anchor,
                 query,
@@ -1421,8 +1576,10 @@ async function performSearch(query) {
       }
       html += "</ul>";
       resultsContainer.innerHTML = html;
+      if (keyboardNav) keyboardNav.updateItems();
     } else {
       resultsContainer.innerHTML = "<p>No results found</p>";
+      if (keyboardNav) keyboardNav.clear();
     }
 
     // Update URL with query
@@ -1435,5 +1592,6 @@ async function performSearch(query) {
     }
     console.error("Search error:", error);
     resultsContainer.innerHTML = "<p>Search temporarily unavailable</p>";
+    if (keyboardNav) keyboardNav.clear();
   }
 }

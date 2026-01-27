@@ -85,40 +85,51 @@ function createMobileElements() {
   }
 }
 
-// Initialize collapsible sidebar sections with state persistence
-function initCollapsibleSections() {
-  // Target sections in both desktop and mobile sidebars
-  const sections = document.querySelectorAll(
-    ".sidebar .sidebar-section, .mobile-sidebar-content .sidebar-section",
-  );
+// Highlight search terms on target pages
+function highlightTextInContent(container, terms) {
+  if (!container || !terms || terms.length === 0) return;
 
-  sections.forEach((section) => {
-    const sectionId = section.dataset.section;
-    if (!sectionId) return;
+  // Create a case-insensitive regex pattern
+  const pattern = terms
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const regex = new RegExp(`(${pattern})`, "gi");
 
-    const storageKey = `sidebar-section-${sectionId}`;
-    const savedState = localStorage.getItem(storageKey);
+  // Elements to skip highlighting
+  const skipTags = new Set(["SCRIPT", "STYLE", "CODE", "PRE", "MARK"]);
 
-    // Restore saved state (default is open)
-    if (savedState === "closed") {
-      section.removeAttribute("open");
+  function highlightNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      // Use match instead of test to avoid regex state issues
+      if (text.match(regex)) {
+        const span = document.createElement("span");
+        // Create a fresh regex for replace to avoid state issues
+        const replaceRegex = new RegExp(`(${pattern})`, "gi");
+        span.innerHTML = text.replace(
+          replaceRegex,
+          '<mark class="search-highlight">$1</mark>',
+        );
+        node.replaceWith(...Array.from(span.childNodes));
+      }
+    } else if (
+      node.nodeType === Node.ELEMENT_NODE &&
+      !skipTags.has(node.tagName)
+    ) {
+      Array.from(node.childNodes).forEach(highlightNode);
     }
+  }
 
-    // Save state on toggle and sync between desktop/mobile
-    section.addEventListener("toggle", () => {
-      localStorage.setItem(storageKey, section.open ? "open" : "closed");
+  highlightNode(container);
 
-      // Sync state between desktop and mobile versions
-      const allWithSameSection = document.querySelectorAll(
-        `.sidebar-section[data-section="${sectionId}"]`,
-      );
-      allWithSameSection.forEach((el) => {
-        if (el !== section) {
-          el.open = section.open;
-        }
-      });
-    });
-  });
+  // Scroll to first highlight after a brief delay
+  setTimeout(() => {
+    const firstHighlight = container.querySelector(".search-highlight");
+    if (firstHighlight) {
+      firstHighlight.scrollIntoView({ behavior: "smooth", block: "center" });
+      firstHighlight.classList.add("search-highlight-active");
+    }
+  }, 100);
 }
 
 // Initialize scroll spy
@@ -239,9 +250,8 @@ document.addEventListener("DOMContentLoaded", function () {
       document.body.classList.toggle("sidebar-collapsed");
 
       // Use documentElement to check state and save to localStorage
-      const isCollapsed = document.documentElement.classList.contains(
-        "sidebar-collapsed",
-      );
+      const isCollapsed =
+        document.documentElement.classList.contains("sidebar-collapsed");
       localStorage.setItem("sidebar-collapsed", isCollapsed);
     });
   }
@@ -522,8 +532,8 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     // Detect if we're on a mobile device
-    const isMobile = window.innerWidth < 768 ||
-      /Mobi|Android/i.test(navigator.userAgent);
+    const isMobile =
+      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
 
     // Cache all option elements and their searchable content
     const options = Array.from(document.querySelectorAll(".option"));
@@ -601,8 +611,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Update counter at the very end for best performance
         if (filterResults.visibleCount !== undefined) {
           if (filterResults.visibleCount < totalCount) {
-            filterResults.textContent =
-              `Showing ${filterResults.visibleCount} of ${totalCount} options`;
+            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} options`;
             filterResults.style.display = "block";
           } else {
             filterResults.style.display = "none";
@@ -649,7 +658,8 @@ document.addEventListener("DOMContentLoaded", function () {
           isDescMatch = !isTitleMatch && data.description.includes(term);
         } else {
           isTitleMatch = searchTerms.every((term) => data.name.includes(term));
-          isDescMatch = !isTitleMatch &&
+          isDescMatch =
+            !isTitleMatch &&
             searchTerms.every((term) => data.description.includes(term));
         }
         if (isTitleMatch) {
@@ -735,6 +745,22 @@ document.addEventListener("DOMContentLoaded", function () {
           }
         }
       });
+    }
+  }
+
+  // URL-based search highlighting
+  const urlParams = new URLSearchParams(window.location.search);
+  const highlightQuery = urlParams.get("highlight");
+  if (highlightQuery && content) {
+    // Simple tokenizer that doesn't depend on search engine
+    const queryTerms = highlightQuery
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter((term) => term.length >= 2); // min 2 chars like search engine
+
+    if (queryTerms.length > 0) {
+      highlightTextInContent(content, queryTerms);
     }
   }
 });
