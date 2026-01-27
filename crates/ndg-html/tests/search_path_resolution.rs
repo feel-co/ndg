@@ -8,7 +8,7 @@ use ndg_commonmark::collect_markdown_files;
 use ndg_config::{Config, search::SearchConfig};
 use ndg_html::{
   options::process_options,
-  search::{SearchDocument, generate_search_index},
+  search::{SearchData, generate_search_index},
   template::render,
 };
 use ndg_utils::{collect_included_files, markdown::create_processor};
@@ -212,8 +212,9 @@ This file should be transitively included in `main.html`
   let index_file =
     File::open(output_dir.join("assets").join("search-data.json"))
       .expect("Failed to open search-data.json");
-  let search_data: Vec<SearchDocument> =
+  let search_data_parsed: SearchData =
     serde_json::from_reader(index_file).expect("Failed to read index data");
+  let search_data = &search_data_parsed.documents;
 
   // Only the main file should appear in search index
   // The included files' content is already in main.html, so they're searchable
@@ -344,8 +345,9 @@ This describes the Home Manager module installation.
   let index_file =
     File::open(output_dir.join("assets").join("search-data.json"))
       .expect("Failed to open search-data.json");
-  let search_data: Vec<SearchDocument> =
+  let search_data_parsed: SearchData =
     serde_json::from_reader(index_file).expect("Failed to read index data");
+  let search_data = &search_data_parsed.documents;
 
   // The index document should be in search results
   let index_doc = search_data

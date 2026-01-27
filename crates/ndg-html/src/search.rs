@@ -1,4 +1,5 @@
 use std::{
+  clone::Clone,
   collections::{HashMap, HashSet},
   fs,
   path::PathBuf,
@@ -50,6 +51,17 @@ pub struct SearchDocument {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchIndex {
   documents: Vec<SearchDocument>,
+}
+
+/// Search data including documents and configuration
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchData {
+  pub documents:       Vec<SearchDocument>,
+  pub min_word_length: usize,
+  pub stopwords:       Vec<String>,
+  pub boost_title:     f32,
+  pub boost_content:   f32,
+  pub boost_anchor:    f32,
 }
 
 impl SearchIndex {
@@ -247,23 +259,34 @@ pub fn generate_search_index(
     }
   }
 
-  // Write search index as JSON
+  // Write search index as JSON with config
+  let search_config = config
+    .search
+    .as_ref()
+    .map_or_else(ndg_config::search::SearchConfig::default, Clone::clone);
+
+  let search_data = SearchData {
+    documents:       search_index.documents,
+    min_word_length: search_config.min_word_length,
+    stopwords:       search_config.stopwords.clone(),
+    boost_title:     search_config.get_title_boost(),
+    boost_content:   search_config.get_content_boost(),
+    boost_anchor:    search_config.get_anchor_boost(),
+  };
+
   let search_data_path = search_dir.join("search-data.json");
-  fs::write(
-    &search_data_path,
-    serde_json::to_string(&search_index.documents)?,
-  )
-  .wrap_err_with(|| {
-    format!(
-      "Failed to write search data to {}",
-      search_data_path.display()
-    )
-  })?;
+  fs::write(&search_data_path, serde_json::to_string(&search_data)?)
+    .wrap_err_with(|| {
+      format!(
+        "Failed to write search data to {}",
+        search_data_path.display()
+      )
+    })?;
 
   // Create search page
   create_search_page(config)?;
 
-  let total_count = search_index.documents.len();
+  let total_count = search_data.documents.len();
   info!(
     "Search index generated successfully: {markdown_count} markdown \
      documents, {options_count} options indexed ({total_count} total)"

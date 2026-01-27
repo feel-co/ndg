@@ -9,7 +9,7 @@ use std::fs;
 
 use ndg_commonmark::collect_markdown_files;
 use ndg_config::{Config, search::SearchConfig};
-use ndg_html::search::generate_search_index;
+use ndg_html::search::{SearchData, generate_search_index};
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -61,8 +61,9 @@ Set up your config.
     output_dir: output_dir.clone(),
     title: "Test Docs".to_string(),
     search: Some(SearchConfig {
-      enable:            true,
-      max_heading_level: 3, // only index H1, H2, H3
+      enable: true,
+      max_heading_level: 3, // index H1, H2, H3 (exclude H4)
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -76,8 +77,14 @@ Set up your config.
   let search_data_path = output_dir.join("assets").join("search-data.json");
   let search_data = fs::read_to_string(&search_data_path)
     .expect("Failed to read search-data.json");
-  let search_docs: Vec<Value> = serde_json::from_str(&search_data)
+  let search_data_parsed: SearchData = serde_json::from_str(&search_data)
     .expect("Failed to parse search-data.json");
+  let search_docs: Vec<Value> =
+    serde_json::to_value(&search_data_parsed.documents)
+      .expect("Failed to convert documents to Value")
+      .as_array()
+      .expect("Documents should be array")
+      .clone();
 
   // Should have exactly 1 document
   assert_eq!(search_docs.len(), 1, "Should have 1 search document");
@@ -89,8 +96,8 @@ Set up your config.
     .as_array()
     .expect("Anchors should be an array");
 
-  // Should have 6 anchors (H1, H2, H3 only - H4 is excluded by
-  // max_heading_level) H1: Installation Guide
+  // Should have 6 anchors (H1, H2, H3 with max_heading_level=3, excluding H4)
+  // H1: Installation Guide
   // H2: Prerequisites, Installation Steps
   // H3: System Requirements, Download, Configure
   assert_eq!(
@@ -169,8 +176,9 @@ fn test_max_heading_level_filtering() {
     output_dir: output_dir.clone(),
     title: "Test".to_string(),
     search: Some(SearchConfig {
-      enable:            true,
+      enable: true,
       max_heading_level: 2,
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -183,8 +191,14 @@ fn test_max_heading_level_filtering() {
   let search_data_path = output_dir.join("assets").join("search-data.json");
   let search_data = fs::read_to_string(&search_data_path)
     .expect("Failed to read search-data.json");
-  let search_docs: Vec<Value> = serde_json::from_str(&search_data)
+  let search_data_parsed: SearchData = serde_json::from_str(&search_data)
     .expect("Failed to parse search-data.json");
+  let search_docs: Vec<Value> =
+    serde_json::to_value(&search_data_parsed.documents)
+      .expect("Failed to convert documents to Value")
+      .as_array()
+      .expect("Documents should be array")
+      .clone();
 
   let anchors = search_docs[0]["anchors"]
     .as_array()
@@ -228,8 +242,9 @@ fn test_anchor_tokenization() {
     output_dir: output_dir.clone(),
     title: "Test".to_string(),
     search: Some(SearchConfig {
-      enable:            true,
+      enable: true,
       max_heading_level: 6,
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -242,8 +257,14 @@ fn test_anchor_tokenization() {
   let search_data_path = output_dir.join("assets").join("search-data.json");
   let search_data = fs::read_to_string(&search_data_path)
     .expect("Failed to read search-data.json");
-  let search_docs: Vec<Value> = serde_json::from_str(&search_data)
+  let search_data_parsed: SearchData = serde_json::from_str(&search_data)
     .expect("Failed to parse search-data.json");
+  let search_docs: Vec<Value> =
+    serde_json::to_value(&search_data_parsed.documents)
+      .expect("Failed to convert documents to Value")
+      .as_array()
+      .expect("Documents should be array")
+      .clone();
 
   let anchors = search_docs[0]["anchors"]
     .as_array()
@@ -320,8 +341,9 @@ fn test_document_without_headings() {
     output_dir: output_dir.clone(),
     title: "Test".to_string(),
     search: Some(SearchConfig {
-      enable:            true,
+      enable: true,
       max_heading_level: 3,
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -334,8 +356,14 @@ fn test_document_without_headings() {
   let search_data_path = output_dir.join("assets").join("search-data.json");
   let search_data = fs::read_to_string(&search_data_path)
     .expect("Failed to read search-data.json");
-  let search_docs: Vec<Value> = serde_json::from_str(&search_data)
+  let search_data_parsed: SearchData = serde_json::from_str(&search_data)
     .expect("Failed to parse search-data.json");
+  let search_docs: Vec<Value> =
+    serde_json::to_value(&search_data_parsed.documents)
+      .expect("Failed to convert documents to Value")
+      .as_array()
+      .expect("Documents should be array")
+      .clone();
 
   assert_eq!(search_docs.len(), 1);
 
@@ -355,16 +383,18 @@ fn test_document_without_headings() {
 fn test_search_config_merge() {
   let mut base = Config {
     search: Some(SearchConfig {
-      enable:            true,
+      enable: true,
       max_heading_level: 3,
+      ..Default::default()
     }),
     ..Default::default()
   };
 
   let override_config = Config {
     search: Some(SearchConfig {
-      enable:            false,
+      enable: false,
       max_heading_level: 5,
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -384,16 +414,18 @@ fn test_search_config_merge() {
 fn test_search_config_partial_merge_enable() {
   let mut base = Config {
     search: Some(SearchConfig {
-      enable:            true,
+      enable: true,
       max_heading_level: 3,
+      ..Default::default()
     }),
     ..Default::default()
   };
 
   let override_config = Config {
     search: Some(SearchConfig {
-      enable:            false,
+      enable: false,
       max_heading_level: 3, // Same as base
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -436,8 +468,9 @@ fn test_search_config_priority_over_deprecated() {
   let config = Config {
     generate_search: true, // deprecated, should be ignored
     search: Some(SearchConfig {
-      enable:            false, // new config takes priority
+      enable: false, // new config takes priority
       max_heading_level: 5,
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -473,8 +506,9 @@ fn test_anchor_id_generation() {
     output_dir: output_dir.clone(),
     title: "Test".to_string(),
     search: Some(SearchConfig {
-      enable:            true,
+      enable: true,
       max_heading_level: 6,
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -487,8 +521,14 @@ fn test_anchor_id_generation() {
   let search_data_path = output_dir.join("assets").join("search-data.json");
   let search_data = fs::read_to_string(&search_data_path)
     .expect("Failed to read search-data.json");
-  let search_docs: Vec<Value> = serde_json::from_str(&search_data)
+  let search_data_parsed: SearchData = serde_json::from_str(&search_data)
     .expect("Failed to parse search-data.json");
+  let search_docs: Vec<Value> =
+    serde_json::to_value(&search_data_parsed.documents)
+      .expect("Failed to convert documents to Value")
+      .as_array()
+      .expect("Documents should be array")
+      .clone();
 
   let anchors = search_docs[0]["anchors"]
     .as_array()
@@ -550,8 +590,9 @@ fn test_multiple_documents_with_anchors() {
     output_dir: output_dir.clone(),
     title: "Test".to_string(),
     search: Some(SearchConfig {
-      enable:            true,
+      enable: true,
       max_heading_level: 6,
+      ..Default::default()
     }),
     ..Default::default()
   };
@@ -564,8 +605,14 @@ fn test_multiple_documents_with_anchors() {
   let search_data_path = output_dir.join("assets").join("search-data.json");
   let search_data = fs::read_to_string(&search_data_path)
     .expect("Failed to read search-data.json");
-  let search_docs: Vec<Value> = serde_json::from_str(&search_data)
+  let search_data_parsed: SearchData = serde_json::from_str(&search_data)
     .expect("Failed to parse search-data.json");
+  let search_docs: Vec<Value> =
+    serde_json::to_value(&search_data_parsed.documents)
+      .expect("Failed to convert documents to Value")
+      .as_array()
+      .expect("Documents should be array")
+      .clone();
 
   assert_eq!(search_docs.len(), 3, "Should have 3 documents");
 
