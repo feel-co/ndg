@@ -312,23 +312,22 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     // Filter out included files - they should not appear as standalone entries
     // in search results. Their content is indexed as part of the parent
     // document.
-    let searchable_files: Vec<PathBuf> =
-      if let Some(ref input_dir) = config.input_dir {
-        markdown_files
-          .iter()
-          .filter(|file| {
-            file
-              .strip_prefix(input_dir)
-              .ok()
-              .is_none_or(|rel| !config.included_files.contains_key(rel))
-          })
-          .cloned()
-          .collect()
-      } else {
-        markdown_files
-      };
+    let searchable_docs: Vec<html::search::ProcessedDocument> =
+      processed_markdown
+        .iter()
+        .filter(|item| !item.is_included)
+        .map(|item| {
+          html::search::ProcessedDocument {
+            source_path:  item.source_path.clone(),
+            html_content: item.html_content.clone(),
+            headers:      item.headers.clone(),
+            title:        item.title.clone(),
+            html_path:    item.output_path.clone(),
+          }
+        })
+        .collect();
 
-    html::search::generate_search_index(config, &searchable_files)?;
+    html::search::generate_search_index(config, &searchable_docs)?;
   }
 
   // Copy assets

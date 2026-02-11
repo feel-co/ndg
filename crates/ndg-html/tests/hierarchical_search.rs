@@ -5,11 +5,15 @@
   reason = "Fine in tests"
 )]
 
+mod common;
+
 use std::fs;
 
+use common::files_to_processed_docs;
 use ndg_commonmark::collect_markdown_files;
 use ndg_config::{Config, search::SearchConfig};
 use ndg_html::search::{SearchData, generate_search_index};
+use ndg_utils::create_processor;
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -24,7 +28,7 @@ fn test_search_anchor_extraction_from_markdown() {
   fs::create_dir_all(&output_dir).expect("Failed to create output dir");
 
   // Create markdown file with multiple heading levels
-  let md_content = r#"# Installation Guide
+  let md_content = "# Installation Guide
 
 This is the main installation guide.
 
@@ -51,7 +55,7 @@ Get the package.
 ### Configure
 
 Set up your config.
-"#;
+";
 
   let md_file = input_dir.join("install.md");
   fs::write(&md_file, md_content).expect("Failed to write markdown file");
@@ -69,8 +73,11 @@ Set up your config.
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
+  let processor = create_processor(&config, None);
+  let processed_docs =
+    files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
-  generate_search_index(&config, &markdown_files)
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   // Read and parse the generated search data
@@ -184,8 +191,11 @@ fn test_max_heading_level_filtering() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
+  let processor = create_processor(&config, None);
+  let processed_docs =
+    files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
-  generate_search_index(&config, &markdown_files)
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   let search_data_path = output_dir.join("assets").join("search-data.json");
@@ -250,8 +260,11 @@ fn test_anchor_tokenization() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
+  let processor = create_processor(&config, None);
+  let processed_docs =
+    files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
-  generate_search_index(&config, &markdown_files)
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   let search_data_path = output_dir.join("assets").join("search-data.json");
@@ -342,15 +355,18 @@ fn test_document_without_headings() {
     title: "Test".to_string(),
     search: Some(SearchConfig {
       enable: true,
-      max_heading_level: 3,
+      max_heading_level: 6,
       ..Default::default()
     }),
     ..Default::default()
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
+  let processor = create_processor(&config, None);
+  let processed_docs =
+    files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
-  generate_search_index(&config, &markdown_files)
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   let search_data_path = output_dir.join("assets").join("search-data.json");
@@ -514,8 +530,11 @@ fn test_anchor_id_generation() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
+  let processor = create_processor(&config, None);
+  let processed_docs =
+    files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
-  generate_search_index(&config, &markdown_files)
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   let search_data_path = output_dir.join("assets").join("search-data.json");
@@ -598,8 +617,11 @@ fn test_multiple_documents_with_anchors() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
+  let processor = create_processor(&config, None);
+  let processed_docs =
+    files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
-  generate_search_index(&config, &markdown_files)
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   let search_data_path = output_dir.join("assets").join("search-data.json");

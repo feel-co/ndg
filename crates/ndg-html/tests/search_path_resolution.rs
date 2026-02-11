@@ -1,9 +1,13 @@
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "Fine in tests")]
+
+mod common;
+
 use std::{
   fs::{self, File, create_dir_all},
   path::PathBuf,
 };
 
+use common::files_to_processed_docs;
 use ndg_commonmark::collect_markdown_files;
 use ndg_config::{Config, search::SearchConfig};
 use ndg_html::{
@@ -205,7 +209,13 @@ This file should be transitively included in `main.html`
     .cloned()
     .collect();
 
-  generate_search_index(&config, &searchable_files)
+  let processed_docs = files_to_processed_docs(
+    &searchable_files,
+    &input_dir,
+    processor.as_ref().unwrap(),
+  );
+
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   // Verify that search data is generated correctly
@@ -337,8 +347,14 @@ This describes the Home Manager module installation.
     .cloned()
     .collect();
 
+  let processed_docs = files_to_processed_docs(
+    &searchable_files,
+    &input_dir,
+    processor.as_ref().unwrap(),
+  );
+
   // Generate search index with only standalone files
-  generate_search_index(&config, &searchable_files)
+  generate_search_index(&config, &processed_docs)
     .expect("Failed to generate search index");
 
   // Verify that search data is generated correctly

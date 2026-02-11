@@ -9,7 +9,7 @@ use std::{
 use color_eyre::eyre::{Context, Result};
 use log::info;
 use ndg_config::Config;
-use ndg_utils::{create_processor, html, postprocess};
+use ndg_utils::{html, postprocess};
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -100,12 +100,34 @@ fn tokenize(text: &str) -> Vec<String> {
   tokens.into_iter().collect()
 }
 
+/// Represents a processed markdown document for search indexing.
+///
+/// This contains the rendered HTML content (which includes expanded includes)
+/// that will be converted to plain text for indexing.
+pub struct ProcessedDocument {
+  /// Source file path
+  pub source_path:  PathBuf,
+  /// Rendered HTML content (after include expansion and rendering)
+  pub html_content: String,
+  /// Headers extracted from the document
+  pub headers:      Vec<ndg_commonmark::Header>,
+  /// Title of the document
+  pub title:        Option<String>,
+  /// HTML output path for the document
+  pub html_path:    String,
+}
+
 /// Generate search index from standalone markdown files.
 ///
 /// This function only processes markdown files that will be rendered as
 /// standalone HTML pages. Files that are included in other documents via
 /// `{=include=}` directives should not be passed to this function - their
 /// content is already indexed as part of the parent document.
+///
+/// # Arguments
+///
+/// * `config` - The loaded configuration for documentation generation.
+/// * `processed_docs` - Processed markdown documents with expanded includes.
 ///
 /// # Errors
 ///
@@ -117,7 +139,7 @@ fn tokenize(text: &str) -> Vec<String> {
 /// Panics if `config.input_dir` is `None` when processing markdown files.
 pub fn generate_search_index(
   config: &Config,
-  markdown_files: &[PathBuf],
+  processed_docs: &[ProcessedDocument],
 ) -> Result<()> {
   if !config.is_search_enabled() {
     return Ok(());
@@ -133,59 +155,32 @@ pub fn generate_search_index(
   let mut doc_id = 0;
   let mut markdown_count = 0;
 
-  // Get max heading level for anchor indexing and create a markdown processor
-  // for extracting headers.
+  // Get max heading level for anchor indexing
   let max_heading_level = config.search_max_heading_level();
-  let base_processor = create_processor(config, None);
 
-  // Process standalone markdown files in parallel
-  if !markdown_files.is_empty()
-    && let Some(ref input_dir) = config.input_dir
-  {
-    let documents: Result<Vec<_>> = markdown_files
+  // Process standalone markdown documents in parallel
+  if !processed_docs.is_empty() {
+    let documents: Result<Vec<_>> = processed_docs
       .par_iter()
-      .map(|file_path| {
-        let content = fs::read_to_string(file_path).wrap_err_with(|| {
-          format!(
-            "Failed to read file for search indexing: {}",
-            file_path.display()
-          )
-        })?;
+      .map(|doc| {
+        // Convert HTML to plain text for indexing
+        // This includes all content from expanded includes
+        let plain_text = html::content_to_plaintext(&doc.html_content);
 
-        let (title, _id) =
-          extract_title_and_id(&content).unwrap_or_else(|| {
-            (
-              file_path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string(),
-              None,
-            )
-          });
+        let title = doc.title.clone().unwrap_or_else(|| {
+          doc
+            .source_path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string()
+        });
 
-        let plain_text = html::content_to_plaintext(&content);
-
-        let rel_path =
-          file_path.strip_prefix(input_dir).wrap_err_with(|| {
-            format!(
-              "Failed to determine relative path for {}",
-              file_path.display()
-            )
-          })?;
-
-        // Convert markdown path to HTML path
-        let mut html_path = rel_path.to_path_buf();
-        html_path.set_extension("html");
-        let path = html_path.to_string_lossy().to_string();
-
-        // Process markdown to extract headers
-        let base_dir = file_path.parent().unwrap_or(input_dir.as_path());
-        let processor = base_processor.clone().with_base_dir(base_dir);
-        let result = processor.render(&content);
+        // Use the provided HTML path
+        let path = doc.html_path.clone();
 
         // Extract anchors from headers, filtering by max level
-        let anchors: Vec<SearchAnchor> = result
+        let anchors: Vec<SearchAnchor> = doc
           .headers
           .iter()
           .filter(|h| h.level <= max_heading_level)
@@ -293,11 +288,6 @@ pub fn generate_search_index(
   );
 
   Ok(())
-}
-
-/// Extract title and anchor ID from markdown content (first H1)
-fn extract_title_and_id(content: &str) -> Option<(String, Option<String>)> {
-  ndg_commonmark::utils::extract_markdown_title_and_id(content)
 }
 
 /// Create the search page HTML and write it to the output directory.
