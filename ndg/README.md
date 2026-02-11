@@ -37,6 +37,7 @@ several features such as
     - **Title Anchors** are automatically generated for headings
     - **GFM extensions** powered by [ndg-commonmark]
 - **Search functionality** to quickly find content across documents
+  - **Fuzzy search**, navigation with keybinds, highlighting and more
 - **Nix module options support** to generate documentation from `options.json`
   - **Flexible options sidebar customization** to control visibility, naming,
     ordering, and depth of option categories
@@ -44,9 +45,9 @@ several features such as
 - **Incredibly fast** documentation generation for all scenarios
   - **Multi-threading support** for fast generation of large documentation sets
 
-[^1]: This is a best-effort. Regular CommonMark is fully supported, but Nixpkgs
-    additions may sometimes break due to the lack of a clear specification.
-    Please open an issue if this is the case for you.
+[^1]: It is worth noting that Markdown -> Manpage conversion is sometimes
+    fragile, and Nixpkgs additions may break occasionally. Please open an issue
+    if this is the case!
 
 ## Usage
 
@@ -1098,11 +1099,13 @@ With `number_special_files = true`:
 
   ```txt
   <!-- Admonitions are flexible. -->
+
   ::: {.warning}
   This is a critical warning that users should pay attention to!
   :::
 
   <!-- Make it inline-->
+
   ::: {.tip} Here's a helpful tip to make your life easier. :::
   ```
 
