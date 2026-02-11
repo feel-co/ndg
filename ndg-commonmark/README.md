@@ -137,13 +137,13 @@ which parts of the flavored CommonMark will be supported.
 ```toml
 [dependencies]
 # Recommended: Modern syntax highlighting
-ndg-commonmark = { version = "1.0", features = ["gfm", "nixpkgs", "syntastica"] }
+ndg-commonmark = { version = "2.6.0", features = ["gfm", "nixpkgs", "syntastica"] }
 
 # Alternative: Legacy syntax highlighting
-ndg-commonmark = { version = "1.0", features = ["gfm", "nixpkgs", "syntect"] }
+ndg-commonmark = { version = "2.6.0", features = ["gfm", "nixpkgs", "syntect"] }
 
 # No syntax highlighting
-ndg-commonmark = { version = "1.0", features = ["gfm", "nixpkgs"] }
+ndg-commonmark = { version = "2.6.0", features = ["gfm", "nixpkgs"] }
 ```
 
 ## API Reference
