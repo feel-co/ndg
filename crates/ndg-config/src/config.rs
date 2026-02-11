@@ -2,6 +2,7 @@ use std::{
   collections::HashMap,
   fs,
   path::{Path, PathBuf},
+  sync::OnceLock,
 };
 
 use serde::{Deserialize, Serialize};
@@ -1033,50 +1034,49 @@ impl Config {
   /// Search for config files in common locations
   #[must_use]
   pub fn find_config_file() -> Option<PathBuf> {
-    // Common config file names to look for
-    let config_filenames = [
-      "ndg.toml",
-      "ndg.json",
-      ".ndg.toml",
-      ".ndg.json",
-      ".config/ndg.toml",
-      ".config/ndg.json",
-    ];
+    static RESULT: OnceLock<Option<PathBuf>> = OnceLock::new();
+    RESULT
+      .get_or_init(|| {
+        let config_filenames = [
+          "ndg.toml",
+          "ndg.json",
+          ".ndg.toml",
+          ".ndg.json",
+          ".config/ndg.toml",
+          ".config/ndg.json",
+        ];
 
-    // First try current directory
-    let current_dir = std::env::current_dir().ok()?;
-
-    // Check each filename in the current directory
-    for filename in &config_filenames {
-      let config_path = current_dir.join(filename);
-      if config_path.exists() {
-        return Some(config_path);
-      }
-    }
-
-    // If we have a $XDG_CONFIG_HOME environment variable, check there too
-    if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
-      let xdg_config_dir = PathBuf::from(xdg_config_home);
-      for filename in &["ndg.toml", "ndg.json"] {
-        let config_path = xdg_config_dir.join(filename);
-        if config_path.exists() {
-          return Some(config_path);
+        let current_dir = std::env::current_dir().ok()?;
+        for filename in &config_filenames {
+          let config_path = current_dir.join(filename);
+          if config_path.exists() {
+            return Some(config_path);
+          }
         }
-      }
-    }
 
-    // Then check $HOME/.config/ndg/
-    if let Ok(home) = std::env::var("HOME") {
-      let home_config_dir = PathBuf::from(home).join(".config").join("ndg");
-      for filename in &["config.toml", "config.json"] {
-        let config_path = home_config_dir.join(filename);
-        if config_path.exists() {
-          return Some(config_path);
+        if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
+          let xdg_config_dir = PathBuf::from(xdg_config_home);
+          for filename in &["ndg.toml", "ndg.json"] {
+            let config_path = xdg_config_dir.join(filename);
+            if config_path.exists() {
+              return Some(config_path);
+            }
+          }
         }
-      }
-    }
 
-    None
+        if let Ok(home) = std::env::var("HOME") {
+          let home_config_dir = PathBuf::from(home).join(".config").join("ndg");
+          for filename in &["config.toml", "config.json"] {
+            let config_path = home_config_dir.join(filename);
+            if config_path.exists() {
+              return Some(config_path);
+            }
+          }
+        }
+
+        None
+      })
+      .clone()
   }
 
   /// Validate all paths specified in the configuration
