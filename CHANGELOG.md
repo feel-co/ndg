@@ -29,6 +29,17 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   ignored.
 - Release date is not tracked
 
+## [2.6.1]
+
+### Fixed
+
+- Fixed search index to properly include content from `{=include=}` directives.
+  Included files are now searchable as part of their parent document.
+- Fixed memory leak in mobile search focus trap. Event listeners are now
+  properly cleaned up when closing mobile search or when results update.
+- Fixed double navigation issue when pressing Enter in search results. Added
+  debounce guard to prevent redundant page navigations.
+
 ## [2.6.0]
 
 ### Added
@@ -241,11 +252,12 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 
 ### Fixed
 
-- Fixed silent failure in syntax highlighting initialization (ndg-commonmark)
-- Prevented panic in theme name fallback logic (ndg-commonmark)
-- Prevented panic on empty fence character extraction (ndg-commonmark)
+- Fixed silent failure in syntax highlighting initialization in ndg-commonmark
+- Prevented panic in theme name fallback logic in ndg-commonmark
+- Prevented panic on empty fence character extraction in ndg-commonmark
 
 [Unreleased]: https://github.com/feel-co/ndg/compare/v2.6.0...HEAD
+[2.6.1]: https://github.com/feel-co/ndg/compare/v2.6.0...v2.6.1
 [2.6.0]: https://github.com/feel-co/ndg/compare/v2.5.1...v2.6.0
 [2.5.0]: https://github.com/feel-co/ndg/compare/v2.4.1...v2.5.0
 [2.5.1]: https://github.com/feel-co/ndg/compare/v2.5.0...v2.5.1
