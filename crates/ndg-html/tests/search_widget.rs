@@ -2,7 +2,10 @@
 use std::fs;
 
 use ndg_config::{Config, search::SearchConfig};
-use ndg_html::{options::process_options, search::generate_search_index};
+use ndg_html::{
+  options::process_options,
+  search::{SearchData, generate_search_index},
+};
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -54,8 +57,14 @@ fn test_search_html_escape() {
   let search_data =
     fs::read_to_string(output_dir.join("assets").join("search-data.json"))
       .expect("Failed to read search-data.json in search_widget test");
-  let search_docs: Vec<serde_json::Value> = serde_json::from_str(&search_data)
+  let search_data_parsed: SearchData = serde_json::from_str(&search_data)
     .expect("Failed to parse search-data.json in search_widget test");
+  let search_docs: Vec<serde_json::Value> =
+    serde_json::to_value(&search_data_parsed.documents)
+      .expect("Failed to convert documents to Value")
+      .as_array()
+      .expect("Documents should be array")
+      .clone();
 
   let options_html = fs::read_to_string(output_dir.join("options.html"))
     .expect("Failed to read options.html in search_widget test");

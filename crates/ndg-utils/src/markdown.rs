@@ -368,8 +368,7 @@ pub fn extract_page_title(file_path: &Path, html_path: &Path) -> String {
   match fs::read_to_string(file_path) {
     Ok(content) => {
       ndg_commonmark::utils::extract_markdown_title_and_id(&content)
-        .map(|(title, _)| title)
-        .unwrap_or(default_title)
+        .map_or(default_title, |(title, _)| title)
     },
     Err(_) => default_title,
   }

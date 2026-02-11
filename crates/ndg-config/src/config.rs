@@ -507,6 +507,96 @@ impl Config {
             search_cfg.max_heading_level = level;
           }
         },
+        "search.min_word_length" => {
+          let length = value.parse::<usize>().map_err(|_| {
+            ConfigError::Config(format!(
+              "Invalid value for 'search.min_word_length': '{value}'. \
+               Expected a positive integer"
+            ))
+          })?;
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search {
+            search_cfg.min_word_length = length;
+          }
+        },
+        "search.boost" => {
+          let boost = value.parse::<f32>().map_err(|_| {
+            ConfigError::Config(format!(
+              "Invalid value for 'search.boost': '{value}'. Expected a number"
+            ))
+          })?;
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search {
+            search_cfg.boost = Some(boost);
+          }
+        },
+        "search.boost_title" => {
+          let boost = value.parse::<f32>().map_err(|_| {
+            ConfigError::Config(format!(
+              "Invalid value for 'search.boost_title': '{value}'. Expected a \
+               number"
+            ))
+          })?;
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search {
+            search_cfg.boost_title = Some(boost);
+          }
+        },
+        "search.boost_content" => {
+          let boost = value.parse::<f32>().map_err(|_| {
+            ConfigError::Config(format!(
+              "Invalid value for 'search.boost_content': '{value}'. Expected \
+               a number"
+            ))
+          })?;
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search {
+            search_cfg.boost_content = Some(boost);
+          }
+        },
+        "search.boost_anchor" => {
+          let boost = value.parse::<f32>().map_err(|_| {
+            ConfigError::Config(format!(
+              "Invalid value for 'search.boost_anchor': '{value}'. Expected a \
+               number"
+            ))
+          })?;
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search {
+            search_cfg.boost_anchor = Some(boost);
+          }
+        },
+
+        // Nested search.stopwords.* - add individual stopwords
+        key if key.starts_with("search.stopwords.") => {
+          #[allow(
+            clippy::expect_used,
+            reason = "Guard condition ensures strip_prefix cannot fail"
+          )]
+          let _index = key.strip_prefix("search.stopwords.").expect(
+            "Key starts with 'search.stopwords.' prefix, strip_prefix cannot \
+             fail",
+          );
+          // Add stopword to the list
+          if self.search.is_none() {
+            self.search = Some(search::SearchConfig::default());
+          }
+          if let Some(ref mut search_cfg) = self.search
+            && !search_cfg.stopwords.contains(&value.to_string())
+          {
+            search_cfg.stopwords.push(value.to_string());
+          }
+        },
 
         // Nested sidebar.options.depth
         "sidebar.options.depth" => {
