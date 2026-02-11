@@ -806,6 +806,9 @@ img {
   padding: var(--space-4);
   border-bottom: 1px solid var(--border-color);
   transition: border-color var(--transition);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
 .search-result-item:last-child {
@@ -816,10 +819,16 @@ img {
   color: var(--text-color);
   text-decoration: none;
   display: block;
+  flex-grow: 1;
 }
 
 .search-result-item:hover {
   background-color: var(--sidebar-hover);
+}
+
+.search-result-item.search-result-active {
+  background-color: var(--sidebar-active);
+  border-left: 3px solid var(--link-color);
 }
 
 .search-result-title {
@@ -879,7 +888,8 @@ img {
 
 #mobile-search-input {
   flex-grow: 1;
-  padding: 10px 15px;
+  padding: var(--space-3) var(--space-4);
+  min-height: 48px;
   font-size: 1.1em;
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -899,9 +909,14 @@ img {
   font-size: 2rem;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 0 0.5rem;
+  padding: 0;
   margin-left: 0.5rem;
   line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-mobile-search:hover {
@@ -915,7 +930,10 @@ img {
 
 /* Reuse desktop search result styling */
 .mobile-search-results .search-result-item {
-  padding: 10px;
+  padding: var(--space-3) var(--space-4);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -926,11 +944,22 @@ img {
 .mobile-search-results .search-result-item a {
   text-decoration: none;
   color: inherit;
-  display: block;
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) 0;
+  min-height: 44px;
+  flex-grow: 1;
 }
 
 .mobile-search-results .search-result-item:hover {
   background-color: var(--sidebar-hover);
+}
+
+/* Touch feedback for mobile devices */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-search-results .search-result-item:active {
+    background-color: var(--sidebar-active);
+  }
 }
 
 .mobile-search-results .search-result-title {
@@ -2189,12 +2218,39 @@ h6:hover .copy-link {
 /* Keyboard navigation active state */
 .search-result-item.search-result-active {
   background-color: var(--sidebar-active);
-  border-color: var(--link-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+  border-left: 3px solid var(--link-color);
+}
+
+/* Search error styling */
+.search-error {
+  padding: var(--space-4);
+  border: 1px solid var(--admonition-danger-color);
+  border-radius: var(--radius-md);
+  background-color: var(--sidebar-bg);
+  color: var(--text-color);
+}
+
+.search-error p {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.search-error button,
+.search-error a {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--link-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: background-color var(--transition-fast);
+}
+
+.search-error button:hover,
+.search-error a:hover {
+  background-color: var(--link-hover-color);
 }
 
 .search-result-item.search-result-active a {

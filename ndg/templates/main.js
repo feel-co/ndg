@@ -61,13 +61,16 @@ function createMobileElements() {
   const mobileSearchPopup = document.createElement("div");
   mobileSearchPopup.id = "mobile-search-popup";
   mobileSearchPopup.className = "mobile-search-popup";
+  mobileSearchPopup.setAttribute("role", "dialog");
+  mobileSearchPopup.setAttribute("aria-modal", "true");
+  mobileSearchPopup.setAttribute("aria-label", "Search");
   mobileSearchPopup.innerHTML = `
-    <div class="mobile-search-container">
+    <div class="mobile-search-container" role="document">
       <div class="mobile-search-header">
-        <input type="text" id="mobile-search-input" placeholder="Search..." />
-        <button id="close-mobile-search" class="close-mobile-search" aria-label="Close search">&times;</button>
+        <input type="search" id="mobile-search-input" placeholder="Search..." aria-label="Search" autocomplete="off" />
+        <button type="button" id="close-mobile-search" class="close-mobile-search" aria-label="Close search">&times;</button>
       </div>
-      <div id="mobile-search-results" class="mobile-search-results"></div>
+      <div id="mobile-search-results" class="mobile-search-results" role="region" aria-live="polite" aria-label="Search results"></div>
     </div>
   `;
 
@@ -235,7 +238,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const sidebarHiddenContainer = document.createElement("template");
 
   // Handle sidebar section toggles - move content to template when collapsed
-  document.querySelectorAll(".sidebar-section > .sidebar-section-content")
+  document
+    .querySelectorAll(".sidebar-section > .sidebar-section-content")
     .forEach((content) => {
       const details = content.parentElement;
       const toggleContent = () => {
@@ -278,9 +282,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const sidebarObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       if (mutation.attributeName === "class") {
-        const isCollapsed = document.documentElement.classList.contains(
-          "sidebar-collapsed",
-        );
+        const isCollapsed =
+          document.documentElement.classList.contains("sidebar-collapsed");
         if (isCollapsed) {
           // Sidebar collapsed - move to template
           if (sidebar.parentElement) {
@@ -324,9 +327,8 @@ document.addEventListener("DOMContentLoaded", function () {
       document.body.classList.toggle("sidebar-collapsed");
 
       // Use documentElement to check state and save to localStorage
-      const isCollapsed = document.documentElement.classList.contains(
-        "sidebar-collapsed",
-      );
+      const isCollapsed =
+        document.documentElement.classList.contains("sidebar-collapsed");
       localStorage.setItem("sidebar-collapsed", isCollapsed);
     });
   }
@@ -604,8 +606,8 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     // Detect if we're on a mobile device
-    const isMobile = window.innerWidth < 768 ||
-      /Mobi|Android/i.test(navigator.userAgent);
+    const isMobile =
+      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
 
     // Cache all option elements and their searchable content
     const options = Array.from(document.querySelectorAll(".option"));
@@ -681,8 +683,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (filterResults.visibleCount !== undefined) {
           if (filterResults.visibleCount < totalCount) {
-            filterResults.textContent =
-              `Showing ${filterResults.visibleCount} of ${totalCount} options`;
+            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} options`;
             filterResults.style.display = "block";
           } else {
             filterResults.style.display = "none";
