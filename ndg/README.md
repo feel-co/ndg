@@ -28,7 +28,7 @@ are optional and can be controlled via various knobs.
 [ndg-commonmark]: https://crates.io/crates/ndg-commonmark
 
 We would like for NDG to be fast, but also flexible and powerful. It boasts
-several features such as
+several features such as:
 
 - **Markdown to HTML and Manpage conversion** with support for Nixpkgs-flavored
   CommonMark features[^1].
@@ -47,6 +47,32 @@ several features such as
 [^1]: This is a best-effort. Regular CommonMark is fully supported, but Nixpkgs
     additions may sometimes break due to the lack of a clear specification.
     Please open an issue if this is the case for you.
+
+Most of the parser features are powered by [ndg-commonmark], which you are
+encouraged to look into if you are looking for a _library_ rather than a CLI
+tool.
+
+### Motivation
+
+[This page]: https://github.com/NixOS/nixpkgs/tree/97bdff78c2b5243bc8c077e52a24613f83c59108/doc#syntax
+[repository README]: https://github.com/feel-co/ndg/blob/3658e22a2998f4c08c07bedfb74194a2613952fc/README.md#ndg
+
+As of 2025, the entirety of Nixpkgs' module system is documented in Markdown.
+More specifically, they use CommonMark with a set of extensions to document
+module options as well as for the manual itself. [This page] explains the layout
+of the Nixpkgs' documentation system, the tooling (`nixos-render-docs`,
+sometimes called `nrd`) and the dialect of CommonMark that is in use.
+
+While the spec is growing in adoption, and is relatively intuitive, it is
+heavily lacking in a formal specification and the underlying tool that is used
+to render the Nixpkgs documentation is _incredibly_ opinionated and lacking in
+customizability.
+
+As described in the [repository README], this repository exists to present a
+fast, customizable alternative to existing tooling like MDBook and
+`nixos-render-docs` but with a special emphasis on user experience, performance
+and extensibility. A variety of Nix/NixOS-adjacent projects already use it, so
+you can also consider NDG a _battle-tested_ solution.
 
 ## Usage
 
@@ -75,8 +101,8 @@ ier ones
   -V, --version                     Print version
 ```
 
-You can review `ndg html` and `ndg manpage` commands' help texts to get more
-insight.
+You can review `ndg html` and `ndg manpage` commands' help texts by passing
+`--help` to get more insight.
 
 ### Quickstart
 
