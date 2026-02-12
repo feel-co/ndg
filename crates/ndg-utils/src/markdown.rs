@@ -223,11 +223,6 @@ pub fn process_markdown_files(
         .get(file_path)
         .expect("File should have cached result");
 
-      // XXX: We're inside the `if let Some(ref input_dir) =
-      // config.input_dir` block, so unwrap is safe here.
-      // P.S. I'm not using `reason` here because it looks ugly as hell.
-      #[allow(clippy::unwrap_used)]
-      let input_dir = config.input_dir.as_ref().unwrap();
       let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
         format!(
           "Failed to determine relative path for {}",
