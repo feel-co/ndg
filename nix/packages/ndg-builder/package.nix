@@ -94,8 +94,8 @@
         opt.declarations;
     },
   # Builder configuration
-  title ? "My Option Documentation",
-  description ? "List of my options in JSON format.",
+  title ? "Site created by NDG",
+  description ? "Generate static site docs of nix options",
   optionsDocArgs ? {},
   scripts ? [],
   inputDir ? null,
