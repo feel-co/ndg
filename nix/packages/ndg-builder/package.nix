@@ -127,8 +127,20 @@ in
     } (
       ''
         mkdir -p $out
+        config_path="$TMPDIR/ndg-builder.toml"
+        {
+          echo "output_dir = \"$out\""
+      ''
+      + optionalString (inputDir != null) ''
+          echo "input_dir = \"${toString inputDir}\""
+      ''
+      + optionalString (inputDir == null) ''
+          echo "module_options = \"${configJSON}/share/doc/nixos/options.json\""
+      ''
+      + ''
+        } > "$config_path"
 
-        ndg ${optionalString verbose "--verbose"} html \
+        ndg --config-file "$config_path" ${optionalString verbose "--verbose"} html \
           --jobs $NIX_BUILD_CORES --output-dir "$out" --title "${title}" \
           --module-options "${configJSON}/share/doc/nixos/options.json" \
       ''
