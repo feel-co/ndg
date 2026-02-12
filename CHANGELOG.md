@@ -31,6 +31,21 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
 
 ## [2.6.1]
 
+### Added
+
+- `ndg-builder` accepts `evaluatedModules` as an alternative to `rawModules`
+  when you already have evaluated module output.
+- `ndg-builder` forwards `nixosOptionsDoc` options via `optionsDocArgs` and
+  supports `warningsAreErrors` configuration.
+- `ndg-builder-docs` package for generating NDG docs via `ndg-builder`.
+
+### Changed
+
+- `ndg-builder` now writes a config file and invokes NDG with `--config-file`
+  for consistent CLI configuration.
+- Improved default `title` and `description` values for `ndg-builder`
+  derivations.
+
 ### Fixed
 
 - Fixed search index to properly include content from `{=include=}` directives.
