@@ -1,7 +1,7 @@
 //! Feature-specific Markdown processing extensions.
 use std::{fmt::Write, fs, path::Path};
 
-use html_escape;
+use html_escape::encode_text;
 
 use super::process::process_safe;
 
@@ -397,7 +397,7 @@ pub fn format_role_markup(
   auto_link_options: bool,
   valid_options: Option<&std::collections::HashSet<String>>,
 ) -> String {
-  let escaped_content = html_escape::encode_text(content);
+  let escaped_content = encode_text(content);
   match role_type {
     "manpage" => {
       if let Some(urls) = manpage_urls {

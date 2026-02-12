@@ -1,4 +1,10 @@
 //! Main processing functions for Markdown content.
+use std::{
+  fs,
+  io::Error,
+  path::{Path, PathBuf},
+};
+
 use log::error;
 
 use super::types::{MarkdownOptions, MarkdownProcessor, TabStyle};
@@ -75,11 +81,11 @@ where
     Err(e) => {
       // Log the error but allow the program to continue
       if let Some(error_msg) = e.downcast_ref::<String>() {
-        log::error!("Error processing markup: {error_msg}");
+        error!("Error processing markup: {error_msg}");
       } else if let Some(error_msg) = e.downcast_ref::<&str>() {
-        log::error!("Error processing markup: {error_msg}");
+        error!("Error processing markup: {error_msg}");
       } else {
-        log::error!("Unknown error occurred while processing markup");
+        error!("Unknown error occurred while processing markup");
       }
 
       // Return the original text or default value to prevent breaking the
@@ -111,8 +117,8 @@ pub fn process_batch<I, F>(
   read_file_fn: F,
 ) -> Vec<(String, Result<MarkdownResult, String>)>
 where
-  I: Iterator<Item = std::path::PathBuf>,
-  F: Fn(&std::path::Path) -> Result<String, std::io::Error>,
+  I: Iterator<Item = PathBuf>,
+  F: Fn(&Path) -> Result<String, Error>,
 {
   files
     .map(|path| {
@@ -231,16 +237,14 @@ pub fn process_markdown_string(
 ///
 /// Returns an error if the file cannot be read.
 pub fn process_markdown_file(
-  file_path: &std::path::Path,
+  file_path: &Path,
   preset: ProcessorPreset,
 ) -> Result<MarkdownResult, String> {
-  let content = std::fs::read_to_string(file_path).map_err(|e| {
+  let content = fs::read_to_string(file_path).map_err(|e| {
     format!("Failed to read file {}: {}", file_path.display(), e)
   })?;
 
-  let base_dir = file_path
-    .parent()
-    .unwrap_or_else(|| std::path::Path::new("."));
+  let base_dir = file_path.parent().unwrap_or_else(|| Path::new("."));
   let processor = create_processor(preset).with_base_dir(base_dir);
   Ok(process_with_recovery(&processor, &content))
 }
@@ -264,11 +268,11 @@ pub fn process_markdown_file(
 ///
 /// Returns an error if the file cannot be read.
 pub fn process_markdown_file_with_basedir(
-  file_path: &std::path::Path,
-  base_dir: &std::path::Path,
+  file_path: &Path,
+  base_dir: &Path,
   preset: ProcessorPreset,
 ) -> Result<MarkdownResult, String> {
-  let content = std::fs::read_to_string(file_path).map_err(|e| {
+  let content = fs::read_to_string(file_path).map_err(|e| {
     format!("Failed to read file {}: {}", file_path.display(), e)
   })?;
 
@@ -286,7 +290,7 @@ mod tests {
   fn test_safely_process_markup_success() {
     let content = "test content";
     let result =
-      process_safe(content, |s| format!("processed: {}", s), "fallback");
+      process_safe(content, |s| format!("processed: {s}"), "fallback");
     assert_eq!(result, "processed: test content");
   }
 
@@ -328,6 +332,7 @@ mod tests {
   }
 
   #[test]
+  #[allow(clippy::panic)]
   fn test_process_batch() {
     let processor = create_processor(ProcessorPreset::Basic);
     let paths = vec![Path::new("test1.md"), Path::new("test2.md")];
@@ -347,7 +352,7 @@ mod tests {
 
     let results = process_batch(
       &processor,
-      paths.into_iter().map(|p| p.to_path_buf()),
+      paths.into_iter().map(std::path::Path::to_path_buf),
       read_fn,
     );
     assert_eq!(results.len(), 2);
@@ -362,7 +367,7 @@ mod tests {
             assert!(markdown_result.html.contains("Test 2"));
           }
         },
-        Err(e) => assert!(false, "Unexpected error for path {}: {}", path, e),
+        Err(e) => panic!("Unexpected error for path {path}: {e}"),
       }
     }
   }
