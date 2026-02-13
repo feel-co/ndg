@@ -85,6 +85,7 @@
               <ul class="toc-list">
                 <ul><li><a href="#what-is-it">What is it?</a>
 <ul><li><a href="#features">Features</a>
+<li><a href="#motivation">Motivation</a>
 </ul><li><a href="#usage">Usage</a>
 <ul><li><a href="#quickstart">Quickstart</a>
 <li><a href="#generating-your-first-documents">Generating Your First Documents</a>
@@ -133,7 +134,7 @@ features, such as module options page and Nixpkgs-flavored <a href="https://comm
 are optional and can be controlled via various knobs.</p>
 <h3 id="features">Features</h3>
 <p>We would like for NDG to be fast, but also flexible and powerful. It boasts
-several features such as</p>
+several features such as:</p>
 <ul>
 <li><strong>Markdown to HTML and Manpage conversion</strong> with support for Nixpkgs-flavored
 CommonMark features<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref="">1</a></sup>.
@@ -161,6 +162,24 @@ ordering, and depth of option categories</li>
 </ul>
 </li>
 </ul>
+<p>Most of the parser features are powered by <a href="https://crates.io/crates/ndg-commonmark">ndg-commonmark</a>, which you are
+encouraged to look into if you are looking for a <em>library</em> rather than a CLI
+tool.</p>
+<h3 id="motivation">Motivation</h3>
+<p>As of 2025, the entirety of Nixpkgs' module system is documented in Markdown.
+More specifically, they use CommonMark with a set of extensions to document
+module options as well as for the manual itself. <a href="https://github.com/NixOS/nixpkgs/tree/97bdff78c2b5243bc8c077e52a24613f83c59108/doc#syntax">This page</a> explains the layout
+of the Nixpkgs' documentation system, the tooling (<code>nixos-render-docs</code>,
+sometimes called <code>nrd</code>) and the dialect of CommonMark that is in use.</p>
+<p>While the spec is growing in adoption, and is relatively intuitive, it is
+heavily lacking in a formal specification and the underlying tool that is used
+to render the Nixpkgs documentation is <em>incredibly</em> opinionated and lacking in
+customizability.</p>
+<p>As described in the <a href="https://github.com/feel-co/ndg/blob/3658e22a2998f4c08c07bedfb74194a2613952fc/README.md#ndg">repository README</a>, this repository exists to present a
+fast, customizable alternative to existing tooling like MDBook and
+<code>nixos-render-docs</code> but with a special emphasis on user experience, performance
+and extensibility. A variety of Nix/NixOS-adjacent projects already use it, so
+you can also consider NDG a <em>battle-tested</em> solution.</p>
 <h2 id="usage">Usage</h2>
 <p>The primary interface of NDG is the <code>ndg</code> CLI utility. There are several
 subcommands to handle different documentation tasks.</p>
@@ -184,8 +203,8 @@ ier ones
   -h, --help                        Print help
   -V, --version                     Print version
 </code></pre>
-<p>You can review <code>ndg html</code> and <code>ndg manpage</code> commands' help texts to get more
-insight.</p>
+<p>You can review <code>ndg html</code> and <code>ndg manpage</code> commands' help texts by passing
+<code>--help</code> to get more insight.</p>
 <h3 id="quickstart">Quickstart</h3>
 <p>The easiest and fastest way to get started with NDG is using the <code>init</code>
 subcommand to generate a configuration file, and tweak it per your needs.</p>
@@ -899,6 +918,7 @@ Please open an issue if this is the case for you. <a href="#fnref-1" class="foot
           <ul class="page-toc-list">
             <ul><li><a href="#what-is-it">What is it?</a>
 <ul><li><a href="#features">Features</a>
+<li><a href="#motivation">Motivation</a>
 </ul><li><a href="#usage">Usage</a>
 <ul><li><a href="#quickstart">Quickstart</a>
 <li><a href="#generating-your-first-documents">Generating Your First Documents</a>
