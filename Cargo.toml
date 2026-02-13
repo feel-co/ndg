@@ -33,7 +33,7 @@ html-escape = "0.2.13"
 html5ever = "0.36.1"
 jiff = "0.2.17"
 kuchikikiki = "0.9.1"
-lightningcss = { version = "1.0.0-alpha.68", default-features = false }
+lightningcss = { version = "1.0.0-alpha.70", default-features = false }
 log = "0.4.29"
 markup5ever = "0.36.1"
 minify-html = "0.18.1"
