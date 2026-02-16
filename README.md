@@ -47,8 +47,6 @@ crates that assist in repository maintenance or packaging---such as `xtask`.
 [![Rust Version](https://img.shields.io/badge/rust-1.90+-orange.svg)](https://www.rust-lang.org)
 [![GitHub Release](https://img.shields.io/github/v/release/feel-co/ndg)](https://github.com/feel-co/ndg/releases/latest)
 
-[Hjem]: https://github.com/feel-co/hjem
-[NVF]: https://github.com/notashelf/nvf
 [quickstart document]: ./ndg/README.md
 [documentation for this repository]: https://ndg.feel-co.org
 
@@ -57,7 +55,6 @@ crates that assist in repository maintenance or packaging---such as `xtask`.
 > usage, supported syntax, Nix integration and so on are generously documented
 > in this document. Alternatively, the [documentation for this repository]
 > dogfoods NDG to prepare a live rendered version of the project documentation.
-> I
 
 NDG; or, "Not A Docs Generator" is our in-house documentation utility for Nix
 and Nix-adjacent projects, replacing most commonly used tooling such as MdBook
@@ -68,6 +65,9 @@ improvements compared to those tooling such as a **higher degree of
 customization**, **more intuitive architecture**, **graceful error recovery**
 and most critically_a lot_ of room for further extension as NDG is not tied to
 Nixpkgs, and is not constrained by backwards compatibility with legacy baggage.
+
+[Hjem]: https://github.com/feel-co/hjem
+[NVF]: https://github.com/notashelf/nvf
 
 While the _main_ focus of this tool is to generate documentation for projects
 that provide Nix module systems (such as [Hjem], or [NVF]), you may _easily_ use
@@ -83,7 +83,6 @@ do is to write the documentation for you...
 [![Rust Version](https://img.shields.io/badge/rust-1.90+-orange.svg)](https://www.rust-lang.org)
 [![Crates.io Version](https://img.shields.io/crates/v/ndg-commonmark)](https://crates.io/crates/ndg-commonmark)
 
-[published on crates.io]: https://crates.io/crates/ndg-commonmark
 [documentation for latest tagged release]: https://docs.rs/ndg-commonmark/latest/
 [documentation for the nightly variant]: https://ndg.feel-co.org/api
 
@@ -120,6 +119,8 @@ own documentation generators. NDG was eventually updated to use the
 
 Thus, the gap in the ecosystem is filled. Rejoice!
 
+[published on crates.io]: https://crates.io/crates/ndg-commonmark
+
 > [!TIP]
 > While ndg-commonmark _is_ designed _specifically_ for NDG, it is not as
 > tightly coupled as it could have been. Which is to say if your use case is not
@@ -138,14 +139,15 @@ designed with our own use cases in mind. While we will not reject any
 contributions outright (and in fact, we welcome them nevertheless!), it is often
 a good idea to discuss your ideas with us in a friendly issue beforehand. There
 may be overlapping plans and scheduling issues that we would rather be prepared
-for. As such, please discuss with us before forking or submitting a PR! We may
-come to an agreement that benefits us all. Worst case you will be gently nudged
-away, or guided into a better compromise that fulfills the needs of everyone.
+for. As such, we ask that you please discuss with us before forking or
+submitting a PR! We may come to an agreement that benefits us all. Worst case
+you will be gently nudged away, or guided into a better compromise that fulfills
+the needs of everyone.
 
 If making a pull request, please remember to follow our formatting guidelines
-and to run Clippy lints. Good API docs are not a hard-requirement, but you
-should at least describe the code and explain your motive for any addition or
-change.
+and to run Clippy lints. _Excellent_ API docs are not a hard-requirement, but
+you should at least describe the code and explain your motive for any addition
+or change.
 
 ### Guidelines
 

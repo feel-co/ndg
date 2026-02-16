@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{
+  collections::HashMap,
+  sync::{Mutex, OnceLock},
+};
 pub mod codeblock;
 
 use comrak::{
@@ -24,11 +27,27 @@ pub type UtilResult<T> = Result<T, UtilError>;
 /// and trims leading/trailing dashes.
 #[must_use]
 pub fn slugify(text: &str) -> String {
-  text
+  static CACHE: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+  let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+
+  if let Some(ref map) = *cache {
+    if let Some(cached) = map.get(text) {
+      return cached.clone();
+    }
+  }
+
+  let result = text
     .to_lowercase()
     .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-")
     .trim_matches('-')
-    .to_string()
+    .to_string();
+
+  let map = cache.get_or_insert_with(|| HashMap::new());
+  if map.len() < 2048 {
+    map.insert(text.to_string(), result.clone());
+  }
+
+  result
 }
 
 /// Extract the first heading from markdown content as the page title.

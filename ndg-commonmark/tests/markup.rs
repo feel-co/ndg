@@ -1435,3 +1435,95 @@ Not in callout anymore.";
      Got:\n{admonition_content}"
   );
 }
+
+#[test]
+fn test_tip_eof_header_on_same_line_as_closing() {
+  let md = "::: {.tip}\nThis is a tip.\n:::# Title {#ch-example}";
+  let (html, headers, _title) = ndg_full_result(md);
+
+  assert!(
+    html.contains("id=\"ch-example\""),
+    "Header should have id='ch-example' when on same line as closing :::. \
+     Got:\n{html}"
+  );
+
+  assert!(
+    headers.iter().any(|h| h.id == "ch-example"),
+    "Headers should include 'ch-example'. Got: {headers:?}"
+  );
+
+  assert!(
+    html.contains("<h1"),
+    "Header should be rendered as h1, not plain text. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_admonition_closing_with_trailing_content() {
+  let md = "::: {.tip}\nTip content.\n::: some trailing content";
+  let html = ndg_html(md);
+
+  assert!(
+    html.contains("some trailing content"),
+    "Content after ::: on same line should be preserved. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_multiple_admonitions_with_trailing_headers() {
+  let md = r"::: {.tip}
+Some tip
+:::
+# Foo {#ch-foo}
+
+::: {.tip}
+Another tip
+:::
+# Bar {#ch-bar}";
+
+  let (html, headers, _title) = ndg_full_result(md);
+
+  // verify both headers are extracted correctly
+  assert!(
+    headers.iter().any(|h| h.id == "ch-foo"),
+    "Headers should include 'ch-foo'. Got: {headers:?}"
+  );
+
+  assert!(
+    headers.iter().any(|h| h.id == "ch-bar"),
+    "Headers should include 'ch-bar'. Got: {headers:?}"
+  );
+
+  // verify both headers render correctly
+  assert!(
+    html.contains("id=\"ch-foo\"") && html.contains("<h1"),
+    "First header should be rendered correctly. Got:\n{html}"
+  );
+
+  assert!(
+    html.contains("id=\"ch-bar\"") && html.contains("<h1"),
+    "Second header should be rendered correctly. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_admonition_eof_followed_by_header() {
+  let md = "::: {.tip}\nThis is a tip.\n:::\n# Title {#ch-example}";
+  let (html, headers, _title) = ndg_full_result(md);
+
+  assert!(
+    html.contains("id=\"ch-example\""),
+    "Header should have id='ch-example' when after closing ::: on new line. \
+     Got:\n{html}"
+  );
+
+  assert!(
+    headers.iter().any(|h| h.id == "ch-example"),
+    "Headers should include 'ch-example'. Got: {headers:?}"
+  );
+
+  assert!(
+    html.contains("<h1"),
+    "Header should be rendered as h1. Got:\n{html}"
+  );
+}

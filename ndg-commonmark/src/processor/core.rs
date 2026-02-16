@@ -515,7 +515,9 @@ impl MarkdownProcessor {
     prompt_transformer.transform(root);
 
     let mut html_output = String::new();
-    comrak::format_html(root, &options, &mut html_output).unwrap_or_default();
+    if let Err(e) = comrak::format_html(root, &options, &mut html_output) {
+      log::error!("Failed to format HTML: {e}");
+    }
 
     // Post-process HTML to handle header anchors
     Self::process_header_anchors_html(&html_output)
@@ -1222,7 +1224,7 @@ where
 
       let mut out = Vec::new();
       let _ = document.serialize(&mut out);
-      String::from_utf8(out).unwrap_or_default()
+      String::from_utf8_lossy(&out).into_owned()
     },
     html,
   )
