@@ -757,9 +757,14 @@ pub fn process_block_elements(content: &str) -> String {
 
       // Check for fenced admonitions: ::: {.type}
       if let Some((adm_type, id)) = parse_fenced_admonition_start(line) {
-        let content = collect_fenced_content(&mut lines);
+        let (content, trailing) = collect_fenced_content(&mut lines);
         let admonition = render_admonition(&adm_type, id.as_deref(), &content);
         result.push(admonition);
+        // If there's trailing content after the closing :::, add it as a new
+        // line
+        if let Some(trailing_content) = trailing {
+          result.push(trailing_content);
+        }
         continue;
       }
 
@@ -929,20 +934,31 @@ fn parse_fenced_admonition_start(
 }
 
 /// Collect content until closing :::
+///
+/// Returns a tuple of (admonition_content, trailing_content).
+/// If there's content after the closing `:::` on the same line,
+/// it's returned as trailing_content.
 fn collect_fenced_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
-) -> String {
+) -> (String, Option<String>) {
   let mut content = String::new();
 
   for line in lines.by_ref() {
-    if line.trim().starts_with(":::") {
+    let trimmed = line.trim();
+    if trimmed.starts_with(":::") {
+      // check if there's content after the closing :::
+      let after_colons = trimmed.strip_prefix(":::").unwrap_or("");
+      if !after_colons.is_empty() {
+        // there's trailing content on the same line as the closing delimiter
+        return (content.trim().to_string(), Some(after_colons.to_string()));
+      }
       break;
     }
     content.push_str(line);
     content.push('\n');
   }
 
-  content.trim().to_string()
+  (content.trim().to_string(), None)
 }
 
 /// Parse figure block: ::: {.figure #id}
