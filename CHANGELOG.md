@@ -1,4 +1,4 @@
-<!-- markdownlint-disable no-duplicate-heading -->
+<!-- markdownlint-disable MD013 MD024 -->
 
 # NDG Changelog
 
@@ -29,6 +29,10 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   ignored.
 - Release date is not tracked
 
+If adding a new entry, make sure that your changes are **under the correct tag**
+(or `[Unreleased]`) and that you document ONLY the critical, user-facing
+changes.
+
 ## [2.6.1]
 
 ### Fixed
@@ -39,7 +43,20 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   properly cleaned up when closing mobile search or when results update.
 - Fixed double navigation issue when pressing Enter in search results. Added
   debounce guard to prevent redundant page navigations.
-- Bump dependencies
+- Fixed fenced admonition (`:::`) parsing to preserve trailing content on the
+  same line as the closing delimiter. Headers following admonitions now render
+  correctly even when the closing `:::` is on the same line as subsequent
+  content. This fixes missing headers and broken markdown rendering when using
+  `{=include=}` with files that end with admonitions.
+- Improved HTML processing error handling. Errors during HTML serialization are
+  now logged instead of silently failing, making debugging easier.
+
+### Changed
+
+- Optimized slugify function with result caching. Repeated slug generation for
+  the same input text is now significantly faster.
+- Config file search (`find_config_file`) now caches its result to avoid
+  redundant filesystem searches.
 
 ## [2.6.0]
 
