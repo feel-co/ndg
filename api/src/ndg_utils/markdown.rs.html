@@ -223,154 +223,149 @@
 <a href=#223 id=223 data-nosnippet>223</a>        .get(file_path)
 <a href=#224 id=224 data-nosnippet>224</a>        .expect(<span class="string">"File should have cached result"</span>);
 <a href=#225 id=225 data-nosnippet>225</a>
-<a href=#226 id=226 data-nosnippet>226</a>      <span class="comment">// XXX: We're inside the `if let Some(ref input_dir) =
-<a href=#227 id=227 data-nosnippet>227</a>      // config.input_dir` block, so unwrap is safe here.
-<a href=#228 id=228 data-nosnippet>228</a>      // P.S. I'm not using `reason` here because it looks ugly as hell.
-<a href=#229 id=229 data-nosnippet>229</a>      </span><span class="attr">#[allow(clippy::unwrap_used)]
-<a href=#230 id=230 data-nosnippet>230</a>      </span><span class="kw">let </span>input_dir = config.input_dir.as_ref().unwrap();
-<a href=#231 id=231 data-nosnippet>231</a>      <span class="kw">let </span>rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
-<a href=#232 id=232 data-nosnippet>232</a>        <span class="macro">format!</span>(
-<a href=#233 id=233 data-nosnippet>233</a>          <span class="string">"Failed to determine relative path for {}"</span>,
-<a href=#234 id=234 data-nosnippet>234</a>          file_path.display()
-<a href=#235 id=235 data-nosnippet>235</a>        )
-<a href=#236 id=236 data-nosnippet>236</a>      })<span class="question-mark">?</span>;
-<a href=#237 id=237 data-nosnippet>237</a>      <span class="kw">let </span><span class="kw-2">mut </span>output_path = rel_path.to_path_buf();
-<a href=#238 id=238 data-nosnippet>238</a>      output_path.set_extension(<span class="string">"html"</span>);
-<a href=#239 id=239 data-nosnippet>239</a>      <span class="kw">let </span>output_path_str = output_path.to_string_lossy().to_string();
-<a href=#240 id=240 data-nosnippet>240</a>
-<a href=#241 id=241 data-nosnippet>241</a>      <span class="comment">// Check if this file is included in another file
-<a href=#242 id=242 data-nosnippet>242</a>      </span><span class="kw">let </span>is_included = all_included_files.contains_key(rel_path);
-<a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a>      <span class="comment">// Get any pending custom outputs for this file
-<a href=#245 id=245 data-nosnippet>245</a>      </span><span class="kw">let </span>custom_outputs =
-<a href=#246 id=246 data-nosnippet>246</a>        pending_custom_outputs.remove(rel_path).unwrap_or_default();
-<a href=#247 id=247 data-nosnippet>247</a>
-<a href=#248 id=248 data-nosnippet>248</a>      <span class="comment">// If this file has custom outputs via html:into-file, write to those
-<a href=#249 id=249 data-nosnippet>249</a>      // locations
-<a href=#250 id=250 data-nosnippet>250</a>      </span><span class="kw">if </span>custom_outputs.is_empty() {
-<a href=#251 id=251 data-nosnippet>251</a>        output_map.insert(
-<a href=#252 id=252 data-nosnippet>252</a>          output_path_str,
-<a href=#253 id=253 data-nosnippet>253</a>          (
-<a href=#254 id=254 data-nosnippet>254</a>            result.html.clone(),
-<a href=#255 id=255 data-nosnippet>255</a>            result.headers.clone(),
-<a href=#256 id=256 data-nosnippet>256</a>            result.title.clone(),
-<a href=#257 id=257 data-nosnippet>257</a>            file_path.clone(),
-<a href=#258 id=258 data-nosnippet>258</a>            is_included,
-<a href=#259 id=259 data-nosnippet>259</a>          ),
-<a href=#260 id=260 data-nosnippet>260</a>        );
-<a href=#261 id=261 data-nosnippet>261</a>      } <span class="kw">else </span>{
-<a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">for </span>custom <span class="kw">in </span>custom_outputs {
-<a href=#263 id=263 data-nosnippet>263</a>          output_map.insert(
-<a href=#264 id=264 data-nosnippet>264</a>            custom.clone(),
-<a href=#265 id=265 data-nosnippet>265</a>            (
-<a href=#266 id=266 data-nosnippet>266</a>              result.html.clone(),
-<a href=#267 id=267 data-nosnippet>267</a>              result.headers.clone(),
-<a href=#268 id=268 data-nosnippet>268</a>              result.title.clone(),
-<a href=#269 id=269 data-nosnippet>269</a>              file_path.clone(),
-<a href=#270 id=270 data-nosnippet>270</a>              <span class="bool-val">false</span>,
-<a href=#271 id=271 data-nosnippet>271</a>            ),
-<a href=#272 id=272 data-nosnippet>272</a>          );
-<a href=#273 id=273 data-nosnippet>273</a>        }
-<a href=#274 id=274 data-nosnippet>274</a>      }
-<a href=#275 id=275 data-nosnippet>275</a>    }
-<a href=#276 id=276 data-nosnippet>276</a>
-<a href=#277 id=277 data-nosnippet>277</a>    <span class="comment">// Populate config.included_files so caller can use it
-<a href=#278 id=278 data-nosnippet>278</a>    </span>config.included_files.clone_from(<span class="kw-2">&amp;</span>all_included_files);
-<a href=#279 id=279 data-nosnippet>279</a>
-<a href=#280 id=280 data-nosnippet>280</a>    <span class="comment">// Convert output_map to Vec&lt;ProcessedMarkdown&gt;
-<a href=#281 id=281 data-nosnippet>281</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>results: Vec&lt;ProcessedMarkdown&gt; = output_map
-<a href=#282 id=282 data-nosnippet>282</a>      .into_iter()
-<a href=#283 id=283 data-nosnippet>283</a>      .map(
-<a href=#284 id=284 data-nosnippet>284</a>        |(
-<a href=#285 id=285 data-nosnippet>285</a>          output_path,
-<a href=#286 id=286 data-nosnippet>286</a>          (html_content, headers, title, source_path, is_included),
-<a href=#287 id=287 data-nosnippet>287</a>        )| {
-<a href=#288 id=288 data-nosnippet>288</a>          ProcessedMarkdown {
-<a href=#289 id=289 data-nosnippet>289</a>            html_content,
-<a href=#290 id=290 data-nosnippet>290</a>            headers,
-<a href=#291 id=291 data-nosnippet>291</a>            title,
-<a href=#292 id=292 data-nosnippet>292</a>            source_path,
-<a href=#293 id=293 data-nosnippet>293</a>            output_path,
-<a href=#294 id=294 data-nosnippet>294</a>            is_included,
-<a href=#295 id=295 data-nosnippet>295</a>          }
-<a href=#296 id=296 data-nosnippet>296</a>        },
-<a href=#297 id=297 data-nosnippet>297</a>      )
-<a href=#298 id=298 data-nosnippet>298</a>      .collect();
-<a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a>    <span class="comment">// Sort for deterministic output
-<a href=#301 id=301 data-nosnippet>301</a>    </span>results.sort_by(|a, b| a.output_path.cmp(<span class="kw-2">&amp;</span>b.output_path));
-<a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a>    <span class="prelude-val">Ok</span>(results)
-<a href=#304 id=304 data-nosnippet>304</a>  } <span class="kw">else </span>{
-<a href=#305 id=305 data-nosnippet>305</a>    <span class="macro">info!</span>(<span class="string">"No input directory provided, skipping markdown processing"</span>);
-<a href=#306 id=306 data-nosnippet>306</a>    <span class="prelude-val">Ok</span>(Vec::new())
-<a href=#307 id=307 data-nosnippet>307</a>  }
-<a href=#308 id=308 data-nosnippet>308</a>}
-<a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a><span class="doccomment">/// Creates a markdown processor from the NDG configuration.
-<a href=#311 id=311 data-nosnippet>311</a>///
-<a href=#312 id=312 data-nosnippet>312</a>/// # Arguments
-<a href=#313 id=313 data-nosnippet>313</a>/// * `config` - The loaded configuration for documentation generation.
-<a href=#314 id=314 data-nosnippet>314</a>/// * `valid_options` - Optional set of valid option names for validation.
-<a href=#315 id=315 data-nosnippet>315</a></span><span class="attr">#[must_use]
-<a href=#316 id=316 data-nosnippet>316</a>#[allow(
-<a href=#317 id=317 data-nosnippet>317</a>  clippy::implicit_hasher,
-<a href=#318 id=318 data-nosnippet>318</a>  reason = <span class="string">"Standard HashSet sufficient for this use case"
-<a href=#319 id=319 data-nosnippet>319</a></span>)]
-<a href=#320 id=320 data-nosnippet>320</a></span><span class="kw">pub fn </span>create_processor(
-<a href=#321 id=321 data-nosnippet>321</a>  config: <span class="kw-2">&amp;</span>Config,
-<a href=#322 id=322 data-nosnippet>322</a>  valid_options: <span class="prelude-ty">Option</span>&lt;HashSet&lt;String&gt;&gt;,
-<a href=#323 id=323 data-nosnippet>323</a>) -&gt; MarkdownProcessor {
-<a href=#324 id=324 data-nosnippet>324</a>  <span class="kw">let </span>tab_style = <span class="kw">match </span>config.tab_style.as_str() {
-<a href=#325 id=325 data-nosnippet>325</a>    <span class="string">"warn" </span>=&gt; TabStyle::Warn,
-<a href=#326 id=326 data-nosnippet>326</a>    <span class="string">"normalize" </span>=&gt; TabStyle::Normalize,
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">_ </span>=&gt; TabStyle::None,
-<a href=#328 id=328 data-nosnippet>328</a>  };
+<a href=#226 id=226 data-nosnippet>226</a>      <span class="kw">let </span>rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
+<a href=#227 id=227 data-nosnippet>227</a>        <span class="macro">format!</span>(
+<a href=#228 id=228 data-nosnippet>228</a>          <span class="string">"Failed to determine relative path for {}"</span>,
+<a href=#229 id=229 data-nosnippet>229</a>          file_path.display()
+<a href=#230 id=230 data-nosnippet>230</a>        )
+<a href=#231 id=231 data-nosnippet>231</a>      })<span class="question-mark">?</span>;
+<a href=#232 id=232 data-nosnippet>232</a>      <span class="kw">let </span><span class="kw-2">mut </span>output_path = rel_path.to_path_buf();
+<a href=#233 id=233 data-nosnippet>233</a>      output_path.set_extension(<span class="string">"html"</span>);
+<a href=#234 id=234 data-nosnippet>234</a>      <span class="kw">let </span>output_path_str = output_path.to_string_lossy().to_string();
+<a href=#235 id=235 data-nosnippet>235</a>
+<a href=#236 id=236 data-nosnippet>236</a>      <span class="comment">// Check if this file is included in another file
+<a href=#237 id=237 data-nosnippet>237</a>      </span><span class="kw">let </span>is_included = all_included_files.contains_key(rel_path);
+<a href=#238 id=238 data-nosnippet>238</a>
+<a href=#239 id=239 data-nosnippet>239</a>      <span class="comment">// Get any pending custom outputs for this file
+<a href=#240 id=240 data-nosnippet>240</a>      </span><span class="kw">let </span>custom_outputs =
+<a href=#241 id=241 data-nosnippet>241</a>        pending_custom_outputs.remove(rel_path).unwrap_or_default();
+<a href=#242 id=242 data-nosnippet>242</a>
+<a href=#243 id=243 data-nosnippet>243</a>      <span class="comment">// If this file has custom outputs via html:into-file, write to those
+<a href=#244 id=244 data-nosnippet>244</a>      // locations
+<a href=#245 id=245 data-nosnippet>245</a>      </span><span class="kw">if </span>custom_outputs.is_empty() {
+<a href=#246 id=246 data-nosnippet>246</a>        output_map.insert(
+<a href=#247 id=247 data-nosnippet>247</a>          output_path_str,
+<a href=#248 id=248 data-nosnippet>248</a>          (
+<a href=#249 id=249 data-nosnippet>249</a>            result.html.clone(),
+<a href=#250 id=250 data-nosnippet>250</a>            result.headers.clone(),
+<a href=#251 id=251 data-nosnippet>251</a>            result.title.clone(),
+<a href=#252 id=252 data-nosnippet>252</a>            file_path.clone(),
+<a href=#253 id=253 data-nosnippet>253</a>            is_included,
+<a href=#254 id=254 data-nosnippet>254</a>          ),
+<a href=#255 id=255 data-nosnippet>255</a>        );
+<a href=#256 id=256 data-nosnippet>256</a>      } <span class="kw">else </span>{
+<a href=#257 id=257 data-nosnippet>257</a>        <span class="kw">for </span>custom <span class="kw">in </span>custom_outputs {
+<a href=#258 id=258 data-nosnippet>258</a>          output_map.insert(
+<a href=#259 id=259 data-nosnippet>259</a>            custom.clone(),
+<a href=#260 id=260 data-nosnippet>260</a>            (
+<a href=#261 id=261 data-nosnippet>261</a>              result.html.clone(),
+<a href=#262 id=262 data-nosnippet>262</a>              result.headers.clone(),
+<a href=#263 id=263 data-nosnippet>263</a>              result.title.clone(),
+<a href=#264 id=264 data-nosnippet>264</a>              file_path.clone(),
+<a href=#265 id=265 data-nosnippet>265</a>              <span class="bool-val">false</span>,
+<a href=#266 id=266 data-nosnippet>266</a>            ),
+<a href=#267 id=267 data-nosnippet>267</a>          );
+<a href=#268 id=268 data-nosnippet>268</a>        }
+<a href=#269 id=269 data-nosnippet>269</a>      }
+<a href=#270 id=270 data-nosnippet>270</a>    }
+<a href=#271 id=271 data-nosnippet>271</a>
+<a href=#272 id=272 data-nosnippet>272</a>    <span class="comment">// Populate config.included_files so caller can use it
+<a href=#273 id=273 data-nosnippet>273</a>    </span>config.included_files.clone_from(<span class="kw-2">&amp;</span>all_included_files);
+<a href=#274 id=274 data-nosnippet>274</a>
+<a href=#275 id=275 data-nosnippet>275</a>    <span class="comment">// Convert output_map to Vec&lt;ProcessedMarkdown&gt;
+<a href=#276 id=276 data-nosnippet>276</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>results: Vec&lt;ProcessedMarkdown&gt; = output_map
+<a href=#277 id=277 data-nosnippet>277</a>      .into_iter()
+<a href=#278 id=278 data-nosnippet>278</a>      .map(
+<a href=#279 id=279 data-nosnippet>279</a>        |(
+<a href=#280 id=280 data-nosnippet>280</a>          output_path,
+<a href=#281 id=281 data-nosnippet>281</a>          (html_content, headers, title, source_path, is_included),
+<a href=#282 id=282 data-nosnippet>282</a>        )| {
+<a href=#283 id=283 data-nosnippet>283</a>          ProcessedMarkdown {
+<a href=#284 id=284 data-nosnippet>284</a>            html_content,
+<a href=#285 id=285 data-nosnippet>285</a>            headers,
+<a href=#286 id=286 data-nosnippet>286</a>            title,
+<a href=#287 id=287 data-nosnippet>287</a>            source_path,
+<a href=#288 id=288 data-nosnippet>288</a>            output_path,
+<a href=#289 id=289 data-nosnippet>289</a>            is_included,
+<a href=#290 id=290 data-nosnippet>290</a>          }
+<a href=#291 id=291 data-nosnippet>291</a>        },
+<a href=#292 id=292 data-nosnippet>292</a>      )
+<a href=#293 id=293 data-nosnippet>293</a>      .collect();
+<a href=#294 id=294 data-nosnippet>294</a>
+<a href=#295 id=295 data-nosnippet>295</a>    <span class="comment">// Sort for deterministic output
+<a href=#296 id=296 data-nosnippet>296</a>    </span>results.sort_by(|a, b| a.output_path.cmp(<span class="kw-2">&amp;</span>b.output_path));
+<a href=#297 id=297 data-nosnippet>297</a>
+<a href=#298 id=298 data-nosnippet>298</a>    <span class="prelude-val">Ok</span>(results)
+<a href=#299 id=299 data-nosnippet>299</a>  } <span class="kw">else </span>{
+<a href=#300 id=300 data-nosnippet>300</a>    <span class="macro">info!</span>(<span class="string">"No input directory provided, skipping markdown processing"</span>);
+<a href=#301 id=301 data-nosnippet>301</a>    <span class="prelude-val">Ok</span>(Vec::new())
+<a href=#302 id=302 data-nosnippet>302</a>  }
+<a href=#303 id=303 data-nosnippet>303</a>}
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a><span class="doccomment">/// Creates a markdown processor from the NDG configuration.
+<a href=#306 id=306 data-nosnippet>306</a>///
+<a href=#307 id=307 data-nosnippet>307</a>/// # Arguments
+<a href=#308 id=308 data-nosnippet>308</a>/// * `config` - The loaded configuration for documentation generation.
+<a href=#309 id=309 data-nosnippet>309</a>/// * `valid_options` - Optional set of valid option names for validation.
+<a href=#310 id=310 data-nosnippet>310</a></span><span class="attr">#[must_use]
+<a href=#311 id=311 data-nosnippet>311</a>#[allow(
+<a href=#312 id=312 data-nosnippet>312</a>  clippy::implicit_hasher,
+<a href=#313 id=313 data-nosnippet>313</a>  reason = <span class="string">"Standard HashSet sufficient for this use case"
+<a href=#314 id=314 data-nosnippet>314</a></span>)]
+<a href=#315 id=315 data-nosnippet>315</a></span><span class="kw">pub fn </span>create_processor(
+<a href=#316 id=316 data-nosnippet>316</a>  config: <span class="kw-2">&amp;</span>Config,
+<a href=#317 id=317 data-nosnippet>317</a>  valid_options: <span class="prelude-ty">Option</span>&lt;HashSet&lt;String&gt;&gt;,
+<a href=#318 id=318 data-nosnippet>318</a>) -&gt; MarkdownProcessor {
+<a href=#319 id=319 data-nosnippet>319</a>  <span class="kw">let </span>tab_style = <span class="kw">match </span>config.tab_style.as_str() {
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="string">"warn" </span>=&gt; TabStyle::Warn,
+<a href=#321 id=321 data-nosnippet>321</a>    <span class="string">"normalize" </span>=&gt; TabStyle::Normalize,
+<a href=#322 id=322 data-nosnippet>322</a>    <span class="kw">_ </span>=&gt; TabStyle::None,
+<a href=#323 id=323 data-nosnippet>323</a>  };
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>  <span class="kw">let </span><span class="kw-2">mut </span>builder = MarkdownOptionsBuilder::new()
+<a href=#326 id=326 data-nosnippet>326</a>    .gfm(<span class="bool-val">true</span>)
+<a href=#327 id=327 data-nosnippet>327</a>    .highlight_code(config.highlight_code)
+<a href=#328 id=328 data-nosnippet>328</a>    .tab_style(tab_style);
 <a href=#329 id=329 data-nosnippet>329</a>
-<a href=#330 id=330 data-nosnippet>330</a>  <span class="kw">let </span><span class="kw-2">mut </span>builder = MarkdownOptionsBuilder::new()
-<a href=#331 id=331 data-nosnippet>331</a>    .gfm(<span class="bool-val">true</span>)
-<a href=#332 id=332 data-nosnippet>332</a>    .highlight_code(config.highlight_code)
-<a href=#333 id=333 data-nosnippet>333</a>    .tab_style(tab_style);
+<a href=#330 id=330 data-nosnippet>330</a>  <span class="kw">if let </span><span class="prelude-val">Some</span>(mappings_path) = <span class="kw-2">&amp;</span>config.manpage_urls_path {
+<a href=#331 id=331 data-nosnippet>331</a>    builder = builder
+<a href=#332 id=332 data-nosnippet>332</a>      .manpage_urls_path(<span class="prelude-val">Some</span>(mappings_path.to_string_lossy().to_string()));
+<a href=#333 id=333 data-nosnippet>333</a>  }
 <a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a>  <span class="kw">if let </span><span class="prelude-val">Some</span>(mappings_path) = <span class="kw-2">&amp;</span>config.manpage_urls_path {
-<a href=#336 id=336 data-nosnippet>336</a>    builder = builder
-<a href=#337 id=337 data-nosnippet>337</a>      .manpage_urls_path(<span class="prelude-val">Some</span>(mappings_path.to_string_lossy().to_string()));
-<a href=#338 id=338 data-nosnippet>338</a>  }
-<a href=#339 id=339 data-nosnippet>339</a>
-<a href=#340 id=340 data-nosnippet>340</a>  <span class="kw">if let </span><span class="prelude-val">Some</span>(options) = valid_options {
-<a href=#341 id=341 data-nosnippet>341</a>    builder = builder.valid_options(<span class="prelude-val">Some</span>(options));
-<a href=#342 id=342 data-nosnippet>342</a>  }
-<a href=#343 id=343 data-nosnippet>343</a>
-<a href=#344 id=344 data-nosnippet>344</a>  MarkdownProcessor::new(builder.build())
-<a href=#345 id=345 data-nosnippet>345</a>}
-<a href=#346 id=346 data-nosnippet>346</a>
-<a href=#347 id=347 data-nosnippet>347</a><span class="doccomment">/// Extracts the page title from a markdown file.
+<a href=#335 id=335 data-nosnippet>335</a>  <span class="kw">if let </span><span class="prelude-val">Some</span>(options) = valid_options {
+<a href=#336 id=336 data-nosnippet>336</a>    builder = builder.valid_options(<span class="prelude-val">Some</span>(options));
+<a href=#337 id=337 data-nosnippet>337</a>  }
+<a href=#338 id=338 data-nosnippet>338</a>
+<a href=#339 id=339 data-nosnippet>339</a>  MarkdownProcessor::new(builder.build())
+<a href=#340 id=340 data-nosnippet>340</a>}
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a><span class="doccomment">/// Extracts the page title from a markdown file.
+<a href=#343 id=343 data-nosnippet>343</a>///
+<a href=#344 id=344 data-nosnippet>344</a>/// This attempts to extract the first heading as the title, falling back to the
+<a href=#345 id=345 data-nosnippet>345</a>/// file name if no heading is found or the file cannot be read.
+<a href=#346 id=346 data-nosnippet>346</a>///
+<a href=#347 id=347 data-nosnippet>347</a>/// # Arguments
 <a href=#348 id=348 data-nosnippet>348</a>///
-<a href=#349 id=349 data-nosnippet>349</a>/// This attempts to extract the first heading as the title, falling back to the
-<a href=#350 id=350 data-nosnippet>350</a>/// file name if no heading is found or the file cannot be read.
+<a href=#349 id=349 data-nosnippet>349</a>/// * `file_path` - The path to the markdown file.
+<a href=#350 id=350 data-nosnippet>350</a>/// * `html_path` - The corresponding HTML output path (used for fallback).
 <a href=#351 id=351 data-nosnippet>351</a>///
-<a href=#352 id=352 data-nosnippet>352</a>/// # Arguments
+<a href=#352 id=352 data-nosnippet>352</a>/// # Returns
 <a href=#353 id=353 data-nosnippet>353</a>///
-<a href=#354 id=354 data-nosnippet>354</a>/// * `file_path` - The path to the markdown file.
-<a href=#355 id=355 data-nosnippet>355</a>/// * `html_path` - The corresponding HTML output path (used for fallback).
-<a href=#356 id=356 data-nosnippet>356</a>///
-<a href=#357 id=357 data-nosnippet>357</a>/// # Returns
-<a href=#358 id=358 data-nosnippet>358</a>///
-<a href=#359 id=359 data-nosnippet>359</a>/// The extracted title or the file stem as a fallback.
-<a href=#360 id=360 data-nosnippet>360</a></span><span class="attr">#[must_use]
-<a href=#361 id=361 data-nosnippet>361</a></span><span class="kw">pub fn </span>extract_page_title(file_path: <span class="kw-2">&amp;</span>Path, html_path: <span class="kw-2">&amp;</span>Path) -&gt; String {
-<a href=#362 id=362 data-nosnippet>362</a>  <span class="kw">let </span>default_title = html_path
-<a href=#363 id=363 data-nosnippet>363</a>    .file_stem()
-<a href=#364 id=364 data-nosnippet>364</a>    .unwrap_or_default()
-<a href=#365 id=365 data-nosnippet>365</a>    .to_string_lossy()
-<a href=#366 id=366 data-nosnippet>366</a>    .to_string();
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>  <span class="kw">match </span>fs::read_to_string(file_path) {
-<a href=#369 id=369 data-nosnippet>369</a>    <span class="prelude-val">Ok</span>(content) =&gt; {
-<a href=#370 id=370 data-nosnippet>370</a>      ndg_commonmark::utils::extract_markdown_title_and_id(<span class="kw-2">&amp;</span>content)
-<a href=#371 id=371 data-nosnippet>371</a>        .map_or(default_title, |(title, <span class="kw">_</span>)| title)
-<a href=#372 id=372 data-nosnippet>372</a>    },
-<a href=#373 id=373 data-nosnippet>373</a>    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; default_title,
-<a href=#374 id=374 data-nosnippet>374</a>  }
-<a href=#375 id=375 data-nosnippet>375</a>}
+<a href=#354 id=354 data-nosnippet>354</a>/// The extracted title or the file stem as a fallback.
+<a href=#355 id=355 data-nosnippet>355</a></span><span class="attr">#[must_use]
+<a href=#356 id=356 data-nosnippet>356</a></span><span class="kw">pub fn </span>extract_page_title(file_path: <span class="kw-2">&amp;</span>Path, html_path: <span class="kw-2">&amp;</span>Path) -&gt; String {
+<a href=#357 id=357 data-nosnippet>357</a>  <span class="kw">let </span>default_title = html_path
+<a href=#358 id=358 data-nosnippet>358</a>    .file_stem()
+<a href=#359 id=359 data-nosnippet>359</a>    .unwrap_or_default()
+<a href=#360 id=360 data-nosnippet>360</a>    .to_string_lossy()
+<a href=#361 id=361 data-nosnippet>361</a>    .to_string();
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>  <span class="kw">match </span>fs::read_to_string(file_path) {
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="prelude-val">Ok</span>(content) =&gt; {
+<a href=#365 id=365 data-nosnippet>365</a>      ndg_commonmark::utils::extract_markdown_title_and_id(<span class="kw-2">&amp;</span>content)
+<a href=#366 id=366 data-nosnippet>366</a>        .map_or(default_title, |(title, <span class="kw">_</span>)| title)
+<a href=#367 id=367 data-nosnippet>367</a>    },
+<a href=#368 id=368 data-nosnippet>368</a>    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; default_title,
+<a href=#369 id=369 data-nosnippet>369</a>  }
+<a href=#370 id=370 data-nosnippet>370</a>}
 </code></pre></div></section></main></body></html>

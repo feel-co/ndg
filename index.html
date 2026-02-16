@@ -148,7 +148,11 @@ CommonMark features<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-f
 </li>
 </ul>
 </li>
-<li><strong>Search functionality</strong> to quickly find content across documents</li>
+<li><strong>Search functionality</strong> to quickly find content across documents
+<ul>
+<li><strong>Fuzzy search</strong>, navigation with keybinds, highlighting and more</li>
+</ul>
+</li>
 <li><strong>Nix module options support</strong> to generate documentation from <code>options.json</code>
 <ul>
 <li><strong>Flexible options sidebar customization</strong> to control visibility, naming,
@@ -869,11 +873,13 @@ module_options = "generated/options.json"
 <li>
 <p><strong>Use admonitions for important content</strong>:</p>
 <pre><code class="language-txt">&lt;!-- Admonitions are flexible. --&gt;
+
 ::: {.warning}
 This is a critical warning that users should pay attention to!
 :::
 
 &lt;!-- Make it inline--&gt;
+
 ::: {.tip} Here's a helpful tip to make your life easier. :::
 </code></pre>
 </li>
@@ -903,9 +909,9 @@ is provided <a href="https://www.mozilla.org/en-US/MPL/2.0/">here</a>.</p>
 <section class="footnotes" data-footnotes="">
 <ol>
 <li id="fn-1">
-<p>This is a best-effort. Regular CommonMark is fully supported, but Nixpkgs
-additions may sometimes break due to the lack of a clear specification.
-Please open an issue if this is the case for you. <a href="#fnref-1" class="footnote-backref" data-footnote-backref="" data-footnote-backref-idx="1" aria-label="Back to reference 1">↩</a></p>
+<p>It is worth noting that Markdown -&gt; Manpage conversion is sometimes
+fragile, and Nixpkgs additions may break occasionally. Please open an issue
+if this is the case! <a href="#fnref-1" class="footnote-backref" data-footnote-backref="" data-footnote-backref-idx="1" aria-label="Back to reference 1">↩</a></p>
 </li>
 </ol>
 </section>
