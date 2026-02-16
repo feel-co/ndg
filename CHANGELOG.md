@@ -39,6 +39,7 @@ a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
   properly cleaned up when closing mobile search or when results update.
 - Fixed double navigation issue when pressing Enter in search results. Added
   debounce guard to prevent redundant page navigations.
+- Bump dependencies
 
 ## [2.6.0]
 
