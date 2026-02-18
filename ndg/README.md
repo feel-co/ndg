@@ -81,7 +81,7 @@ The primary interface of NDG is the `ndg` CLI utility. There are several
 subcommands to handle different documentation tasks.
 
 ```console
-$ ndg --help 
+$ ndg --help
 NDG: Not a Docs Generator
 
 Usage: ndg [OPTIONS] [COMMAND]
@@ -882,6 +882,28 @@ complexities at the cost of some performance overhead, and a more limited
 interface. In the case your needs are modest, you may be interested in using
 this option.
 
+`ndg-builder` returns a derivation that builds your documentation in the Nix
+store. You can expose it under `packages.${system}` and build it with
+`nix build .#docs`, or use it as an input to other derivations.
+
+Builder options worth knowing:
+
+- `rawModules` and `evaluatedModules` are **mutually exclusive**. Use one or
+  the other.
+- `checkModules`, `moduleArgs`, and `specialArgs` are forwarded into module
+  evaluation (via `lib.evalModules`).
+- `transformOptions` rewrites `options.json` declarations into source links
+  using `basePath`, `repoPath`, and `moduleName`.
+- `variablelistId` controls the ID used for the options list anchor.
+- `optionsDocArgs` and `warningsAreErrors` are forwarded to `nixosOptionsDoc`.
+- `inputDir = null` means "options-only" docs; the builder still generates
+  `options.json` and always passes `--module-options` to NDG.
+- `generateSearch = true` and `highlightCode = true` are **builder defaults**
+  even if NDG defaults differ.
+- `optionsDepth` maps to `--options-depth` (default `2`).
+- `scripts`, `stylesheet`, and `manpageUrls` are forwarded as CLI flags.
+- `verbose = true` passes `--verbose` to NDG by default.
+
 ```nix
 {
   inputs = {
@@ -899,6 +921,9 @@ this option.
         inputDir = ./docs;
         stylesheet = ./assets/style.css;
         scripts = [ ./assets/custom.js ];
+        generateSearch = true;
+        highlightCode = true;
+        optionsDepth = 3;
 
         # For module options
         rawModules = [
@@ -915,12 +940,22 @@ this option.
           })
         ];
 
-        # Optional: set the depth of options TOC
-        optionsDepth = 3;
+        # Source links for options declarations
+        moduleName = "myProject";
+        basePath = ./.;
+        repoPath = "https://github.com/your-org/your-repo/blob/main";
+
+        # Module evaluation knobs
+        checkModules = true;
+        specialArgs = { inherit pkgs; };
+        moduleArgs = { pkgs = pkgs; };
       };
   };
 }
 ```
+
+If you only want module option docs (no Markdown input), omit `inputDir` and
+provide `rawModules` or `evaluatedModules` instead.
 
 #### Manual Approach Using `runCommandLocal`
 
