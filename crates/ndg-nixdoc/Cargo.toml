@@ -1,0 +1,23 @@
+[package]
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+name                   = "ndg-nixdoc"
+publish                = false
+rust-version.workspace = true
+version.workspace      = true
+
+[dependencies]
+log.workspace       = true
+nixdoc.workspace    = true
+rnix.workspace      = true
+rowan.workspace     = true
+serde.workspace     = true
+thiserror.workspace = true
+walkdir.workspace   = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

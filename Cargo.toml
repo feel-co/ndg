@@ -37,6 +37,7 @@ lightningcss = { version = "1.0.0-alpha.70", default-features = false }
 log = "0.4.29"
 markup5ever = "0.38.0"
 minify-html = "0.18.1"
+nixdoc = "0.2.0"
 num_cpus = "1.17.0"
 oxc_allocator = "0.114.0"
 oxc_codegen = "0.114.0"
@@ -45,6 +46,8 @@ oxc_parser = "0.114.0"
 oxc_span = "0.114.0"
 rayon = "1.11.0"
 regex = "1.12.3"
+rnix = "0.14.0"
+rowan = "0.16.1"
 serde = { version = "1.0.228", features = [ "derive" ] }
 serde_json = { version = "1.0.149", default-features = false, features = [ "preserve_order" ] }
 tempfile = "3.25.0"
@@ -60,6 +63,7 @@ ndg-commonmark = { path = "./ndg-commonmark" }
 ndg-config     = { path = "./crates/ndg-config" }
 ndg-html       = { path = "./crates/ndg-html" }
 ndg-manpage    = { path = "./crates/ndg-manpage" }
+ndg-nixdoc     = { path = "./crates/ndg-nixdoc" }
 ndg-utils      = { path = "./crates/ndg-utils" }
 
 # See:
