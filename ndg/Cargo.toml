@@ -11,10 +11,6 @@ repository.workspace   = true
 categories.workspace   = true
 keywords.workspace     = true
 
-[features]
-default = [ "nixdoc" ]
-nixdoc  = [ "dep:ndg-nixdoc" ]
-
 [dependencies]
 # CLI and core dependencies
 clap.workspace       = true
@@ -34,7 +30,7 @@ ndg-utils.workspace      = true
 
 # Re-export some dependencies that are used in public API
 html-escape.workspace = true
-ndg-nixdoc            = { workspace = true, optional = true }
+ndg-nixdoc            = { workspace = true }
 regex.workspace       = true
 serde.workspace       = true
 serde_json.workspace  = true

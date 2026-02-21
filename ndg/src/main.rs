@@ -288,60 +288,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   };
 
   // Process nixdoc library documentation if configured
-  #[cfg(feature = "nixdoc")]
-  let nixdoc_processed = {
-    if config.nixdoc_inputs.is_empty() {
-      info!("No nixdoc inputs configured, skipping lib generation");
-      false
-    } else {
-      info!("Processing nixdoc inputs...");
-      let mut all_entries: Vec<ndg_nixdoc::NixDocEntry> = Vec::new();
-      for input in &config.nixdoc_inputs {
-        if input.is_dir() {
-          match ndg_nixdoc::extract_from_dir(input) {
-            Ok(entries) => all_entries.extend(entries),
-            Err(e) => {
-              log::warn!(
-                "Failed to extract nixdoc from {}: {e}",
-                input.display()
-              )
-            },
-          }
-        } else {
-          match ndg_nixdoc::extract_from_file(input) {
-            Ok(entries) => all_entries.extend(entries),
-            Err(e) => {
-              log::warn!(
-                "Failed to extract nixdoc from {}: {e}",
-                input.display()
-              )
-            },
-          }
-        }
-      }
-      if all_entries.is_empty() {
-        log::warn!("No nixdoc entries found in configured inputs");
-        false
-      } else {
-        let entries_html = html::libdoc::generate_lib_entries_html(
-          &all_entries,
-          &config.revision,
-        );
-        let toc_html = html::libdoc::generate_lib_toc_html(&all_entries);
-        let lib_html =
-          html::template::render_lib(config, &entries_html, &toc_html)
-            .wrap_err("Failed to render lib page")?;
-        let lib_path = config.output_dir.join("lib.html");
-        fs::write(&lib_path, lib_html).wrap_err_with(|| {
-          format!("Failed to write lib.html to {}", lib_path.display())
-        })?;
-        info!("Generated lib.html with {} entries", all_entries.len());
-        true
-      }
-    }
-  };
-  #[cfg(not(feature = "nixdoc"))]
-  let nixdoc_processed = false;
+  let nixdoc_processed = html::nixdoc::process_nixdoc(config)?;
 
   // Check if we need to create a fallback index.html
   let index_path = config.output_dir.join("index.html");

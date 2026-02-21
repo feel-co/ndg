@@ -69,30 +69,30 @@ ordering = "custom"
 
 # Make index appear first
 [[sidebar.matches]]
-path = "index.md"
 new_title = "Introduction"
-position = 0
+path      = "index.md"
+position  = 0
 
 # Order the rest of the documents with consistent titles
 [[sidebar.matches]]
-path = "POSTPROCESSING.md"
 new_title = "Postprocessing"
-position = 1
+path      = "POSTPROCESSING.md"
+position  = 1
 
 [[sidebar.matches]]
-path = "SIDEBAR.md"
 new_title = "Sidebar"
-position = 2
+path      = "SIDEBAR.md"
+position  = 2
 
 [[sidebar.matches]]
-path = "SEARCH.md"
 new_title = "Search"
-position = 3
+path      = "SEARCH.md"
+position  = 3
 
 [[sidebar.matches]]
-path = "TEMPLATING.md"
 new_title = "Templating Guide"
-position = 4
+path      = "TEMPLATING.md"
+position  = 4
 
 # Pattern-based sidebar matching rules
 # Rules are evaluated in order, and the first matching rule is applied.
