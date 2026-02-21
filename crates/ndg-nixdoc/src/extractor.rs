@@ -15,6 +15,31 @@ use rowan::ast::AstNode;
 
 use crate::types::{Location, RawEntry};
 
+/// Pre-computed line start positions for O(log n) line number lookups.
+struct LineIndex {
+  starts: Vec<usize>,
+}
+
+impl LineIndex {
+  fn new(src: &str) -> Self {
+    let mut starts = vec![0];
+    for (byte_offset, c) in src.char_indices() {
+      if c == '\n' {
+        starts.push(byte_offset + 1);
+      }
+    }
+    Self { starts }
+  }
+
+  fn line_of_offset(&self, byte_offset: usize) -> u32 {
+    let offset = byte_offset.min(self.starts.last().copied().unwrap_or(0));
+    match self.starts.binary_search(&offset) {
+      Ok(line) => u32::try_from(line + 1).unwrap_or(u32::MAX),
+      Err(insert_idx) => u32::try_from(insert_idx).unwrap_or(u32::MAX),
+    }
+  }
+}
+
 /// Extract all raw doc-comment entries from a Nix source string.
 ///
 /// `file_path` is only used to populate [`Location`] metadata; the actual
@@ -26,6 +51,7 @@ use crate::types::{Location, RawEntry};
 /// determined. Those nodes are skipped.
 pub fn extract_entries(src: &str, file_path: &Path) -> Vec<RawEntry> {
   let root = rnix::Root::parse(src).tree();
+  let line_index = LineIndex::new(src);
 
   let mut entries = Vec::new();
 
@@ -34,7 +60,14 @@ pub fn extract_entries(src: &str, file_path: &Path) -> Vec<RawEntry> {
   // `let … in` expression.  Rather than hardcoding the root as "has entries",
   // we recurse into the root's expression tree directly.
   if let Some(body) = root.expr() {
-    collect_from_expr(body.syntax(), &[], file_path, src, &mut entries);
+    collect_from_expr(
+      body.syntax(),
+      &[],
+      file_path,
+      src,
+      &line_index,
+      &mut entries,
+    );
   }
 
   entries
@@ -53,6 +86,7 @@ fn collect_from_expr(
   path_prefix: &[String],
   file_path: &Path,
   src: &str,
+  line_index: &LineIndex,
   out: &mut Vec<RawEntry>,
 ) {
   use SyntaxKind::{NODE_ATTR_SET, NODE_LET_IN};
@@ -60,19 +94,34 @@ fn collect_from_expr(
   match node.kind() {
     NODE_ATTR_SET => {
       if let Some(attrset) = ast::AttrSet::cast(node.clone()) {
-        collect_entries(attrset.entries(), path_prefix, file_path, src, out);
+        collect_entries(
+          attrset.entries(),
+          path_prefix,
+          file_path,
+          src,
+          line_index,
+          out,
+        );
       }
     },
     NODE_LET_IN => {
       if let Some(let_in) = ast::LetIn::cast(node.clone()) {
-        collect_entries(let_in.entries(), path_prefix, file_path, src, out);
+        collect_entries(
+          let_in.entries(),
+          path_prefix,
+          file_path,
+          src,
+          line_index,
+          out,
+        );
       }
     },
     _ => {
-      // Not an entry container — descend into all children looking for nested
-      // attribute sets (e.g. the body of a lambda or a with expression).
+      // Not an entry container, so we descend into all children looking for
+      // nested attribute sets (e.g. the body of a lambda or a with
+      // expression).
       for child in node.children() {
-        collect_from_expr(&child, path_prefix, file_path, src, out);
+        collect_from_expr(&child, path_prefix, file_path, src, line_index, out);
       }
     },
   }
@@ -85,6 +134,7 @@ fn collect_entries(
   path_prefix: &[String],
   file_path: &Path,
   src: &str,
+  line_index: &LineIndex,
   out: &mut Vec<RawEntry>,
 ) {
   for entry in entries {
@@ -110,7 +160,8 @@ fn collect_entries(
     if let Some(comment) = preceding_doc_comment(binding.syntax()) {
       let location = Location {
         file: file_path.to_path_buf(),
-        line: line_of_offset(src, binding.syntax().text_range().start().into()),
+        line: line_index
+          .line_of_offset(binding.syntax().text_range().start().into()),
       };
 
       out.push(RawEntry {
@@ -122,7 +173,14 @@ fn collect_entries(
 
     // recurse into RHS if it is an attrset
     if let Some(value) = binding.value() {
-      collect_from_expr(value.syntax(), &full_path, file_path, src, out);
+      collect_from_expr(
+        value.syntax(),
+        &full_path,
+        file_path,
+        src,
+        line_index,
+        out,
+      );
     }
   }
 }
@@ -194,13 +252,6 @@ fn preceding_doc_comment(node: &rnix::SyntaxNode) -> Option<String> {
 fn is_doc_comment(text: &str) -> bool {
   let trimmed = text.trim_start();
   trimmed.starts_with("/**") && trimmed.ends_with("*/")
-}
-
-/// Return the 1-based line number for a byte offset within `src`.
-fn line_of_offset(src: &str, offset: usize) -> u32 {
-  let safe_offset = offset.min(src.len());
-  let line = src[..safe_offset].chars().filter(|&c| c == '\n').count();
-  u32::try_from(line + 1).unwrap_or(u32::MAX)
 }
 
 #[cfg(test)]
