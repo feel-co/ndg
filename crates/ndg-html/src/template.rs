@@ -23,6 +23,7 @@ const NAVBAR_TEMPLATE: &str =
   include_str!("../../../ndg/templates/navbar.html");
 const FOOTER_TEMPLATE: &str =
   include_str!("../../../ndg/templates/footer.html");
+const LIB_TEMPLATE: &str = include_str!("../../../ndg/templates/lib.html");
 
 /// Render a documentation page
 ///
@@ -384,6 +385,167 @@ pub fn render_options(
 
   // Render the template
   let html = tera.render("options", &tera_context)?;
+  Ok(html)
+}
+
+/// Render the library reference page from pre-built HTML strings.
+///
+/// # Arguments
+///
+/// * `config` - Site configuration
+/// * `entries_html` - Pre-rendered HTML for all library entries
+/// * `toc_html` - Pre-rendered TOC HTML for the library page
+///
+/// # Errors
+///
+/// Returns an error if template rendering fails.
+pub fn render_lib(
+  config: &Config,
+  entries_html: &str,
+  toc_html: &str,
+) -> Result<String> {
+  let mut tera = Tera::default();
+
+  let lib_template = get_template_content(config, "lib.html", LIB_TEMPLATE)?;
+  tera.add_raw_template("lib", &lib_template)?;
+  let navbar_content =
+    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
+  tera.add_raw_template("navbar", &navbar_content)?;
+  let footer_content =
+    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
+  tera.add_raw_template("footer", &footer_content)?;
+
+  let root_path = Path::new("lib.html");
+  let doc_nav = generate_doc_nav(config, root_path);
+  let custom_scripts = generate_custom_scripts(config, root_path)?;
+  let asset_paths = generate_asset_paths(root_path);
+  let root_prefix = calculate_root_relative_path(root_path);
+
+  let navbar_html = {
+    let mut ctx = tera::Context::new();
+    ctx.insert(
+      "has_options",
+      if config.module_options.is_some() {
+        ""
+      } else {
+        "style=\"display:none;\""
+      },
+    );
+    ctx.insert("generate_search", &config.is_search_enabled());
+    ctx.insert(
+      "options_path",
+      asset_paths
+        .get("options_path")
+        .map_or("options.html", String::as_str),
+    );
+    ctx.insert(
+      "search_path",
+      asset_paths
+        .get("search_path")
+        .map_or("search.html", String::as_str),
+    );
+    tera.render("navbar", &ctx)?
+  };
+
+  let footer_html = {
+    let mut ctx = tera::Context::new();
+    ctx.insert("footer_text", &config.footer_text);
+    tera.render("footer", &ctx)?
+  };
+
+  let meta_tags_html =
+    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
+      meta_tags
+        .iter()
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
+
+  let opengraph_html =
+    get_opengraph(config).map_or_else(String::new, |opengraph| {
+      opengraph
+        .iter()
+        .map(|(k, v)| {
+          format!(
+            "<meta property=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
+
+  let mut tera_context = tera::Context::new();
+  tera_context
+    .insert("title", &format!("{} - Library Reference", config.title));
+  tera_context.insert("site_title", &config.title);
+  tera_context
+    .insert("heading", &format!("{} Library Reference", config.title));
+  tera_context.insert("entries", entries_html);
+  tera_context.insert("toc", toc_html);
+  tera_context.insert("footer_text", &config.footer_text);
+  tera_context.insert("navbar_html", &navbar_html);
+  tera_context.insert("footer_html", &footer_html);
+  tera_context.insert("custom_scripts", &custom_scripts);
+  tera_context.insert("doc_nav", &doc_nav);
+  tera_context.insert(
+    "has_options",
+    if config.module_options.is_some() {
+      ""
+    } else {
+      "style=\"display:none;\""
+    },
+  );
+  tera_context.insert("generate_search", &config.is_search_enabled());
+  tera_context.insert("meta_tags_html", &meta_tags_html);
+  tera_context.insert("opengraph_html", &opengraph_html);
+  tera_context.insert(
+    "stylesheet_path",
+    asset_paths
+      .get("stylesheet_path")
+      .map_or("assets/style.css", String::as_str),
+  );
+  tera_context.insert(
+    "main_js_path",
+    asset_paths
+      .get("main_js_path")
+      .map_or("assets/main.js", String::as_str),
+  );
+  tera_context.insert(
+    "search_js_path",
+    asset_paths
+      .get("search_js_path")
+      .map_or("assets/search.js", String::as_str),
+  );
+  tera_context.insert(
+    "index_path",
+    asset_paths
+      .get("index_path")
+      .map_or("index.html", String::as_str),
+  );
+  tera_context.insert(
+    "options_path",
+    asset_paths
+      .get("options_path")
+      .map_or("options.html", String::as_str),
+  );
+  tera_context.insert(
+    "search_path",
+    asset_paths
+      .get("search_path")
+      .map_or("search.html", String::as_str),
+  );
+  tera_context.insert("root_prefix", &root_prefix);
+
+  let html = tera.render("lib", &tera_context)?;
   Ok(html)
 }
 
@@ -1128,6 +1290,14 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     let _ = writeln!(
       doc_nav,
       "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>"
+    );
+  }
+
+  // Add link to lib page if nixdoc_inputs is configured
+  if !config.nixdoc_inputs.is_empty() {
+    let _ = writeln!(
+      doc_nav,
+      "<li><a href=\"{root_prefix}lib.html\">Library Reference</a></li>"
     );
   }
 
