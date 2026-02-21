@@ -38,11 +38,11 @@ log = "0.4.29"
 markup5ever = "0.38.0"
 minify-html = "0.18.1"
 num_cpus = "1.17.0"
-oxc_allocator = "0.113.0"
-oxc_codegen = "0.113.0"
-oxc_minifier = "0.113.0"
-oxc_parser = "0.113.0"
-oxc_span = "0.113.0"
+oxc_allocator = "0.114.0"
+oxc_codegen = "0.114.0"
+oxc_minifier = "0.114.0"
+oxc_parser = "0.114.0"
+oxc_span = "0.114.0"
 rayon = "1.11.0"
 regex = "1.12.3"
 serde = { version = "1.0.228", features = [ "derive" ] }
@@ -51,7 +51,7 @@ tempfile = "3.25.0"
 tendril = "0.5.0"
 tera = { version = "1.20.1", default-features = false }
 thiserror = "2.0.18"
-toml = { version = "1.0.1+spec-1.1.0", default-features = false, features = [ "parse", "serde" ] }
+toml = { version = "1.0.3", default-features = false, features = [ "parse", "serde" ] }
 walkdir = "2.5.0"
 
 # Workspace members
