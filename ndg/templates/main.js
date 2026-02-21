@@ -824,6 +824,221 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  // Lib filter functionality
+  const libFilter = document.getElementById("lib-filter");
+  if (libFilter && document.querySelector(".lib-container")) {
+    const libContainer = document.querySelector(".lib-container");
+
+    const hiddenLibContainer = document.createElement("template");
+    hiddenLibContainer.id = "hidden-lib-container";
+    document.body.appendChild(hiddenLibContainer);
+
+    const filterResults = document.createElement("div");
+    filterResults.className = "filter-results";
+    libFilter.parentNode.insertBefore(
+      filterResults,
+      libFilter.nextSibling,
+    );
+
+    const isMobile =
+      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+
+    const libEntries = Array.from(document.querySelectorAll(".lib-entry"));
+    const totalCount = libEntries.length;
+    const originalLibOrder = libEntries.slice();
+
+    const libData = libEntries.map((entry) => {
+      const nameElem = entry.querySelector(".lib-entry-name");
+      const descriptionElem = entry.querySelector(".lib-entry-description");
+      const id = entry.id ? entry.id.toLowerCase() : "";
+      const name = nameElem ? nameElem.textContent.toLowerCase() : "";
+      const description = descriptionElem
+        ? descriptionElem.textContent.toLowerCase()
+        : "";
+
+      const keywords = (id + " " + name + " " + description)
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((word) => word.length > 1);
+
+      return {
+        element: entry,
+        id,
+        name,
+        description,
+        keywords,
+        searchText: (id + " " + name + " " + description).toLowerCase(),
+      };
+    });
+
+    const CHUNK_SIZE = isMobile ? 15 : 40;
+    let pendingRender = null;
+    let currentChunk = 0;
+    let itemsToProcess = [];
+
+    function debounce(func, wait) {
+      let timeout;
+      return function () {
+        const context = this;
+        const args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+      };
+    }
+
+    function processNextChunk() {
+      const startIdx = currentChunk * CHUNK_SIZE;
+      const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
+
+      if (startIdx < itemsToProcess.length) {
+        for (let i = startIdx; i < endIdx; i++) {
+          const item = itemsToProcess[i];
+          if (item.visible) {
+            libContainer.appendChild(item.element);
+          } else {
+            hiddenLibContainer.content.appendChild(item.element);
+          }
+        }
+
+        currentChunk++;
+        pendingRender = requestAnimationFrame(processNextChunk);
+      } else {
+        pendingRender = null;
+        currentChunk = 0;
+        itemsToProcess = [];
+
+        if (filterResults.visibleCount !== undefined) {
+          if (filterResults.visibleCount < totalCount) {
+            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} functions`;
+            filterResults.style.display = "block";
+          } else {
+            filterResults.style.display = "none";
+          }
+        }
+      }
+    }
+
+    function filterLib() {
+      const searchTerm = libFilter.value.toLowerCase().trim();
+
+      if (filterLib.lastTerm === searchTerm) {
+        return;
+      }
+      filterLib.lastTerm = searchTerm;
+
+      if (pendingRender) {
+        cancelAnimationFrame(pendingRender);
+        pendingRender = null;
+      }
+      currentChunk = 0;
+      itemsToProcess = [];
+
+      if (searchTerm === "") {
+        const fragment = document.createDocumentFragment();
+        originalLibOrder.forEach((entry) => {
+          hiddenLibContainer.content.appendChild(entry);
+        });
+        while (hiddenLibContainer.content.firstChild) {
+          fragment.appendChild(hiddenLibContainer.content.firstChild);
+        }
+        libContainer.appendChild(fragment);
+        filterResults.style.display = "none";
+        return;
+      }
+
+      const searchTerms = searchTerm
+        .split(/\s+/)
+        .filter((term) => term.length > 0);
+      let visibleCount = 0;
+
+      const titleMatches = [];
+      const descMatches = [];
+      const term = searchTerms[0];
+
+      for (let i = 0; i < libData.length; i++) {
+        const data = libData[i];
+        const isTitleMatch = data.name.includes(term);
+        const isDescMatch = !isTitleMatch && data.description.includes(term);
+
+        if (isTitleMatch) {
+          visibleCount++;
+          titleMatches.push(data);
+        } else if (isDescMatch) {
+          visibleCount++;
+          descMatches.push(data);
+        }
+      }
+
+      titleMatches.sort((a, b) => a.name.indexOf(term) - b.name.indexOf(term));
+      descMatches.sort(
+        (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
+      );
+
+      const visibleElements = new Set();
+      itemsToProcess = [];
+      for (let i = 0; i < titleMatches.length; i++) {
+        const data = titleMatches[i];
+        visibleElements.add(data.element);
+        itemsToProcess.push({ element: data.element, visible: true });
+      }
+      for (let i = 0; i < descMatches.length; i++) {
+        const data = descMatches[i];
+        visibleElements.add(data.element);
+        itemsToProcess.push({ element: data.element, visible: true });
+      }
+      for (let i = 0; i < libData.length; i++) {
+        const data = libData[i];
+        if (!visibleElements.has(data.element)) {
+          itemsToProcess.push({ element: data.element, visible: false });
+        }
+      }
+
+      const fragment = document.createDocumentFragment();
+      for (let i = 0; i < itemsToProcess.length; i++) {
+        fragment.appendChild(itemsToProcess[i].element);
+      }
+      libContainer.appendChild(fragment);
+
+      filterResults.visibleCount = visibleCount;
+      pendingRender = requestAnimationFrame(processNextChunk);
+    }
+
+    const debouncedFilter = debounce(filterLib, isMobile ? 200 : 100);
+
+    libFilter.addEventListener("input", debouncedFilter);
+
+    libFilter.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        libFilter.value = "";
+        filterLib();
+      }
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && libFilter.value) {
+        filterLib();
+      }
+    });
+
+    if (libFilter.value) {
+      filterLib();
+    }
+
+    if (isMobile && totalCount > 50) {
+      requestIdleCallback(() => {
+        const sampleEntry = libEntries[0];
+        if (sampleEntry) {
+          const height = sampleEntry.offsetHeight;
+          if (height > 0) {
+            libEntries.forEach((entry) => {
+              entry.style.containIntrinsicSize = `0 ${height}px`;
+            });
+          }
+        }
+      });
+    }
+  }
+
   // URL-based search highlighting
   const urlParams = new URLSearchParams(window.location.search);
   const highlightQuery = urlParams.get("highlight");

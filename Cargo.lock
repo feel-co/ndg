@@ -1646,6 +1646,7 @@ dependencies = [
  "ndg-commonmark",
  "ndg-config",
  "ndg-manpage",
+ "ndg-nixdoc",
  "ndg-utils",
  "rayon",
  "regex",

@@ -20,6 +20,7 @@ workspace = true
 ndg-commonmark.workspace = true
 ndg-config.workspace     = true
 ndg-manpage.workspace    = true
+ndg-nixdoc.workspace     = true
 ndg-utils.workspace      = true
 
 color-eyre.workspace  = true

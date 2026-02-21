@@ -323,8 +323,11 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
         log::warn!("No nixdoc entries found in configured inputs");
         false
       } else {
-        let entries_html = generate_lib_entries_html(&all_entries);
-        let toc_html = generate_lib_toc_html(&all_entries);
+        let entries_html = html::libdoc::generate_lib_entries_html(
+          &all_entries,
+          &config.revision,
+        );
+        let toc_html = html::libdoc::generate_lib_toc_html(&all_entries);
         let lib_html =
           html::template::render_lib(config, &entries_html, &toc_html)
             .wrap_err("Failed to render lib page")?;
@@ -394,100 +397,4 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   );
 
   Ok(())
-}
-
-/// Generate HTML content for all nixdoc library entries.
-///
-/// Each entry is rendered as a `<section>` block containing the attribute
-/// path, type signature, description, arguments, and examples.
-#[cfg(feature = "nixdoc")]
-fn generate_lib_entries_html(entries: &[ndg_nixdoc::NixDocEntry]) -> String {
-  use std::fmt::Write;
-
-  let mut html = String::new();
-  for entry in entries {
-    let attr_path = entry.attr_path.join(".");
-    let id_raw = attr_path.replace('.', "-");
-    let id = html_escape::encode_safe(&id_raw);
-    let attr_path_escaped = html_escape::encode_text(&attr_path);
-    let _ = write!(html, "<section class=\"lib-entry\" id=\"{id}\">");
-    let _ = write!(
-      html,
-      "<h2 class=\"lib-entry-name\"><a \
-       href=\"#{id}\">{attr_path_escaped}</a></h2>"
-    );
-
-    if let Some(doc) = &entry.doc {
-      if let Some(type_sig) = &doc.type_sig {
-        let escaped = html_escape::encode_text(type_sig);
-        let _ = write!(
-          html,
-          "<div class=\"lib-entry-type\"><code>{escaped}</code></div>"
-        );
-      }
-
-      let description = html_escape::encode_text(&doc.description);
-      let _ = write!(
-        html,
-        "<div class=\"lib-entry-description\">{description}</div>"
-      );
-
-      if !doc.arguments.is_empty() {
-        let _ = write!(
-          html,
-          "<div class=\"lib-entry-arguments\"><h3>Arguments</h3><dl>"
-        );
-        for arg in &doc.arguments {
-          let name = html_escape::encode_text(&arg.name);
-          let arg_desc = html_escape::encode_text(&arg.description);
-          let _ =
-            write!(html, "<dt><code>{name}</code></dt><dd>{arg_desc}</dd>",);
-        }
-        let _ = write!(html, "</dl></div>");
-      }
-
-      if !doc.examples.is_empty() {
-        let _ =
-          write!(html, "<div class=\"lib-entry-examples\"><h3>Examples</h3>");
-        for ex in &doc.examples {
-          let lang =
-            html_escape::encode_safe(ex.language.as_deref().unwrap_or("nix"));
-          let code = html_escape::encode_text(&ex.code);
-          let _ = write!(
-            html,
-            "<pre><code class=\"language-{lang}\">{code}</code></pre>"
-          );
-        }
-        let _ = write!(html, "</div>");
-      }
-    }
-
-    let file_str = entry.location.file.display().to_string();
-    let file_display = html_escape::encode_text(&file_str);
-    let line = entry.location.line;
-    let _ = write!(
-      html,
-      "<div class=\"lib-entry-location\">Defined in \
-       <code>{file_display}</code>, line {line}</div>"
-    );
-    let _ = write!(html, "</section>");
-  }
-  html
-}
-
-/// Generate a table-of-contents HTML list for all nixdoc library entries.
-#[cfg(feature = "nixdoc")]
-fn generate_lib_toc_html(entries: &[ndg_nixdoc::NixDocEntry]) -> String {
-  use std::fmt::Write;
-
-  let mut html = String::new();
-  for entry in entries {
-    let attr_path = entry.attr_path.join(".");
-    let id_raw = attr_path.replace('.', "-");
-    let id = html_escape::encode_safe(&id_raw);
-    let attr_path_escaped = html_escape::encode_text(&attr_path);
-    let _ =
-      writeln!(html, "<li><a href=\"#{id}\">{attr_path_escaped}</a></li>");
-  }
-  html
 }

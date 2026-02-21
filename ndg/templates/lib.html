@@ -35,7 +35,6 @@
         </div>
         {{ navbar_html|safe }} {% if generate_search %}
         <div class="search-container">
-          <label for="search-input" class="sr-only">Search site</label>
           <input type="text" id="search-input" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
         </div>
@@ -83,7 +82,6 @@
 
           {% if generate_search %}
           <div class="search-form">
-            <label for="lib-filter" class="sr-only">Filter functions</label>
             <input
               type="text"
               id="lib-filter"
