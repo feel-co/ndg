@@ -94,6 +94,14 @@ pub struct Config {
   /// Postprocessing configuration for HTML/CSS/JS minification
   pub postprocess: Option<postprocess::PostprocessConfig>,
 
+  /// Nix files or directories to extract nixdoc comments from.
+  ///
+  /// Each entry may be a `.nix` file or a directory. Directories are scanned
+  /// recursively for `.nix` files. Entries with nixdoc comments (`/** ... */`)
+  /// are extracted and rendered as a library reference page (`lib.html`).
+  #[serde(default)]
+  pub nixdoc_inputs: Vec<PathBuf>,
+
   #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
   #[serde(skip_serializing_if = "Option::is_none")]
   pub opengraph: Option<HashMap<String, String>>,
@@ -131,6 +139,7 @@ impl Default for Config {
       meta:              None,
       sidebar:           None,
       postprocess:       None,
+      nixdoc_inputs:     Vec::new(),
       opengraph:         None,
       meta_tags:         None,
     }
@@ -303,9 +312,13 @@ impl Config {
     }
 
     // We need *at least one* source of content
-    if config.input_dir.is_none() && config.module_options.is_none() {
+    if config.input_dir.is_none()
+      && config.module_options.is_none()
+      && config.nixdoc_inputs.is_empty()
+    {
       return Err(ConfigError::Config(
-        "At least one of input directory or module options must be provided."
+        "At least one of input directory, module options, or nixdoc inputs \
+         must be provided."
           .to_string(),
       ));
     }
@@ -631,6 +644,10 @@ impl Config {
           self.script_paths.push(PathBuf::from(value));
         },
 
+        "nixdoc_inputs" => {
+          self.nixdoc_inputs.push(PathBuf::from(value));
+        },
+
         // Nested meta.opengraph.* - set individual key=value
         key if key.starts_with("meta.opengraph.") => {
           #[allow(
@@ -914,6 +931,7 @@ impl Config {
     // Vec fields - append
     self.stylesheet_paths.extend(other.stylesheet_paths);
     self.script_paths.extend(other.script_paths);
+    self.nixdoc_inputs.extend(other.nixdoc_inputs);
 
     // Plain fields - always replace with other's value
     // We only replace if other's value is not the default, to allow proper
@@ -1191,6 +1209,17 @@ impl Config {
       }
     }
 
+    // Nixdoc input paths should exist if specified
+    for (index, nixdoc_input) in self.nixdoc_inputs.iter().enumerate() {
+      if !nixdoc_input.exists() {
+        errors.push(format!(
+          "Nixdoc input {} does not exist: {}",
+          index + 1,
+          nixdoc_input.display()
+        ));
+      }
+    }
+
     // Return error if we found any issues
     if !errors.is_empty() {
       let error_message = errors.join("\n");
@@ -1322,6 +1351,8 @@ impl Config {
       "footer.html",
       include_str!("../../../ndg/templates/footer.html"),
     );
+    templates
+      .insert("lib.html", include_str!("../../../ndg/templates/lib.html"));
 
     // CSS and JS assets
     templates.insert(
