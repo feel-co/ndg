@@ -64,6 +64,7 @@ ndg-config     = { path = "./crates/ndg-config" }
 ndg-html       = { path = "./crates/ndg-html" }
 ndg-manpage    = { path = "./crates/ndg-manpage" }
 ndg-nixdoc     = { path = "./crates/ndg-nixdoc" }
+ndg-templates  = { path = "./crates/ndg-templates" }
 ndg-utils      = { path = "./crates/ndg-utils" }
 
 # See:

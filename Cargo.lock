@@ -1628,6 +1628,7 @@ version = "2.6.0"
 dependencies = [
  "log",
  "ndg-commonmark",
+ "ndg-templates",
  "regex",
  "serde",
  "serde_json",
@@ -1647,6 +1648,7 @@ dependencies = [
  "ndg-config",
  "ndg-manpage",
  "ndg-nixdoc",
+ "ndg-templates",
  "ndg-utils",
  "rayon",
  "regex",
@@ -1688,6 +1690,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ndg-templates"
+version = "2.6.0"
+
+[[package]]
 name = "ndg-utils"
 version = "2.6.0"
 dependencies = [
@@ -1700,6 +1706,7 @@ dependencies = [
  "minify-html",
  "ndg-commonmark",
  "ndg-config",
+ "ndg-templates",
  "oxc_allocator 0.114.0",
  "oxc_codegen 0.114.0",
  "oxc_minifier 0.114.0",

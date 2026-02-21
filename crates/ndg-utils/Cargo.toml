@@ -19,6 +19,7 @@ workspace = true
 [dependencies]
 ndg-commonmark.workspace = true
 ndg-config.workspace     = true
+ndg-templates.workspace  = true
 
 color-eyre.workspace    = true
 fs_extra.workspace      = true

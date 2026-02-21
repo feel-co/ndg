@@ -1,6 +1,6 @@
 [package]
-name        = "ndg-config"
-description = "Configuration types for NDG"
+name        = "ndg-templates"
+description = "Embedded templates for NDG"
 publish     = false
 
 authors.workspace      = true
@@ -15,14 +15,3 @@ version.workspace      = true
 
 [lints]
 workspace = true
-
-[dependencies]
-ndg-commonmark.workspace = true
-ndg-templates.workspace = true
-
-log.workspace        = true
-regex.workspace      = true
-serde.workspace      = true
-serde_json.workspace = true
-thiserror.workspace  = true
-toml.workspace       = true

@@ -1324,52 +1324,7 @@ impl Config {
   /// Get mapping of template filenames to their embedded content
   fn get_template_sources()
   -> std::collections::HashMap<&'static str, &'static str> {
-    let mut templates = std::collections::HashMap::new();
-
-    // HTML templates
-    templates.insert(
-      "default.html",
-      include_str!("../../../ndg/templates/default.html"),
-    );
-    templates.insert(
-      "options.html",
-      include_str!("../../../ndg/templates/options.html"),
-    );
-    templates.insert(
-      "search.html",
-      include_str!("../../../ndg/templates/search.html"),
-    );
-    templates.insert(
-      "options_toc.html",
-      include_str!("../../../ndg/templates/options_toc.html"),
-    );
-    templates.insert(
-      "navbar.html",
-      include_str!("../../../ndg/templates/navbar.html"),
-    );
-    templates.insert(
-      "footer.html",
-      include_str!("../../../ndg/templates/footer.html"),
-    );
-    templates
-      .insert("lib.html", include_str!("../../../ndg/templates/lib.html"));
-
-    // CSS and JS assets
-    templates.insert(
-      "default.css",
-      include_str!("../../../ndg/templates/default.css"),
-    );
-    templates.insert(
-      "search.js",
-      include_str!("../../../ndg/templates/search.js"),
-    );
-    templates.insert(
-      "search-worker.js",
-      include_str!("../../../ndg/templates/search-worker.js"),
-    );
-    templates.insert("main.js", include_str!("../../../ndg/templates/main.js"));
-
-    templates
+    ndg_templates::all_templates()
   }
 }
 

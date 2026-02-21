@@ -5,25 +5,18 @@ use html_escape::encode_text;
 use ndg_commonmark::Header;
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
+use ndg_templates as templates;
 use ndg_utils::html::{calculate_root_relative_path, generate_asset_paths};
 use serde_json::Value;
 use tera::Tera;
 
-// Templates will be embedded in this crate
-// These paths are now relative to ndg-html crate location
-const DEFAULT_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/default.html");
-const OPTIONS_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/options.html");
-const SEARCH_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/search.html");
-const OPTIONS_TOC_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/options_toc.html");
-const NAVBAR_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/navbar.html");
-const FOOTER_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/footer.html");
-const LIB_TEMPLATE: &str = include_str!("../../../ndg/templates/lib.html");
+const DEFAULT_TEMPLATE: &str = templates::DEFAULT_TEMPLATE;
+const OPTIONS_TEMPLATE: &str = templates::OPTIONS_TEMPLATE;
+const SEARCH_TEMPLATE: &str = templates::SEARCH_TEMPLATE;
+const OPTIONS_TOC_TEMPLATE: &str = templates::OPTIONS_TOC_TEMPLATE;
+const NAVBAR_TEMPLATE: &str = templates::NAVBAR_TEMPLATE;
+const FOOTER_TEMPLATE: &str = templates::FOOTER_TEMPLATE;
+const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
 
 /// Render a documentation page
 ///
