@@ -222,9 +222,13 @@ function initScrollSpy() {
 
 document.addEventListener("DOMContentLoaded", function () {
   // Apply sidebar state immediately before DOM rendering
-  if (localStorage.getItem("sidebar-collapsed") === "true") {
-    document.documentElement.classList.add("sidebar-collapsed");
-    document.body.classList.add("sidebar-collapsed");
+  try {
+    if (localStorage.getItem("sidebar-collapsed") === "true") {
+      document.documentElement.classList.add("sidebar-collapsed");
+      document.body.classList.add("sidebar-collapsed");
+    }
+  } catch (e) {
+    // localStorage unavailable
   }
 
   if (!document.querySelector(".mobile-sidebar-fab")) {
@@ -329,7 +333,11 @@ document.addEventListener("DOMContentLoaded", function () {
       // Use documentElement to check state and save to localStorage
       const isCollapsed =
         document.documentElement.classList.contains("sidebar-collapsed");
-      localStorage.setItem("sidebar-collapsed", isCollapsed);
+      try {
+        localStorage.setItem("sidebar-collapsed", isCollapsed);
+      } catch (e) {
+        // localStorage unavailable
+      }
     });
   }
 

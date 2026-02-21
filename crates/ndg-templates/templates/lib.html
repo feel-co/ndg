@@ -8,14 +8,18 @@
     <script>
       // Apply sidebar state immediately to prevent flash
       (function () {
-        if (localStorage.getItem("sidebar-collapsed") === "true") {
-          document.documentElement.classList.add("sidebar-collapsed");
-          // Keep aria-expanded in sync with the restored collapsed state.
-          // Runs before paint so there is no flash of incorrect state.
-          document.addEventListener("DOMContentLoaded", function () {
-            var btn = document.querySelector(".sidebar-toggle");
-            if (btn) btn.setAttribute("aria-expanded", "false");
-          });
+        try {
+          if (localStorage.getItem("sidebar-collapsed") === "true") {
+            document.documentElement.classList.add("sidebar-collapsed");
+            // Keep aria-expanded in sync with the restored collapsed state.
+            // Runs before paint so there is no flash of incorrect state.
+            document.addEventListener("DOMContentLoaded", function () {
+              var btn = document.querySelector(".sidebar-toggle");
+              if (btn) btn.setAttribute("aria-expanded", "false");
+            });
+          }
+        } catch (e) {
+          // localStorage unavailable; proceed with default expanded state
         }
       })();
     </script>
