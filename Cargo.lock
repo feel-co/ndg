@@ -1628,6 +1628,7 @@ version = "2.6.0"
 dependencies = [
  "log",
  "ndg-commonmark",
+ "ndg-macros",
  "ndg-templates",
  "regex",
  "serde",
@@ -1657,6 +1658,15 @@ dependencies = [
  "tempfile",
  "tera",
  "walkdir",
+]
+
+[[package]]
+name = "ndg-macros"
+version = "2.6.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

@@ -57,11 +57,16 @@ thiserror = "2.0.18"
 toml = { version = "1.0.3", default-features = false, features = [ "parse", "serde" ] }
 walkdir = "2.5.0"
 
+proc-macro2 = "1.0.106"
+quote = "1.0.44"
+syn = { version = "2.0.117", features = ["full", "derive"] }
+
 # Workspace members
 ndg            = { path = "./ndg" }
 ndg-commonmark = { path = "./ndg-commonmark" }
 ndg-config     = { path = "./crates/ndg-config" }
 ndg-html       = { path = "./crates/ndg-html" }
+ndg-macros     = { path = "./crates/ndg-macros" }
 ndg-manpage    = { path = "./crates/ndg-manpage" }
 ndg-nixdoc     = { path = "./crates/ndg-nixdoc" }
 ndg-templates  = { path = "./crates/ndg-templates" }

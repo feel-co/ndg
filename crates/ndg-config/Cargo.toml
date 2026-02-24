@@ -18,6 +18,7 @@ workspace = true
 
 [dependencies]
 ndg-commonmark.workspace = true
+ndg-macros.workspace     = true
 ndg-templates.workspace  = true
 
 log.workspace        = true
