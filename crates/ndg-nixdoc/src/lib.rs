@@ -23,7 +23,10 @@ pub mod error;
 mod extractor;
 mod types;
 
-use std::path::Path;
+use std::{
+  io::{Error, ErrorKind},
+  path::Path,
+};
 
 pub use error::NixdocError;
 pub use types::{
@@ -78,18 +81,30 @@ pub fn extract_from_dir(
   use walkdir::WalkDir;
 
   let dir = dir.as_ref();
-
-  // Validate the top-level directory is accessible before walking.
-  std::fs::read_dir(dir).map_err(|source| {
-    NixdocError::ReadFile {
-      path: dir.to_path_buf(),
-      source,
-    }
-  })?;
-
   let mut entries = Vec::new();
 
-  for result in WalkDir::new(dir).follow_links(true) {
+  // WalkDir immediately tries to open the directory when iterating. If it
+  // fails, the first entry will be an error. We convert that to our error
+  // type.
+  let walker = WalkDir::new(dir).follow_links(true).into_iter();
+
+  // Check if the directory is accessible by looking at the first entry
+  let mut iter = walker.peekable();
+  if iter.peek().is_none() {
+    return Ok(entries);
+  }
+
+  if let Some(Err(e)) = iter.peek() {
+    return Err(NixdocError::ReadFile {
+      path:   dir.to_path_buf(),
+      source: Error::new(
+        ErrorKind::NotFound,
+        format!("cannot walk directory: {e}"),
+      ),
+    });
+  }
+
+  for result in iter {
     let dent = match result {
       Ok(d) => d,
       Err(e) => {
