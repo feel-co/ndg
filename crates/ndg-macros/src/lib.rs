@@ -20,6 +20,9 @@ struct FieldConfig {
 
   /// Allow empty values (set to None).
   allow_empty: bool,
+
+  /// Pending replacement value (set before deprecated).
+  pending_replacement: Option<String>,
 }
 
 impl FieldConfig {
@@ -39,13 +42,12 @@ impl FieldConfig {
         } else if meta.path.is_ident("deprecated") {
           let value = meta.value()?;
           let lit: syn::LitStr = value.parse()?;
-          config.deprecated = Some((lit.value(), None));
+          config.deprecated =
+            Some((lit.value(), config.pending_replacement.take()));
         } else if meta.path.is_ident("replacement") {
           let value = meta.value()?;
           let lit: syn::LitStr = value.parse()?;
-          if let Some((ref version, _)) = config.deprecated {
-            config.deprecated = Some((version.clone(), Some(lit.value())));
-          }
+          config.pending_replacement = Some(lit.value());
         } else if meta.path.is_ident("allow_empty") {
           config.allow_empty = true;
         } else if meta.path.is_ident("nested") {
@@ -173,7 +175,6 @@ fn generate_field_handler(
       };
       quote! {
         log::warn!(#msg);
-        #[allow(deprecated)]
       }
     } else {
       quote! {}
@@ -183,10 +184,19 @@ fn generate_field_handler(
   let value_assignment =
     generate_value_assignment(field_name, field_type, config);
 
+  let assignment_expr = if config.deprecated.is_some() {
+    quote! {
+      #[allow(deprecated)]
+      { #value_assignment }
+    }
+  } else {
+    value_assignment
+  };
+
   quote! {
     #deprecation_check
     if key == #field_key {
-      #value_assignment
+      #assignment_expr
       return Ok(());
     }
   }
@@ -239,18 +249,6 @@ fn generate_value_assignment(
           format!("Invalid value for '{}': '{}'", stringify!(#field_name), value)
         ))?);
       }
-    }
-  }
-  // Vec<T> handling (PathBuf specifically)
-  else if type_str.contains("Vec<PathBuf>") {
-    quote! {
-      self.#field_name.push(std::path::PathBuf::from(value));
-    }
-  }
-  // Vec<String> handling
-  else if type_str.contains("Vec<String>") {
-    quote! {
-      self.#field_name.push(value.to_string());
     }
   }
   // PathBuf handling
@@ -400,15 +398,17 @@ fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
     } else if type_str.starts_with("Option<HashMap<")
       || type_str.starts_with("Option < HashMap <")
     {
-      // Option<HashMap> fields: extend if both Some, otherwise replace
+      // Option<HashMap> fields: extend if both Some, otherwise replace only if
+      // other is Some
       quote! {
         match (self.#field_name.as_mut(), other.#field_name) {
           (Some(self_map), Some(other_map)) => {
             self_map.extend(other_map);
           }
-          (_, other_map) => {
-            self.#field_name = other_map;
+          (None, Some(other_map)) => {
+            self.#field_name = Some(other_map);
           }
+          _ => {}
         }
       }
     } else if type_str.starts_with("Option<")
