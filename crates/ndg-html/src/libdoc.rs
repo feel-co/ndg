@@ -9,7 +9,7 @@ pub fn generate_lib_entries_html(
   let mut html = String::new();
   for entry in entries {
     let attr_path = entry.attr_path.join(".");
-    let id_raw = attr_path.replace('.', "-");
+    let id_raw = attr_path.replace('.', "--");
     let id = html_escape::encode_safe(&id_raw);
     let attr_path_escaped = html_escape::encode_text(&attr_path);
 
@@ -40,7 +40,7 @@ pub fn generate_lib_entries_html(
       if !doc.arguments.is_empty() {
         let _ = write!(
           html,
-          "<div class=\"lib-entry-arguments\"><h3>Arguments</h3><dl>"
+          "<div class=\"lib-entry-arguments\"><h4>Arguments</h4><dl>"
         );
         for arg in &doc.arguments {
           let name = html_escape::encode_text(&arg.name);
@@ -53,7 +53,7 @@ pub fn generate_lib_entries_html(
 
       if !doc.examples.is_empty() {
         let _ =
-          write!(html, "<div class=\"lib-entry-examples\"><h3>Examples</h3>");
+          write!(html, "<div class=\"lib-entry-examples\"><h4>Examples</h4>");
         for ex in &doc.examples {
           let lang =
             html_escape::encode_safe(ex.language.as_deref().unwrap_or("nix"));
@@ -82,7 +82,7 @@ pub fn generate_lib_entries_html(
 
       if !doc.notes.is_empty() {
         let _ =
-          write!(html, "<div class=\"lib-entry-notes\"><h3>Notes</h3><ul>");
+          write!(html, "<div class=\"lib-entry-notes\"><h4>Notes</h4><ul>");
         for note in &doc.notes {
           let note_escaped = html_escape::encode_text(note);
           let _ = write!(html, "<li>{note_escaped}</li>");
@@ -93,7 +93,7 @@ pub fn generate_lib_entries_html(
       if !doc.warnings.is_empty() {
         let _ = write!(
           html,
-          "<div class=\"lib-entry-warnings\"><h3>Warnings</h3><ul>"
+          "<div class=\"lib-entry-warnings\"><h4>Warnings</h4><ul>"
         );
         for warning in &doc.warnings {
           let warning_escaped = html_escape::encode_text(warning);
@@ -134,16 +134,24 @@ fn format_location(
   file_path: &Path,
   revision: &str,
 ) -> (String, Option<String>) {
+  debug_assert!(!revision.is_empty(), "revision must not be empty");
   let path_str = file_path.to_string_lossy().to_string();
 
   if path_str.starts_with('/') {
     (path_str, None)
   } else {
-    let url = if revision == "local" {
-      format!("https://github.com/NixOS/nixpkgs/blob/master/{path_str}")
+    // When revision is "local" or unexpectedly empty, fall back to the
+    // nixpkgs default branch. The branch name is hardcoded to "master"
+    // (the historical nixpkgs default); if nixpkgs ever renames its default
+    // branch this constant will need updating.
+    let effective_revision = if revision == "local" || revision.is_empty() {
+      "master"
     } else {
-      format!("https://github.com/NixOS/nixpkgs/blob/{revision}/{path_str}")
+      revision
     };
+    let url = format!(
+      "https://github.com/NixOS/nixpkgs/blob/{effective_revision}/{path_str}"
+    );
     let display = format!("<nixpkgs/{path_str}>");
     (display, Some(url))
   }
@@ -153,7 +161,7 @@ pub fn generate_lib_toc_html(entries: &[NixDocEntry]) -> String {
   let mut html = String::new();
   for entry in entries {
     let attr_path = entry.attr_path.join(".");
-    let id_raw = attr_path.replace('.', "-");
+    let id_raw = attr_path.replace('.', "--");
     let id = html_escape::encode_safe(&id_raw);
     let attr_path_escaped = html_escape::encode_text(&attr_path);
     let _ =

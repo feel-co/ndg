@@ -33,13 +33,13 @@
     <div class="container">
       <header>
         <div class="header-left">
-          <h1 class="site-title">
+          <div class="site-title">
             <a href="{{ index_path }}">{{ site_title }}</a>
-          </h1>
+          </div>
         </div>
         {{ navbar_html|safe }} {% if generate_search %}
         <div class="search-container">
-          <input type="text" id="search-input" placeholder="Search..." />
+          <input type="text" id="search-input" aria-label="Search" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
         </div>
         {% endif %}
@@ -51,6 +51,7 @@
           class="sidebar-toggle"
           aria-label="Toggle sidebar"
           aria-expanded="true"
+          aria-controls="sidebar"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -61,7 +62,7 @@
             <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
           </svg>
         </button>
-        <nav id="sidebar" class="sidebar">
+        <nav id="sidebar" class="sidebar" aria-label="Sidebar">
           <details class="sidebar-section" data-section="docs" open>
             <summary>Documents</summary>
             <div class="sidebar-section-content">
@@ -71,6 +72,7 @@
             </div>
           </details>
 
+          {% if toc %}
           <details class="sidebar-section" data-section="toc" open>
             <summary>Contents</summary>
             <div class="sidebar-section-content">
@@ -79,6 +81,7 @@
               </ul>
             </div>
           </details>
+          {% endif %}
         </nav>
 
         <main class="content">
@@ -89,6 +92,7 @@
             <input
               type="text"
               id="lib-filter"
+              aria-label="Filter functions"
               placeholder="Filter functions..."
             />
           </div>
