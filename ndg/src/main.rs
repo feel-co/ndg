@@ -6,6 +6,7 @@ use std::{
 use color_eyre::eyre::{Context, Result, bail};
 use log::{LevelFilter, info};
 use ndg::{config, html, manpage, utils};
+use rayon::prelude::*;
 
 mod cli;
 use cli::{Cli, Commands};
@@ -226,53 +227,68 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   let processed_markdown =
     utils::process_markdown_files(config, processor.as_ref())?;
 
-  // Render templates and write HTML files
-  for item in &processed_markdown {
-    // Skip included files unless they have custom output paths
-    if item.is_included {
-      continue;
-    }
+  // Collect all output directories upfront (sequential, then parallelize
+  // writes)
+  let output_dirs: std::collections::HashSet<PathBuf> = processed_markdown
+    .iter()
+    .filter(|item| !item.is_included)
+    .filter_map(|item| {
+      let rel_path = std::path::Path::new(&item.output_path);
+      let rel_path = rel_path
+        .strip_prefix(std::path::MAIN_SEPARATOR_STR)
+        .unwrap_or(rel_path);
+      let output_path = config.output_dir.join(rel_path);
+      output_path.parent().map(|p| p.to_path_buf())
+    })
+    .collect();
 
-    let rel_path = std::path::Path::new(&item.output_path);
-    if rel_path.is_absolute() {
-      log::warn!(
-        "Output path '{}' is absolute. Normalizing to relative.",
-        item.output_path
-      );
-    }
-
-    // Force rel_path to be relative
-    let rel_path = rel_path
-      .strip_prefix(std::path::MAIN_SEPARATOR_STR)
-      .unwrap_or(rel_path);
-
-    let html = html::template::render(
-      config,
-      &item.html_content,
-      item.title.as_deref().unwrap_or(&config.title),
-      &item.headers,
-      rel_path,
-    )?;
-
-    // Apply postprocessing if requested
-    let processed_html =
-      if let Some(ref postprocess_config) = config.postprocess {
-        utils::postprocess::process_html(&html, postprocess_config)?
-      } else {
-        html
-      };
-
-    let output_path = config.output_dir.join(rel_path);
-    if let Some(parent) = output_path.parent() {
-      fs::create_dir_all(parent).wrap_err_with(|| {
-        format!("Failed to create output directory: {}", parent.display())
-      })?;
-    }
-
-    fs::write(&output_path, processed_html).wrap_err_with(|| {
-      format!("Failed to write output HTML: {}", output_path.display())
+  for dir in output_dirs {
+    fs::create_dir_all(&dir).wrap_err_with(|| {
+      format!("Failed to create output directory: {}", dir.display())
     })?;
   }
+
+  // Render templates and write HTML files in parallel
+  processed_markdown
+    .par_iter()
+    .filter(|item| !item.is_included)
+    .try_for_each(|item| {
+      let rel_path = std::path::Path::new(&item.output_path);
+      if rel_path.is_absolute() {
+        log::warn!(
+          "Output path '{}' is absolute. Normalizing to relative.",
+          item.output_path
+        );
+      }
+
+      // Force rel_path to be relative
+      let rel_path = rel_path
+        .strip_prefix(std::path::MAIN_SEPARATOR_STR)
+        .unwrap_or(rel_path);
+
+      let html = html::template::render(
+        config,
+        &item.html_content,
+        item.title.as_deref().unwrap_or(&config.title),
+        &item.headers,
+        rel_path,
+      )?;
+
+      // Apply postprocessing if requested
+      let processed_html =
+        if let Some(ref postprocess_config) = config.postprocess {
+          utils::postprocess::process_html(&html, postprocess_config)?
+        } else {
+          html
+        };
+
+      let output_path = config.output_dir.join(rel_path);
+      fs::write(&output_path, processed_html).wrap_err_with(|| {
+        format!("Failed to write output HTML: {}", output_path.display())
+      })?;
+
+      Ok::<(), color_eyre::Report>(())
+    })?;
 
   // Extract source file paths for later use
   let markdown_files: Vec<PathBuf> = processed_markdown

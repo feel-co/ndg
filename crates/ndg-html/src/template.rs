@@ -1,4 +1,11 @@
-use std::{collections::HashMap, fmt::Write, fs, path::Path, string::String};
+use std::{
+  collections::HashMap,
+  fmt::Write,
+  fs,
+  path::Path,
+  string::String,
+  sync::{LazyLock, RwLock},
+};
 
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
@@ -17,6 +24,9 @@ const OPTIONS_TOC_TEMPLATE: &str = templates::OPTIONS_TOC_TEMPLATE;
 const NAVBAR_TEMPLATE: &str = templates::NAVBAR_TEMPLATE;
 const FOOTER_TEMPLATE: &str = templates::FOOTER_TEMPLATE;
 const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
+
+static TEMPLATE_CACHE: LazyLock<RwLock<HashMap<String, String>>> =
+  LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Render a documentation page
 ///
@@ -901,7 +911,41 @@ pub fn render_search(
 }
 
 /// Get the template content from file in template directory or use default
+/// Results are cached to avoid repeated disk I/O on every render
 fn get_template_content(
+  config: &Config,
+  template_name: &str,
+  fallback: &str,
+) -> Result<String> {
+  // Create cache key that includes template path to handle different configs
+  let template_path_key = config
+    .get_template_path()
+    .map(|p| p.display().to_string())
+    .unwrap_or_else(|| "default".to_string());
+  let cache_key = format!("{}:{}", template_path_key, template_name);
+
+  // Check cache first (read lock)
+  {
+    let cache = TEMPLATE_CACHE.read().unwrap();
+    if let Some(cached) = cache.get(&cache_key) {
+      return Ok(cached.clone());
+    }
+  }
+
+  // Load template content (not cached - this is the first call)
+  let content = load_template_content(config, template_name, fallback)?;
+
+  // Insert into cache (write lock)
+  {
+    let mut cache = TEMPLATE_CACHE.write().unwrap();
+    cache.entry(cache_key).or_insert(content.clone());
+  }
+
+  Ok(content)
+}
+
+/// Actually load the template content from disk or embedded defaults
+fn load_template_content(
   config: &Config,
   template_name: &str,
   fallback: &str,
