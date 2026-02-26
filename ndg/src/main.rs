@@ -1,4 +1,7 @@
-use std::{fs, path::PathBuf};
+use std::{
+  fs,
+  path::{Path, PathBuf},
+};
 
 use color_eyre::eyre::{Context, Result, bail};
 use log::{LevelFilter, info};
@@ -288,7 +291,8 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   };
 
   // Process nixdoc library documentation if configured
-  let nixdoc_processed = html::nixdoc::process_nixdoc(config)?;
+  let nixdoc_doc = html::nixdoc::process_nixdoc(config)?;
+  let nixdoc_processed = nixdoc_doc.is_some();
 
   // Check if we need to create a fallback index.html
   let index_path = config.output_dir.join("index.html");
@@ -303,7 +307,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
       &fallback_content,
       &config.title,
       &[],
-      std::path::Path::new("index.html"),
+      Path::new("index.html"),
     )?;
     fs::write(&index_path, html).wrap_err_with(|| {
       format!("Failed to write index.html to {}", index_path.display())
@@ -317,7 +321,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     // Filter out included files - they should not appear as standalone entries
     // in search results. Their content is indexed as part of the parent
     // document.
-    let searchable_docs: Vec<html::search::ProcessedDocument> =
+    let mut searchable_docs: Vec<html::search::ProcessedDocument> =
       processed_markdown
         .iter()
         .filter(|item| !item.is_included)
@@ -331,6 +335,11 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
           }
         })
         .collect();
+
+    // Include the nixdoc lib page in the search index when present.
+    if let Some(doc) = nixdoc_doc {
+      searchable_docs.push(doc);
+    }
 
     html::search::generate_search_index(config, &searchable_docs)?;
   }
