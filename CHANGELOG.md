@@ -33,11 +33,15 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
-## [2.6.1]
+## [Unreleased]
 
 ### Added
 
 - `ndg-builder-docs` package for generating NDG docs via `ndg-builder`.
+- Library reference page generation from Nix files using RFC-145 style nixdoc
+  comments. Projects can now document their extended libraries and generate a
+  reference page (similar to Noogle) automatically. Configure via the
+  `nixdoc_inputs` option in your NDG configuration.
 
 ### Changed
 
@@ -49,6 +53,9 @@ changes.
   supports `warningsAreErrors` configuration.
 - Improved default `title` and `description` values for `ndg-builder`
   derivations.
+- Tera template caching now enabled for better performance
+- HTML writing is now performed in parallel for improved build times
+- Improved HTML rendering and accessibility
 
 ### Fixed
 
@@ -290,7 +297,6 @@ changes.
 - Prevented panic on empty fence character extraction in ndg-commonmark
 
 [Unreleased]: https://github.com/feel-co/ndg/compare/v2.6.0...HEAD
-[2.6.1]: https://github.com/feel-co/ndg/compare/v2.6.0...v2.6.1
 [2.6.0]: https://github.com/feel-co/ndg/compare/v2.5.1...v2.6.0
 [2.5.0]: https://github.com/feel-co/ndg/compare/v2.4.1...v2.5.0
 [2.5.1]: https://github.com/feel-co/ndg/compare/v2.5.0...v2.5.1
