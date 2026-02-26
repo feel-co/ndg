@@ -1969,7 +1969,11 @@ h6:hover .copy-link {
 .lib-entry-deprecated {
   margin-top: var(--space-3);
   padding: var(--space-3);
-  background-color: color-mix(in srgb, var(--admonition-warning-color) 10%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--admonition-warning-color) 10%,
+    transparent
+  );
   border-left: 3px solid var(--admonition-warning-color);
   border-radius: var(--radius-sm);
 }
@@ -1993,7 +1997,11 @@ h6:hover .copy-link {
 .lib-entry-warnings {
   margin-top: var(--space-3);
   padding: var(--space-3);
-  background-color: color-mix(in srgb, var(--admonition-danger-color) 10%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--admonition-danger-color) 10%,
+    transparent
+  );
   border-left: 3px solid var(--admonition-danger-color);
   border-radius: var(--radius-sm);
 }

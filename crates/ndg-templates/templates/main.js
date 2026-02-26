@@ -843,10 +843,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const filterResults = document.createElement("div");
     filterResults.className = "filter-results";
-    libFilter.parentNode.insertBefore(
-      filterResults,
-      libFilter.nextSibling,
-    );
+    libFilter.parentNode.insertBefore(filterResults, libFilter.nextSibling);
 
     const isMobile =
       window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
