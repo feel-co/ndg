@@ -114,6 +114,18 @@ fn collect_from_expr(
           line_index,
           out,
         );
+        // Also recurse into the body expression (the part after `in`), since
+        // it may be an attrset containing doc-commented bindings.
+        if let Some(body) = let_in.body() {
+          collect_from_expr(
+            body.syntax(),
+            path_prefix,
+            file_path,
+            src,
+            line_index,
+            out,
+          );
+        }
       }
     },
     _ => {
@@ -145,42 +157,49 @@ fn collect_entries(
     let Some(attrpath) = binding.attrpath() else {
       continue;
     };
+    let attrs: Vec<ast::Attr> = attrpath.attrs().collect();
     let segments: Vec<String> =
-      attrpath.attrs().filter_map(attr_to_string).collect();
+      attrs.iter().cloned().filter_map(attr_to_string).collect();
 
-    if segments.is_empty() {
+    // Skip if any segment was dynamic (could not be statically resolved);
+    // a partial path like ["foo", "bar"] for `foo.${expr}.bar` would be wrong.
+    if segments.len() != attrs.len() || segments.is_empty() {
       continue;
     }
 
-    // Build the full dotted path (e.g. ["lib", "strings"] + ["concat"] →
-    // "lib.strings.concat").
-    let full_path: Vec<String> =
-      path_prefix.iter().chain(segments.iter()).cloned().collect();
+    // Check for doc comment BEFORE building full_path
+    let comment = preceding_doc_comment(binding.syntax());
 
-    if let Some(comment) = preceding_doc_comment(binding.syntax()) {
-      let location = Location {
-        file: file_path.to_path_buf(),
-        line: line_index
-          .line_of_offset(binding.syntax().text_range().start().into()),
-      };
+    // Only build full_path if we have a doc comment or need to recurse
+    if comment.is_some() || binding.value().is_some() {
+      let full_path: Vec<String> =
+        path_prefix.iter().chain(segments.iter()).cloned().collect();
 
-      out.push(RawEntry {
-        attr_path: full_path.clone(),
-        comment,
-        location,
-      });
-    }
+      if let Some(comment) = comment {
+        let location = Location {
+          file: file_path.to_path_buf(),
+          line: line_index
+            .line_of_offset(binding.syntax().text_range().start().into()),
+        };
 
-    // recurse into RHS if it is an attrset
-    if let Some(value) = binding.value() {
-      collect_from_expr(
-        value.syntax(),
-        &full_path,
-        file_path,
-        src,
-        line_index,
-        out,
-      );
+        out.push(RawEntry {
+          attr_path: full_path.clone(),
+          comment,
+          location,
+        });
+      }
+
+      // recurse into RHS if it is an attrset
+      if let Some(value) = binding.value() {
+        collect_from_expr(
+          value.syntax(),
+          &full_path,
+          file_path,
+          src,
+          line_index,
+          out,
+        );
+      }
     }
   }
 }

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 /// Internal representation of a located attribute binding with its raw
 /// comment string, before doc-comment parsing is applied.
+#[derive(Debug, Clone)]
 pub struct RawEntry {
   /// Full attribute path segments (e.g. `["lib", "strings", "concat"]`).
   pub attr_path: Vec<String>,
@@ -85,8 +86,12 @@ pub struct NixDocEntry {
 
 /// Convert a [`RawEntry`] into a [`NixDocEntry`], parsing the doc comment
 /// via the `nixdoc` crate.
-pub fn into_entry(raw: RawEntry, file_path: &std::path::Path) -> NixDocEntry {
-  let doc = parse_doc_comment(&raw.comment, file_path, &raw.attr_path);
+pub fn into_entry(raw: RawEntry) -> NixDocEntry {
+  let doc = parse_doc_comment(
+    &raw.comment,
+    raw.location.file.as_path(),
+    &raw.attr_path,
+  );
 
   NixDocEntry {
     attr_path: raw.attr_path,

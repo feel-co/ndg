@@ -23,10 +23,7 @@ pub mod error;
 mod extractor;
 mod types;
 
-use std::{
-  io::{Error, ErrorKind},
-  path::Path,
-};
+use std::path::Path;
 
 pub use error::NixdocError;
 pub use types::{
@@ -57,19 +54,14 @@ pub fn extract_from_file(
   })?;
 
   let raw_entries = extractor::extract_entries(&src, path);
-  Ok(
-    raw_entries
-      .into_iter()
-      .map(|raw| types::into_entry(raw, path))
-      .collect(),
-  )
+  Ok(raw_entries.into_iter().map(types::into_entry).collect())
 }
 
 /// Extract doc-commented bindings from every `.nix` file under `dir`,
 /// walking the directory tree recursively.
 ///
-/// Files that cannot be read are silently skipped (a warning is logged via
-/// the `log` crate).
+/// Files that cannot be read are skipped; a warning is emitted via the `log`
+/// crate.
 ///
 /// # Errors
 ///
@@ -88,20 +80,15 @@ pub fn extract_from_dir(
   // type.
   let walker = WalkDir::new(dir).follow_links(true).into_iter();
 
-  // Check if the directory is accessible by looking at the first entry
   let mut iter = walker.peekable();
-  if iter.peek().is_none() {
-    return Ok(entries);
-  }
-
-  if let Some(Err(e)) = iter.peek() {
-    return Err(NixdocError::ReadFile {
-      path:   dir.to_path_buf(),
-      source: Error::new(
-        ErrorKind::NotFound,
-        format!("cannot walk directory: {e}"),
-      ),
-    });
+  if matches!(iter.peek(), Some(Err(_))) {
+    if let Some(Err(e)) = iter.next() {
+      return Err(NixdocError::ReadFile {
+        path:   dir.to_path_buf(),
+        // Preserve the real OS ErrorKind via walkdir's From impl.
+        source: e.into(),
+      });
+    }
   }
 
   for result in iter {
