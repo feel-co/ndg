@@ -88,54 +88,19 @@ pub fn render(
     get_meta_tags(config).map_or_else(String::new, |meta_tags| {
       meta_tags
         .iter()
-        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
         .collect::<Vec<_>>()
         .join("\n    ")
     });
 
   // Prepare OpenGraph tags HTML, handling og:image as local path or URL
-  #[allow(
-    clippy::option_if_let_else,
-    reason = "Complex image handling logic clearer with if-let"
-  )]
-  let opengraph_html = if let Some(opengraph) = get_opengraph(config) {
-    opengraph
-      .iter()
-      .map(|(k, v)| {
-        if k == "og:image"
-          && !v.starts_with("http://")
-          && !v.starts_with("https://")
-        {
-          // Local file path: copy to assets/ and use relative path
-          let image_path = std::path::Path::new(v.as_str());
-          let assets_dir = config.output_dir.join("assets");
-          let file_name = image_path
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or(v.as_str());
-          let dest_path = assets_dir.join(file_name);
-          // Only copy if not already present
-          if let Err(e) = std::fs::create_dir_all(&assets_dir) {
-            log::error!("Failed to create assets dir for og:image: {e}");
-          }
-          if let Err(e) = std::fs::copy(image_path, &dest_path) {
-            log::error!(
-              "Failed to copy og:image from {} to {}: {e}",
-              v,
-              dest_path.display()
-            );
-          }
-          let rel_path = format!("assets/{file_name}");
-          format!(r#"<meta property="{k}" content="{rel_path}" />"#)
-        } else {
-          format!(r#"<meta property="{k}" content="{v}" />"#)
-        }
-      })
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  } else {
-    String::new()
-  };
+  let opengraph_html = build_opengraph_html(config);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -321,19 +286,18 @@ pub fn render_options(
     get_meta_tags(config).map_or_else(String::new, |meta_tags| {
       meta_tags
         .iter()
-        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
         .collect::<Vec<_>>()
         .join("\n    ")
     });
 
-  let opengraph_html =
-    get_opengraph(config).map_or_else(String::new, |opengraph| {
-      opengraph
-        .iter()
-        .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
+  let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -461,20 +425,7 @@ pub fn render_lib(
         .join("\n    ")
     });
 
-  let opengraph_html =
-    get_opengraph(config).map_or_else(String::new, |opengraph| {
-      opengraph
-        .iter()
-        .map(|(k, v)| {
-          format!(
-            "<meta property=\"{}\" content=\"{}\" />",
-            encode_text(k),
-            encode_text(v)
-          )
-        })
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
+  let opengraph_html = build_opengraph_html(config);
 
   let mut tera_context = tera::Context::new();
   tera_context
@@ -890,19 +841,18 @@ pub fn render_search(
     get_meta_tags(config).map_or_else(String::new, |meta_tags| {
       meta_tags
         .iter()
-        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
         .collect::<Vec<_>>()
         .join("\n    ")
     });
 
-  let opengraph_html =
-    get_opengraph(config).map_or_else(String::new, |opengraph| {
-      opengraph
-        .iter()
-        .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
+  let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -1570,6 +1520,56 @@ fn add_example_value(html: &mut String, option: &NixOption) {
          <code>{safe_example}</code></div>"
       );
     }
+  }
+}
+
+/// Build the OpenGraph HTML string, handling `og:image` local paths by copying
+/// the file into `output_dir/assets/` and rewriting to a relative URL.
+fn build_opengraph_html(config: &Config) -> String {
+  if let Some(opengraph) = get_opengraph(config) {
+    opengraph
+      .iter()
+      .map(|(k, v)| {
+        if k == "og:image"
+          && !v.starts_with("http://")
+          && !v.starts_with("https://")
+        {
+          // Local file path: copy to assets/ and use relative path
+          let image_path = std::path::Path::new(v.as_str());
+          let assets_dir = config.output_dir.join("assets");
+          let file_name = image_path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or(v.as_str());
+          let dest_path = assets_dir.join(file_name);
+          if let Err(e) = std::fs::create_dir_all(&assets_dir) {
+            log::error!("Failed to create assets dir for og:image: {e}");
+          }
+          if let Err(e) = std::fs::copy(image_path, &dest_path) {
+            log::error!(
+              "Failed to copy og:image from {} to {}: {e}",
+              v,
+              dest_path.display()
+            );
+          }
+          let rel_path = format!("assets/{file_name}");
+          format!(
+            "<meta property=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(&rel_path)
+          )
+        } else {
+          format!(
+            "<meta property=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        }
+      })
+      .collect::<Vec<_>>()
+      .join("\n    ")
+  } else {
+    String::new()
   }
 }
 
