@@ -25,8 +25,207 @@ const NAVBAR_TEMPLATE: &str = templates::NAVBAR_TEMPLATE;
 const FOOTER_TEMPLATE: &str = templates::FOOTER_TEMPLATE;
 const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
 
-static TEMPLATE_CACHE: LazyLock<RwLock<HashMap<String, String>>> =
+/// Cache for template content strings to avoid repeated disk I/O
+static TEMPLATE_CONTENT_CACHE: LazyLock<RwLock<HashMap<String, String>>> =
   LazyLock::new(|| RwLock::new(HashMap::new()));
+
+/// Cache for compiled Tera instances keyed by template configuration
+/// This eliminates the overhead of re-parsing templates on every render
+static TERA_CACHE: LazyLock<RwLock<HashMap<String, Tera>>> =
+  LazyLock::new(|| RwLock::new(HashMap::new()));
+
+/// Setup Tera templates for a specific page type, using caching for
+/// performance.
+///
+/// # Arguments
+///
+/// * `config` - Site configuration
+/// * `main_template_name` - Name of the main template (e.g., "default",
+///   "options", "lib", "search")
+/// * `main_template_content` - Content of the main template
+///
+/// # Returns
+///
+/// A cached or newly created Tera instance with all required templates loaded
+fn setup_tera_templates(
+  config: &Config,
+  main_template_name: &str,
+  main_template_content: &str,
+) -> Result<Tera> {
+  // Create a cache key based on config template path and main template
+  let cache_key = format!(
+    "{}:{}",
+    config
+      .get_template_path()
+      .map_or_else(|| "default".to_string(), |p| p.display().to_string()),
+    main_template_name
+  );
+
+  // Check cache first
+  {
+    let cache = TERA_CACHE.read().unwrap();
+    if let Some(tera) = cache.get(&cache_key) {
+      return Ok(tera.clone());
+    }
+  }
+
+  // Create new Tera instance and load templates
+  let mut tera = Tera::default();
+  tera.add_raw_template(main_template_name, main_template_content)?;
+
+  // Load shared templates
+  let navbar_content =
+    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
+  tera.add_raw_template("navbar", &navbar_content)?;
+
+  let footer_content =
+    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
+  tera.add_raw_template("footer", &footer_content)?;
+
+  // Cache the compiled Tera instance
+  {
+    let mut cache = TERA_CACHE.write().unwrap();
+    cache.insert(cache_key.clone(), tera.clone());
+  }
+
+  Ok(tera)
+}
+
+/// Build the common Tera context with asset paths and navigation data.
+///
+/// # Arguments
+///
+/// * `config` - Site configuration
+/// * `asset_paths` - Map of asset paths for the current page
+/// * `root_prefix` - Root-relative path prefix
+/// * `has_options` - CSS class or style for options nav item
+///
+/// # Returns
+///
+/// A Tera context populated with common fields
+fn build_common_context(
+  config: &Config,
+  asset_paths: &HashMap<&'static str, String>,
+  root_prefix: &str,
+  has_options: &str,
+) -> tera::Context {
+  let mut ctx = tera::Context::new();
+
+  ctx.insert("site_title", &config.title);
+  ctx.insert("footer_text", &config.footer_text);
+  ctx.insert("has_options", has_options);
+  ctx.insert("generate_search", &config.is_search_enabled());
+  ctx.insert("root_prefix", root_prefix);
+
+  // Insert asset paths with fallbacks
+  ctx.insert(
+    "stylesheet_path",
+    asset_paths
+      .get("stylesheet_path")
+      .map_or("assets/style.css", String::as_str),
+  );
+  ctx.insert(
+    "main_js_path",
+    asset_paths
+      .get("main_js_path")
+      .map_or("assets/main.js", String::as_str),
+  );
+  ctx.insert(
+    "search_js_path",
+    asset_paths
+      .get("search_js_path")
+      .map_or("assets/search.js", String::as_str),
+  );
+  ctx.insert(
+    "index_path",
+    asset_paths
+      .get("index_path")
+      .map_or("index.html", String::as_str),
+  );
+  ctx.insert(
+    "options_path",
+    asset_paths
+      .get("options_path")
+      .map_or("options.html", String::as_str),
+  );
+  ctx.insert(
+    "search_path",
+    asset_paths
+      .get("search_path")
+      .map_or("search.html", String::as_str),
+  );
+
+  ctx
+}
+
+/// Render navbar and footer templates with consistent context.
+///
+/// # Arguments
+///
+/// * `tera` - Tera template engine instance
+/// * `config` - Site configuration
+/// * `asset_paths` - Map of asset paths
+/// * `has_options` - CSS class or style for options nav item
+///
+/// # Returns
+///
+/// Tuple of (navbar_html, footer_html)
+fn render_navbar_footer(
+  tera: &Tera,
+  config: &Config,
+  asset_paths: &HashMap<&'static str, String>,
+  has_options: &str,
+) -> Result<(String, String)> {
+  // Render navbar
+  let mut navbar_ctx = tera::Context::new();
+  navbar_ctx.insert("has_options", has_options);
+  navbar_ctx.insert("generate_search", &config.is_search_enabled());
+  navbar_ctx.insert(
+    "options_path",
+    asset_paths
+      .get("options_path")
+      .map_or("options.html", String::as_str),
+  );
+  navbar_ctx.insert(
+    "search_path",
+    asset_paths
+      .get("search_path")
+      .map_or("search.html", String::as_str),
+  );
+  let navbar_html = tera.render("navbar", &navbar_ctx)?;
+
+  // Render footer
+  let mut footer_ctx = tera::Context::new();
+  footer_ctx.insert("footer_text", &config.footer_text);
+  let footer_html = tera.render("footer", &footer_ctx)?;
+
+  Ok((navbar_html, footer_html))
+}
+
+/// Generate HTML for meta tags from config.
+///
+/// # Arguments
+///
+/// * `config` - Site configuration
+///
+/// # Returns
+///
+/// HTML string of meta tags, or empty string if no meta tags configured
+fn generate_meta_tags_html(config: &Config) -> String {
+  get_meta_tags(config).map_or_else(String::new, |meta_tags| {
+    meta_tags
+      .iter()
+      .map(|(k, v)| {
+        format!(
+          "<meta name=\"{}\" content=\"{}\" />",
+          encode_text(k),
+          encode_text(v)
+        )
+      })
+      .collect::<Vec<_>>()
+      .join("\n    ")
+  })
+}
 
 /// Render a documentation page
 ///
@@ -40,8 +239,6 @@ pub fn render(
   headers: &[Header],
   rel_path: &Path,
 ) -> Result<String> {
-  let mut tera = Tera::default();
-
   // Check for file-specific template (e.g., foo.html for foo.md)
   let file_stem = rel_path
     .file_stem()
@@ -64,22 +261,11 @@ pub fn render(
     get_template_content(config, "default.html", DEFAULT_TEMPLATE)?
   };
 
-  tera.add_raw_template("default", &template_content)?;
+  // Setup Tera with caching
+  let tera = setup_tera_templates(config, "default", &template_content)?;
 
-  // Load navbar template
-  let navbar_content =
-    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
-  tera.add_raw_template("navbar", &navbar_content)?;
-
-  // Load footer template
-  let footer_content =
-    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
-  tera.add_raw_template("footer", &footer_content)?;
-
-  // Generate table of contents from headers
+  // Generate navigation and metadata
   let toc = generate_toc(headers);
-
-  // Generate document navigation
   let doc_nav = generate_doc_nav(config, rel_path);
 
   // Check if options are available
@@ -93,105 +279,26 @@ pub fn render(
   let asset_paths = generate_asset_paths(rel_path);
   let root_prefix = calculate_root_relative_path(rel_path);
 
-  // Prepare meta tags HTML
-  let meta_tags_html =
-    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
-      meta_tags
-        .iter()
-        .map(|(k, v)| {
-          format!(
-            "<meta name=\"{}\" content=\"{}\" />",
-            encode_text(k),
-            encode_text(v)
-          )
-        })
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
-
-  // Prepare OpenGraph tags HTML, handling og:image as local path or URL
+  // Generate meta tags
+  let meta_tags_html = generate_meta_tags_html(config);
   let opengraph_html = build_opengraph_html(config);
 
-  // Render navbar and footer
-  let navbar_html = tera.render("navbar", &{
-    let mut ctx = tera::Context::new();
-    ctx.insert("has_options", has_options);
-    ctx.insert("generate_search", &config.is_search_enabled());
-    ctx.insert(
-      "options_path",
-      asset_paths
-        .get("options_path")
-        .map_or("options.html", std::string::String::as_str),
-    );
-    ctx.insert(
-      "search_path",
-      asset_paths
-        .get("search_path")
-        .map_or("search.html", std::string::String::as_str),
-    );
-    ctx
-  })?;
+  // Render navbar and footer using helper
+  let (navbar_html, footer_html) =
+    render_navbar_footer(&tera, config, &asset_paths, has_options)?;
 
-  let footer_html = tera.render("footer", &{
-    let mut ctx = tera::Context::new();
-    ctx.insert("footer_text", &config.footer_text);
-    ctx
-  })?;
-
-  // Create context
-  let mut tera_context = tera::Context::new();
+  // Build common context and add page-specific fields
+  let mut tera_context =
+    build_common_context(config, &asset_paths, &root_prefix, has_options);
   tera_context.insert("content", content);
   tera_context.insert("title", title);
-  tera_context.insert("site_title", &config.title);
-  tera_context.insert("footer_text", &config.footer_text);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("toc", &toc);
   tera_context.insert("doc_nav", &doc_nav);
-  tera_context.insert("has_options", has_options);
   tera_context.insert("custom_scripts", &custom_scripts);
-  tera_context.insert("generate_search", &config.is_search_enabled());
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
-
-  // Populate Tera context with asset paths
-  tera_context.insert(
-    "stylesheet_path",
-    asset_paths
-      .get("stylesheet_path")
-      .map_or("assets/style.css", String::as_str),
-  );
-  tera_context.insert(
-    "main_js_path",
-    asset_paths
-      .get("main_js_path")
-      .map_or("assets/main.js", String::as_str),
-  );
-  tera_context.insert(
-    "search_js_path",
-    asset_paths
-      .get("search_js_path")
-      .map_or("assets/search.js", String::as_str),
-  );
-  tera_context.insert(
-    "index_path",
-    asset_paths
-      .get("index_path")
-      .map_or("index.html", String::as_str),
-  );
-  tera_context.insert(
-    "options_path",
-    asset_paths
-      .get("options_path")
-      .map_or("options.html", String::as_str),
-  );
-  tera_context.insert(
-    "search_path",
-    asset_paths
-      .get("search_path")
-      .map_or("search.html", String::as_str),
-  );
-  tera_context.insert("root_prefix", &root_prefix);
 
   // Render the template
   let html = tera.render("default", &tera_context)?;
@@ -212,143 +319,66 @@ pub fn render_options(
   config: &Config,
   options: &HashMap<String, NixOption>,
 ) -> Result<String> {
-  let mut tera = Tera::default();
+  // Load templates with caching
   let options_template =
     get_template_content(config, "options.html", OPTIONS_TEMPLATE)?;
-  tera.add_raw_template("options", &options_template)?;
+  let mut tera = setup_tera_templates(config, "options", &options_template)?;
 
-  // Load navbar template
-  let navbar_content =
-    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
-  tera.add_raw_template("navbar", &navbar_content)?;
-
-  // Load footer template
-  let footer_content =
-    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
-  tera.add_raw_template("footer", &footer_content)?;
-
-  // Create options HTML
-  let options_html = generate_options_html(options);
-
-  // Load the options_toc template from template directory or use default
+  // Load additional template for options TOC
   let options_toc_template =
     get_template_content(config, "options_toc.html", OPTIONS_TOC_TEMPLATE)?;
   tera.add_raw_template("options_toc", &options_toc_template)?;
 
+  // Update the cache with the modified Tera instance
+  let cache_key = format!(
+    "{}:options",
+    config
+      .get_template_path()
+      .map_or_else(|| "default".to_string(), |p| p.display().to_string())
+  );
+  {
+    let mut cache = TERA_CACHE.write().unwrap();
+    cache.insert(cache_key, tera.clone());
+  }
+
+  // Create options HTML
+  let options_html = generate_options_html(options);
+
   // Generate options TOC using Tera templating
   let options_toc = generate_options_toc(options, config, &tera)?;
 
-  // Generate document navigation for root level (options.html is always at
-  // root)
+  // Generate document navigation and paths
   let root_path = Path::new("options.html");
   let doc_nav = generate_doc_nav(config, root_path);
-
-  // Generate custom scripts HTML for root level
   let custom_scripts = generate_custom_scripts(config, root_path)?;
-
-  // Generate asset and navigation paths
   let asset_paths = generate_asset_paths(root_path);
   let root_prefix = calculate_root_relative_path(root_path);
 
-  // Render navbar and footer
-  let navbar_html = tera.render("navbar", &{
-    let mut ctx = tera::Context::new();
-    ctx.insert("has_options", "class=\"active\"");
-    ctx.insert("generate_search", &config.is_search_enabled());
-    ctx.insert(
-      "options_path",
-      asset_paths
-        .get("options_path")
-        .map_or("options.html", std::string::String::as_str),
-    );
-    ctx.insert(
-      "search_path",
-      asset_paths
-        .get("search_path")
-        .map_or("search.html", std::string::String::as_str),
-    );
-    ctx
-  })?;
+  // Render navbar and footer using helper
+  let (navbar_html, footer_html) =
+    render_navbar_footer(&tera, config, &asset_paths, "class=\"active\"")?;
 
-  let footer_html = tera.render("footer", &{
-    let mut ctx = tera::Context::new();
-    ctx.insert("footer_text", &config.footer_text);
-    ctx
-  })?;
-
-  // Create context
-  let mut tera_context = tera::Context::new();
+  // Build common context and add page-specific fields
+  let mut tera_context = build_common_context(
+    config,
+    &asset_paths,
+    &root_prefix,
+    "class=\"active\"",
+  );
   tera_context.insert("title", &format!("{} - Options", config.title));
-  tera_context.insert("site_title", &config.title);
   tera_context.insert("heading", &format!("{} Options", config.title));
   tera_context.insert("options", &options_html);
-  tera_context.insert("footer_text", &config.footer_text);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("doc_nav", &doc_nav);
-  tera_context.insert("has_options", "class=\"active\"");
   tera_context.insert("toc", &options_toc);
-  tera_context.insert("generate_search", &config.is_search_enabled());
 
   // Add meta and opengraph tags
-  let meta_tags_html =
-    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
-      meta_tags
-        .iter()
-        .map(|(k, v)| {
-          format!(
-            "<meta name=\"{}\" content=\"{}\" />",
-            encode_text(k),
-            encode_text(v)
-          )
-        })
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
-
+  let meta_tags_html = generate_meta_tags_html(config);
   let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
-
-  // Add proper asset paths with fallback values in case keys are missing
-  tera_context.insert(
-    "stylesheet_path",
-    asset_paths
-      .get("stylesheet_path")
-      .map_or("assets/style.css", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "main_js_path",
-    asset_paths
-      .get("main_js_path")
-      .map_or("assets/main.js", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "search_js_path",
-    asset_paths
-      .get("search_js_path")
-      .map_or("assets/search.js", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "index_path",
-    asset_paths
-      .get("index_path")
-      .map_or("index.html", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "options_path",
-    asset_paths
-      .get("options_path")
-      .map_or("options.html", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "search_path",
-    asset_paths
-      .get("search_path")
-      .map_or("search.html", std::string::String::as_str),
-  );
-  tera_context.insert("root_prefix", &root_prefix);
 
   // Render the template
   let html = tera.render("options", &tera_context)?;
@@ -371,133 +401,47 @@ pub fn render_lib(
   entries_html: &str,
   toc_html: &str,
 ) -> Result<String> {
-  let mut tera = Tera::default();
-
+  // Setup Tera with caching
   let lib_template = get_template_content(config, "lib.html", LIB_TEMPLATE)?;
-  tera.add_raw_template("lib", &lib_template)?;
-  let navbar_content =
-    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
-  tera.add_raw_template("navbar", &navbar_content)?;
-  let footer_content =
-    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
-  tera.add_raw_template("footer", &footer_content)?;
+  let tera = setup_tera_templates(config, "lib", &lib_template)?;
 
+  // Generate navigation and paths
   let root_path = Path::new("lib.html");
   let doc_nav = generate_doc_nav(config, root_path);
   let custom_scripts = generate_custom_scripts(config, root_path)?;
   let asset_paths = generate_asset_paths(root_path);
   let root_prefix = calculate_root_relative_path(root_path);
 
-  let navbar_html = {
-    let mut ctx = tera::Context::new();
-    ctx.insert(
-      "has_options",
-      if config.module_options.is_some() {
-        ""
-      } else {
-        "style=\"display:none;\""
-      },
-    );
-    ctx.insert("generate_search", &config.is_search_enabled());
-    ctx.insert(
-      "options_path",
-      asset_paths
-        .get("options_path")
-        .map_or("options.html", String::as_str),
-    );
-    ctx.insert(
-      "search_path",
-      asset_paths
-        .get("search_path")
-        .map_or("search.html", String::as_str),
-    );
-    tera.render("navbar", &ctx)?
+  // Determine has_options value
+  let has_options = if config.module_options.is_some() {
+    ""
+  } else {
+    "style=\"display:none;\""
   };
 
-  let footer_html = {
-    let mut ctx = tera::Context::new();
-    ctx.insert("footer_text", &config.footer_text);
-    tera.render("footer", &ctx)?
-  };
+  // Render navbar and footer using helper
+  let (navbar_html, footer_html) =
+    render_navbar_footer(&tera, config, &asset_paths, has_options)?;
 
-  let meta_tags_html =
-    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
-      meta_tags
-        .iter()
-        .map(|(k, v)| {
-          format!(
-            "<meta name=\"{}\" content=\"{}\" />",
-            encode_text(k),
-            encode_text(v)
-          )
-        })
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
-
-  let opengraph_html = build_opengraph_html(config);
-
-  let mut tera_context = tera::Context::new();
+  // Build common context and add page-specific fields
+  let mut tera_context =
+    build_common_context(config, &asset_paths, &root_prefix, has_options);
   tera_context
     .insert("title", &format!("{} - Library Reference", config.title));
-  tera_context.insert("site_title", &config.title);
   tera_context
     .insert("heading", &format!("{} Library Reference", config.title));
   tera_context.insert("entries", entries_html);
   tera_context.insert("toc", toc_html);
-  tera_context.insert("footer_text", &config.footer_text);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("doc_nav", &doc_nav);
-  tera_context.insert(
-    "has_options",
-    if config.module_options.is_some() {
-      ""
-    } else {
-      "style=\"display:none;\""
-    },
-  );
-  tera_context.insert("generate_search", &config.is_search_enabled());
+
+  // Add meta and opengraph tags
+  let meta_tags_html = generate_meta_tags_html(config);
+  let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
-  tera_context.insert(
-    "stylesheet_path",
-    asset_paths
-      .get("stylesheet_path")
-      .map_or("assets/style.css", String::as_str),
-  );
-  tera_context.insert(
-    "main_js_path",
-    asset_paths
-      .get("main_js_path")
-      .map_or("assets/main.js", String::as_str),
-  );
-  tera_context.insert(
-    "search_js_path",
-    asset_paths
-      .get("search_js_path")
-      .map_or("assets/search.js", String::as_str),
-  );
-  tera_context.insert(
-    "index_path",
-    asset_paths
-      .get("index_path")
-      .map_or("index.html", String::as_str),
-  );
-  tera_context.insert(
-    "options_path",
-    asset_paths
-      .get("options_path")
-      .map_or("options.html", String::as_str),
-  );
-  tera_context.insert(
-    "search_path",
-    asset_paths
-      .get("search_path")
-      .map_or("search.html", String::as_str),
-  );
-  tera_context.insert("root_prefix", &root_prefix);
 
   let html = tera.render("lib", &tera_context)?;
   Ok(html)
@@ -764,32 +708,19 @@ pub fn render_search(
     bail!("Search functionality is disabled");
   }
 
-  let mut tera = Tera::default();
+  // Setup Tera with caching
   let search_template =
     get_template_content(config, "search.html", SEARCH_TEMPLATE)?;
-  tera.add_raw_template("search", &search_template)?;
-
-  // Load navbar template
-  let navbar_content =
-    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
-  tera.add_raw_template("navbar", &navbar_content)?;
-
-  // Load footer template
-  let footer_content =
-    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
-  tera.add_raw_template("footer", &footer_content)?;
+  let tera = setup_tera_templates(config, "search", &search_template)?;
 
   let title_str = context
     .get("title")
     .cloned()
     .unwrap_or_else(|| format!("{} - Search", config.title));
 
-  // Generate document navigation for root level (system-generated search.html
-  // is always at root)
+  // Generate navigation and paths (search page is always at root)
   let root_path = Path::new("search.html");
   let doc_nav = generate_doc_nav(config, root_path);
-
-  // Generate custom scripts HTML for root level
   let custom_scripts = generate_custom_scripts(config, root_path)?;
 
   // Check if options are available
@@ -799,111 +730,31 @@ pub fn render_search(
     "style=\"display:none;\""
   };
 
-  // Generate asset and navigation paths (search page is at root)
+  // Generate asset and navigation paths
   let asset_paths = ndg_utils::html::generate_asset_paths(root_path);
-
-  // Calculate root prefix for JavaScript path resolution (search page is at
-  // root)
   let root_prefix = ndg_utils::html::calculate_root_relative_path(root_path);
 
-  // Render navbar and footer
-  let navbar_html = tera.render("navbar", &{
-    let mut ctx = tera::Context::new();
-    ctx.insert("has_options", has_options);
-    ctx.insert("generate_search", &config.is_search_enabled());
-    ctx.insert(
-      "options_path",
-      asset_paths
-        .get("options_path")
-        .map_or("options.html", std::string::String::as_str),
-    );
-    ctx.insert(
-      "search_path",
-      asset_paths
-        .get("search_path")
-        .map_or("search.html", std::string::String::as_str),
-    );
-    ctx
-  })?;
+  // Render navbar and footer using helper
+  let (navbar_html, footer_html) =
+    render_navbar_footer(&tera, config, &asset_paths, has_options)?;
 
-  let footer_html = tera.render("footer", &{
-    let mut ctx = tera::Context::new();
-    ctx.insert("footer_text", &config.footer_text);
-    ctx
-  })?;
-
-  // Create Tera context
-  let mut tera_context = tera::Context::new();
+  // Build common context and add page-specific fields
+  let mut tera_context =
+    build_common_context(config, &asset_paths, &root_prefix, has_options);
   tera_context.insert("title", &title_str);
-  tera_context.insert("site_title", &config.title);
   tera_context.insert("heading", "Search");
-  tera_context.insert("footer_text", &config.footer_text);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("doc_nav", &doc_nav);
-  tera_context.insert("has_options", has_options);
   tera_context.insert("toc", ""); // no TOC for search page
   tera_context.insert("generate_search", &true); // always true for search page
 
   // Add meta and opengraph tags
-  let meta_tags_html =
-    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
-      meta_tags
-        .iter()
-        .map(|(k, v)| {
-          format!(
-            "<meta name=\"{}\" content=\"{}\" />",
-            encode_text(k),
-            encode_text(v)
-          )
-        })
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
-
+  let meta_tags_html = generate_meta_tags_html(config);
   let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
-
-  // Add asset paths with fallback values in case keys are missing
-  tera_context.insert(
-    "stylesheet_path",
-    asset_paths
-      .get("stylesheet_path")
-      .map_or("assets/style.css", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "main_js_path",
-    asset_paths
-      .get("main_js_path")
-      .map_or("assets/main.js", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "search_js_path",
-    asset_paths
-      .get("search_js_path")
-      .map_or("assets/search.js", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "index_path",
-    asset_paths
-      .get("index_path")
-      .map_or("index.html", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "options_path",
-    asset_paths
-      .get("options_path")
-      .map_or("options.html", std::string::String::as_str),
-  );
-  tera_context.insert(
-    "search_path",
-    asset_paths
-      .get("search_path")
-      .map_or("search.html", std::string::String::as_str),
-  );
-  tera_context.insert("root_prefix", &root_prefix);
 
   // Render the template
   let html = tera.render("search", &tera_context)?;
@@ -925,7 +776,7 @@ fn get_template_content(
 
   // Check cache first (read lock)
   {
-    let cache = TEMPLATE_CACHE.read().unwrap();
+    let cache = TEMPLATE_CONTENT_CACHE.read().unwrap();
     if let Some(cached) = cache.get(&cache_key) {
       return Ok(cached.clone());
     }
@@ -936,7 +787,7 @@ fn get_template_content(
 
   // Insert into cache (write lock)
   {
-    let mut cache = TEMPLATE_CACHE.write().unwrap();
+    let mut cache = TEMPLATE_CONTENT_CACHE.write().unwrap();
     cache.entry(cache_key).or_insert(content.clone());
   }
 
