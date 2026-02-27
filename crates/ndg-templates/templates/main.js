@@ -227,7 +227,7 @@ document.addEventListener("DOMContentLoaded", function () {
       document.documentElement.classList.add("sidebar-collapsed");
       document.body.classList.add("sidebar-collapsed");
     }
-  } catch (e) {
+  } catch {
     // localStorage unavailable
   }
 
@@ -335,7 +335,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.documentElement.classList.contains("sidebar-collapsed");
       try {
         localStorage.setItem("sidebar-collapsed", isCollapsed);
-      } catch (e) {
+      } catch {
         // localStorage unavailable
       }
     });
@@ -881,7 +881,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentChunk = 0;
     let itemsToProcess = [];
 
-    function debounce(func, wait) {
+    function debounceLib(func, wait) {
       let timeout;
       return function () {
         const context = this;
@@ -891,7 +891,7 @@ document.addEventListener("DOMContentLoaded", function () {
       };
     }
 
-    function processNextChunk() {
+    function processNextChunkLib() {
       const startIdx = currentChunk * CHUNK_SIZE;
       const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
 
@@ -906,7 +906,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         currentChunk++;
-        pendingRender = requestAnimationFrame(processNextChunk);
+        pendingRender = requestAnimationFrame(processNextChunkLib);
       } else {
         pendingRender = null;
         currentChunk = 0;
@@ -1005,10 +1005,10 @@ document.addEventListener("DOMContentLoaded", function () {
       libContainer.appendChild(fragment);
 
       filterResults.visibleCount = visibleCount;
-      pendingRender = requestAnimationFrame(processNextChunk);
+      pendingRender = requestAnimationFrame(processNextChunkLib);
     }
 
-    const debouncedFilter = debounce(filterLib, isMobile ? 200 : 100);
+    const debouncedFilter = debounceLib(filterLib, isMobile ? 200 : 100);
 
     libFilter.addEventListener("input", debouncedFilter);
 
