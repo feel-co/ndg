@@ -1,3 +1,4 @@
+use ndg_macros::Configurable;
 use regex::Regex;
 use serde::{
   Deserialize,
@@ -88,7 +89,7 @@ trait MatchField: Sized {
 }
 
 /// Configuration for sidebar behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
 pub struct SidebarConfig {
   /// Whether to number sidebar items.
   #[serde(default)]
@@ -155,6 +156,19 @@ pub enum SidebarOrdering {
 
   /// Use custom ordering via position field.
   Custom,
+}
+
+impl std::str::FromStr for SidebarOrdering {
+  type Err = String;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s.to_lowercase().as_str() {
+      "alphabetical" => Ok(Self::Alphabetical),
+      "filesystem" => Ok(Self::Filesystem),
+      "custom" => Ok(Self::Custom),
+      _ => Err(format!("Unknown sidebar ordering: {s}")),
+    }
+  }
 }
 
 /// Path matching criteria
@@ -431,13 +445,15 @@ impl SidebarMatch {
 }
 
 /// Configuration for options sidebar behavior.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
 #[serde(default)]
 pub struct OptionsConfig {
   /// Depth of parent categories in options TOC.
+  #[config(key = "depth")]
   pub depth: usize,
 
   /// Ordering algorithm for options.
+  #[config(key = "ordering")]
   pub ordering: SidebarOrdering,
 
   /// Pattern-based matching rules for options.
@@ -1346,5 +1362,61 @@ position = 50
       error_msg.contains("Invalid name regex"),
       "Error should mention invalid regex: {error_msg}"
     );
+  }
+
+  // Tests for proc-macro-based config system
+
+  #[test]
+  fn test_options_config_apply_override_depth() {
+    let mut config = OptionsConfig::default();
+    assert_eq!(config.depth, 2);
+
+    config.apply_override("depth", "5").unwrap();
+    assert_eq!(config.depth, 5);
+  }
+
+  #[test]
+  fn test_options_config_apply_override_ordering() {
+    let mut config = OptionsConfig::default();
+    assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
+
+    config.apply_override("ordering", "custom").unwrap();
+    assert!(matches!(config.ordering, SidebarOrdering::Custom));
+
+    config.apply_override("ordering", "filesystem").unwrap();
+    assert!(matches!(config.ordering, SidebarOrdering::Filesystem));
+  }
+
+  #[test]
+  fn test_options_config_apply_override_invalid_ordering() {
+    let mut config = OptionsConfig::default();
+
+    let result = config.apply_override("ordering", "invalid");
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("Unknown sidebar ordering"));
+  }
+
+  #[test]
+  fn test_options_config_merge_fields() {
+    let mut config = OptionsConfig::default();
+    config.depth = 2;
+    config.ordering = SidebarOrdering::Alphabetical;
+
+    let other = OptionsConfig {
+      depth:    4,
+      ordering: SidebarOrdering::Custom,
+      matches:  vec![OptionsMatch {
+        name: Some(OptionNameMatch::exact("test".to_string())),
+        ..Default::default()
+      }],
+    };
+
+    config.merge_fields(other);
+
+    assert_eq!(config.depth, 4);
+    assert!(matches!(config.ordering, SidebarOrdering::Custom));
+    // Vec fields should extend
+    assert_eq!(config.matches.len(), 1);
   }
 }

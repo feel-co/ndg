@@ -935,9 +935,9 @@ fn parse_fenced_admonition_start(
 
 /// Collect content until closing :::
 ///
-/// Returns a tuple of (admonition_content, trailing_content).
+/// Returns a tuple of (`admonition_content`, `trailing_content`).
 /// If there's content after the closing `:::` on the same line,
-/// it's returned as trailing_content.
+/// it's returned as `trailing_content`.
 fn collect_fenced_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
 ) -> (String, Option<String>) {

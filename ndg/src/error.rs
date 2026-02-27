@@ -4,7 +4,6 @@ use thiserror::Error;
 
 /// Top-level error type for the ndg crate.
 #[derive(Debug, Error)]
-#[allow(dead_code)]
 pub enum NdgError {
   #[error("Configuration error: {0}")]
   Config(String),
@@ -15,7 +14,6 @@ pub enum NdgError {
   #[error("I/O error: {0}")]
   Io(#[from] io::Error),
 
-  #[allow(dead_code)]
   #[error("Rendering error: {0}")]
   Render(String),
 
@@ -31,7 +29,6 @@ pub enum NdgError {
   #[error("Regex error: {0}")]
   Regex(#[from] regex::Error),
 
-  #[allow(dead_code)]
   #[error("Unknown error: {0}")]
   Unknown(String),
 }

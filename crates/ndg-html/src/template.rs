@@ -1,28 +1,32 @@
-use std::{collections::HashMap, fmt::Write, fs, path::Path, string::String};
+use std::{
+  collections::HashMap,
+  fmt::Write,
+  fs,
+  path::Path,
+  string::String,
+  sync::{LazyLock, RwLock},
+};
 
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
 use ndg_commonmark::Header;
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
+use ndg_templates as templates;
 use ndg_utils::html::{calculate_root_relative_path, generate_asset_paths};
 use serde_json::Value;
 use tera::Tera;
 
-// Templates will be embedded in this crate
-// These paths are now relative to ndg-html crate location
-const DEFAULT_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/default.html");
-const OPTIONS_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/options.html");
-const SEARCH_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/search.html");
-const OPTIONS_TOC_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/options_toc.html");
-const NAVBAR_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/navbar.html");
-const FOOTER_TEMPLATE: &str =
-  include_str!("../../../ndg/templates/footer.html");
+const DEFAULT_TEMPLATE: &str = templates::DEFAULT_TEMPLATE;
+const OPTIONS_TEMPLATE: &str = templates::OPTIONS_TEMPLATE;
+const SEARCH_TEMPLATE: &str = templates::SEARCH_TEMPLATE;
+const OPTIONS_TOC_TEMPLATE: &str = templates::OPTIONS_TOC_TEMPLATE;
+const NAVBAR_TEMPLATE: &str = templates::NAVBAR_TEMPLATE;
+const FOOTER_TEMPLATE: &str = templates::FOOTER_TEMPLATE;
+const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
+
+static TEMPLATE_CACHE: LazyLock<RwLock<HashMap<String, String>>> =
+  LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Render a documentation page
 ///
@@ -94,54 +98,19 @@ pub fn render(
     get_meta_tags(config).map_or_else(String::new, |meta_tags| {
       meta_tags
         .iter()
-        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
         .collect::<Vec<_>>()
         .join("\n    ")
     });
 
   // Prepare OpenGraph tags HTML, handling og:image as local path or URL
-  #[allow(
-    clippy::option_if_let_else,
-    reason = "Complex image handling logic clearer with if-let"
-  )]
-  let opengraph_html = if let Some(opengraph) = get_opengraph(config) {
-    opengraph
-      .iter()
-      .map(|(k, v)| {
-        if k == "og:image"
-          && !v.starts_with("http://")
-          && !v.starts_with("https://")
-        {
-          // Local file path: copy to assets/ and use relative path
-          let image_path = std::path::Path::new(v.as_str());
-          let assets_dir = config.output_dir.join("assets");
-          let file_name = image_path
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or(v.as_str());
-          let dest_path = assets_dir.join(file_name);
-          // Only copy if not already present
-          if let Err(e) = std::fs::create_dir_all(&assets_dir) {
-            log::error!("Failed to create assets dir for og:image: {e}");
-          }
-          if let Err(e) = std::fs::copy(image_path, &dest_path) {
-            log::error!(
-              "Failed to copy og:image from {} to {}: {e}",
-              v,
-              dest_path.display()
-            );
-          }
-          let rel_path = format!("assets/{file_name}");
-          format!(r#"<meta property="{k}" content="{rel_path}" />"#)
-        } else {
-          format!(r#"<meta property="{k}" content="{v}" />"#)
-        }
-      })
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  } else {
-    String::new()
-  };
+  let opengraph_html = build_opengraph_html(config);
 
   // Render navbar and footer
   let navbar_html = tera.render("navbar", &{
@@ -327,19 +296,18 @@ pub fn render_options(
     get_meta_tags(config).map_or_else(String::new, |meta_tags| {
       meta_tags
         .iter()
-        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
         .collect::<Vec<_>>()
         .join("\n    ")
     });
 
-  let opengraph_html =
-    get_opengraph(config).map_or_else(String::new, |opengraph| {
-      opengraph
-        .iter()
-        .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
+  let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -384,6 +352,154 @@ pub fn render_options(
 
   // Render the template
   let html = tera.render("options", &tera_context)?;
+  Ok(html)
+}
+
+/// Render the library reference page from pre-built HTML strings.
+///
+/// # Arguments
+///
+/// * `config` - Site configuration
+/// * `entries_html` - Pre-rendered HTML for all library entries
+/// * `toc_html` - Pre-rendered TOC HTML for the library page
+///
+/// # Errors
+///
+/// Returns an error if template rendering fails.
+pub fn render_lib(
+  config: &Config,
+  entries_html: &str,
+  toc_html: &str,
+) -> Result<String> {
+  let mut tera = Tera::default();
+
+  let lib_template = get_template_content(config, "lib.html", LIB_TEMPLATE)?;
+  tera.add_raw_template("lib", &lib_template)?;
+  let navbar_content =
+    get_template_content(config, "navbar.html", NAVBAR_TEMPLATE)?;
+  tera.add_raw_template("navbar", &navbar_content)?;
+  let footer_content =
+    get_template_content(config, "footer.html", FOOTER_TEMPLATE)?;
+  tera.add_raw_template("footer", &footer_content)?;
+
+  let root_path = Path::new("lib.html");
+  let doc_nav = generate_doc_nav(config, root_path);
+  let custom_scripts = generate_custom_scripts(config, root_path)?;
+  let asset_paths = generate_asset_paths(root_path);
+  let root_prefix = calculate_root_relative_path(root_path);
+
+  let navbar_html = {
+    let mut ctx = tera::Context::new();
+    ctx.insert(
+      "has_options",
+      if config.module_options.is_some() {
+        ""
+      } else {
+        "style=\"display:none;\""
+      },
+    );
+    ctx.insert("generate_search", &config.is_search_enabled());
+    ctx.insert(
+      "options_path",
+      asset_paths
+        .get("options_path")
+        .map_or("options.html", String::as_str),
+    );
+    ctx.insert(
+      "search_path",
+      asset_paths
+        .get("search_path")
+        .map_or("search.html", String::as_str),
+    );
+    tera.render("navbar", &ctx)?
+  };
+
+  let footer_html = {
+    let mut ctx = tera::Context::new();
+    ctx.insert("footer_text", &config.footer_text);
+    tera.render("footer", &ctx)?
+  };
+
+  let meta_tags_html =
+    get_meta_tags(config).map_or_else(String::new, |meta_tags| {
+      meta_tags
+        .iter()
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    });
+
+  let opengraph_html = build_opengraph_html(config);
+
+  let mut tera_context = tera::Context::new();
+  tera_context
+    .insert("title", &format!("{} - Library Reference", config.title));
+  tera_context.insert("site_title", &config.title);
+  tera_context
+    .insert("heading", &format!("{} Library Reference", config.title));
+  tera_context.insert("entries", entries_html);
+  tera_context.insert("toc", toc_html);
+  tera_context.insert("footer_text", &config.footer_text);
+  tera_context.insert("navbar_html", &navbar_html);
+  tera_context.insert("footer_html", &footer_html);
+  tera_context.insert("custom_scripts", &custom_scripts);
+  tera_context.insert("doc_nav", &doc_nav);
+  tera_context.insert(
+    "has_options",
+    if config.module_options.is_some() {
+      ""
+    } else {
+      "style=\"display:none;\""
+    },
+  );
+  tera_context.insert("generate_search", &config.is_search_enabled());
+  tera_context.insert("meta_tags_html", &meta_tags_html);
+  tera_context.insert("opengraph_html", &opengraph_html);
+  tera_context.insert(
+    "stylesheet_path",
+    asset_paths
+      .get("stylesheet_path")
+      .map_or("assets/style.css", String::as_str),
+  );
+  tera_context.insert(
+    "main_js_path",
+    asset_paths
+      .get("main_js_path")
+      .map_or("assets/main.js", String::as_str),
+  );
+  tera_context.insert(
+    "search_js_path",
+    asset_paths
+      .get("search_js_path")
+      .map_or("assets/search.js", String::as_str),
+  );
+  tera_context.insert(
+    "index_path",
+    asset_paths
+      .get("index_path")
+      .map_or("index.html", String::as_str),
+  );
+  tera_context.insert(
+    "options_path",
+    asset_paths
+      .get("options_path")
+      .map_or("options.html", String::as_str),
+  );
+  tera_context.insert(
+    "search_path",
+    asset_paths
+      .get("search_path")
+      .map_or("search.html", String::as_str),
+  );
+  tera_context.insert("root_prefix", &root_prefix);
+
+  let html = tera.render("lib", &tera_context)?;
   Ok(html)
 }
 
@@ -735,19 +851,18 @@ pub fn render_search(
     get_meta_tags(config).map_or_else(String::new, |meta_tags| {
       meta_tags
         .iter()
-        .map(|(k, v)| format!(r#"<meta name="{k}" content="{v}" />"#))
+        .map(|(k, v)| {
+          format!(
+            "<meta name=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        })
         .collect::<Vec<_>>()
         .join("\n    ")
     });
 
-  let opengraph_html =
-    get_opengraph(config).map_or_else(String::new, |opengraph| {
-      opengraph
-        .iter()
-        .map(|(k, v)| format!(r#"<meta property="{k}" content="{v}" />"#))
-        .collect::<Vec<_>>()
-        .join("\n    ")
-    });
+  let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -796,7 +911,40 @@ pub fn render_search(
 }
 
 /// Get the template content from file in template directory or use default
+/// Results are cached to avoid repeated disk I/O on every render
 fn get_template_content(
+  config: &Config,
+  template_name: &str,
+  fallback: &str,
+) -> Result<String> {
+  // Create cache key that includes template path to handle different configs
+  let template_path_key = config
+    .get_template_path()
+    .map_or_else(|| "default".to_string(), |p| p.display().to_string());
+  let cache_key = format!("{template_path_key}:{template_name}");
+
+  // Check cache first (read lock)
+  {
+    let cache = TEMPLATE_CACHE.read().unwrap();
+    if let Some(cached) = cache.get(&cache_key) {
+      return Ok(cached.clone());
+    }
+  }
+
+  // Load template content (not cached - this is the first call)
+  let content = load_template_content(config, template_name, fallback)?;
+
+  // Insert into cache (write lock)
+  {
+    let mut cache = TEMPLATE_CACHE.write().unwrap();
+    cache.entry(cache_key).or_insert(content.clone());
+  }
+
+  Ok(content)
+}
+
+/// Actually load the template content from disk or embedded defaults
+fn load_template_content(
   config: &Config,
   template_name: &str,
   fallback: &str,
@@ -1131,6 +1279,14 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     );
   }
 
+  // Add link to lib page if nixdoc_inputs is configured
+  if !config.nixdoc_inputs.is_empty() {
+    let _ = writeln!(
+      doc_nav,
+      "<li><a href=\"{root_prefix}lib.html\">Library Reference</a></li>"
+    );
+  }
+
   // Add search link only if search is enabled
   if config.is_search_enabled() {
     let _ = writeln!(
@@ -1407,6 +1563,56 @@ fn add_example_value(html: &mut String, option: &NixOption) {
          <code>{safe_example}</code></div>"
       );
     }
+  }
+}
+
+/// Build the `OpenGraph` HTML string, handling `og:image` local paths by
+/// copying the file into `output_dir/assets/` and rewriting to a relative URL.
+fn build_opengraph_html(config: &Config) -> String {
+  if let Some(opengraph) = get_opengraph(config) {
+    opengraph
+      .iter()
+      .map(|(k, v)| {
+        if k == "og:image"
+          && !v.starts_with("http://")
+          && !v.starts_with("https://")
+        {
+          // Local file path: copy to assets/ and use relative path
+          let image_path = std::path::Path::new(v.as_str());
+          let assets_dir = config.output_dir.join("assets");
+          let file_name = image_path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or(v.as_str());
+          let dest_path = assets_dir.join(file_name);
+          if let Err(e) = std::fs::create_dir_all(&assets_dir) {
+            log::error!("Failed to create assets dir for og:image: {e}");
+          }
+          if let Err(e) = std::fs::copy(image_path, &dest_path) {
+            log::error!(
+              "Failed to copy og:image from {} to {}: {e}",
+              v,
+              dest_path.display()
+            );
+          }
+          let rel_path = format!("assets/{file_name}");
+          format!(
+            "<meta property=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(&rel_path)
+          )
+        } else {
+          format!(
+            "<meta property=\"{}\" content=\"{}\" />",
+            encode_text(k),
+            encode_text(v)
+          )
+        }
+      })
+      .collect::<Vec<_>>()
+      .join("\n    ")
+  } else {
+    String::new()
   }
 }
 

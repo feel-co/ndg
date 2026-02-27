@@ -132,10 +132,10 @@ in
           echo "output_dir = \"$out\""
       ''
       + optionalString (inputDir != null) ''
-          echo "input_dir = \"${toString inputDir}\""
+        echo "input_dir = \"${toString inputDir}\""
       ''
       + optionalString (inputDir == null) ''
-          echo "module_options = \"${configJSON}/share/doc/nixos/options.json\""
+        echo "module_options = \"${configJSON}/share/doc/nixos/options.json\""
       ''
       + ''
         } > "$config_path"

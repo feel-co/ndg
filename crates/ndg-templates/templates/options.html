@@ -8,18 +8,18 @@
     <script>
       // Apply sidebar state immediately to prevent flash
       (function () {
-        if (localStorage.getItem("sidebar-collapsed") === "true") {
-          document.documentElement.classList.add("sidebar-collapsed");
+        try {
+          if (localStorage.getItem("sidebar-collapsed") === "true") {
+            document.documentElement.classList.add("sidebar-collapsed");
+          }
+        } catch (e) {
+          // localStorage unavailable
         }
       })();
     </script>
     <link rel="stylesheet" href="{{ stylesheet_path }}" />
     <script defer src="{{ main_js_path }}"></script>
     {% if generate_search %}
-    <script>
-      window.searchNamespace = window.searchNamespace || {};
-      window.searchNamespace.rootPath = "{{ root_prefix }}";
-    </script>
     <script defer src="{{ search_js_path }}"></script>
     {% endif %}
   </head>
@@ -30,10 +30,8 @@
           <h1 class="site-title">
             <a href="{{ index_path }}">{{ site_title }}</a>
           </h1>
-
-          {{ navbar_html|safe }}
         </div>
-        {% if generate_search %}
+        {{ navbar_html|safe }} {% if generate_search %}
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
@@ -52,7 +50,7 @@
             <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
           </svg>
         </div>
-        <nav class="sidebar">
+        <nav id="sidebar" class="sidebar">
           <details class="sidebar-section" data-section="docs" open>
             <summary>Documents</summary>
             <div class="sidebar-section-content">
@@ -65,24 +63,31 @@
           <details class="sidebar-section" data-section="toc" open>
             <summary>Contents</summary>
             <div class="sidebar-section-content">
-              <ul class="toc-list">
-                {{ toc|safe }}
-              </ul>
+              {{ toc|safe }}
             </div>
           </details>
         </nav>
 
-        <main class="content">{{ content|safe }}</main>
-      </div>
+        <main class="content">
+          <h1>{{ heading }}</h1>
 
-      <aside class="page-toc">
-        <nav class="page-toc-nav">
-          <h3>On this page</h3>
-          <ul class="page-toc-list">
-            {{ toc|safe }}
-          </ul>
-        </nav>
-      </aside>
+          {% if generate_search %}
+          <div class="search-form">
+            <input
+              type="text"
+              id="options-filter"
+              placeholder="Filter options..."
+            />
+          </div>
+          {% endif %}
+
+          <div class="options-container">{{ options|safe }}</div>
+
+          <div class="footnotes-container">
+            <!-- Footnotes will be appended here -->
+          </div>
+        </main>
+      </div>
 
       {{ footer_html|safe }}
     </div>

@@ -5,6 +5,7 @@ use std::{
   sync::OnceLock,
 };
 
+use ndg_macros::Configurable;
 use serde::{Deserialize, Serialize};
 
 use crate::{assets, error::ConfigError, meta, postprocess, search, sidebar};
@@ -15,22 +16,27 @@ use crate::{assets, error::ConfigError, meta, postprocess, search, sidebar};
 /// generation, including input/output directories, template customization,
 /// search, syntax highlighting, and more. Fields are typically loaded from a
 /// TOML or JSON config file, but can also be set via CLI arguments.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
 #[serde(default)]
 pub struct Config {
   /// Input directory containing markdown files.
+  #[config(key = "input_dir", allow_empty)]
   pub input_dir: Option<PathBuf>,
 
   /// Output directory for generated documentation.
+  #[config(key = "output_dir")]
   pub output_dir: PathBuf,
 
   /// Path to options.json file (optional).
+  #[config(key = "module_options", allow_empty)]
   pub module_options: Option<PathBuf>,
 
   /// Path to custom template file.
+  #[config(key = "template_path", allow_empty)]
   pub template_path: Option<PathBuf>,
 
   /// Path to template directory containing all template files.
+  #[config(key = "template_dir", allow_empty)]
   pub template_dir: Option<PathBuf>,
 
   /// Paths to custom stylesheets.
@@ -40,40 +46,60 @@ pub struct Config {
   pub script_paths: Vec<PathBuf>,
 
   /// Directory containing additional assets.
+  #[config(key = "assets_dir", allow_empty)]
   pub assets_dir: Option<PathBuf>,
 
   /// Options for copying custom assets.
+  #[config(nested)]
   pub assets: Option<assets::AssetsConfig>,
 
   /// Path to manpage URL mappings JSON file.
+  #[config(key = "manpage_urls_path", allow_empty)]
   pub manpage_urls_path: Option<PathBuf>,
 
   /// Title for the documentation.
+  #[config(key = "title")]
   pub title: String,
 
   /// Number of threads to use for parallel processing.
+  #[config(key = "jobs", allow_empty)]
   pub jobs: Option<usize>,
 
   /// Whether to generate anchors for headings.
+  #[config(key = "generate_anchors")]
   pub generate_anchors: bool,
 
   /// Whether to generate a search index.
   #[deprecated(since = "2.5.0", note = "Use `search.enable` instead")]
+  #[config(
+    key = "generate_search",
+    deprecated = "2.5.0",
+    replacement = "search.enable"
+  )]
   pub generate_search: bool,
 
   /// Search configuration
+  #[config(nested)]
   pub search: Option<search::SearchConfig>,
 
   /// Text to be inserted in the footer.
+  #[config(key = "footer_text")]
   pub footer_text: String,
 
   /// Depth of parent categories in options TOC.
+  #[config(
+    key = "options_toc_depth",
+    deprecated = "2.5.0",
+    replacement = "sidebar.options.depth"
+  )]
   pub options_toc_depth: usize,
 
   /// Whether to enable syntax highlighting for code blocks.
+  #[config(key = "highlight_code")]
   pub highlight_code: bool,
 
   /// GitHub revision for linking to source files.
+  #[config(key = "revision")]
   pub revision: String,
 
   /// Files that are included via {=include=}, mapped to their parent input
@@ -83,16 +109,28 @@ pub struct Config {
     std::collections::HashMap<std::path::PathBuf, std::path::PathBuf>,
 
   /// How to handle hard tabs in code blocks.
+  #[config(key = "tab_style")]
   pub tab_style: String,
 
   /// Meta tag configuration (`OpenGraph` and additional tags).
+  #[config(nested)]
   pub meta: Option<meta::MetaConfig>,
 
   /// Sidebar configuration.
+  #[config(nested)]
   pub sidebar: Option<sidebar::SidebarConfig>,
 
   /// Postprocessing configuration for HTML/CSS/JS minification
+  #[config(nested)]
   pub postprocess: Option<postprocess::PostprocessConfig>,
+
+  /// Nix files or directories to extract nixdoc comments from.
+  ///
+  /// Each entry may be a `.nix` file or a directory. Directories are scanned
+  /// recursively for `.nix` files. Entries with nixdoc comments (`/** ... */`)
+  /// are extracted and rendered as a library reference page (`lib.html`).
+  #[serde(default)]
+  pub nixdoc_inputs: Vec<PathBuf>,
 
   #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -131,6 +169,7 @@ impl Default for Config {
       meta:              None,
       sidebar:           None,
       postprocess:       None,
+      nixdoc_inputs:     Vec::new(),
       opengraph:         None,
       meta_tags:         None,
     }
@@ -292,20 +331,14 @@ impl Config {
       config.apply_overrides(config_overrides)?;
     }
 
-    // Validate required fields if no config file was specified
-    if config_files.is_empty() && Self::find_config_file().is_none() {
-      // If there's no config file (explicit or discovered), we're missing
-      // required data
-      return Err(ConfigError::Config(
-        "No config file provided. Use --config-file to specify a config file."
-          .to_string(),
-      ));
-    }
-
     // We need *at least one* source of content
-    if config.input_dir.is_none() && config.module_options.is_none() {
+    if config.input_dir.is_none()
+      && config.module_options.is_none()
+      && config.nixdoc_inputs.is_empty()
+    {
       return Err(ConfigError::Config(
-        "At least one of input directory or module options must be provided."
+        "At least one of input directory, module options, or nixdoc inputs \
+         must be provided."
           .to_string(),
       ));
     }
@@ -343,17 +376,11 @@ impl Config {
   /// - A key is not recognized
   /// - A value cannot be parsed as the expected type
   ///
-  /// # Panics
-  ///
-  /// Panics if `strip_prefix` fails after a successful `starts_with` check for
-  /// nested keys. This should never happen in practice as the guard condition
-  /// ensures the prefix exists.
-  ///
   /// # Example
   ///
   /// ```rust, ignore
   /// config.apply_overrides(&vec![
-  ///     "generate_search=false".to_string(),
+  ///     "search.enable=false".to_string(),
   ///     "title=My Documentation".to_string(),
   /// ])?;
   /// ```
@@ -369,489 +396,10 @@ impl Config {
         ))
       })?;
 
-      let key = key.trim();
-      let value = value.trim();
-
-      match key {
-        // Path fields
-        "input_dir" => {
-          self.input_dir = if value.is_empty() {
-            None
-          } else {
-            Some(PathBuf::from(value))
-          };
-        },
-        "output_dir" => {
-          self.output_dir = PathBuf::from(value);
-        },
-        "module_options" => {
-          self.module_options = if value.is_empty() {
-            None
-          } else {
-            Some(PathBuf::from(value))
-          };
-        },
-        "template_path" => {
-          self.template_path = if value.is_empty() {
-            None
-          } else {
-            Some(PathBuf::from(value))
-          };
-        },
-        "template_dir" => {
-          self.template_dir = if value.is_empty() {
-            None
-          } else {
-            Some(PathBuf::from(value))
-          };
-        },
-        "assets_dir" => {
-          self.assets_dir = if value.is_empty() {
-            None
-          } else {
-            Some(PathBuf::from(value))
-          };
-        },
-        "manpage_urls_path" => {
-          self.manpage_urls_path = if value.is_empty() {
-            None
-          } else {
-            Some(PathBuf::from(value))
-          };
-        },
-
-        // String fields
-        "title" => {
-          self.title = value.to_string();
-        },
-        "footer_text" => {
-          self.footer_text = value.to_string();
-        },
-        "revision" => {
-          self.revision = value.to_string();
-        },
-        "tab_style" => {
-          self.tab_style = value.to_string();
-        },
-
-        // Boolean fields
-        "generate_anchors" => {
-          self.generate_anchors = Self::parse_bool(value, key)?;
-        },
-        "generate_search" => {
-          log::warn!(
-            "The 'generate_search' config key is deprecated. Use \
-             'search.enable' instead."
-          );
-          #[allow(deprecated)]
-          {
-            self.generate_search = Self::parse_bool(value, key)?;
-          }
-        },
-        "highlight_code" => {
-          self.highlight_code = Self::parse_bool(value, key)?;
-        },
-
-        // Numeric fields
-        "jobs" => {
-          self.jobs = if value.is_empty() {
-            None
-          } else {
-            Some(value.parse::<usize>().map_err(|_| {
-              ConfigError::Config(format!(
-                "Invalid value for 'jobs': '{value}'. Expected a positive \
-                 integer"
-              ))
-            })?)
-          };
-        },
-        "options_toc_depth" => {
-          log::warn!(
-            "The 'options_toc_depth' config key is deprecated. Use \
-             'sidebar.options.depth' instead."
-          );
-          self.options_toc_depth = value.parse::<usize>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'options_toc_depth': '{value}'. Expected a \
-               positive integer"
-            ))
-          })?;
-        },
-
-        // Nested search.* configuration
-        "search.enable" => {
-          let enable = Self::parse_bool(value, key)?;
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search {
-            search_cfg.enable = enable;
-          }
-        },
-        "search.max_heading_level" => {
-          let level = value.parse::<u8>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'search.max_heading_level': '{value}'. \
-               Expected 1-6"
-            ))
-          })?;
-          if !(1..=6).contains(&level) {
-            return Err(ConfigError::Config(format!(
-              "Invalid value for 'search.max_heading_level': '{value}'. Must \
-               be between 1 and 6"
-            )));
-          }
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search {
-            search_cfg.max_heading_level = level;
-          }
-        },
-        "search.min_word_length" => {
-          let length = value.parse::<usize>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'search.min_word_length': '{value}'. \
-               Expected a positive integer"
-            ))
-          })?;
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search {
-            search_cfg.min_word_length = length;
-          }
-        },
-        "search.boost" => {
-          let boost = value.parse::<f32>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'search.boost': '{value}'. Expected a number"
-            ))
-          })?;
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search {
-            search_cfg.boost = Some(boost);
-          }
-        },
-        "search.boost_title" => {
-          let boost = value.parse::<f32>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'search.boost_title': '{value}'. Expected a \
-               number"
-            ))
-          })?;
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search {
-            search_cfg.boost_title = Some(boost);
-          }
-        },
-        "search.boost_content" => {
-          let boost = value.parse::<f32>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'search.boost_content': '{value}'. Expected \
-               a number"
-            ))
-          })?;
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search {
-            search_cfg.boost_content = Some(boost);
-          }
-        },
-        "search.boost_anchor" => {
-          let boost = value.parse::<f32>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'search.boost_anchor': '{value}'. Expected a \
-               number"
-            ))
-          })?;
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search {
-            search_cfg.boost_anchor = Some(boost);
-          }
-        },
-
-        // Nested search.stopwords.* - add individual stopwords
-        key if key.starts_with("search.stopwords.") => {
-          #[allow(
-            clippy::expect_used,
-            reason = "Guard condition ensures strip_prefix cannot fail"
-          )]
-          let _index = key.strip_prefix("search.stopwords.").expect(
-            "Key starts with 'search.stopwords.' prefix, strip_prefix cannot \
-             fail",
-          );
-          // Add stopword to the list
-          if self.search.is_none() {
-            self.search = Some(search::SearchConfig::default());
-          }
-          if let Some(ref mut search_cfg) = self.search
-            && !search_cfg.stopwords.contains(&value.to_string())
-          {
-            search_cfg.stopwords.push(value.to_string());
-          }
-        },
-
-        // Nested sidebar.options.depth
-        "sidebar.options.depth" => {
-          let depth = value.parse::<usize>().map_err(|_| {
-            ConfigError::Config(format!(
-              "Invalid value for 'sidebar.options.depth': '{value}'. Expected \
-               a positive integer"
-            ))
-          })?;
-
-          // Create sidebar.options if it doesn't exist
-          if self.sidebar.is_none() {
-            self.sidebar = Some(sidebar::SidebarConfig::default());
-          }
-          if let Some(ref mut sidebar) = self.sidebar {
-            if sidebar.options.is_none() {
-              sidebar.options = Some(sidebar::OptionsConfig::default());
-            }
-            if let Some(ref mut options) = sidebar.options {
-              options.depth = depth;
-            }
-          }
-        },
-
-        // `Vec<PathBuf>` fields - append single value
-        "stylesheet_paths" => {
-          self.stylesheet_paths.push(PathBuf::from(value));
-        },
-
-        "script_paths" => {
-          self.script_paths.push(PathBuf::from(value));
-        },
-
-        // Nested meta.opengraph.* - set individual key=value
-        key if key.starts_with("meta.opengraph.") => {
-          #[allow(
-            clippy::expect_used,
-            reason = "Guard condition ensures strip_prefix cannot fail"
-          )]
-          let subkey = key.strip_prefix("meta.opengraph.").expect(
-            "Key starts with 'meta.opengraph.' prefix, strip_prefix cannot \
-             fail",
-          );
-          if self.meta.is_none() {
-            self.meta = Some(meta::MetaConfig::default());
-          }
-          if let Some(ref mut meta) = self.meta {
-            if meta.opengraph.is_none() {
-              meta.opengraph = Some(HashMap::new());
-            }
-            if let Some(ref mut map) = meta.opengraph {
-              map.insert(subkey.to_string(), value.to_string());
-            }
-          }
-        },
-
-        // Nested meta.tags.* - set individual key=value
-        key if key.starts_with("meta.tags.") => {
-          #[allow(
-            clippy::expect_used,
-            reason = "Guard condition ensures strip_prefix cannot fail"
-          )]
-          let subkey = key.strip_prefix("meta.tags.").expect(
-            "Key starts with 'meta.tags.' prefix, strip_prefix cannot fail",
-          );
-          if self.meta.is_none() {
-            self.meta = Some(meta::MetaConfig::default());
-          }
-          if let Some(ref mut meta) = self.meta {
-            if meta.tags.is_none() {
-              meta.tags = Some(HashMap::new());
-            }
-            if let Some(ref mut map) = meta.tags {
-              map.insert(subkey.to_string(), value.to_string());
-            }
-          }
-        },
-
-        // Nested postprocess.* - boolean fields for minification control
-        "postprocess.minify_html" => {
-          let value = Self::parse_bool(value, key)?;
-          if self.postprocess.is_none() {
-            self.postprocess = Some(postprocess::PostprocessConfig::default());
-          }
-          if let Some(ref mut pp) = self.postprocess {
-            pp.minify_html = value;
-          }
-        },
-        "postprocess.minify_css" => {
-          let value = Self::parse_bool(value, key)?;
-          if self.postprocess.is_none() {
-            self.postprocess = Some(postprocess::PostprocessConfig::default());
-          }
-          if let Some(ref mut pp) = self.postprocess {
-            pp.minify_css = value;
-          }
-        },
-        "postprocess.minify_js" => {
-          let value = Self::parse_bool(value, key)?;
-          if self.postprocess.is_none() {
-            self.postprocess = Some(postprocess::PostprocessConfig::default());
-          }
-          if let Some(ref mut pp) = self.postprocess {
-            pp.minify_js = value;
-          }
-        },
-
-        // Nested assets.* - asset copying configuration
-        key if key.starts_with("assets.") => {
-          #[allow(
-            clippy::expect_used,
-            reason = "Guard condition ensures strip_prefix cannot fail"
-          )]
-          let subkey = key.strip_prefix("assets.").expect(
-            "Key starts with 'assets.' prefix, strip_prefix cannot fail",
-          );
-          if self.assets.is_none() {
-            self.assets = Some(assets::AssetsConfig::default());
-          }
-          if let Some(ref mut assets_cfg) = self.assets {
-            match subkey {
-              "follow_symlinks" => {
-                assets_cfg.follow_symlinks = Self::parse_bool(value, key)?;
-              },
-              "max_depth" => {
-                assets_cfg.max_depth = if value.is_empty() {
-                  None
-                } else {
-                  Some(value.parse::<usize>().map_err(|_| {
-                    ConfigError::Config(format!(
-                      "Invalid value for 'assets.max_depth': '{value}'. \
-                       Expected a positive integer"
-                    ))
-                  })?)
-                };
-              },
-              "skip_hidden" => {
-                assets_cfg.skip_hidden = Self::parse_bool(value, key)?;
-              },
-              _ => {
-                return Err(ConfigError::Config(format!(
-                  "Unknown assets configuration key: '{key}'"
-                )));
-              },
-            }
-          }
-        },
-
-        // Nested postprocess.html.* - HTML minification options
-        key if key.starts_with("postprocess.html.") => {
-          #[allow(
-            clippy::expect_used,
-            reason = "Guard condition ensures strip_prefix cannot fail"
-          )]
-          let subkey = key.strip_prefix("postprocess.html.").expect(
-            "Key starts with 'postprocess.html.' prefix, strip_prefix cannot \
-             fail",
-          );
-          if self.postprocess.is_none() {
-            self.postprocess = Some(postprocess::PostprocessConfig::default());
-          }
-          if let Some(ref mut pp) = self.postprocess {
-            if pp.html.is_none() {
-              pp.html = Some(postprocess::HtmlMinifyOptions::default());
-            }
-            if let Some(ref mut html_opts) = pp.html {
-              match subkey {
-                "remove_comments" => {
-                  html_opts.remove_comments = Self::parse_bool(value, key)?;
-                },
-                _ => {
-                  return Err(ConfigError::Config(format!(
-                    "Unknown postprocess.html configuration key: '{key}'"
-                  )));
-                },
-              }
-            }
-          }
-        },
-
-        // Deprecated: opengraph.* - redirect to meta.opengraph.*
-        key if key.starts_with("opengraph.") => {
-          #[allow(
-            clippy::expect_used,
-            reason = "Guard condition ensures strip_prefix cannot fail"
-          )]
-          let subkey = key.strip_prefix("opengraph.").expect(
-            "Key starts with 'opengraph.' prefix, strip_prefix cannot fail",
-          );
-          log::warn!(
-            "The 'opengraph.{subkey}' config override is deprecated. Use \
-             'meta.opengraph.{subkey}' instead."
-          );
-          #[allow(deprecated)]
-          {
-            if self.opengraph.is_none() {
-              self.opengraph = Some(HashMap::new());
-            }
-            if let Some(ref mut map) = self.opengraph {
-              map.insert(subkey.to_string(), value.to_string());
-            }
-          }
-        },
-
-        // Deprecated: meta_tags.* - redirect to meta.tags.*
-        key if key.starts_with("meta_tags.") => {
-          #[allow(
-            clippy::expect_used,
-            reason = "Guard condition ensures strip_prefix cannot fail"
-          )]
-          let subkey = key.strip_prefix("meta_tags.").expect(
-            "Key starts with 'meta_tags.' prefix, strip_prefix cannot fail",
-          );
-          log::warn!(
-            "The 'meta_tags.{subkey}' config override is deprecated. Use \
-             'meta.tags.{subkey}' instead."
-          );
-          #[allow(deprecated)]
-          {
-            if self.meta_tags.is_none() {
-              self.meta_tags = Some(HashMap::new());
-            }
-            if let Some(ref mut map) = self.meta_tags {
-              map.insert(subkey.to_string(), value.to_string());
-            }
-          }
-        },
-
-        _ => {
-          return Err(ConfigError::Config(format!(
-            "Unknown configuration key: '{key}'. See documentation for \
-             supported keys."
-          )));
-        },
-      }
+      self.apply_override(key.trim(), value.trim())?;
     }
 
     Ok(())
-  }
-
-  /// Parse a boolean value from a string.
-  ///
-  /// Accepts: true/false, yes/no, 1/0 (case-insensitive)
-  fn parse_bool(value: &str, key: &str) -> Result<bool, ConfigError> {
-    match value.to_lowercase().as_str() {
-      "true" | "yes" | "1" => Ok(true),
-      "false" | "no" | "0" => Ok(false),
-      _ => {
-        Err(ConfigError::Config(format!(
-          "Invalid boolean value for '{key}': '{value}'. Expected true/false, \
-           yes/no, or 1/0"
-        )))
-      },
-    }
   }
 
   /// Merge another config into this one, with the other config's values taking
@@ -872,83 +420,11 @@ impl Config {
   /// # Arguments
   ///
   /// * `other` - The config to merge in (takes precedence)
-  pub fn merge(&mut self, other: Self) {
-    // Option fields - replace if other has Some
-    if other.input_dir.is_some() {
-      self.input_dir = other.input_dir;
-    }
-    if other.module_options.is_some() {
-      self.module_options = other.module_options;
-    }
-    if other.template_path.is_some() {
-      self.template_path = other.template_path;
-    }
-    if other.template_dir.is_some() {
-      self.template_dir = other.template_dir;
-    }
-    if other.assets_dir.is_some() {
-      self.assets_dir = other.assets_dir;
-    }
-    if other.manpage_urls_path.is_some() {
-      self.manpage_urls_path = other.manpage_urls_path;
-    }
-    if other.jobs.is_some() {
-      self.jobs = other.jobs;
-    }
-    if other.sidebar.is_some() {
-      self.sidebar = other.sidebar;
-    }
-    if other.meta.is_some() {
-      self.meta = other.meta;
-    }
-    if other.postprocess.is_some() {
-      self.postprocess = other.postprocess;
-    }
-    if other.assets.is_some() {
-      self.assets = other.assets;
-    }
-    if other.search.is_some() {
-      self.search = other.search;
-    }
-
-    // Vec fields - append
-    self.stylesheet_paths.extend(other.stylesheet_paths);
-    self.script_paths.extend(other.script_paths);
-
-    // Plain fields - always replace with other's value
-    // We only replace if other's value is not the default, to allow proper
-    // layering
-    if other.output_dir.as_os_str() != "build" {
-      self.output_dir = other.output_dir;
-    }
-    if other.title != "ndg documentation" {
-      self.title = other.title;
-    }
-    if other.footer_text != "Generated with ndg" {
-      self.footer_text = other.footer_text;
-    }
-    if other.revision != "local" {
-      self.revision = other.revision;
-    }
-    if other.tab_style != "none" {
-      self.tab_style = other.tab_style;
-    }
-
-    // Numeric/boolean fields - always use other's value
-    // These don't have a meaningful "unset" state, so we always take the
-    // value
-    self.options_toc_depth = other.options_toc_depth;
-    self.generate_anchors = other.generate_anchors;
+  pub fn merge(&mut self, mut other: Self) {
+    // Handle deprecated fields first before merge_fields consumes other
     #[allow(deprecated)]
     {
-      self.generate_search = other.generate_search;
-    }
-    self.highlight_code = other.highlight_code;
-
-    // Deprecated fields - merge if present, with warnings
-    #[allow(deprecated)]
-    {
-      if let Some(other_og) = other.opengraph {
+      if let Some(other_og) = other.opengraph.take() {
         log::warn!(
           "The 'opengraph' config field is deprecated. Use 'meta.opengraph' \
            instead."
@@ -959,7 +435,7 @@ impl Config {
           self.opengraph = Some(other_og);
         }
       }
-      if let Some(other_meta) = other.meta_tags {
+      if let Some(other_meta) = other.meta_tags.take() {
         log::warn!(
           "The 'meta_tags' config field is deprecated. Use 'meta.tags' \
            instead."
@@ -971,6 +447,9 @@ impl Config {
         }
       }
     }
+
+    // Use the generated merge method for most fields
+    self.merge_fields(other);
 
     // XXX: excluded_files is runtime-only (#[serde(skip)]), so we don't merge
     // it
@@ -1191,6 +670,17 @@ impl Config {
       }
     }
 
+    // Nixdoc input paths should exist if specified
+    for (index, nixdoc_input) in self.nixdoc_inputs.iter().enumerate() {
+      if !nixdoc_input.exists() {
+        errors.push(format!(
+          "Nixdoc input {} does not exist: {}",
+          index + 1,
+          nixdoc_input.display()
+        ));
+      }
+    }
+
     // Return error if we found any issues
     if !errors.is_empty() {
       let error_message = errors.join("\n");
@@ -1295,50 +785,7 @@ impl Config {
   /// Get mapping of template filenames to their embedded content
   fn get_template_sources()
   -> std::collections::HashMap<&'static str, &'static str> {
-    let mut templates = std::collections::HashMap::new();
-
-    // HTML templates
-    templates.insert(
-      "default.html",
-      include_str!("../../../ndg/templates/default.html"),
-    );
-    templates.insert(
-      "options.html",
-      include_str!("../../../ndg/templates/options.html"),
-    );
-    templates.insert(
-      "search.html",
-      include_str!("../../../ndg/templates/search.html"),
-    );
-    templates.insert(
-      "options_toc.html",
-      include_str!("../../../ndg/templates/options_toc.html"),
-    );
-    templates.insert(
-      "navbar.html",
-      include_str!("../../../ndg/templates/navbar.html"),
-    );
-    templates.insert(
-      "footer.html",
-      include_str!("../../../ndg/templates/footer.html"),
-    );
-
-    // CSS and JS assets
-    templates.insert(
-      "default.css",
-      include_str!("../../../ndg/templates/default.css"),
-    );
-    templates.insert(
-      "search.js",
-      include_str!("../../../ndg/templates/search.js"),
-    );
-    templates.insert(
-      "search-worker.js",
-      include_str!("../../../ndg/templates/search-worker.js"),
-    );
-    templates.insert("main.js", include_str!("../../../ndg/templates/main.js"));
-
-    templates
+    ndg_templates::all_templates()
   }
 }
 
@@ -1524,11 +971,232 @@ mod tests {
     let result = config.apply_overrides(&vec!["jobs=not_a_number".to_string()]);
 
     assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Invalid value"));
+  }
+
+  // Regression tests for proc-macro-based config system
+
+  #[test]
+  fn test_apply_override_string_field() {
+    let mut config = Config::default();
+    config.apply_override("title", "My Docs").unwrap();
+    assert_eq!(config.title, "My Docs");
+  }
+
+  #[test]
+  fn test_apply_override_bool_field() {
+    let mut config = Config::default();
+
+    // Test various boolean formats
+    config.apply_override("generate_anchors", "false").unwrap();
+    assert!(!config.generate_anchors);
+
+    config.apply_override("generate_anchors", "yes").unwrap();
+    assert!(config.generate_anchors);
+
+    config.apply_override("generate_anchors", "0").unwrap();
+    assert!(!config.generate_anchors);
+  }
+
+  #[test]
+  fn test_apply_override_usize_field() {
+    let mut config = Config::default();
+    config.apply_override("options_toc_depth", "5").unwrap();
+    assert_eq!(config.options_toc_depth, 5);
+  }
+
+  #[test]
+  fn test_apply_override_pathbuf_field() {
+    let mut config = Config::default();
+    config
+      .apply_override("output_dir", "/custom/output")
+      .unwrap();
+    assert_eq!(config.output_dir, PathBuf::from("/custom/output"));
+  }
+
+  #[test]
+  fn test_apply_override_option_pathbuf_with_empty() {
+    let mut config = Config::default();
+    config.input_dir = Some(PathBuf::from("/existing"));
+
+    // Empty string should set to None
+    config.apply_override("input_dir", "").unwrap();
+    assert!(config.input_dir.is_none());
+
+    // Non-empty should set to Some
+    config.apply_override("input_dir", "/new/path").unwrap();
+    assert_eq!(config.input_dir, Some(PathBuf::from("/new/path")));
+  }
+
+  #[test]
+  fn test_apply_override_nested_config() {
+    let mut config = Config::default();
+
+    // Enable search via nested key
+    config.apply_override("search.enable", "false").unwrap();
+    assert!(config.search.is_some());
+    assert!(!config.search.as_ref().unwrap().enable);
+
+    // Set nested numeric field
+    config
+      .apply_override("search.max_heading_level", "2")
+      .unwrap();
+    assert_eq!(config.search.as_ref().unwrap().max_heading_level, 2);
+
+    // Set nested float field
+    config.apply_override("search.boost", "1.5").unwrap();
+    assert_eq!(config.search.as_ref().unwrap().boost, Some(1.5));
+  }
+
+  #[test]
+  fn test_apply_override_postprocess_nested() {
+    let mut config = Config::default();
+
+    config
+      .apply_override("postprocess.minify_html", "true")
+      .unwrap();
+    assert!(config.postprocess.is_some());
+    assert!(config.postprocess.as_ref().unwrap().minify_html);
+
+    config
+      .apply_override("postprocess.minify_css", "true")
+      .unwrap();
+    assert!(config.postprocess.as_ref().unwrap().minify_css);
+  }
+
+  #[test]
+  fn test_merge_fields_basic() {
+    let mut config = Config::default();
+    config.title = "Original".to_string();
+    config.generate_anchors = false;
+
+    let other = Config {
+      title: "New Title".to_string(),
+      generate_anchors: true,
+      ..Default::default()
+    };
+
+    config.merge_fields(other);
+
+    assert_eq!(config.title, "New Title");
+    assert!(config.generate_anchors);
+  }
+
+  #[test]
+  fn test_merge_fields_option_replacement() {
+    let mut config = Config::default();
+    assert!(config.search.is_none());
+
+    let other = Config {
+      search: Some(crate::search::SearchConfig {
+        enable: false,
+        ..Default::default()
+      }),
+      ..Default::default()
+    };
+
+    config.merge_fields(other);
+
+    assert!(config.search.is_some());
+    assert!(!config.search.as_ref().unwrap().enable);
+  }
+
+  #[test]
+  fn test_merge_fields_vec_extension() {
+    let mut config = Config::default();
+    config.stylesheet_paths.push(PathBuf::from("style1.css"));
+
+    let other = Config {
+      stylesheet_paths: vec![
+        PathBuf::from("style2.css"),
+        PathBuf::from("style3.css"),
+      ],
+      ..Default::default()
+    };
+
+    config.merge_fields(other);
+
+    assert_eq!(config.stylesheet_paths.len(), 3);
     assert!(
-      result
-        .unwrap_err()
-        .to_string()
-        .contains("Expected a positive integer")
+      config
+        .stylesheet_paths
+        .contains(&PathBuf::from("style1.css"))
     );
+    assert!(
+      config
+        .stylesheet_paths
+        .contains(&PathBuf::from("style2.css"))
+    );
+  }
+
+  #[test]
+  fn test_deprecated_field_still_works() {
+    let mut config = Config::default();
+
+    // This should work but log a deprecation warning
+    config.apply_override("generate_search", "false").unwrap();
+
+    #[allow(deprecated)]
+    {
+      assert!(!config.generate_search);
+    }
+  }
+
+  #[test]
+  fn test_f32_parsing() {
+    let mut config = Config::default();
+    config.apply_override("search.boost", "2.5").unwrap();
+
+    assert!(config.search.is_some());
+    assert_eq!(config.search.unwrap().boost, Some(2.5));
+  }
+
+  #[test]
+  fn test_u8_parsing() {
+    let mut config = Config::default();
+    config
+      .apply_override("search.max_heading_level", "6")
+      .unwrap();
+
+    assert!(config.search.is_some());
+    assert_eq!(config.search.unwrap().max_heading_level, 6);
+  }
+
+  #[test]
+  fn test_apply_override_creates_nested_config() {
+    let mut config = Config::default();
+
+    // Search config should be created on first nested override
+    assert!(config.search.is_none());
+    config.apply_override("search.enable", "true").unwrap();
+    assert!(config.search.is_some());
+
+    // Postprocess config should be created on first nested override
+    assert!(config.postprocess.is_none());
+    config
+      .apply_override("postprocess.minify_html", "true")
+      .unwrap();
+    assert!(config.postprocess.is_some());
+  }
+
+  #[test]
+  fn test_error_message_for_invalid_f32() {
+    let mut config = Config::default();
+
+    let result = config.apply_override("search.boost", "not_a_number");
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("Invalid value"));
+    assert!(err_msg.contains("search.boost") || err_msg.contains("boost"));
+  }
+
+  #[test]
+  fn test_option_usize_with_empty() {
+    let mut config = Config::default();
+    config.apply_override("jobs", "").unwrap();
+    assert!(config.jobs.is_none());
+
+    config.apply_override("jobs", "4").unwrap();
+    assert_eq!(config.jobs, Some(4));
   }
 }
