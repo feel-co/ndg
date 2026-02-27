@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["into_entry","parse_doc_comment"],"struct":["Location","NixDocEntry","ParsedArgument","ParsedDoc","ParsedExample","RawEntry"]};

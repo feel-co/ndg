@@ -935,9 +935,9 @@
 <a href=#935 id=935 data-nosnippet>935</a>
 <a href=#936 id=936 data-nosnippet>936</a><span class="doccomment">/// Collect content until closing :::
 <a href=#937 id=937 data-nosnippet>937</a>///
-<a href=#938 id=938 data-nosnippet>938</a>/// Returns a tuple of (admonition_content, trailing_content).
+<a href=#938 id=938 data-nosnippet>938</a>/// Returns a tuple of (`admonition_content`, `trailing_content`).
 <a href=#939 id=939 data-nosnippet>939</a>/// If there's content after the closing `:::` on the same line,
-<a href=#940 id=940 data-nosnippet>940</a>/// it's returned as trailing_content.
+<a href=#940 id=940 data-nosnippet>940</a>/// it's returned as `trailing_content`.
 <a href=#941 id=941 data-nosnippet>941</a></span><span class="kw">fn </span>collect_fenced_content(
 <a href=#942 id=942 data-nosnippet>942</a>  lines: <span class="kw-2">&amp;mut </span>std::iter::Peekable&lt;std::str::Lines&gt;,
 <a href=#943 id=943 data-nosnippet>943</a>) -&gt; (String, <span class="prelude-ty">Option</span>&lt;String&gt;) {

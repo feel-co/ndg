@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["options","search","template"]};
+window.SIDEBAR_ITEMS = {"mod":["libdoc","nixdoc","options","search","template"]};

@@ -1395,8 +1395,9 @@ document.addEventListener("DOMContentLoaded", function () {
   let mobileFocusTrapCleanup = null;
 
   function setupMobileFocusTrap() {
-    if (!mobileSearchPopup || !mobileSearchPopup.classList.contains("active"))
+    if (!mobileSearchPopup || !mobileSearchPopup.classList.contains("active")) {
       return;
+    }
 
     const focusableElements = [
       mobileSearchInput,

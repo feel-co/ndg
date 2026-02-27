@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["extract_from_dir","extract_from_file"],"mod":["error","extractor","types"],"struct":["Location","NixDocEntry","ParsedArgument","ParsedDoc","ParsedExample"]};

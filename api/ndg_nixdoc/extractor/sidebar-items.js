@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["attr_to_string","collect_entries","collect_from_expr","extract_entries","is_doc_comment","preceding_doc_comment"],"struct":["LineIndex"]};
