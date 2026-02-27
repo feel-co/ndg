@@ -166,7 +166,7 @@ impl std::str::FromStr for SidebarOrdering {
       "alphabetical" => Ok(Self::Alphabetical),
       "filesystem" => Ok(Self::Filesystem),
       "custom" => Ok(Self::Custom),
-      _ => Err(format!("Unknown sidebar ordering: {}", s)),
+      _ => Err(format!("Unknown sidebar ordering: {s}")),
     }
   }
 }

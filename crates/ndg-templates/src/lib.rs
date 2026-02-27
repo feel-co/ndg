@@ -15,6 +15,7 @@ pub const SEARCH_WORKER_JS: &str =
   include_str!("../templates/search-worker.js");
 pub const MAIN_JS: &str = include_str!("../templates/main.js");
 
+#[must_use]
 pub fn all_templates() -> HashMap<&'static str, &'static str> {
   let mut templates = HashMap::new();
   templates.insert("default.html", DEFAULT_TEMPLATE);

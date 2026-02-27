@@ -238,7 +238,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
         .strip_prefix(std::path::MAIN_SEPARATOR_STR)
         .unwrap_or(rel_path);
       let output_path = config.output_dir.join(rel_path);
-      output_path.parent().map(|p| p.to_path_buf())
+      output_path.parent().map(std::path::Path::to_path_buf)
     })
     .collect();
 

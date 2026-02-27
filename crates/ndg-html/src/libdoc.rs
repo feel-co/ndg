@@ -2,6 +2,7 @@ use std::{fmt::Write, path::Path};
 
 use ndg_nixdoc::NixDocEntry;
 
+#[must_use]
 pub fn generate_lib_entries_html(
   entries: &[NixDocEntry],
   revision: &str,
@@ -157,6 +158,7 @@ fn format_location(
   }
 }
 
+#[must_use]
 pub fn generate_lib_toc_html(entries: &[NixDocEntry]) -> String {
   let mut html = String::new();
   for entry in entries {

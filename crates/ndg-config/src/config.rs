@@ -331,16 +331,6 @@ impl Config {
       config.apply_overrides(config_overrides)?;
     }
 
-    // Validate required fields if no config file was specified
-    if config_files.is_empty() && Self::find_config_file().is_none() {
-      // If there's no config file (explicit or discovered), we're missing
-      // required data
-      return Err(ConfigError::Config(
-        "No config file provided. Use --config-file to specify a config file."
-          .to_string(),
-      ));
-    }
-
     // We need *at least one* source of content
     if config.input_dir.is_none()
       && config.module_options.is_none()

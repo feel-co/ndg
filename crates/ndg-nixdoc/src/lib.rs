@@ -81,14 +81,14 @@ pub fn extract_from_dir(
   let walker = WalkDir::new(dir).follow_links(true).into_iter();
 
   let mut iter = walker.peekable();
-  if matches!(iter.peek(), Some(Err(_))) {
-    if let Some(Err(e)) = iter.next() {
-      return Err(NixdocError::ReadFile {
-        path:   dir.to_path_buf(),
-        // Preserve the real OS ErrorKind via walkdir's From impl.
-        source: e.into(),
-      });
-    }
+  if matches!(iter.peek(), Some(Err(_)))
+    && let Some(Err(e)) = iter.next()
+  {
+    return Err(NixdocError::ReadFile {
+      path:   dir.to_path_buf(),
+      // Preserve the real OS ErrorKind via walkdir's From impl.
+      source: e.into(),
+    });
   }
 
   for result in iter {

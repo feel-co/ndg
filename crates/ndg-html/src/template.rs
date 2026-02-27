@@ -920,9 +920,8 @@ fn get_template_content(
   // Create cache key that includes template path to handle different configs
   let template_path_key = config
     .get_template_path()
-    .map(|p| p.display().to_string())
-    .unwrap_or_else(|| "default".to_string());
-  let cache_key = format!("{}:{}", template_path_key, template_name);
+    .map_or_else(|| "default".to_string(), |p| p.display().to_string());
+  let cache_key = format!("{template_path_key}:{template_name}");
 
   // Check cache first (read lock)
   {
@@ -1567,8 +1566,8 @@ fn add_example_value(html: &mut String, option: &NixOption) {
   }
 }
 
-/// Build the OpenGraph HTML string, handling `og:image` local paths by copying
-/// the file into `output_dir/assets/` and rewriting to a relative URL.
+/// Build the `OpenGraph` HTML string, handling `og:image` local paths by
+/// copying the file into `output_dir/assets/` and rewriting to a relative URL.
 fn build_opengraph_html(config: &Config) -> String {
   if let Some(opengraph) = get_opengraph(config) {
     opengraph

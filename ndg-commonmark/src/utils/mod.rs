@@ -28,12 +28,14 @@ pub type UtilResult<T> = Result<T, UtilError>;
 #[must_use]
 pub fn slugify(text: &str) -> String {
   static CACHE: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
-  let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+  let mut cache = CACHE
+    .lock()
+    .unwrap_or_else(std::sync::PoisonError::into_inner);
 
-  if let Some(ref map) = *cache {
-    if let Some(cached) = map.get(text) {
-      return cached.clone();
-    }
+  if let Some(ref map) = *cache
+    && let Some(cached) = map.get(text)
+  {
+    return cached.clone();
   }
 
   let result = text
@@ -42,7 +44,7 @@ pub fn slugify(text: &str) -> String {
     .trim_matches('-')
     .to_string();
 
-  let map = cache.get_or_insert_with(|| HashMap::new());
+  let map = cache.get_or_insert_with(HashMap::new);
   if map.len() < 2048 {
     map.insert(text.to_string(), result.clone());
   }
