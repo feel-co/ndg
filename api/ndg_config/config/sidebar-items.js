@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Config"]};
+window.SIDEBAR_ITEMS = {"fn":["_ndg_calc_similarity_config","_ndg_find_similar_keys_config"],"struct":["Config"]};

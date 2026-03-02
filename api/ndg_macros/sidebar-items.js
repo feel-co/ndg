@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"derive":["Configurable"],"fn":["generate_field_handler","generate_field_handlers","generate_merge_handlers","generate_nested_handler","generate_value_assignment"],"struct":["FieldConfig"]};
+window.SIDEBAR_ITEMS = {"derive":["Configurable"],"fn":["collect_config_keys","generate_field_handler","generate_field_handlers","generate_merge_handlers","generate_nested_handler","generate_value_assignment"],"struct":["FieldConfig"]};

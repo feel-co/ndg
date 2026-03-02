@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SearchConfig"]};
+window.SIDEBAR_ITEMS = {"fn":["_ndg_calc_similarity_searchconfig","_ndg_find_similar_keys_searchconfig"],"struct":["SearchConfig"]};

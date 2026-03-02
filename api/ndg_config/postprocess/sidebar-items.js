@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CssMinifyOptions","HtmlMinifyOptions","JsMinifyOptions","PostprocessConfig"]};
+window.SIDEBAR_ITEMS = {"fn":["_ndg_calc_similarity_cssminifyoptions","_ndg_calc_similarity_htmlminifyoptions","_ndg_calc_similarity_jsminifyoptions","_ndg_calc_similarity_postprocessconfig","_ndg_find_similar_keys_cssminifyoptions","_ndg_find_similar_keys_htmlminifyoptions","_ndg_find_similar_keys_jsminifyoptions","_ndg_find_similar_keys_postprocessconfig"],"struct":["CssMinifyOptions","HtmlMinifyOptions","JsMinifyOptions","PostprocessConfig"]};
