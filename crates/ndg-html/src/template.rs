@@ -804,10 +804,16 @@ fn load_template_content(
   if let Some(template_dir) = config.get_template_path() {
     let template_path = template_dir.join(template_name);
     if template_path.exists() {
+      log::debug!("Loading custom template: {}", template_path.display());
       return fs::read_to_string(&template_path).wrap_err({
         format!("Failed to read template file: {}", template_path.display())
       });
     }
+    // Custom template directory is set but this specific template is missing
+    log::warn!(
+      "Template not found in custom directory: {}. Using embedded default.",
+      template_path.display()
+    );
   }
   // If template_path is specified but doesn't point to a directory with our
   // template
@@ -817,6 +823,10 @@ fn load_template_content(
   {
     // XXX: For backward compatibility
     // If template_path is a file, use it for default.html
+    log::debug!(
+      "Loading custom template (backward compat): {}",
+      template_path.display()
+    );
     return fs::read_to_string(template_path).wrap_err({
       format!(
         "Failed to read custom template file: {}. Check file permissions and \
@@ -827,6 +837,7 @@ fn load_template_content(
   }
   // Use fallback embedded template if no custom template found
   // If fallback is empty, return empty string (used for optional templates)
+  log::debug!("Using embedded default template: {}", template_name);
   Ok(fallback.to_string())
 }
 
