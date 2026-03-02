@@ -85,6 +85,22 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
   let field_handlers = generate_field_handlers(fields);
   let merge_handlers = generate_merge_handlers(fields);
 
+  // Collect all valid config keys for "did you mean" suggestions
+  let valid_keys = collect_config_keys(fields);
+  let valid_keys_ref: Vec<&str> =
+    valid_keys.iter().map(|s| s.as_str()).collect();
+
+  // Generate unique function names to avoid conflicts when multiple structs use
+  // the macro
+  let find_similar_fn = syn::Ident::new(
+    &format!("_ndg_find_similar_keys_{}", name.to_string().to_lowercase()),
+    name.span(),
+  );
+  let calc_similarity_fn = syn::Ident::new(
+    &format!("_ndg_calc_similarity_{}", name.to_string().to_lowercase()),
+    name.span(),
+  );
+
   let expanded = quote! {
     impl #impl_generics #name #ty_generics #where_clause {
       /// Apply a configuration override by key.
@@ -97,15 +113,74 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
 
         #(#field_handlers)*
 
-        Err(ConfigError::Config(format!(
-          "Unknown configuration key: '{key}'. See documentation for supported keys.",
-        )))
+        // Generate "did you mean" suggestions
+        let valid_keys: &[&str] = &[#(#valid_keys_ref),*];
+        let suggestions = #find_similar_fn(key, valid_keys, 3, 0.5);
+
+        let error_msg = if suggestions.is_empty() {
+          format!("Unknown configuration key: '{key}'. See documentation for supported keys.")
+        } else {
+          let suggestions_str = suggestions.join("', '");
+          format!("Unknown configuration key: '{key}'. Did you mean: '{suggestions_str}'?")
+        };
+
+        Err(ConfigError::Config(error_msg))
       }
 
       /// Merge another config into this one.
       pub fn merge_fields(&mut self, other: Self) {
         #(#merge_handlers)*
       }
+    }
+
+    // Include the helper functions in the generated code with unique names
+    fn #find_similar_fn(
+      unknown: &str,
+      candidates: &[&str],
+      max_suggestions: usize,
+      threshold: f64,
+    ) -> Vec<String> {
+      let mut scored: Vec<(String, f64)> = candidates
+        .iter()
+        .map(|&candidate| (candidate.to_string(), #calc_similarity_fn(unknown, candidate)))
+        .filter(|(_, score)| *score >= threshold)
+        .collect();
+
+      scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+      scored.truncate(max_suggestions);
+      scored.into_iter().map(|(key, _)| key).collect()
+    }
+
+    fn #calc_similarity_fn(a: &str, b: &str) -> f64 {
+      let a_chars: Vec<char> = a.chars().collect();
+      let b_chars: Vec<char> = b.chars().collect();
+      let a_len = a_chars.len();
+      let b_len = b_chars.len();
+
+      if a_len == 0 && b_len == 0 {
+        return 1.0;
+      }
+      if a_len == 0 || b_len == 0 {
+        return 0.0;
+      }
+
+      let mut prev_row: Vec<usize> = (0..=b_len).collect();
+      let mut curr_row = vec![0; b_len + 1];
+
+      for i in 1..=a_len {
+        curr_row[0] = i;
+        for j in 1..=b_len {
+          let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+          curr_row[j] = (prev_row[j] + 1)
+            .min(curr_row[j - 1] + 1)
+            .min(prev_row[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev_row, &mut curr_row);
+      }
+
+      let distance = prev_row[b_len] as f64;
+      let max_len = a_len.max(b_len) as f64;
+      1.0 - (distance / max_len)
     }
   };
 
@@ -441,4 +516,38 @@ fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
   }
 
   handlers
+}
+
+/// Collect all valid config keys from fields
+fn collect_config_keys(fields: &Fields) -> Vec<String> {
+  let mut keys = Vec::new();
+
+  for field in fields.iter() {
+    let field_config = FieldConfig::from_attrs(&field.attrs);
+
+    // Skip fields without config attributes unless they're nested
+    let has_config_attr = field
+      .attrs
+      .iter()
+      .any(|attr| attr.path().is_ident("config"));
+    if !has_config_attr && !field_config.nested {
+      continue;
+    }
+
+    let field_name = field.ident.as_ref().expect("Named field required");
+    let field_key = field_config
+      .key
+      .clone()
+      .unwrap_or_else(|| field_name.to_string());
+
+    if field_config.nested {
+      // For nested configs, we can't collect sub-keys here without type info
+      // Just add the base key as a prefix
+      keys.push(format!("{}.", field_key));
+    } else {
+      keys.push(field_key);
+    }
+  }
+
+  keys
 }
