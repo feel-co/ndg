@@ -10,6 +10,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::{assets, error::ConfigError, meta, postprocess, search, sidebar};
 
+/// Default output directory for generated documentation.
+pub const DEFAULT_OUTPUT_DIR: &str = "build";
+
+/// Default site title.
+pub const DEFAULT_TITLE: &str = "ndg documentation";
+
+/// Default footer text.
+pub const DEFAULT_FOOTER_TEXT: &str = "Generated with ndg";
+
+/// Default revision string.
+pub const DEFAULT_REVISION: &str = "local";
+
+/// Default tab style for code blocks.
+pub const DEFAULT_TAB_STYLE: &str = "none";
+
 /// Configuration for the NDG documentation generator.
 ///
 /// [`Config`] holds all configuration options for controlling documentation
@@ -146,7 +161,7 @@ impl Default for Config {
   fn default() -> Self {
     Self {
       input_dir:         None,
-      output_dir:        PathBuf::from("build"),
+      output_dir:        PathBuf::from(DEFAULT_OUTPUT_DIR),
       module_options:    None,
       template_path:     None,
       template_dir:      None,
@@ -155,17 +170,17 @@ impl Default for Config {
       assets_dir:        None,
       assets:            None,
       manpage_urls_path: None,
-      title:             "ndg documentation".to_string(),
+      title:             DEFAULT_TITLE.to_string(),
       jobs:              None,
       generate_anchors:  true,
       generate_search:   true,
       search:            None,
-      footer_text:       "Generated with ndg".to_string(),
+      footer_text:       DEFAULT_FOOTER_TEXT.to_string(),
       options_toc_depth: 2,
       highlight_code:    true,
-      revision:          "local".to_string(),
+      revision:          DEFAULT_REVISION.to_string(),
       included_files:    std::collections::HashMap::new(),
-      tab_style:         "none".to_string(),
+      tab_style:         DEFAULT_TAB_STYLE.to_string(),
       meta:              None,
       sidebar:           None,
       postprocess:       None,
