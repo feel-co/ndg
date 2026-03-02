@@ -112,6 +112,18 @@ fn main() -> Result<()> {
   // Merge CLI command options into config
   merge_cli_into_config(&mut config, &cli);
 
+  // Validate that at least one content source is provided. This check must
+  // happen AFTER CLI merge so that CLI args are considered
+  if config.input_dir.is_none()
+    && config.module_options.is_none()
+    && config.nixdoc_inputs.is_empty()
+  {
+    bail!(
+      "Configuration error: At least one of input directory, module options, \
+       or nixdoc inputs must be provided."
+    );
+  }
+
   // Run the main documentation generation process
   generate_documentation(&mut config)
 }

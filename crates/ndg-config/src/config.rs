@@ -331,21 +331,6 @@ impl Config {
       config.apply_overrides(config_overrides)?;
     }
 
-    // We need *at least one* source of content
-    if config.input_dir.is_none()
-      && config.module_options.is_none()
-      && config.nixdoc_inputs.is_empty()
-    {
-      return Err(ConfigError::Config(
-        "At least one of input directory, module options, or nixdoc inputs \
-         must be provided."
-          .to_string(),
-      ));
-    }
-
-    // Note: Path validation is deferred to after CLI merge to allow CLI args
-    // to override config file values
-
     // Validate and compile sidebar configuration if present
     if let Some(ref mut sidebar) = config.sidebar {
       sidebar.validate().map_err(|e| {

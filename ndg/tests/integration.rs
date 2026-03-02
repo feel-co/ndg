@@ -988,3 +988,95 @@ fn test_custom_assets_mixed_hidden_and_visible() {
     "Visible files in subdirs should be copied"
   );
 }
+
+/// Verifies that Config::load does NOT fail when no content sources
+/// are provided via config files, allowing CLI arguments to provide them later.
+#[test]
+fn test_config_load_no_content_sources_succeeds() {
+  // Config::load with no config files should succeed even without content
+  // sources The validation is deferred to after CLI args are merged
+  let config = Config::load(&[], &[]);
+
+  // This should succeed, no panic or error
+  assert!(
+    config.is_ok(),
+    "Config::load should succeed even without content sources"
+  );
+
+  let config = config.unwrap();
+  // Verify that the config has no content sources (as expected)
+  assert!(
+    config.input_dir.is_none(),
+    "input_dir should be None when not provided"
+  );
+  assert!(
+    config.module_options.is_none(),
+    "module_options should be None when not provided"
+  );
+  assert!(
+    config.nixdoc_inputs.is_empty(),
+    "nixdoc_inputs should be empty when not provided"
+  );
+}
+
+#[test]
+fn test_config_with_cli_content_sources_succeeds() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let input_dir = temp_dir.path().join("input");
+  let output_dir = temp_dir.path().join("output");
+  fs::create_dir_all(&input_dir).expect("Failed to create input dir in test");
+  fs::create_dir_all(&output_dir).expect("Failed to create output dir in test");
+
+  // Create a sample markdown file
+  fs::write(input_dir.join("test.md"), "# Test\n\nContent.")
+    .expect("Failed to write test.md in test");
+
+  // Load config without content sources (simulating no config file)
+  let mut config = Config::load(&[], &[])
+    .expect("Config::load should succeed even without content sources");
+
+  // Simulate CLI providing input_dir after Config::load
+  config.input_dir = Some(input_dir.clone());
+  config.output_dir = output_dir.clone();
+
+  // Now validation would pass (if we called it here)
+  assert!(
+    config.input_dir.is_some(),
+    "input_dir should be set after CLI merge"
+  );
+  assert!(
+    config.input_dir.as_ref().unwrap().exists(),
+    "input_dir should exist"
+  );
+}
+
+/// Test that module_options can be provided via CLI without config file
+#[test]
+fn test_config_with_cli_module_options_succeeds() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let output_dir = temp_dir.path().join("output");
+  let options_file = temp_dir.path().join("options.json");
+  fs::create_dir_all(&output_dir).expect("Failed to create output dir in test");
+
+  // Create a minimal options.json file
+  fs::write(&options_file, r#"{"options": {}}"#)
+    .expect("Failed to write options.json in test");
+
+  // Load config without content sources
+  let mut config = Config::load(&[], &[])
+    .expect("Config::load should succeed even without content sources");
+
+  // Simulate CLI providing module_options after Config::load
+  config.module_options = Some(options_file.clone());
+  config.output_dir = output_dir.clone();
+
+  // Validation would now pass
+  assert!(
+    config.module_options.is_some(),
+    "module_options should be set after CLI merge"
+  );
+  assert!(
+    config.module_options.as_ref().unwrap().exists(),
+    "module_options file should exist"
+  );
+}
