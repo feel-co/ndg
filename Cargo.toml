@@ -58,7 +58,7 @@ oxc_allocator = "0.114.0"
 oxc_codegen   = "0.114.0"
 oxc_minifier  = "0.114.0"
 oxc_parser    = "0.114.0"
-oxc_span      = "0.114.0"
+oxc_span      = "0.116.0"
 
 proc-macro2 = "1.0.106"
 quote       = "1.0.45"
