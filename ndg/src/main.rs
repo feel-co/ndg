@@ -4,7 +4,7 @@ use std::{
 };
 
 use color_eyre::eyre::{Context, Result, bail};
-use log::{LevelFilter, info};
+use log::info;
 use ndg::{config, html, manpage, utils};
 use rayon::prelude::*;
 
@@ -18,13 +18,9 @@ fn main() -> Result<()> {
   // Parse command line arguments
   let cli = Cli::parse_args();
 
-  // Initialize logging first so we can log during command handling
+  // Initialize logging with verbosity from CLI
   env_logger::Builder::new()
-    .filter_level(if cli.verbose {
-      LevelFilter::Debug
-    } else {
-      LevelFilter::Info
-    })
+    .filter_level(cli.verbose.log_level_filter())
     .write_style(env_logger::WriteStyle::Always)
     .init();
 
@@ -140,7 +136,7 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     stylesheet,
     script,
     title,
-    footer,
+    footer: _,
     module_options,
     options_toc_depth,
     manpage_urls,
@@ -170,9 +166,6 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     }
     if let Some(title) = title {
       config.title.clone_from(title);
-    }
-    if footer.is_some() {
-      // Config may not have footer field anymore, skip it
     }
     if let Some(module_options) = module_options {
       config.module_options = Some(module_options.clone());
@@ -236,8 +229,10 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   // Process markdown files and collect included files in one pass.
   // As a side effect, this populates config.included_files so that the
   // sidebar navigation can correctly filter out included files.
+  info!("Processing markdown files...");
   let processed_markdown =
     utils::process_markdown_files(config, processor.as_ref())?;
+  info!("Processed {} markdown files", processed_markdown.len());
 
   // Collect all output directories upfront (sequential, then parallelize
   // writes)
@@ -261,46 +256,16 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   }
 
   // Render templates and write HTML files in parallel
-  processed_markdown
-    .par_iter()
+  let render_items: Vec<_> = processed_markdown
+    .iter()
     .filter(|item| !item.is_included)
-    .try_for_each(|item| {
-      let rel_path = std::path::Path::new(&item.output_path);
-      if rel_path.is_absolute() {
-        log::warn!(
-          "Output path '{}' is absolute. Normalizing to relative.",
-          item.output_path
-        );
-      }
+    .collect();
 
-      // Force rel_path to be relative
-      let rel_path = rel_path
-        .strip_prefix(std::path::MAIN_SEPARATOR_STR)
-        .unwrap_or(rel_path);
-
-      let html = html::template::render(
-        config,
-        &item.html_content,
-        item.title.as_deref().unwrap_or(&config.title),
-        &item.headers,
-        rel_path,
-      )?;
-
-      // Apply postprocessing if requested
-      let processed_html =
-        if let Some(ref postprocess_config) = config.postprocess {
-          utils::postprocess::process_html(&html, postprocess_config)?
-        } else {
-          html
-        };
-
-      let output_path = config.output_dir.join(rel_path);
-      fs::write(&output_path, processed_html).wrap_err_with(|| {
-        format!("Failed to write output HTML: {}", output_path.display())
-      })?;
-
-      Ok::<(), color_eyre::Report>(())
-    })?;
+  if !render_items.is_empty() {
+    render_items
+      .into_par_iter()
+      .try_for_each(|item| html::template::render_and_write(config, item))?;
+  }
 
   // Extract source file paths for later use
   let markdown_files: Vec<PathBuf> = processed_markdown

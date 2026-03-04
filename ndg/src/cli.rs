@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use clap_verbosity_flag::Verbosity;
 
 /// Command line interface for ndg
 #[derive(Parser, Debug)]
@@ -10,9 +11,10 @@ pub struct Cli {
   #[command(subcommand)]
   pub command: Option<Commands>,
 
-  /// Enable verbose debug logging
-  #[arg(short, long)]
-  pub verbose: bool,
+  /// Logging verbosity (-v for info, -vv for debug, -vvv for trace, -q for
+  /// quiet)
+  #[command(flatten)]
+  pub verbose: Verbosity,
 
   /// Path to configuration file(s) (TOML or JSON, can be specified multiple
   /// times) Multiple files are merged in order, with later files overriding
