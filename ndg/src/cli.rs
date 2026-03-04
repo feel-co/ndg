@@ -126,6 +126,16 @@ pub enum Commands {
     /// GitHub revision for linking to source files.
     #[arg(long)]
     revision: Option<String>,
+
+    /// Serve the generated documentation locally after generation
+    #[cfg(feature = "serve")]
+    #[arg(long = "serve", action = clap::ArgAction::SetTrue)]
+    serve: bool,
+
+    /// Port to serve documentation on (only used with --serve).
+    #[cfg(feature = "serve")]
+    #[arg(long = "serve-port", default_value = "3000")]
+    serve_port: u16,
   },
 
   /// Generate manpage from options.
