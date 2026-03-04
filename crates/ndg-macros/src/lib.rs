@@ -88,7 +88,7 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
   // Collect all valid config keys for "did you mean" suggestions
   let valid_keys = collect_config_keys(fields);
   let valid_keys_ref: Vec<&str> =
-    valid_keys.iter().map(|s| s.as_str()).collect();
+    valid_keys.iter().map(std::string::String::as_str).collect();
 
   // Generate unique function names to avoid conflicts when multiple structs use
   // the macro
@@ -190,7 +190,7 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
 fn generate_field_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
   let mut handlers = Vec::new();
 
-  for field in fields.iter() {
+  for field in fields {
     let field_config = FieldConfig::from_attrs(&field.attrs);
 
     // Skip fields without config attributes unless they're nested configs
@@ -239,14 +239,11 @@ fn generate_field_handler(
     if let Some((version, replacement)) = &config.deprecated {
       let msg = if let Some(replacement) = replacement {
         format!(
-          "The '{}' config key is deprecated since {}. Use '{}' instead.",
-          field_key, version, replacement
+          "The '{field_key}' config key is deprecated since {version}. Use \
+           '{replacement}' instead."
         )
       } else {
-        format!(
-          "The '{}' config key is deprecated since {}.",
-          field_key, version
-        )
+        format!("The '{field_key}' config key is deprecated since {version}.")
       };
       quote! {
         log::warn!(#msg);
@@ -457,7 +454,7 @@ fn generate_value_assignment(
 fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
   let mut handlers = Vec::new();
 
-  for field in fields.iter() {
+  for field in fields {
     let field_config = FieldConfig::from_attrs(&field.attrs);
     let field_name = field.ident.as_ref().expect("Named field required");
     let field_type = &field.ty;
@@ -522,7 +519,7 @@ fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
 fn collect_config_keys(fields: &Fields) -> Vec<String> {
   let mut keys = Vec::new();
 
-  for field in fields.iter() {
+  for field in fields {
     let field_config = FieldConfig::from_attrs(&field.attrs);
 
     // Skip fields without config attributes unless they're nested
@@ -543,7 +540,7 @@ fn collect_config_keys(fields: &Fields) -> Vec<String> {
     if field_config.nested {
       // For nested configs, we can't collect sub-keys here without type info
       // Just add the base key as a prefix
-      keys.push(format!("{}.", field_key));
+      keys.push(format!("{field_key}."));
     } else {
       keys.push(field_key);
     }

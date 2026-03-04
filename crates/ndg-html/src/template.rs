@@ -85,7 +85,7 @@ fn setup_tera_templates(
   // Cache the compiled Tera instance
   {
     let mut cache = TERA_CACHE.write().unwrap();
-    cache.insert(cache_key.clone(), tera.clone());
+    cache.insert(cache_key, tera.clone());
   }
 
   Ok(tera)
@@ -169,7 +169,7 @@ fn build_common_context(
 ///
 /// # Returns
 ///
-/// Tuple of (navbar_html, footer_html)
+/// Tuple of (`navbar_html`, `footer_html`)
 fn render_navbar_footer(
   tera: &Tera,
   config: &Config,
@@ -837,7 +837,7 @@ fn load_template_content(
   }
   // Use fallback embedded template if no custom template found
   // If fallback is empty, return empty string (used for optional templates)
-  log::debug!("Using embedded default template: {}", template_name);
+  log::debug!("Using embedded default template: {template_name}");
   Ok(fallback.to_string())
 }
 
@@ -1504,4 +1504,61 @@ const fn get_meta_tags(config: &Config) -> Option<&HashMap<String, String>> {
     return Some(tags);
   }
   config.meta_tags.as_ref()
+}
+
+/// Render a single processed markdown item to HTML and write to disk.
+///
+/// This function combines template rendering, optional postprocessing,
+/// and file I/O for a single markdown document.
+///
+/// # Arguments
+///
+/// * `config` - Site configuration
+/// * `item` - The processed markdown item containing HTML content and metadata
+///
+/// # Errors
+///
+/// Returns an error if template rendering, postprocessing, or file writing
+/// fails.
+pub fn render_and_write(
+  config: &Config,
+  item: &ndg_utils::markdown::ProcessedMarkdown,
+) -> Result<()> {
+  use ndg_utils::postprocess;
+
+  let rel_path = std::path::Path::new(&item.output_path);
+  if rel_path.is_absolute() {
+    log::warn!(
+      "Output path '{}' is absolute. Normalizing to relative.",
+      item.output_path
+    );
+  }
+
+  // Force rel_path to be relative
+  let rel_path = rel_path
+    .strip_prefix(std::path::MAIN_SEPARATOR_STR)
+    .unwrap_or(rel_path);
+
+  let html = render(
+    config,
+    &item.html_content,
+    item.title.as_deref().unwrap_or(&config.title),
+    &item.headers,
+    rel_path,
+  )?;
+
+  // Apply postprocessing if requested
+  let processed_html = if let Some(ref postprocess_config) = config.postprocess
+  {
+    postprocess::process_html(&html, postprocess_config)?
+  } else {
+    html
+  };
+
+  let output_path = config.output_dir.join(rel_path);
+  fs::write(&output_path, processed_html).wrap_err_with(|| {
+    format!("Failed to write output HTML: {}", output_path.display())
+  })?;
+
+  Ok(())
 }

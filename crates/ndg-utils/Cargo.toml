@@ -25,6 +25,7 @@ color-eyre.workspace    = true
 fs_extra.workspace      = true
 grass.workspace         = true
 html-escape.workspace   = true
+indicatif.workspace     = true
 lightningcss.workspace  = true
 log.workspace           = true
 minify-html.workspace   = true

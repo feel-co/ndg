@@ -5,6 +5,7 @@ use std::{
 };
 
 use color_eyre::eyre::{Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use log::info;
 use ndg_commonmark::{
   Header,
@@ -160,7 +161,21 @@ pub fn process_markdown_files(
     let mut render_cache: RenderCache = HashMap::new();
 
     // First pass: render all files once and collect metadata
+    let progress = ProgressBar::new(files.len() as u64);
+    progress.set_style(
+      ProgressStyle::default_bar()
+        .template(
+          "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] \
+           {pos}/{len} ({eta}) {msg}",
+        )
+        .unwrap()
+        .progress_chars("#>-"),
+    );
+    progress.set_message("Processing markdown");
+    progress.enable_steady_tick(std::time::Duration::from_millis(100));
+
     for file_path in &files {
+      progress.inc(1);
       let content = fs::read_to_string(file_path).wrap_err_with(|| {
         format!("Failed to read markdown file: {}", file_path.display())
       })?;
@@ -214,6 +229,8 @@ pub fn process_markdown_files(
       // Cache the render result
       render_cache.insert(file_path.clone(), result);
     }
+
+    progress.finish_with_message("Markdown processing complete");
 
     // Second pass: use cached results to build output map
     for file_path in &files {
