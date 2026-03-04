@@ -31,7 +31,7 @@ env_logger = "0.11.9"
 fs_extra = "1.3.0"
 grass = { version = "0.13.4", default-features = false }
 indicatif = { version = "0.18.4", features = [ "rayon" ] }
-jiff = "0.2.20"
+jiff = "0.2.23"
 log = "0.4.29"
 nixdoc = "0.2.0"
 num_cpus = "1.17.0"
