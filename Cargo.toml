@@ -56,7 +56,7 @@ markup5ever   = "0.38.0"
 minify-html   = "0.18.1"
 oxc_allocator = "0.114.0"
 oxc_codegen   = "0.114.0"
-oxc_minifier  = "0.114.0"
+oxc_minifier  = "0.116.0"
 oxc_parser    = "0.114.0"
 oxc_span      = "0.114.0"
 
