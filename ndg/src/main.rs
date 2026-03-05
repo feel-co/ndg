@@ -12,6 +12,8 @@ mod cli;
 use cli::{Cli, Commands};
 use config::Config;
 
+#[cfg(feature = "serve")] mod serve;
+
 fn main() -> Result<()> {
   color_eyre::install()?;
 
@@ -121,7 +123,28 @@ fn main() -> Result<()> {
   }
 
   // Run the main documentation generation process
-  generate_documentation(&mut config)
+  #[cfg(feature = "serve")]
+  let output_dir = config.output_dir.clone();
+  generate_documentation(&mut config)?;
+
+  // Check if we should serve the documentation
+  #[cfg(feature = "serve")]
+  {
+    let should_serve =
+      matches!(&cli.command, Some(Commands::Html { serve: true, .. }));
+    if should_serve {
+      let serve_port =
+        if let Some(Commands::Html { serve_port, .. }) = &cli.command {
+          *serve_port
+        } else {
+          3000
+        };
+      let runtime = tokio::runtime::Runtime::new()?;
+      runtime.block_on(serve::serve_docs(&output_dir, serve_port))?;
+    }
+  }
+
+  Ok(())
 }
 
 /// Merge CLI command options into the configuration
@@ -143,6 +166,10 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     generate_search,
     highlight_code,
     revision,
+    #[cfg(feature = "serve")]
+      serve: _,
+    #[cfg(feature = "serve")]
+      serve_port: _,
   }) = &cli.command
   {
     if let Some(input_dir) = input_dir {

@@ -37,6 +37,9 @@ changes.
 
 ### Added
 
+- Optional `serve` feature flag for local development server. When enabled, pass
+  `--serve` and optionally `--serve-port` to `ndg html` to automatically start
+  a local web server after documentation generation completes.
 - `ndg-builder-docs` package for generating NDG docs via `ndg-builder`.
 - Library reference page generation from Nix files using RFC-145 style nixdoc
   comments. Projects can now document their extended libraries and generate a

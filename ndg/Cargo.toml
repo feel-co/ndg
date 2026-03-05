@@ -11,7 +11,15 @@ repository.workspace   = true
 categories.workspace   = true
 keywords.workspace     = true
 
+[features]
+default = []
+serve   = ["dep:axum", "dep:tokio", "dep:tower-http"]
+
 [dependencies]
+axum        = { version = "0.8.1", default-features = false, features = ["tokio", "http1"], optional = true }
+tokio       = { version = "1.43.0", features = ["rt-multi-thread", "net"], optional = true }
+tower-http  = { version = "0.6.2", default-features = false, features = ["fs"], optional = true }
+
 ndg-commonmark.workspace = true
 ndg-config.workspace     = true
 ndg-html.workspace       = true
