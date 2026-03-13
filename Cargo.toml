@@ -24,7 +24,7 @@ clap = { version = "4.5.58", default-features = false, features = [
 ] }
 clap-verbosity-flag = "3.0"
 clap_complete = "4.5.66"
-clap_mangen = "0.2.31"
+clap_mangen = "0.2.33"
 color-eyre = "0.6.5"
 comrak = { version = "0.51.0", default-features = false, features = [ "syntect" ] }
 env_logger = "0.11.9"
