@@ -68,7 +68,7 @@ jobs:
             extra-platforms = aarch64-linux armv7l-linux i686-linux
             extra-sandbox-paths = /usr/libexec/qemu-binfmt /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static /usr/bin/qemu-arm-static
 
-      - uses: cachix/cachix-action@v16
+      - uses: cachix/cachix-action@v17
         with:
           name: feel-co
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
