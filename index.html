@@ -173,6 +173,8 @@ pass arbitrary data to custom templates</li>
 <li><strong>Multi-threading support</strong> for fast generation of large documentation sets</li>
 </ul>
 </li>
+<li><strong>Local development server</strong> (optional <code>serve</code> feature) to preview generated
+documentation in your browser without a separate server setup</li>
 </ul>
 <p>Most of the parser features are powered by <a href="https://crates.io/crates/ndg-commonmark">ndg-commonmark</a>, which you are
 encouraged to look into if you are looking for a <em>library</em> rather than a CLI
@@ -301,6 +303,9 @@ search and code highlighting. Two example flags accepted by <code>ndg html</code
 omitted).</li>
 <li><code>--highlight-code</code>: Enables syntax highlighting for code blocks (disabled by
 default if omitted).</li>
+<li><code>--serve</code>: <em>(requires the <code>serve</code> feature at compile time)</em> Starts a local
+HTTP server after generation to preview the output in your browser. Defaults
+to port <code>3000</code>; override with <code>--serve-port &lt;PORT&gt;</code>.</li>
 </ul>
 <p>Example usage:</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--input-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">--output-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">--title</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--generate-search</span><br></code></pre>
