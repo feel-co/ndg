@@ -87,6 +87,17 @@ This is useful when you want different layouts for different sections of your
 documentation. It can also be used for, e.g., `404.html` to generate your own
 404 page with Markdown.
 
+You can also select a template for a specific page using the `template` field
+in its [frontmatter](./FRONTMATTER):
+
+```toml
++++
+template = "landing"   # uses landing.html from your template directory
++++
+```
+
+This takes priority over the file-stem template selection described above.
+
 ## Template Components
 
 ### Navbar Template (`navbar.html`)
@@ -155,11 +166,11 @@ ndg export-templates --output ./templates --force
 
 ### Common Variables (Available in all templates)
 
-- `{{ title }}` - Page title
+- `{{ title }}` - Page title (reflects frontmatter `title` when set)
 - `{{ site_title }}` - Site title from configuration
 - `{{ footer_text }}` - Footer text from configuration
 - `{{ content|safe }}` - Rendered markdown content
-- `{{ toc|safe }}` - Table of contents HTML
+- `{{ toc|safe }}` - Table of contents HTML (empty when frontmatter sets `toc = false`)
 - `{{ doc_nav|safe }}` - Document navigation HTML
 - `{{ navbar_html|safe }}` - Rendered navbar HTML
 - `{{ footer_html|safe }}` - Rendered footer HTML
@@ -168,6 +179,20 @@ ndg export-templates --output ./templates --force
 - `{{ custom_scripts|safe }}` - Custom scripts HTML
 - `{{ meta_tags_html|safe }}` - Meta tags HTML
 - `{{ opengraph_html|safe }}` - OpenGraph tags HTML
+
+### Frontmatter Variables
+
+When a document contains a TOML frontmatter block, its fields are available
+via the `page` object:
+
+- `{{ page.title }}` - Frontmatter title (`null` if not set)
+- `{{ page.description }}` - Frontmatter description (`null` if not set)
+- `{{ page.author }}` - Frontmatter author (`null` if not set)
+- `{{ page.template }}` - Frontmatter template name (`null` if not set)
+- `{{ page.toc }}` - Frontmatter toc flag (`null` if not set)
+- `{{ page.extra }}` - Frontmatter extra table; individual keys via `{{ page.extra.key }}`
+
+See the [frontmatter guide](./FRONTMATTER) for full details.
 
 ### Asset Paths
 

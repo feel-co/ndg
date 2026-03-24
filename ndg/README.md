@@ -42,6 +42,8 @@ several features such as:
   - **Flexible options sidebar customization** to control visibility, naming,
     ordering, and depth of option categories
 - **Fully customizable templates** to match your project's style fully
+- **Per-page frontmatter** to override title, description, template, TOC, and
+  pass arbitrary data to custom templates
 - **Incredibly fast** documentation generation for all scenarios
   - **Multi-threading support** for fast generation of large documentation sets
 
@@ -721,6 +723,43 @@ Home Manager configurations.
 See the [sidebar configuration guide](./docs/SIDEBAR) for complete documentation
 including examples, use cases, and best practices.
 
+### Per-Page Frontmatter
+
+NDG supports TOML frontmatter blocks at the top of Markdown files, delimited by
+`+++`. Frontmatter lets you override site-wide defaults on a per-document basis
+without touching your configuration file.
+
+```markdown
++++
+title = "Custom Page Title"
+description = "A short description used in meta tags."
+author = "Jane Doe"
+template = "custom"   # use custom.html instead of default.html
+toc = false           # suppress the table of contents
+
+[extra]               # arbitrary data, accessible as {{ page.extra.key }}
+version = "1.2.0"
+status = "stable"
++++
+```
+
+Supported fields:
+
+| Field         | Effect                                                               |
+| ------------- | -------------------------------------------------------------------- |
+| `title`       | Overrides the H1-extracted title and `<title>` tag                   |
+| `description` | Per-page `<meta name="description">` (overrides global)              |
+| `author`      | Per-page `<meta name="author">` (overrides global)                   |
+| `template`    | Template file to use instead of `default.html`                       |
+| `toc`         | Set to `false` to suppress the table of contents                     |
+| `extra`       | Freeform TOML table, accessible in templates as `{{ page.extra.* }}` |
+
+All fields are also exposed in Tera templates via the `page` variable
+(`{{ page.title }}`, `{{ page.extra.key }}`, etc.), making them useful for
+building rich custom templates.
+
+See the [frontmatter guide](./docs/FRONTMATTER) for complete documentation.
+
 ### Template Customization Made Easy
 
 ```bash
@@ -888,8 +927,8 @@ store. You can expose it under `packages.${system}` and build it with
 
 Builder options worth knowing:
 
-- `rawModules` and `evaluatedModules` are **mutually exclusive**. Use one or
-  the other.
+- `rawModules` and `evaluatedModules` are **mutually exclusive**. Use one or the
+  other.
 - `checkModules`, `moduleArgs`, and `specialArgs` are forwarded into module
   evaluation (via `lib.evalModules`).
 - `transformOptions` rewrites `options.json` declarations into source links
