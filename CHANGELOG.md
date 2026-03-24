@@ -42,6 +42,11 @@ changes.
   comments. Projects can now document their extended libraries and generate a
   reference page (similar to Noogle) automatically. Configure via the
   `nixdoc_inputs` option in your NDG configuration.
+- TOML frontmatter support for Markdown documents. A `+++`-delimited block at
+  the top of any `.md` file may now set `title`, `description`, `author`,
+  `template`, and `toc` to override site-wide defaults per page. An `extra`
+  table is also supported and exposed to Tera templates as `{{ page.extra.* }}`
+  for use in custom templates.
 
 ### Changed
 
