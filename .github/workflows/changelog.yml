@@ -23,6 +23,11 @@ jobs:
         run: |
           echo "CHANGELOG_REQUIRED=false" >> $GITHUB_ENV
 
+      - name: Override variable if PR is from Dependabot
+        if: ${{ github.actor == 'dependabot[bot]' }}
+        run: |
+          echo "CHANGELOG_REQUIRED=false" >> $GITHUB_ENV
+
       - uses: actions/checkout@v6
         if: fromJSON(env.CHANGELOG_REQUIRED)
 
