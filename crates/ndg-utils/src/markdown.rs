@@ -6,7 +6,7 @@ use std::{
 
 use color_eyre::eyre::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use log::info;
+use log::{info, warn};
 use ndg_commonmark::{
   Header,
   MarkdownOptionsBuilder,
@@ -15,6 +15,87 @@ use ndg_commonmark::{
   processor::types::TabStyle,
 };
 use ndg_config::Config;
+use serde::Deserialize;
+
+/// TOML frontmatter parsed from the `+++` delimited block at the start of a
+/// markdown document.
+///
+/// Frontmatter must appear at the very beginning of the file, wrapped in
+/// `+++` delimiters on their own lines. Any unrecognised keys are silently
+/// ignored by the TOML deserialiser.
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct PageFrontmatter {
+  /// Overrides the page title extracted from the first H1 heading.
+  pub title:       Option<String>,
+  /// Per-page meta description. Injected as `<meta name="description">` and
+  /// as `og:description` where OG tags are enabled.
+  pub description: Option<String>,
+
+  /// Per-page author. Injected as `<meta name="author">`.
+  pub author: Option<String>,
+
+  /// Name of the template file to use for this page (e.g. `"custom"` or
+  /// `"custom.html"`). Falls back to the default template resolution if the
+  /// named file cannot be found.
+  pub template: Option<String>,
+
+  /// When `false`, suppresses the table of contents for this page.
+  pub toc: Option<bool>,
+
+  /// Arbitrary user-defined data. Accessible in templates as
+  /// `{{ page.extra.key }}`.
+  pub extra: Option<toml::Table>,
+}
+
+/// Strips TOML frontmatter from the start of a markdown document.
+///
+/// Frontmatter must begin at the very first byte of the file, delimited by
+/// `+++` on its own line. The closing `+++` must also be on its own line.
+/// Returns the parsed [`PageFrontmatter`] (if present and valid) and the
+/// remaining markdown content with the frontmatter block removed.
+///
+/// Malformed TOML inside a valid `+++` block is logged as a warning and
+/// treated as absent; the full original content is returned unchanged.
+fn strip_frontmatter(content: &str) -> (Option<PageFrontmatter>, String) {
+  const DELIM: &str = "+++";
+
+  // Normalize CRLF to LF so that Windows-style line endings are handled.
+  let lf_content;
+  let content: &str = if content.contains("\r\n") {
+    lf_content = content.replace("\r\n", "\n");
+    &lf_content
+  } else {
+    content
+  };
+
+  // The opening delimiter must be the very first thing in the file.
+  let Some(after_open) = content.strip_prefix(DELIM) else {
+    return (None, content.to_owned());
+  };
+  // Must be immediately followed by a newline.
+  let Some(after_open) = after_open.strip_prefix('\n') else {
+    return (None, content.to_owned());
+  };
+
+  // Find the closing delimiter.
+  let needle = format!("\n{DELIM}");
+  let Some(end_idx) = after_open.find(needle.as_str()) else {
+    return (None, content.to_owned());
+  };
+
+  let toml_str = &after_open[..end_idx];
+  let after_close = &after_open[end_idx + needle.len()..];
+  // Strip the single newline that follows the closing delimiter, if present.
+  let remaining = after_close.strip_prefix('\n').unwrap_or(after_close);
+
+  match toml::from_str::<PageFrontmatter>(toml_str) {
+    Ok(fm) => (Some(fm), remaining.to_owned()),
+    Err(e) => {
+      warn!("Failed to parse frontmatter: {e}");
+      (None, content.to_owned())
+    },
+  }
+}
 
 /// Output entry for processed markdown files
 pub struct ProcessedMarkdown {
@@ -24,6 +105,7 @@ pub struct ProcessedMarkdown {
   pub source_path:  PathBuf,
   pub output_path:  String,
   pub is_included:  bool,
+  pub frontmatter:  Option<PageFrontmatter>,
 }
 
 /// Collects all included files from markdown documents in the input directory.
@@ -72,6 +154,7 @@ pub fn collect_included_files(
       });
       let processor = base_processor.clone().with_base_dir(base_dir);
 
+      let (_, content) = strip_frontmatter(&content);
       let result = processor.render(&content);
 
       for inc in &result.included_files {
@@ -138,11 +221,17 @@ pub fn process_markdown_files(
     let files = collect_markdown_files(input_dir);
     info!("Found {} markdown files", files.len());
 
-    // Map: output html path -> (html, headers, title, source_path, is_included)
-    let mut output_map: HashMap<
+    // Map: output html path -> output entry
+    #[allow(clippy::items_after_statements, reason = "Local type alias")]
+    type OutputEntry = (
       String,
-      (String, Vec<Header>, Option<String>, PathBuf, bool),
-    > = HashMap::new();
+      Vec<Header>,
+      Option<String>,
+      PathBuf,
+      bool,
+      Option<PageFrontmatter>,
+    );
+    let mut output_map: HashMap<String, OutputEntry> = HashMap::new();
 
     // Track custom outputs keyed by included file path
     let mut pending_custom_outputs: HashMap<PathBuf, Vec<String>> =
@@ -160,25 +249,36 @@ pub fn process_markdown_files(
     type RenderCache = HashMap<PathBuf, ndg_commonmark::MarkdownResult>;
     let mut render_cache: RenderCache = HashMap::new();
 
+    // Store parsed frontmatter per source file
+    let mut frontmatter_cache: HashMap<PathBuf, Option<PageFrontmatter>> =
+      HashMap::new();
+
     // First pass: render all files once and collect metadata
     let progress = ProgressBar::new(files.len() as u64);
-    progress.set_style(
-      ProgressStyle::default_bar()
-        .template(
-          "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] \
-           {pos}/{len} ({eta}) {msg}",
-        )
-        .unwrap()
-        .progress_chars("#>-"),
-    );
+    #[allow(
+      clippy::expect_used,
+      reason = "template string is a compile-time constant; failure is \
+                impossible"
+    )]
+    let style = ProgressStyle::default_bar()
+      .template(
+        "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] \
+         {pos}/{len} ({eta}) {msg}",
+      )
+      .expect("valid progress bar template string")
+      .progress_chars("#>-");
+    progress.set_style(style);
     progress.set_message("Processing markdown");
     progress.enable_steady_tick(std::time::Duration::from_millis(100));
 
     for file_path in &files {
       progress.inc(1);
-      let content = fs::read_to_string(file_path).wrap_err_with(|| {
+      let raw_content = fs::read_to_string(file_path).wrap_err_with(|| {
         format!("Failed to read markdown file: {}", file_path.display())
       })?;
+
+      let (frontmatter, content) = strip_frontmatter(&raw_content);
+      frontmatter_cache.insert(file_path.clone(), frontmatter);
 
       let base_dir = file_path.parent().unwrap_or_else(|| {
         config
@@ -257,6 +357,8 @@ pub fn process_markdown_files(
       let custom_outputs =
         pending_custom_outputs.remove(rel_path).unwrap_or_default();
 
+      let frontmatter = frontmatter_cache.remove(file_path).flatten();
+
       // If this file has custom outputs via html:into-file, write to those
       // locations
       if custom_outputs.is_empty() {
@@ -268,6 +370,7 @@ pub fn process_markdown_files(
             result.title.clone(),
             file_path.clone(),
             is_included,
+            frontmatter,
           ),
         );
       } else {
@@ -280,6 +383,7 @@ pub fn process_markdown_files(
               result.title.clone(),
               file_path.clone(),
               false,
+              frontmatter.clone(),
             ),
           );
         }
@@ -295,7 +399,7 @@ pub fn process_markdown_files(
       .map(
         |(
           output_path,
-          (html_content, headers, title, source_path, is_included),
+          (html_content, headers, title, source_path, is_included, frontmatter),
         )| {
           ProcessedMarkdown {
             html_content,
@@ -304,6 +408,7 @@ pub fn process_markdown_files(
             source_path,
             output_path,
             is_included,
+            frontmatter,
           }
         },
       )

@@ -13,7 +13,10 @@ use ndg_commonmark::Header;
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
 use ndg_templates as templates;
-use ndg_utils::html::{calculate_root_relative_path, generate_asset_paths};
+use ndg_utils::{
+  html::{calculate_root_relative_path, generate_asset_paths},
+  markdown::PageFrontmatter,
+};
 use serde_json::Value;
 use tera::Tera;
 
@@ -24,6 +27,45 @@ const OPTIONS_TOC_TEMPLATE: &str = templates::OPTIONS_TOC_TEMPLATE;
 const NAVBAR_TEMPLATE: &str = templates::NAVBAR_TEMPLATE;
 const FOOTER_TEMPLATE: &str = templates::FOOTER_TEMPLATE;
 const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
+
+/// Per-page frontmatter data exposed to Tera templates as the `page` variable.
+#[derive(serde::Serialize)]
+struct PageContext {
+  title:       Option<String>,
+  description: Option<String>,
+  author:      Option<String>,
+  template:    Option<String>,
+  toc:         Option<bool>,
+  extra:       serde_json::Value,
+}
+
+impl PageContext {
+  fn from_frontmatter(fm: Option<&PageFrontmatter>) -> Self {
+    let Some(fm) = fm else {
+      return Self {
+        title:       None,
+        description: None,
+        author:      None,
+        template:    None,
+        toc:         None,
+        extra:       serde_json::Value::Null,
+      };
+    };
+    let extra = fm
+      .extra
+      .as_ref()
+      .and_then(|t| serde_json::to_value(t).ok())
+      .unwrap_or(serde_json::Value::Null);
+    Self {
+      title: fm.title.clone(),
+      description: fm.description.clone(),
+      author: fm.author.clone(),
+      template: fm.template.clone(),
+      toc: fm.toc,
+      extra,
+    }
+  }
+}
 
 /// Cache for template content strings to avoid repeated disk I/O
 static TEMPLATE_CONTENT_CACHE: LazyLock<RwLock<HashMap<String, String>>> =
@@ -47,6 +89,14 @@ static TERA_CACHE: LazyLock<RwLock<HashMap<String, Tera>>> =
 /// # Returns
 ///
 /// A cached or newly created Tera instance with all required templates loaded
+///
+/// # Panics
+///
+/// Panics if the internal template cache `RwLock` is poisoned.
+#[allow(
+  clippy::expect_used,
+  reason = "RwLock poisoning is unrecoverable; panic is the correct response"
+)]
 fn setup_tera_templates(
   config: &Config,
   main_template_name: &str,
@@ -63,7 +113,7 @@ fn setup_tera_templates(
 
   // Check cache first
   {
-    let cache = TERA_CACHE.read().unwrap();
+    let cache = TERA_CACHE.read().expect("tera cache lock not poisoned");
     if let Some(tera) = cache.get(&cache_key) {
       return Ok(tera.clone());
     }
@@ -84,7 +134,7 @@ fn setup_tera_templates(
 
   // Cache the compiled Tera instance
   {
-    let mut cache = TERA_CACHE.write().unwrap();
+    let mut cache = TERA_CACHE.write().expect("tera cache lock not poisoned");
     cache.insert(cache_key, tera.clone());
   }
 
@@ -202,70 +252,99 @@ fn render_navbar_footer(
   Ok((navbar_html, footer_html))
 }
 
-/// Generate HTML for meta tags from config.
+/// Generate HTML for meta tags, merging site-wide config with per-page
+/// frontmatter.
+///
+/// Per-page `description` and `author` from frontmatter take precedence over
+/// the corresponding keys in the global `meta.tags` config.
 ///
 /// # Arguments
 ///
 /// * `config` - Site configuration
+/// * `frontmatter` - Optional per-page frontmatter
 ///
 /// # Returns
 ///
-/// HTML string of meta tags, or empty string if no meta tags configured
-fn generate_meta_tags_html(config: &Config) -> String {
-  get_meta_tags(config).map_or_else(String::new, |meta_tags| {
-    meta_tags
-      .iter()
-      .map(|(k, v)| {
-        format!(
-          "<meta name=\"{}\" content=\"{}\" />",
-          encode_text(k),
-          encode_text(v)
-        )
-      })
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  })
+/// HTML string of meta tags, or empty string if none are configured
+fn generate_meta_tags_html(
+  config: &Config,
+  frontmatter: Option<&PageFrontmatter>,
+) -> String {
+  let mut merged: std::collections::HashMap<String, String> =
+    get_meta_tags(config).cloned().unwrap_or_default();
+
+  if let Some(fm) = frontmatter {
+    if let Some(ref desc) = fm.description {
+      merged.insert("description".to_owned(), desc.clone());
+    }
+    if let Some(ref author) = fm.author {
+      merged.insert("author".to_owned(), author.clone());
+    }
+  }
+
+  if merged.is_empty() {
+    return String::new();
+  }
+
+  let mut pairs: Vec<_> = merged.iter().collect();
+  pairs.sort_by_key(|(k, _)| k.as_str());
+  pairs
+    .into_iter()
+    .map(|(k, v)| {
+      format!(
+        "<meta name=\"{}\" content=\"{}\" />",
+        encode_text(k),
+        encode_text(v)
+      )
+    })
+    .collect::<Vec<_>>()
+    .join("\n    ")
 }
 
 /// Render a documentation page
 ///
+/// # Arguments
+///
+/// * `config` - Site configuration
+/// * `content` - Rendered HTML content for the page body
+/// * `title` - Page title (may be overridden by `frontmatter.title`)
+/// * `headers` - Extracted headings used to build the table of contents
+/// * `rel_path` - Output path relative to `output_dir` (e.g. `foo/bar.html`)
+/// * `frontmatter` - Optional per-page frontmatter parsed from the source
+///   markdown file
+///
 /// # Errors
 ///
-/// Returns an error if the template cannot be rendered or written.
+/// Returns an error if the template cannot be rendered.
 pub fn render(
   config: &Config,
   content: &str,
   title: &str,
   headers: &[Header],
   rel_path: &Path,
+  frontmatter: Option<&PageFrontmatter>,
 ) -> Result<String> {
-  // Check for file-specific template (e.g., foo.html for foo.md)
-  let file_stem = rel_path
-    .file_stem()
-    .and_then(|s| s.to_str())
-    .unwrap_or("default");
-  let specific_template_name = format!("{file_stem}.html");
+  // Effective title: frontmatter wins over the caller-supplied value.
+  let effective_title = frontmatter
+    .and_then(|fm| fm.title.as_deref())
+    .unwrap_or(title);
 
-  // Try to load file-specific template first, then fall back to default
-  let template_content = if let Ok(specific_content) = get_template_content(
-    config,
-    &specific_template_name,
-    "", // no fallback for specific templates
-  ) {
-    if specific_content.is_empty() {
-      get_template_content(config, "default.html", DEFAULT_TEMPLATE)?
-    } else {
-      specific_content
-    }
+  // Resolve which template to use and its Tera-internal name.
+  // Priority: frontmatter.template > file-stem specific > default.html
+  let (template_name, template_content) =
+    resolve_doc_template(config, rel_path, frontmatter)?;
+
+  // Setup Tera with caching, keyed on the effective template name.
+  let tera = setup_tera_templates(config, &template_name, &template_content)?;
+
+  // Table of contents .
+  // Suppressed when frontmatter sets `toc = false`.
+  let toc = if frontmatter.is_none_or(|fm| fm.toc != Some(false)) {
+    generate_toc(headers)
   } else {
-    get_template_content(config, "default.html", DEFAULT_TEMPLATE)?
+    String::new()
   };
 
-  // Setup Tera with caching
-  let tera = setup_tera_templates(config, "default", &template_content)?;
-
-  // Generate navigation and metadata
-  let toc = generate_toc(headers);
   let doc_nav = generate_doc_nav(config, rel_path);
 
   // Check if options are available
@@ -279,8 +358,8 @@ pub fn render(
   let asset_paths = generate_asset_paths(rel_path);
   let root_prefix = calculate_root_relative_path(rel_path);
 
-  // Generate meta tags
-  let meta_tags_html = generate_meta_tags_html(config);
+  // Generate meta tags (per-page frontmatter overrides global config).
+  let meta_tags_html = generate_meta_tags_html(config, frontmatter);
   let opengraph_html = build_opengraph_html(config);
 
   // Render navbar and footer using helper
@@ -291,7 +370,7 @@ pub fn render(
   let mut tera_context =
     build_common_context(config, &asset_paths, &root_prefix, has_options);
   tera_context.insert("content", content);
-  tera_context.insert("title", title);
+  tera_context.insert("title", effective_title);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("toc", &toc);
@@ -299,10 +378,61 @@ pub fn render(
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
+  tera_context.insert("page", &PageContext::from_frontmatter(frontmatter));
 
   // Render the template
-  let html = tera.render("default", &tera_context)?;
+  let html = tera.render(&template_name, &tera_context)?;
   Ok(html)
+}
+
+/// Resolve the template name and content for a documentation page.
+///
+/// Priority: `frontmatter.template` → file-stem specific template →
+/// `default.html`.
+///
+/// # Returns
+///
+/// A `(tera_name, content)` pair where `tera_name` is both the key
+/// used in the Tera instance and in the template cache.
+fn resolve_doc_template(
+  config: &Config,
+  rel_path: &Path,
+  frontmatter: Option<&PageFrontmatter>,
+) -> Result<(String, String)> {
+  // Frontmatter-specified template takes highest priority.
+  if let Some(fm) = frontmatter
+    && let Some(ref tmpl) = fm.template
+  {
+    let lc = tmpl.to_ascii_lowercase();
+    let (file_name, tera_name) = if lc.ends_with(".html") {
+      (tmpl.clone(), tmpl[..tmpl.len() - 5].to_owned())
+    } else {
+      (format!("{tmpl}.html"), tmpl.clone())
+    };
+    let content = get_template_content(config, &file_name, "")?;
+    if !content.is_empty() {
+      return Ok((tera_name, content));
+    }
+    log::warn!(
+      "Frontmatter template '{file_name}' not found; falling back to default \
+       template resolution"
+    );
+  }
+
+  // File-stem specific template (e.g. foo.html for foo.md).
+  let file_stem = rel_path
+    .file_stem()
+    .and_then(|s| s.to_str())
+    .unwrap_or("default");
+  let specific_name = format!("{file_stem}.html");
+  let specific_content = get_template_content(config, &specific_name, "")?;
+  if !specific_content.is_empty() {
+    return Ok((file_stem.to_owned(), specific_content));
+  }
+
+  // Default template.
+  let content = get_template_content(config, "default.html", DEFAULT_TEMPLATE)?;
+  Ok(("default".to_owned(), content))
 }
 
 /// Render `NixOS` module options page
@@ -311,9 +441,17 @@ pub fn render(
 ///
 /// Returns an error if the options template or any required template cannot be
 /// rendered or written.
+///
+/// # Panics
+///
+/// Panics if an internal template or content cache `RwLock` is poisoned.
 #[allow(
   clippy::implicit_hasher,
   reason = "Standard HashMap sufficient for this use case"
+)]
+#[allow(
+  clippy::expect_used,
+  reason = "RwLock poisoning is unrecoverable; panic is the correct response"
 )]
 pub fn render_options(
   config: &Config,
@@ -337,7 +475,7 @@ pub fn render_options(
       .map_or_else(|| "default".to_string(), |p| p.display().to_string())
   );
   {
-    let mut cache = TERA_CACHE.write().unwrap();
+    let mut cache = TERA_CACHE.write().expect("tera cache lock not poisoned");
     cache.insert(cache_key, tera.clone());
   }
 
@@ -375,7 +513,7 @@ pub fn render_options(
   tera_context.insert("toc", &options_toc);
 
   // Add meta and opengraph tags
-  let meta_tags_html = generate_meta_tags_html(config);
+  let meta_tags_html = generate_meta_tags_html(config, None);
   let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
@@ -438,7 +576,7 @@ pub fn render_lib(
   tera_context.insert("doc_nav", &doc_nav);
 
   // Add meta and opengraph tags
-  let meta_tags_html = generate_meta_tags_html(config);
+  let meta_tags_html = generate_meta_tags_html(config, None);
   let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
@@ -751,7 +889,7 @@ pub fn render_search(
   tera_context.insert("generate_search", &true); // always true for search page
 
   // Add meta and opengraph tags
-  let meta_tags_html = generate_meta_tags_html(config);
+  let meta_tags_html = generate_meta_tags_html(config, None);
   let opengraph_html = build_opengraph_html(config);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
@@ -761,8 +899,12 @@ pub fn render_search(
   Ok(html)
 }
 
-/// Get the template content from file in template directory or use default
-/// Results are cached to avoid repeated disk I/O on every render
+/// Get the template content from file in template directory or use default.
+/// Results are cached to avoid repeated disk I/O on every render.
+#[allow(
+  clippy::expect_used,
+  reason = "RwLock poisoning is unrecoverable; panic is the correct response"
+)]
 fn get_template_content(
   config: &Config,
   template_name: &str,
@@ -776,19 +918,23 @@ fn get_template_content(
 
   // Check cache first (read lock)
   {
-    let cache = TEMPLATE_CONTENT_CACHE.read().unwrap();
+    let cache = TEMPLATE_CONTENT_CACHE
+      .read()
+      .expect("template content cache lock not poisoned");
     if let Some(cached) = cache.get(&cache_key) {
       return Ok(cached.clone());
     }
   }
 
-  // Load template content (not cached - this is the first call)
+  // Load template content (not cached, this is the first call)
   let content = load_template_content(config, template_name, fallback)?;
 
   // Insert into cache (write lock)
   {
-    let mut cache = TEMPLATE_CONTENT_CACHE.write().unwrap();
-    cache.entry(cache_key).or_insert(content.clone());
+    let mut cache = TEMPLATE_CONTENT_CACHE
+      .write()
+      .expect("template content cache lock not poisoned");
+    cache.entry(cache_key).or_insert_with(|| content.clone());
   }
 
   Ok(content)
@@ -1431,7 +1577,7 @@ fn add_example_value(html: &mut String, option: &NixOption) {
 /// Build the `OpenGraph` HTML string, handling `og:image` local paths by
 /// copying the file into `output_dir/assets/` and rewriting to a relative URL.
 fn build_opengraph_html(config: &Config) -> String {
-  if let Some(opengraph) = get_opengraph(config) {
+  get_opengraph(config).map_or_else(String::new, |opengraph| {
     opengraph
       .iter()
       .map(|(k, v)| {
@@ -1473,9 +1619,7 @@ fn build_opengraph_html(config: &Config) -> String {
       })
       .collect::<Vec<_>>()
       .join("\n    ")
-  } else {
-    String::new()
-  }
+  })
 }
 
 /// Get `OpenGraph` tags with backward compatibility
@@ -1545,6 +1689,7 @@ pub fn render_and_write(
     item.title.as_deref().unwrap_or(&config.title),
     &item.headers,
     rel_path,
+    item.frontmatter.as_ref(),
   )?;
 
   // Apply postprocessing if requested

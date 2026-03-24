@@ -55,6 +55,7 @@ fn test_search_widget_path_resolution() {
     "Test Page",
     &[],
     &nested_path,
+    None,
   )
   .expect("Failed to render page");
 
@@ -117,9 +118,15 @@ fn test_search_widget_at_root_level() {
   generate_search_index(&config, &[]).expect("Failed to generate search index");
 
   let root_path = PathBuf::from("test.html");
-  let html =
-    render(&config, "<p>Test content</p>", "Test Page", &[], &root_path)
-      .expect("Failed to render page");
+  let html = render(
+    &config,
+    "<p>Test content</p>",
+    "Test Page",
+    &[],
+    &root_path,
+    None,
+  )
+  .expect("Failed to render page");
 
   // Verify that search widget is present
   assert!(
