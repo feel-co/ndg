@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["collect_included_files","create_processor","extract_page_title","process_markdown_files"],"struct":["ProcessedMarkdown"]};
+window.SIDEBAR_ITEMS = {"fn":["collect_included_files","create_processor","extract_page_title","process_markdown_files","strip_frontmatter"],"struct":["PageFrontmatter","ProcessedMarkdown"]};

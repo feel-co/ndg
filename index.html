@@ -77,6 +77,7 @@
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
+<li><a href="FRONTMATTER.html">6. Frontmatter</a></li>
 <li><a href="search.html">Search</a></li>
 
               </ul>
@@ -99,6 +100,7 @@
 <li><a href="#generating-manpages">Generating Manpages</a>
 </ul><li><a href="#customization">Customization</a>
 <ul><li><a href="#sidebar-customization">Sidebar Customization</a>
+<li><a href="#per-page-frontmatter">Per-Page Frontmatter</a>
 <li><a href="#template-customization-made-easy">Template Customization Made Easy</a>
 </ul><li><a href="#using---integrating-with-nix">Using &amp; Integrating with Nix</a>
 <ul><li><a href="#using-ndg-with-nix">Using NDG with Nix</a>
@@ -164,6 +166,8 @@ ordering, and depth of option categories</li>
 </ul>
 </li>
 <li><strong>Fully customizable templates</strong> to match your project's style fully</li>
+<li><strong>Per-page frontmatter</strong> to override title, description, template, TOC, and
+pass arbitrary data to custom templates</li>
 <li><strong>Incredibly fast</strong> documentation generation for all scenarios
 <ul>
 <li><strong>Multi-threading support</strong> for fast generation of large documentation sets</li>
@@ -633,6 +637,50 @@ categories. This is particularly useful for large module systems like NixOS or
 Home Manager configurations.</p>
 <p>See the <a href="./docs/SIDEBAR">sidebar configuration guide</a> for complete documentation
 including examples, use cases, and best practices.</p>
+<h3 id="per-page-frontmatter">Per-Page Frontmatter</h3>
+<p>NDG supports TOML frontmatter blocks at the top of Markdown files, delimited by
+<code>+++</code>. Frontmatter lets you override site-wide defaults on a per-document basis
+without touching your configuration file.</p>
+<pre class="highlight"><code class="language-markdown"><span style="color:rgb(198,120,221);">+++</span><br><span style="color:rgb(198,120,221);">title&nbsp;=&nbsp;"Custom&nbsp;Page&nbsp;Title"</span><br><span style="color:rgb(198,120,221);">description&nbsp;=&nbsp;"A&nbsp;short&nbsp;description&nbsp;used&nbsp;in&nbsp;meta&nbsp;tags."</span><br><span style="color:rgb(198,120,221);">author&nbsp;=&nbsp;"Jane&nbsp;Doe"</span><br><span style="color:rgb(198,120,221);">template&nbsp;=&nbsp;"custom"&nbsp;&nbsp;&nbsp;#&nbsp;use&nbsp;custom.html&nbsp;instead&nbsp;of&nbsp;default.html</span><br><span style="color:rgb(198,120,221);">toc&nbsp;=&nbsp;false&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#&nbsp;suppress&nbsp;the&nbsp;table&nbsp;of&nbsp;contents</span><br><span style="color:rgb(198,120,221);"></span><br><span style="color:rgb(198,120,221);">[extra]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#&nbsp;arbitrary&nbsp;data,&nbsp;accessible&nbsp;as&nbsp;{{&nbsp;page.extra.key&nbsp;}}</span><br><span style="color:rgb(198,120,221);">version&nbsp;=&nbsp;"1.2.0"</span><br><span style="color:rgb(198,120,221);">status&nbsp;=&nbsp;"stable"</span><br><span style="color:rgb(198,120,221);">+++</span><br></code></pre>
+<p>Supported fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>title</code></td>
+<td>Overrides the H1-extracted title and <code>&lt;title&gt;</code> tag</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Per-page <code>&lt;meta name="description"&gt;</code> (overrides global)</td>
+</tr>
+<tr>
+<td><code>author</code></td>
+<td>Per-page <code>&lt;meta name="author"&gt;</code> (overrides global)</td>
+</tr>
+<tr>
+<td><code>template</code></td>
+<td>Template file to use instead of <code>default.html</code></td>
+</tr>
+<tr>
+<td><code>toc</code></td>
+<td>Set to <code>false</code> to suppress the table of contents</td>
+</tr>
+<tr>
+<td><code>extra</code></td>
+<td>Freeform TOML table, accessible in templates as <code>{{ page.extra.* }}</code></td>
+</tr>
+</tbody>
+</table>
+<p>All fields are also exposed in Tera templates via the <code>page</code> variable
+(<code>{{ page.title }}</code>, <code>{{ page.extra.key }}</code>, etc.), making them useful for
+building rich custom templates.</p>
+<p>See the <a href="./docs/FRONTMATTER">frontmatter guide</a> for complete documentation.</p>
 <h3 id="template-customization-made-easy">Template Customization Made Easy</h3>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Export&nbsp;default&nbsp;templates&nbsp;to&nbsp;a&nbsp;'templates'&nbsp;directory</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Export&nbsp;to&nbsp;a&nbsp;custom&nbsp;directory</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export</span>&nbsp;<span style="color:rgb(232,102,113);">--output-dir</span>&nbsp;<span style="color:rgb(232,102,113);">my-custom-templates</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Overwrite&nbsp;existing&nbsp;files&nbsp;if&nbsp;they&nbsp;exist</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">export</span>&nbsp;<span style="color:rgb(232,102,113);">--force</span><br></code></pre>
 <h4 id="custom-stylesheet">Custom Stylesheet</h4>
@@ -722,8 +770,8 @@ store. You can expose it under <code>packages.${system}</code> and build it with
 <code>nix build .#docs</code>, or use it as an input to other derivations.</p>
 <p>Builder options worth knowing:</p>
 <ul>
-<li><code>rawModules</code> and <code>evaluatedModules</code> are <strong>mutually exclusive</strong>. Use one or
-the other.</li>
+<li><code>rawModules</code> and <code>evaluatedModules</code> are <strong>mutually exclusive</strong>. Use one or the
+other.</li>
 <li><code>checkModules</code>, <code>moduleArgs</code>, and <code>specialArgs</code> are forwarded into module
 evaluation (via <code>lib.evalModules</code>).</li>
 <li><code>transformOptions</code> rewrites <code>options.json</code> declarations into source links
@@ -961,6 +1009,7 @@ if this is the case! <a href="#fnref-1" class="footnote-backref" data-footnote-b
 <li><a href="#generating-manpages">Generating Manpages</a>
 </ul><li><a href="#customization">Customization</a>
 <ul><li><a href="#sidebar-customization">Sidebar Customization</a>
+<li><a href="#per-page-frontmatter">Per-Page Frontmatter</a>
 <li><a href="#template-customization-made-easy">Template Customization Made Easy</a>
 </ul><li><a href="#using---integrating-with-nix">Using &amp; Integrating with Nix</a>
 <ul><li><a href="#using-ndg-with-nix">Using NDG with Nix</a>

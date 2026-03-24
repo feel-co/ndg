@@ -77,6 +77,7 @@
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
+<li><a href="FRONTMATTER.html">6. Frontmatter</a></li>
 <li><a href="search.html">Search</a></li>
 
               </ul>
@@ -101,6 +102,7 @@
 </ul><li><a href="#exporting-default-templates">Exporting Default Templates</a>
 <li><a href="#template-variables">Template Variables</a>
 <ul><li><a href="#common-variables--available-in-all-templates">Common Variables (Available in all templates)</a>
+<li><a href="#frontmatter-variables">Frontmatter Variables</a>
 <li><a href="#asset-paths">Asset Paths</a>
 <li><a href="#options-page-specific">Options Page Specific</a>
 </ul><li><a href="#template-syntax">Template Syntax</a>
@@ -186,6 +188,13 @@ back to <code>default.html</code></li>
 <p>This is useful when you want different layouts for different sections of your
 documentation. It can also be used for, e.g., <code>404.html</code> to generate your own
 404 page with Markdown.</p>
+<p>You can also select a template for a specific page using the <code>template</code> field
+in its <a href="./FRONTMATTER">frontmatter</a>:</p>
+<pre><code class="language-toml">+++
+template = "landing"   # uses landing.html from your template directory
++++
+</code></pre>
+<p>This takes priority over the file-stem template selection described above.</p>
 <h2 id="template-components">Template Components</h2>
 <h3 id="navbar-template--navbar-html">Navbar Template (<code>navbar.html</code>)</h3>
 <p>Customize the navigation bar that appears in the header of all pages.</p>
@@ -217,11 +226,11 @@ modify.</p>
 <h2 id="template-variables">Template Variables</h2>
 <h3 id="common-variables--available-in-all-templates">Common Variables (Available in all templates)</h3>
 <ul>
-<li><code>{{ title }}</code> - Page title</li>
+<li><code>{{ title }}</code> - Page title (reflects frontmatter <code>title</code> when set)</li>
 <li><code>{{ site_title }}</code> - Site title from configuration</li>
 <li><code>{{ footer_text }}</code> - Footer text from configuration</li>
 <li><code>{{ content|safe }}</code> - Rendered markdown content</li>
-<li><code>{{ toc|safe }}</code> - Table of contents HTML</li>
+<li><code>{{ toc|safe }}</code> - Table of contents HTML (empty when frontmatter sets <code>toc = false</code>)</li>
 <li><code>{{ doc_nav|safe }}</code> - Document navigation HTML</li>
 <li><code>{{ navbar_html|safe }}</code> - Rendered navbar HTML</li>
 <li><code>{{ footer_html|safe }}</code> - Rendered footer HTML</li>
@@ -231,6 +240,18 @@ modify.</p>
 <li><code>{{ meta_tags_html|safe }}</code> - Meta tags HTML</li>
 <li><code>{{ opengraph_html|safe }}</code> - OpenGraph tags HTML</li>
 </ul>
+<h3 id="frontmatter-variables">Frontmatter Variables</h3>
+<p>When a document contains a TOML frontmatter block, its fields are available
+via the <code>page</code> object:</p>
+<ul>
+<li><code>{{ page.title }}</code> - Frontmatter title (<code>null</code> if not set)</li>
+<li><code>{{ page.description }}</code> - Frontmatter description (<code>null</code> if not set)</li>
+<li><code>{{ page.author }}</code> - Frontmatter author (<code>null</code> if not set)</li>
+<li><code>{{ page.template }}</code> - Frontmatter template name (<code>null</code> if not set)</li>
+<li><code>{{ page.toc }}</code> - Frontmatter toc flag (<code>null</code> if not set)</li>
+<li><code>{{ page.extra }}</code> - Frontmatter extra table; individual keys via <code>{{ page.extra.key }}</code></li>
+</ul>
+<p>See the <a href="./FRONTMATTER">frontmatter guide</a> for full details.</p>
 <h3 id="asset-paths">Asset Paths</h3>
 <ul>
 <li><code>{{ stylesheet_path }}</code> - Path to stylesheet</li>
@@ -357,6 +378,7 @@ for <code>foo.md</code>)</li>
 </ul><li><a href="#exporting-default-templates">Exporting Default Templates</a>
 <li><a href="#template-variables">Template Variables</a>
 <ul><li><a href="#common-variables--available-in-all-templates">Common Variables (Available in all templates)</a>
+<li><a href="#frontmatter-variables">Frontmatter Variables</a>
 <li><a href="#asset-paths">Asset Paths</a>
 <li><a href="#options-page-specific">Options Page Specific</a>
 </ul><li><a href="#template-syntax">Template Syntax</a>

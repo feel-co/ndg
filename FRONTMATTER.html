@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frontmatter</title>
+     
+    <script>
+      // Apply sidebar state immediately to prevent flash
+      (function () {
+        try {
+          if (localStorage.getItem("sidebar-collapsed") === "true") {
+            document.documentElement.classList.add("sidebar-collapsed");
+          }
+        } catch (e) {
+          // localStorage unavailable
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/main.js"></script>
+    
+    <script>
+      window.searchNamespace = window.searchNamespace || {};
+      window.searchNamespace.rootPath = "";
+    </script>
+    <script defer src="assets/search.js"></script>
+    
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-left">
+          <h1 class="site-title">
+            <a href="index.html">NDG Documentation</a>
+          </h1>
+
+          <nav class="header-nav">
+  <ul>
+    <li style="display:none;">
+      <a href="options.html">Options</a>
+    </li>
+    
+    <li><a href="search.html">Search</a></li>
+    
+    <li><a href="/api/">API Documentation</a></li>
+  </ul>
+</nav>
+
+        </div>
+        
+        <div class="search-container">
+          <input type="text" id="search-input" placeholder="Search..." />
+          <div id="search-results" class="search-results"></div>
+        </div>
+        
+      </header>
+
+      <div class="layout">
+        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </div>
+        <nav class="sidebar">
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                <li><a href="index.html">1. Introduction</a></li>
+<li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
+<li><a href="SIDEBAR.html">3. Sidebar</a></li>
+<li><a href="SEARCH.html">4. Search</a></li>
+<li><a href="TEMPLATING.html">5. Templating Guide</a></li>
+<li><a href="FRONTMATTER.html">6. Frontmatter</a></li>
+<li><a href="search.html">Search</a></li>
+
+              </ul>
+            </div>
+          </details>
+
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                <li><a href="#frontmatter">Frontmatter</a>
+<ul><li><a href="#syntax">Syntax</a>
+<li><a href="#supported-fields">Supported Fields</a>
+<ul><li><a href="#title">title</a>
+<li><a href="#description">description</a>
+<li><a href="#author">author</a>
+<li><a href="#template">template</a>
+<li><a href="#toc">toc</a>
+<li><a href="#extra">extra</a>
+</ul><li><a href="#template-variables">Template Variables</a>
+<li><a href="#interaction-with-global-configuration">Interaction with Global Configuration</a>
+<li><a href="#examples">Examples</a>
+<ul><li><a href="#landing-page-without-a-toc">Landing page without a TOC</a>
+<li><a href="#page-with-a-custom-template-and-metadata">Page with a custom template and metadata</a>
+<li><a href="#passing-arbitrary-data-to-a-custom-template">Passing arbitrary data to a custom template</a>
+</li></ul></li></ul></li>
+              </ul>
+            </div>
+          </details>
+        </nav>
+
+        <main class="content"><html><head></head><body><h1 id="frontmatter">Frontmatter</h1>
+<p>NDG supports TOML frontmatter in Markdown documents, allowing you to set
+per-page metadata and control rendering behaviour without touching your
+site-wide configuration.</p>
+<h2 id="syntax">Syntax</h2>
+<p>Frontmatter must appear at the very beginning of the file, delimited by <code>+++</code> on
+its own line. The block is parsed as TOML and stripped from the document before
+the Markdown processor sees it.</p>
+<pre><code class="language-toml">+++
+title = "My Custom Page Title"
+description = "A short description of this page."
+author = "Jane Doe"
+template = "custom"
+toc = false
+
+[extra]
+version = "1.2.0"
+status = "stable"
++++
+
+# Regular markdown begins here
+</code></pre>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The opening <code>+++</code> must be the very first bytes of the file; no blank lines or
+spaces before it. Malformed TOML inside a valid <code>+++</code> block is logged as a
+warning and the block is ignored; the document is rendered as if no
+frontmatter were present.</p>
+</div>
+<h2 id="supported-fields">Supported Fields</h2>
+<h3 id="title"><code>title</code></h3>
+<p>Overrides the page title extracted from the first H1 heading. Affects:</p>
+<ul>
+<li>The <code>&lt;title&gt;</code> element in the page <code>&lt;head&gt;</code></li>
+<li>The <code>{{ title }}</code> template variable</li>
+<li>The <code>{{ page.title }}</code> template variable</li>
+</ul>
+<pre><code class="language-toml">+++
+title = "Getting Started with NDG"
++++
+</code></pre>
+<p>If omitted, NDG falls back to the first H1 heading, then to the site-wide
+<code>title</code> from your configuration.</p>
+<h3 id="description"><code>description</code></h3>
+<p>Per-page meta description. Injected as <code>&lt;meta name="description"&gt;</code> and, when
+OpenGraph is configured, as <code>og:description</code>. Takes precedence over any
+<code>description</code> key set in the global <code>[meta.tags]</code> configuration for this page
+only.</p>
+<pre><code class="language-toml">+++
+description = "A step-by-step guide to installing and configuring NDG."
++++
+</code></pre>
+<h3 id="author"><code>author</code></h3>
+<p>Per-page author. Injected as <code>&lt;meta name="author"&gt;</code>. Overrides any <code>author</code> key
+in the global <code>[meta.tags]</code> configuration for this page only.</p>
+<pre><code class="language-toml">+++
+author = "Jane Doe"
++++
+</code></pre>
+<h3 id="template"><code>template</code></h3>
+<p>Name of the template file to use for this page instead of the default template
+resolution. The <code>.html</code> extension is optional.</p>
+<pre><code class="language-toml">+++
+template = "landing"   # uses landing.html from your template directory
++++
+</code></pre>
+<p>Template resolution order when this field is set:</p>
+<ol>
+<li>The named template file from your template directory (e.g. <code>landing.html</code>)</li>
+<li>If the file is not found, falls back to the normal resolution: file-stem
+specific template, then <code>default.html</code></li>
+</ol>
+<h3 id="toc"><code>toc</code></h3>
+<p>Boolean. When set to <code>false</code>, suppresses the table of contents for this page.
+Useful for pages where a TOC would be redundant or distracting, such as landing
+pages or short reference pages.</p>
+<pre><code class="language-toml">+++
+toc = false
++++
+</code></pre>
+<p>Defaults to <code>true</code> (TOC is generated whenever headings are present).</p>
+<h3 id="extra"><code>extra</code></h3>
+<p>Arbitrary user-defined data, as a TOML table. The entire table is serialised and
+made available in Tera templates as <code>{{ page.extra }}</code>. Individual keys are
+accessible via <code>{{ page.extra.key }}</code>.</p>
+<pre><code class="language-toml">+++
+[extra]
+version = "1.2.0"
+status = "stable"
+badge = "https://example.com/badge.svg"
++++
+</code></pre>
+<p>In a custom template:</p>
+<pre class="highlight"><code class="language-html">{%&nbsp;if&nbsp;page.extra.version&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">span</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"version-badge"</span><span style="color:rgb(198,120,221);">&gt;</span>v{{&nbsp;page.extra.version&nbsp;}}<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">span</span><span style="color:rgb(198,120,221);">&gt;</span><br>{%&nbsp;endif&nbsp;%}&nbsp;{%&nbsp;if&nbsp;page.extra.status&nbsp;==&nbsp;"stable"&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">span</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"badge&nbsp;stable"</span><span style="color:rgb(198,120,221);">&gt;</span>Stable<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">span</span><span style="color:rgb(198,120,221);">&gt;</span><br>{%&nbsp;endif&nbsp;%}<br></code></pre>
+<h2 id="template-variables">Template Variables</h2>
+<p>All frontmatter fields are available in templates via the <code>page</code> object,
+regardless of whether they affect rendering automatically:</p>
+<!--markdownlint-disable MD013-->
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{ page.title }}</code></td>
+<td><code>String|null</code></td>
+<td>Frontmatter title, if set</td>
+</tr>
+<tr>
+<td><code>{{ page.description }}</code></td>
+<td><code>String|null</code></td>
+<td>Frontmatter description, if set</td>
+</tr>
+<tr>
+<td><code>{{ page.author }}</code></td>
+<td><code>String|null</code></td>
+<td>Frontmatter author, if set</td>
+</tr>
+<tr>
+<td><code>{{ page.template }}</code></td>
+<td><code>String|null</code></td>
+<td>Frontmatter template name, if set</td>
+</tr>
+<tr>
+<td><code>{{ page.toc }}</code></td>
+<td><code>Boolean|null</code></td>
+<td>Frontmatter toc setting, if set</td>
+</tr>
+<tr>
+<td><code>{{ page.extra }}</code></td>
+<td><code>Object|null</code></td>
+<td>Frontmatter extra table, if set</td>
+</tr>
+</tbody>
+</table>
+<!--markdownlint-enable MD013-->
+<p>Example template usage:</p>
+<pre class="highlight"><code class="language-html">{%&nbsp;if&nbsp;page.description&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">meta</span>&nbsp;<span style="color:rgb(229,192,123);">name</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"description"</span>&nbsp;<span style="color:rgb(229,192,123);">content</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"{{&nbsp;page.description&nbsp;}}"</span>&nbsp;<span style="color:rgb(198,120,221);">/&gt;</span><br>{%&nbsp;endif&nbsp;%}&nbsp;{%&nbsp;if&nbsp;page.extra&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">div</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"page-meta"</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;{%&nbsp;if&nbsp;page.extra.status&nbsp;%}<br>&nbsp;&nbsp;<span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">span</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"status"</span><span style="color:rgb(198,120,221);">&gt;</span>{{&nbsp;page.extra.status&nbsp;}}<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">span</span><span style="color:rgb(198,120,221);">&gt;</span><br>&nbsp;&nbsp;{%&nbsp;endif&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">div</span><span style="color:rgb(198,120,221);">&gt;</span><br>{%&nbsp;endif&nbsp;%}<br></code></pre>
+<h2 id="interaction-with-global-configuration">Interaction with Global Configuration</h2>
+<p>Per-page frontmatter fields take precedence over their site-wide equivalents for
+the affected page only. All other pages remain unaffected.</p>
+<table>
+<thead>
+<tr>
+<th>Frontmatter field</th>
+<th>Overrides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td><code>meta.tags.description</code></td>
+</tr>
+<tr>
+<td><code>author</code></td>
+<td><code>meta.tags.author</code></td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>First H1 heading</td>
+</tr>
+<tr>
+<td><code>template</code></td>
+<td>File-stem template, then <code>default.html</code></td>
+</tr>
+<tr>
+<td><code>toc</code></td>
+<td>Default TOC generation</td>
+</tr>
+</tbody>
+</table>
+<h2 id="examples">Examples</h2>
+<h3 id="landing-page-without-a-toc">Landing page without a TOC</h3>
+<pre><code class="language-toml">+++
+title = "Welcome"
+description = "NDG documentation home."
+toc = false
++++
+
+NDG is a fast documentation generator for Nix-adjacent projects...
+</code></pre>
+<h3 id="page-with-a-custom-template-and-metadata">Page with a custom template and metadata</h3>
+<pre><code class="language-toml">+++
+title = "API Reference"
+description = "Complete API reference for the ndg-commonmark library."
+template = "reference"
+author = "feel-co"
+
+[extra]
+version = "2.6.0"
++++
+</code></pre>
+<h3 id="passing-arbitrary-data-to-a-custom-template">Passing arbitrary data to a custom template</h3>
+<pre><code class="language-toml">+++
+[extra]
+callout = "This page documents experimental features."
+gh_issue = 42
++++
+</code></pre>
+<p>In your template:</p>
+<pre class="highlight"><code class="language-html">{%&nbsp;if&nbsp;page.extra.callout&nbsp;%}<br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">div</span>&nbsp;<span style="color:rgb(229,192,123);">class</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"callout&nbsp;warning"</span><span style="color:rgb(198,120,221);">&gt;</span>{{&nbsp;page.extra.callout&nbsp;}}<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">div</span><span style="color:rgb(198,120,221);">&gt;</span><br>{%&nbsp;endif&nbsp;%}<br></code></pre>
+</body></html></main>
+      </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            <li><a href="#frontmatter">Frontmatter</a>
+<ul><li><a href="#syntax">Syntax</a>
+<li><a href="#supported-fields">Supported Fields</a>
+<ul><li><a href="#title">title</a>
+<li><a href="#description">description</a>
+<li><a href="#author">author</a>
+<li><a href="#template">template</a>
+<li><a href="#toc">toc</a>
+<li><a href="#extra">extra</a>
+</ul><li><a href="#template-variables">Template Variables</a>
+<li><a href="#interaction-with-global-configuration">Interaction with Global Configuration</a>
+<li><a href="#examples">Examples</a>
+<ul><li><a href="#landing-page-without-a-toc">Landing page without a TOC</a>
+<li><a href="#page-with-a-custom-template-and-metadata">Page with a custom template and metadata</a>
+<li><a href="#passing-arbitrary-data-to-a-custom-template">Passing arbitrary data to a custom template</a>
+</li></ul></li></ul></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <footer>
+  <p>Generated with NDG</p>
+</footer>
+
+    </div>
+
+    
+  </body>
+</html>
