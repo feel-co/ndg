@@ -403,12 +403,12 @@ fn resolve_doc_template(
   if let Some(fm) = frontmatter
     && let Some(ref tmpl) = fm.template
   {
-    let file_name = if tmpl.to_ascii_lowercase().ends_with(".html") {
-      tmpl.clone()
+    let lc = tmpl.to_ascii_lowercase();
+    let (file_name, tera_name) = if lc.ends_with(".html") {
+      (tmpl.clone(), tmpl[..tmpl.len() - 5].to_owned())
     } else {
-      format!("{tmpl}.html")
+      (format!("{tmpl}.html"), tmpl.clone())
     };
-    let tera_name = tmpl.trim_end_matches(".html").to_owned();
     let content = get_template_content(config, &file_name, "")?;
     if !content.is_empty() {
       return Ok((tera_name, content));
