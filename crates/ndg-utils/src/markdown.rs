@@ -59,6 +59,15 @@ pub struct PageFrontmatter {
 fn strip_frontmatter(content: &str) -> (Option<PageFrontmatter>, String) {
   const DELIM: &str = "+++";
 
+  // Normalize CRLF to LF so that Windows-style line endings are handled.
+  let lf_content;
+  let content: &str = if content.contains("\r\n") {
+    lf_content = content.replace("\r\n", "\n");
+    &lf_content
+  } else {
+    content
+  };
+
   // The opening delimiter must be the very first thing in the file.
   let Some(after_open) = content.strip_prefix(DELIM) else {
     return (None, content.to_owned());
