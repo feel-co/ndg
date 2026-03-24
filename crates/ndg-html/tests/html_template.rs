@@ -57,8 +57,9 @@ fn render_basic_page_renders_html() {
   let title = "Test Page";
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("index.html");
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
   assert!(html.contains("<html"));
   assert!(html.contains("Test Page"));
   assert!(html.contains("Test Site"));
@@ -122,7 +123,7 @@ fn render_page_with_syntax_highlighting() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("syntax.html");
   let html =
-    template::render(&config, &html_content, title, &headers, rel_path)
+    template::render(&config, &html_content, title, &headers, rel_path, None)
       .expect("Should render HTML with syntax highlighting");
   assert!(
     contains_highlighted_code(&html),
@@ -148,8 +149,9 @@ fn render_page_with_headers_toc() {
     },
   ];
   let rel_path = Path::new("index.html");
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
   // Should include TOC anchors
   assert!(html.contains("sec1"));
   assert!(html.contains("subsec"));
@@ -218,8 +220,9 @@ fn render_page_contains_navbar_html() {
   let title = "Test Page";
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // Should contain navbar structure
   assert!(html.contains("header-nav") || html.contains("navbar"));
@@ -233,8 +236,9 @@ fn render_page_contains_footer_html() {
   let title = "Test Page";
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // Should contain footer with configured text
   assert!(html.contains("<footer"));
@@ -349,8 +353,9 @@ fn render_page_with_custom_template_dir() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML with custom templates");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML with custom templates");
 
   // Should contain custom navbar and footer
   assert!(html.contains("Custom Nav"));
@@ -394,8 +399,9 @@ fn render_page_uses_per_file_template() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("special.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML with special template");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML with special template");
 
   // Should use the special template
   assert!(html.contains("special-page"));
@@ -437,8 +443,9 @@ fn render_page_falls_back_to_default_template() {
   // Request a file-specific template that doesn't exist
   let rel_path = Path::new("nonexistent.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML with default template");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML with default template");
 
   // Should fall back to default template
   assert!(html.contains("default-page"));
@@ -458,8 +465,9 @@ fn navbar_respects_search_generation_flag() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // Should contain search link when enabled
   assert!(html.contains("Search") || html.contains("search"));
@@ -470,7 +478,7 @@ fn navbar_respects_search_generation_flag() {
     ..Default::default()
   });
   let html_no_search =
-    template::render(&config, content, title, &headers, rel_path)
+    template::render(&config, content, title, &headers, rel_path, None)
       .expect("Should render HTML");
 
   // The navbar might still contain the word "search" in template structure,
@@ -489,8 +497,9 @@ fn navbar_shows_options_link_when_configured() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // Should contain options link
   assert!(html.contains("Options") || html.contains("options"));
@@ -506,8 +515,9 @@ fn footer_text_is_customizable() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // Should contain custom footer text
   assert!(html.contains("Copyright 2025 - Custom Footer"));
@@ -546,8 +556,9 @@ fn sidebar_numbering_excludes_special_files() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // Special files (index.md, README.md) should NOT have numbers
   assert!(
@@ -591,7 +602,7 @@ fn sidebar_numbering_special_files_included() {
   config.input_dir = Some(input_dir.to_path_buf());
   config.sidebar = Some(SidebarConfig {
     numbered:             true,
-    number_special_files: true, // Enable numbering for special files
+    number_special_files: true, // enable numbering for special files
     ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
     matches:              vec![],
     options:              None,
@@ -602,8 +613,9 @@ fn sidebar_numbering_special_files_included() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // All files should be numbered in exact sequence: special files first
   // (alphabetically), then regular files (alphabetically) Verify exact
@@ -664,8 +676,9 @@ fn sidebar_numbering_disabled_no_numbers() {
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // No files should have numbers when numbering is disabled
   assert!(
@@ -754,6 +767,7 @@ This is a standalone page.
       item.title.as_deref().unwrap_or(&config.title),
       &item.headers,
       rel_path,
+      item.frontmatter.as_ref(),
     )
     .expect("Failed to render HTML");
 
@@ -782,8 +796,9 @@ This is a standalone page.
   let headers: Vec<Header> = vec![];
   let rel_path = Path::new("test.html");
 
-  let html = template::render(&config, content, title, &headers, rel_path)
-    .expect("Should render HTML");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("Should render HTML");
 
   // The sidebar should contain links to main.md and standalone.md
   assert!(

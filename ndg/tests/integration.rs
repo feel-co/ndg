@@ -156,6 +156,7 @@ fn test_sidebar_integration() {
     "Test",
     &[],
     Path::new("test.md"),
+    None,
   )
   .expect("Failed to render HTML in test");
 
@@ -215,6 +216,7 @@ fn test_sidebar_integration() {
     "Test",
     &[],
     Path::new("test.md"),
+    None,
   )
   .expect("Failed to render HTML with custom config in test");
 
@@ -264,6 +266,7 @@ fn test_sidebar_integration() {
     "Installation Guide",
     &[],
     Path::new("installation.md"),
+    None,
   )
   .expect("Failed to render HTML with regex config in test");
 

@@ -301,6 +301,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
       &config.title,
       &[],
       Path::new("index.html"),
+      None,
     )?;
     fs::write(&index_path, html).wrap_err_with(|| {
       format!("Failed to write index.html to {}", index_path.display())

@@ -62,6 +62,7 @@ fn test_search_path_resolution_from_subdirectory() {
     "Test Page",
     &[],
     &nested_path,
+    None,
   )
   .expect("Failed to render page");
 
@@ -113,9 +114,15 @@ fn test_search_path_resolution_from_root() {
 
   // Render a page at root level
   let root_path = PathBuf::from("test.html");
-  let html =
-    render(&config, "<p>Test content</p>", "Test Page", &[], &root_path)
-      .expect("Failed to render page");
+  let html = render(
+    &config,
+    "<p>Test content</p>",
+    "Test Page",
+    &[],
+    &root_path,
+    None,
+  )
+  .expect("Failed to render page");
 
   // Verify that root_prefix is empty for root level
   assert!(
