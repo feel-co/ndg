@@ -1217,7 +1217,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1054432bae2f14e0061e33d23402fbaa67a921d319d56adc6bcf887ddad1cbc2"
 dependencies = [
  "log",
- "markup5ever 0.38.0",
+ "markup5ever",
 ]
 
 [[package]]
@@ -1561,17 +1561,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "markup5ever"
-version = "0.39.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7122d987ec5f704ee56f6e5b41a7d93722e9aae27ae07cafa4036c4d3f9757de"
-dependencies = [
- "log",
- "tendril",
- "web_atoms",
-]
-
-[[package]]
 name = "matches"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1666,7 +1655,7 @@ dependencies = [
  "html-escape",
  "kuchikikiki",
  "log",
- "markup5ever 0.39.0",
+ "markup5ever",
  "regex",
  "serde",
  "serde_json",
@@ -1787,6 +1776,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "toml 1.0.6+spec-1.1.0",
  "walkdir",
 ]
 
