@@ -11,6 +11,10 @@ repository.workspace   = true
 categories.workspace   = true
 keywords.workspace     = true
 
+[features]
+default = [  ]
+serve   = [ "dep:axum", "dep:tokio", "dep:tower-http" ]
+
 [dependencies]
 ndg-commonmark.workspace = true
 ndg-config.workspace     = true
@@ -35,6 +39,10 @@ serde_json.workspace          = true
 tera.workspace                = true
 thiserror.workspace           = true
 toml.workspace                = true
+
+axum       = { workspace = true, optional = true, features = [ "tokio", "http1" ] }
+tokio      = { workspace = true, optional = true, features = [ "rt-multi-thread", "net" ] }
+tower-http = { workspace = true, optional = true, features = [ "fs" ] }
 
 [dev-dependencies]
 comrak.workspace    = true

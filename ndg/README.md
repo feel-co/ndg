@@ -46,6 +46,8 @@ several features such as:
   pass arbitrary data to custom templates
 - **Incredibly fast** documentation generation for all scenarios
   - **Multi-threading support** for fast generation of large documentation sets
+- **Local development server** (optional `serve` feature) to preview generated
+  documentation in your browser without a separate server setup
 
 [^1]: It is worth noting that Markdown -> Manpage conversion is sometimes
     fragile, and Nixpkgs additions may break occasionally. Please open an issue
@@ -238,6 +240,9 @@ search and code highlighting. Two example flags accepted by `ndg html` are:
   omitted).
 - `--highlight-code`: Enables syntax highlighting for code blocks (disabled by
   default if omitted).
+- `--serve`: _(requires the `serve` feature at compile time)_ Starts a local
+  HTTP server after generation to preview the output in your browser. Defaults
+  to port `3000`; override with `--serve-port <PORT>`.
 
 Example usage:
 

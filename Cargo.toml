@@ -61,6 +61,10 @@ oxc_minifier  = "0.122.0"
 oxc_parser    = "0.122.0"
 oxc_span      = "0.122.0"
 
+axum       = { version = "0.8.8", default-features = false }
+tokio      = { version = "1.50.0", default-features = false }
+tower-http = { version = "0.6.8", default-features = false }
+
 proc-macro2 = "1.0.106"
 quote       = "1.0.45"
 syn         = { version = "2.0.117", features = [ "full", "derive" ] }
