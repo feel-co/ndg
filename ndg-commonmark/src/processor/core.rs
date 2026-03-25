@@ -1,8 +1,7 @@
 //! Core implementation of the Markdown processor.
 //!
-//! This module contains the main implementation of `MarkdownProcessor` and its
-//! methods, focused on the core rendering pipeline and configuration
-//! management.
+//! Main implementation of `MarkdownProcessor` and its methods focused on the
+//! core rendering pipeline and configuration management.
 use std::{
   collections::HashMap,
   path::{Path, PathBuf},
@@ -30,21 +29,8 @@ pub enum DomError {
 /// Result type for DOM operations.
 pub type DomResult<T> = Result<T, DomError>;
 
-/// Safely select DOM elements with graceful error handling.
-fn safe_select(
-  document: &kuchikikiki::NodeRef,
-  selector: &str,
-) -> Vec<kuchikikiki::NodeRef> {
-  match document.select(selector) {
-    Ok(selections) => selections.map(|sel| sel.as_node().clone()).collect(),
-    Err(e) => {
-      log::warn!("DOM selector '{selector}' failed: {e:?}");
-      Vec::new()
-    },
-  }
-}
-
 use super::{
+  dom::safe_select,
   process::process_safe,
   types::{
     AstTransformer,

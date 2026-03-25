@@ -3,21 +3,7 @@ use std::{fmt::Write, fs, path::Path};
 
 use html_escape::encode_text;
 
-use super::process::process_safe;
-
-/// Safely select DOM elements with graceful error handling.
-fn safe_select(
-  document: &kuchikikiki::NodeRef,
-  selector: &str,
-) -> Vec<kuchikikiki::NodeRef> {
-  match document.select(selector) {
-    Ok(selections) => selections.map(|sel| sel.as_node().clone()).collect(),
-    Err(e) => {
-      log::warn!("DOM selector '{selector}' failed: {e:?}");
-      Vec::new()
-    },
-  }
-}
+use super::{dom::safe_select, process::process_safe};
 
 /// Apply GitHub Flavored Markdown (GFM) extensions to the input markdown.
 ///
@@ -605,17 +591,18 @@ fn find_list_item_anchor(trimmed: &str) -> Option<usize> {
     }
   }
 
-  // Check for ordered list: "1. []{#id}" or "123. []{#id}"
-  let mut i = 0;
-  while i < trimmed.len()
-    && trimmed.chars().nth(i).unwrap_or(' ').is_ascii_digit()
+  // Check for ordered list: "1. []{#id}" or "123. []{#id}".
+  let digit_end = trimmed
+    .char_indices()
+    .find(|(_, c)| !c.is_ascii_digit())
+    .map_or(trimmed.len(), |(i, _)| i);
+  if digit_end > 0
+    && digit_end < trimmed.len() - 1
+    && trimmed.as_bytes().get(digit_end) == Some(&b'.')
   {
-    i += 1;
-  }
-  if i > 0 && i < trimmed.len() - 1 && trimmed.chars().nth(i) == Some('.') {
-    let after_marker = &trimmed[i + 1..];
+    let after_marker = &trimmed[digit_end + 1..];
     if after_marker.starts_with(" []{#") {
-      return Some(i + 2);
+      return Some(digit_end + 2);
     }
   }
 

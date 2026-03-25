@@ -295,12 +295,6 @@ impl MarkdownOptionsBuilder {
   pub fn build(self) -> MarkdownOptions {
     self.options
   }
-
-  /// Create options from external configuration with fluent interface.
-  #[must_use]
-  pub fn from_external_config<T>(_config: &T) -> Self {
-    Self::new()
-  }
 }
 
 impl Default for MarkdownOptionsBuilder {

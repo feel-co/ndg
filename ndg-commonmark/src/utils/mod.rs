@@ -1,6 +1,6 @@
 use std::{
   collections::HashMap,
-  sync::{Mutex, OnceLock},
+  sync::{LazyLock, OnceLock, RwLock},
 };
 pub mod codeblock;
 
@@ -22,20 +22,20 @@ pub enum UtilError {
 /// Result type for utility operations.
 pub type UtilResult<T> = Result<T, UtilError>;
 
-/// Slugify a string for use as an anchor ID.
-/// Converts to lowercase, replaces non-alphanumeric characters with dashes,
-/// and trims leading/trailing dashes.
+/// Slugify a string for use as an anchor ID. Converts to lowercase, replaces
+/// non-alphanumeric characters with dashes, and trims leading/trailing dashes.
 #[must_use]
 pub fn slugify(text: &str) -> String {
-  static CACHE: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
-  let mut cache = CACHE
-    .lock()
-    .unwrap_or_else(std::sync::PoisonError::into_inner);
+  static CACHE: LazyLock<RwLock<HashMap<String, String>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
-  if let Some(ref map) = *cache
-    && let Some(cached) = map.get(text)
   {
-    return cached.clone();
+    let cache = CACHE
+      .read()
+      .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(cached) = cache.get(text) {
+      return cached.clone();
+    }
   }
 
   let result = text
@@ -44,9 +44,11 @@ pub fn slugify(text: &str) -> String {
     .trim_matches('-')
     .to_string();
 
-  let map = cache.get_or_insert_with(HashMap::new);
-  if map.len() < 2048 {
-    map.insert(text.to_string(), result.clone());
+  let mut cache = CACHE
+    .write()
+    .unwrap_or_else(std::sync::PoisonError::into_inner);
+  if cache.len() < 2048 {
+    cache.insert(text.to_string(), result.clone());
   }
 
   result
