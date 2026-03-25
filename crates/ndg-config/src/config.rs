@@ -147,6 +147,25 @@ pub struct Config {
   #[serde(default)]
   pub nixdoc_inputs: Vec<PathBuf>,
 
+  /// User-defined variables available in all Tera templates.
+  ///
+  /// Variables defined here are injected into every template context and can
+  /// be referenced as `{{ key }}`. Built-in variables (e.g. `site_title`,
+  /// `content`) always take precedence and cannot be overridden.
+  ///
+  /// # Example
+  ///
+  /// ```toml
+  /// # ndg.toml
+  /// [vars]
+  /// project_version = "1.2.3"
+  /// repo_url = "https://github.com/org/repo"
+  /// ```
+  ///
+  /// In templates: `{{ project_version }}`, `{{ repo_url }}`
+  #[serde(default)]
+  pub vars: HashMap<String, String>,
+
   #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
   #[serde(skip_serializing_if = "Option::is_none")]
   pub opengraph: Option<HashMap<String, String>>,
@@ -185,6 +204,7 @@ impl Default for Config {
       sidebar:           None,
       postprocess:       None,
       nixdoc_inputs:     Vec::new(),
+      vars:              HashMap::new(),
       opengraph:         None,
       meta_tags:         None,
     }
