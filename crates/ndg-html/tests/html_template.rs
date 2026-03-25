@@ -838,3 +838,70 @@ This is a standalone page.
     "HTML file should be generated for standalone.md"
   );
 }
+
+#[test]
+fn render_page_exposes_user_defined_vars() {
+  let mut config = minimal_config();
+  config
+    .vars
+    .insert("project_version".to_string(), "1.2.3".to_string());
+  config
+    .vars
+    .insert("repo_url".to_string(), "https://example.com".to_string());
+
+  // Write a minimal template that references the user vars.
+  let tmp = TempDir::new().expect("create tempdir");
+  let template_path = tmp.path().join("default.html");
+  fs::write(
+    &template_path,
+    "version={{ project_version }} url={{ repo_url }}",
+  )
+  .expect("write template");
+  config.template_path = Some(template_path);
+
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let html =
+    template::render(&config, "body", "Title", &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains("version=1.2.3"),
+    "user var project_version missing"
+  );
+  assert!(
+    html.contains("url=https://example.com"),
+    "user var repo_url missing"
+  );
+}
+
+#[test]
+fn render_page_builtin_vars_take_precedence_over_user_vars() {
+  let mut config = minimal_config();
+  // Attempt to shadow the built-in site_title via user vars.
+  config
+    .vars
+    .insert("site_title".to_string(), "SHADOWED".to_string());
+
+  let tmp = TempDir::new().expect("create tempdir");
+  let template_path = tmp.path().join("default.html");
+  fs::write(&template_path, "{{ site_title }}").expect("write template");
+  config.template_path = Some(template_path);
+
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let html =
+    template::render(&config, "body", "Title", &headers, rel_path, None)
+      .expect("render should succeed");
+
+  // config.title is "Test Site" (from minimal_config). Built-ins are inserted
+  // after user vars in build_common_context, so they always win.
+  assert!(
+    html.contains("Test Site"),
+    "built-in site_title should not be overridden by user vars"
+  );
+  assert!(
+    !html.contains("SHADOWED"),
+    "user var must not shadow built-in"
+  );
+}

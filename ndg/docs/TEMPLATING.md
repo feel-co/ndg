@@ -180,6 +180,30 @@ ndg export-templates --output ./templates --force
 - `{{ meta_tags_html|safe }}` - Meta tags HTML
 - `{{ opengraph_html|safe }}` - OpenGraph tags HTML
 
+### User-Defined Variables
+
+You can define arbitrary site-wide variables in `ndg.toml` under the `[vars]`
+table. These are injected into every template and accessible like any other
+variable.
+
+```toml
+[vars]
+project_version = "1.2.3"
+repo_url = "https://github.com/org/repo"
+```
+
+In any template:
+
+```html
+<span>Version: {{ project_version }}</span>
+<a href="{{ repo_url }}">Source</a>
+```
+
+> [!NOTE]
+> Built-in variables (e.g. `site_title`, `content`, `footer_text`) always take
+> precedence. User-defined variables with the same name as a built-in will be
+> silently ignored.
+
 ### Frontmatter Variables
 
 When a document contains a TOML frontmatter block, its fields are available

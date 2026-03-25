@@ -161,6 +161,11 @@ fn build_common_context(
 ) -> tera::Context {
   let mut ctx = tera::Context::new();
 
+  // Insert user-defined variables first so built-in variables always win.
+  for (key, value) in &config.vars {
+    ctx.insert(key.as_str(), value);
+  }
+
   ctx.insert("site_title", &config.title);
   ctx.insert("footer_text", &config.footer_text);
   ctx.insert("has_options", has_options);
@@ -228,6 +233,9 @@ fn render_navbar_footer(
 ) -> Result<(String, String)> {
   // Render navbar
   let mut navbar_ctx = tera::Context::new();
+  for (key, value) in &config.vars {
+    navbar_ctx.insert(key.as_str(), value);
+  }
   navbar_ctx.insert("has_options", has_options);
   navbar_ctx.insert("generate_search", &config.is_search_enabled());
   navbar_ctx.insert(
@@ -246,6 +254,9 @@ fn render_navbar_footer(
 
   // Render footer
   let mut footer_ctx = tera::Context::new();
+  for (key, value) in &config.vars {
+    footer_ctx.insert(key.as_str(), value);
+  }
   footer_ctx.insert("footer_text", &config.footer_text);
   let footer_html = tera.render("footer", &footer_ctx)?;
 

@@ -50,6 +50,9 @@ changes.
   `template`, and `toc` to override site-wide defaults per page. An `extra`
   table is also supported and exposed to Tera templates as `{{ page.extra.* }}`
   for use in custom templates.
+- User-defined template variables via the `[vars]` table in `ndg.toml`. Keys
+  are injected into every Tera template context and can be referenced as
+  `{{ key }}`. Built-in variables always take precedence.
 
 ### Changed
 
