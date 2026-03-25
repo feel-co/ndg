@@ -102,6 +102,7 @@
 </ul><li><a href="#exporting-default-templates">Exporting Default Templates</a>
 <li><a href="#template-variables">Template Variables</a>
 <ul><li><a href="#common-variables--available-in-all-templates">Common Variables (Available in all templates)</a>
+<li><a href="#user-defined-variables">User-Defined Variables</a>
 <li><a href="#frontmatter-variables">Frontmatter Variables</a>
 <li><a href="#asset-paths">Asset Paths</a>
 <li><a href="#options-page-specific">Options Page Specific</a>
@@ -240,6 +241,22 @@ modify.</p>
 <li><code>{{ meta_tags_html|safe }}</code> - Meta tags HTML</li>
 <li><code>{{ opengraph_html|safe }}</code> - OpenGraph tags HTML</li>
 </ul>
+<h3 id="user-defined-variables">User-Defined Variables</h3>
+<p>You can define arbitrary site-wide variables in <code>ndg.toml</code> under the <code>[vars]</code>
+table. These are injected into every template and accessible like any other
+variable.</p>
+<pre><code class="language-toml">[vars]
+project_version = "1.2.3"
+repo_url = "https://github.com/org/repo"
+</code></pre>
+<p>In any template:</p>
+<pre class="highlight"><code class="language-html"><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">span</span><span style="color:rgb(198,120,221);">&gt;</span>Version:&nbsp;{{&nbsp;project_version&nbsp;}}<span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">span</span><span style="color:rgb(198,120,221);">&gt;</span><br><span style="color:rgb(198,120,221);">&lt;</span><span style="color:rgb(198,120,221);">a</span>&nbsp;<span style="color:rgb(229,192,123);">href</span><span style="color:rgb(171,178,191);">=</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(232,102,113);">{{&nbsp;repo_url&nbsp;}}</span><span style="color:rgb(152,195,121);">"</span><span style="color:rgb(198,120,221);">&gt;</span><span style="color:rgb(97,175,239);">Source</span><span style="color:rgb(198,120,221);">&lt;/</span><span style="color:rgb(198,120,221);">a</span><span style="color:rgb(198,120,221);">&gt;</span><br></code></pre>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Built-in variables (e.g. <code>site_title</code>, <code>content</code>, <code>footer_text</code>) always take
+precedence. User-defined variables with the same name as a built-in will be
+silently ignored.</p>
+</div>
 <h3 id="frontmatter-variables">Frontmatter Variables</h3>
 <p>When a document contains a TOML frontmatter block, its fields are available
 via the <code>page</code> object:</p>
@@ -378,6 +395,7 @@ for <code>foo.md</code>)</li>
 </ul><li><a href="#exporting-default-templates">Exporting Default Templates</a>
 <li><a href="#template-variables">Template Variables</a>
 <ul><li><a href="#common-variables--available-in-all-templates">Common Variables (Available in all templates)</a>
+<li><a href="#user-defined-variables">User-Defined Variables</a>
 <li><a href="#frontmatter-variables">Frontmatter Variables</a>
 <li><a href="#asset-paths">Asset Paths</a>
 <li><a href="#options-page-specific">Options Page Specific</a>
