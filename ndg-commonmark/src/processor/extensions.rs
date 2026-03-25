@@ -535,11 +535,6 @@ fn process_line_myst_autolinks(line: &str) -> String {
 /// # Returns
 ///
 /// The processed markdown with inline anchors converted to HTML spans
-///
-/// # Panics
-///
-/// Panics if a code fence marker line is empty (which should not occur in valid
-/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_inline_anchors(content: &str) -> String {
@@ -710,15 +705,12 @@ fn process_line_anchors(line: &str) -> String {
 /// code fences.
 ///
 /// # Arguments
+///
 /// * `content` - The markdown content to process
 ///
 /// # Returns
+///
 /// The processed markdown with block elements converted to HTML
-///
-/// # Panics
-///
-/// Panics if a code fence marker line is empty (which should not occur in valid
-/// markdown).
 #[cfg(feature = "nixpkgs")]
 #[must_use]
 pub fn process_block_elements(content: &str) -> String {
@@ -801,19 +793,22 @@ fn parse_github_callout(line: &str) -> Option<(String, String)> {
 ///
 /// Per `CommonMark` spec, an ATX header requires 1-6 '#' characters followed by
 /// either:
+///
 /// - A whitespace character (space, tab, etc.)
 /// - End of line (the string ends)
 ///
 /// # Arguments
+///
 /// * `line` - The line to check
 ///
 /// # Returns
+///
 /// `true` if the line starts with a valid ATX header marker
 fn is_atx_header(line: &str) -> bool {
   let mut chars = line.chars();
   let mut hash_count = 0;
 
-  // count leading '#' characters (max 6)
+  // Count leading '#' characters (max 6)
   while let Some(c) = chars.next() {
     if c == '#' {
       hash_count += 1;
@@ -821,13 +816,13 @@ fn is_atx_header(line: &str) -> bool {
         return false;
       }
     } else {
-      // found a non-'#' character, check if it's whitespace or we're at EOL
+      // Found a non-'#' character, check if it's whitespace or we're at EOL
       return (1..=6).contains(&hash_count)
         && (c.is_whitespace() || chars.as_str().is_empty());
     }
   }
 
-  // reached end of string, check if we have 1-6 hashes
+  // Reached end of string, check if we have 1-6 hashes
   (1..=6).contains(&hash_count)
 }
 
@@ -873,7 +868,7 @@ fn collect_github_callout_content(
       }
 
       // Lazy continuation
-      // Mind yu, "lazy" doesn't refer to me being lazy but the GFM feature for
+      // Mind you, "lazy" doesn't refer to me being lazy but the GFM feature for
       // a line without `>` that continues the blockquote
       // paragraph
       trimmed
@@ -903,7 +898,7 @@ fn parse_fenced_admonition_start(
 
   // Find the closing brace
   if let Some(close_brace) = after_colons.find('}') {
-    let content = &after_colons[2..close_brace]; // Skip "{."
+    let content = &after_colons[2..close_brace]; // skip "{."
 
     // Parse type and optional ID
     let parts: Vec<&str> = content.split_whitespace().collect();
@@ -911,7 +906,7 @@ fn parse_fenced_admonition_start(
       let id = parts
         .iter()
         .find(|part| part.starts_with('#'))
-        .map(|id_part| id_part[1..].to_string()); // Remove '#'
+        .map(|id_part| id_part[1..].to_string()); // remove '#'
 
       return Some((adm_type.to_string(), id));
     }
@@ -922,9 +917,11 @@ fn parse_fenced_admonition_start(
 
 /// Collect content until closing :::
 ///
-/// Returns a tuple of (`admonition_content`, `trailing_content`).
-/// If there's content after the closing `:::` on the same line,
-/// it's returned as `trailing_content`.
+/// # Returns
+///
+/// Tuple of (`admonition_content`, `trailing_content`). If there's content
+/// after the closing `:::` on the same line, it's returned as
+/// `trailing_content`.
 fn collect_fenced_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
 ) -> (String, Option<String>) {
@@ -1033,17 +1030,17 @@ fn render_figure(id: Option<&str>, title: &str, content: &str) -> String {
   )
 }
 
-/// Process manpage references in HTML content.
-///
-/// This function processes manpage references by finding span elements with
-/// manpage-reference class and converting them to links when URLs are
-/// available.
+/// Process manpage references in HTML content. Pocesses manpage references by
+/// finding span elements with manpage-reference class and converting them to
+/// links when URLs are available.
 ///
 /// # Arguments
+///
 /// * `html` - The HTML content to process
 /// * `manpage_urls` - Optional mapping of manpage names to URLs
 ///
 /// # Returns
+///
 /// The processed HTML with manpage references converted to links
 #[cfg(feature = "nixpkgs")]
 #[must_use]
@@ -1110,7 +1107,7 @@ pub fn process_manpage_references(
 
       let mut out = Vec::new();
       let _ = document.serialize(&mut out);
-      String::from_utf8(out).unwrap_or_default()
+      String::from_utf8(out).unwrap_or_else(|_| html.to_string())
     },
     // Return original HTML on error
     "",
@@ -1175,9 +1172,10 @@ pub fn process_option_references(
         }
 
         if !is_already_option_ref {
-          // Check if validation is enabled and option is valid
+          // Check if validation is enabled and option is valid. If no
+          // validation set, link all options
           let should_link =
-            valid_options.is_none_or(|opts| opts.contains(code_text.as_str())); // If no validation set, link all options
+            valid_options.is_none_or(|opts| opts.contains(code_text.as_str()));
 
           if should_link {
             let option_id = format!("option-{}", code_text.replace('.', "-"));
@@ -1214,7 +1212,7 @@ pub fn process_option_references(
 
       let mut out = Vec::new();
       let _ = document.serialize(&mut out);
-      String::from_utf8(out).unwrap_or_default()
+      String::from_utf8(out).unwrap_or_else(|_| html.to_string())
     },
     // Return original HTML on error
     "",

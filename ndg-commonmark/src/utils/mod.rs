@@ -70,7 +70,10 @@ pub fn extract_markdown_title(content: &str) -> Option<String> {
   let root = parse_document(&arena, content, &options);
 
   for node in root.descendants() {
-    if let NodeValue::Heading(_) = &node.data.borrow().value {
+    if let NodeValue::Heading(NodeHeading { level, .. }) =
+      &node.data.borrow().value
+      && *level == 1
+    {
       let text = extract_inline_text_from_node(node);
       if !text.trim().is_empty() {
         return Some(text.trim().to_string());
@@ -203,22 +206,6 @@ pub fn clean_anchor_patterns(text: &str) -> String {
     })
   });
   anchor_pattern.replace_all(text.trim(), "").to_string()
-}
-
-/// Apply a regex transformation to HTML elements using the provided function.
-/// Used by the markdown processor for HTML element transformations.
-pub fn process_html_elements<F>(
-  html: &str,
-  regex: &Regex,
-  transform: F,
-) -> String
-where
-  F: Fn(&regex::Captures) -> String,
-{
-  match regex.replace_all(html, transform) {
-    std::borrow::Cow::Borrowed(_) => html.to_string(),
-    std::borrow::Cow::Owned(s) => s,
-  }
 }
 
 /// Strip markdown formatting and return plain text.

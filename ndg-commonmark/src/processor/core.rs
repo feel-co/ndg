@@ -17,18 +17,6 @@ use log::trace;
 use markup5ever::local_name;
 use walkdir::WalkDir;
 
-/// Error type for DOM operations.
-#[derive(Debug, thiserror::Error)]
-pub enum DomError {
-  #[error("CSS selector failed: {0}")]
-  SelectorError(String),
-  #[error("DOM serialization failed: {0}")]
-  SerializationError(String),
-}
-
-/// Result type for DOM operations.
-pub type DomResult<T> = Result<T, DomError>;
-
 use super::{
   dom::safe_select,
   process::process_safe,
@@ -206,6 +194,7 @@ impl MarkdownProcessor {
   /// Process hard tabs in code blocks within markdown content
   fn process_hardtabs(&self, markdown: &str) -> String {
     use super::types::TabStyle;
+    use crate::utils::codeblock::FenceTracker;
 
     // If no tab handling is needed, return as-is
     if self.options.tab_style == TabStyle::None {
@@ -214,44 +203,13 @@ impl MarkdownProcessor {
 
     let mut result = String::with_capacity(markdown.len());
     let mut lines = markdown.lines().peekable();
-    let mut in_code_block = false;
-    let mut code_fence_char = None;
-    let mut code_fence_count = 0;
+    let mut tracker = FenceTracker::new();
 
     while let Some(line) = lines.next() {
-      let trimmed = line.trim_start();
+      tracker = tracker.process_line(line);
 
-      // Check for code fences
-      if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-        let Some(fence_char) = trimmed.chars().next() else {
-          // If the line is empty after trimming, it can't be a valid code fence
-          // Just continue processing the line normally
-          result.push_str(line);
-          result.push('\n');
-          continue;
-        };
-        let fence_count =
-          trimmed.chars().take_while(|&c| c == fence_char).count();
-
-        if fence_count >= 3 {
-          if !in_code_block {
-            // Starting a code block
-            in_code_block = true;
-            code_fence_char = Some(fence_char);
-            code_fence_count = fence_count;
-          } else if code_fence_char == Some(fence_char)
-            && fence_count >= code_fence_count
-          {
-            // Ending a code block
-            in_code_block = false;
-            code_fence_char = None;
-            code_fence_count = 0;
-          }
-        }
-      }
-
-      // Process line based on whether we're in a code block
-      let processed_line = if in_code_block && line.contains('\t') {
+      // Only replace tabs inside fenced code blocks
+      let processed_line = if tracker.in_code_block() && line.contains('\t') {
         self.handle_hardtabs(line)
       } else {
         line.to_string()
