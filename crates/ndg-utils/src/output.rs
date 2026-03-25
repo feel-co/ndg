@@ -52,8 +52,10 @@ pub fn create_fallback_index(
         let _ = writeln!(
           file_list,
           "  <li><a href=\"{}\">{}</a></li>",
-          html_path.to_string_lossy(),
-          page_title
+          html_escape::encode_double_quoted_attribute(
+            &html_path.to_string_lossy()
+          ),
+          html_escape::encode_text(&page_title)
         );
       }
     }

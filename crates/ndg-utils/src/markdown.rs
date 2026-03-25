@@ -108,7 +108,6 @@ pub struct ProcessedMarkdown {
   pub frontmatter:  Option<PageFrontmatter>,
 }
 
-
 /// Processes all markdown files in the input directory and returns processed
 /// data.
 ///
@@ -411,6 +410,12 @@ pub fn extract_page_title(file_path: &Path, html_path: &Path) -> String {
       ndg_commonmark::utils::extract_markdown_title_and_id(&content)
         .map_or(default_title, |(title, _)| title)
     },
-    Err(_) => default_title,
+    Err(e) => {
+      log::warn!(
+        "Failed to read {} for title extraction: {e}",
+        file_path.display()
+      );
+      default_title
+    },
   }
 }
