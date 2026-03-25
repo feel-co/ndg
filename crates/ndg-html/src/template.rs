@@ -1006,45 +1006,6 @@ struct NavItem {
   number:   Option<usize>,
 }
 
-/// Extract page title from markdown file.
-///
-/// First attempts to read the file and extract the title from the first H1
-/// heading. Falls back to using the file stem as the title if reading fails or
-/// no H1 is found.
-fn extract_page_title(path: &Path, html_path: &Path) -> String {
-  std::fs::read_to_string(path).map_or_else(
-    |_| {
-      html_path
-        .file_stem()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string()
-    },
-    |content| {
-      content.lines().next().map_or_else(
-        || {
-          html_path
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string()
-        },
-        |first_line| {
-          first_line.strip_prefix("# ").map_or_else(
-            || {
-              html_path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string()
-            },
-            ndg_commonmark::utils::clean_anchor_patterns,
-          )
-        },
-      )
-    },
-  )
-}
 
 /// Generate the document navigation HTML
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
@@ -1105,7 +1066,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
             format!("{}{}", root_prefix, html_path.to_string_lossy());
 
           // Extract page title
-          let page_title = extract_page_title(path, &html_path);
+          let page_title = ndg_utils::markdown::extract_page_title(path, &html_path);
 
           // Apply sidebar configuration if available
           let (display_title, position) =
@@ -1181,7 +1142,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           let target_path =
             format!("{}{}", root_prefix, html_path.to_string_lossy());
 
-          let page_title = extract_page_title(path, &html_path);
+          let page_title = ndg_utils::markdown::extract_page_title(path, &html_path);
 
           // Apply sidebar configuration to special files if available
           let display_title = if let Some(sidebar_config) = &config.sidebar {
