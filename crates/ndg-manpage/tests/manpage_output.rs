@@ -12,17 +12,18 @@ fn test_manpage_declared_by_formatting() {
   let options_path = temp_dir.path().join("options.json");
   let output_path = temp_dir.path().join("out.5");
 
+  // NixOS options JSON always uses an array for `declarations`
   let options = json!({
       "services.test": {
           "type": "string",
           "description": "Test option",
-          "declarations": "modules/test/module.nix",
+          "declarations": ["modules/test/module.nix"],
           "declarationURL": "https://example.com/test"
       },
       "services.no_url": {
           "type": "string",
           "description": "Another option",
-          "declarations": "modules/other/module.nix"
+          "declarations": ["modules/other/module.nix"]
       }
   });
 

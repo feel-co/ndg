@@ -389,7 +389,9 @@ fn parse_option(
   }
 
   // File where option is declared
-  if let Some(Value::String(file)) = option_data.get("declarations") {
+  if let Some(Value::Array(files)) = option_data.get("declarations")
+    && let Some(Value::String(file)) = files.first()
+  {
     option.declared_in = Some(file.clone());
   }
 
@@ -447,7 +449,8 @@ fn process_description(text: &str) -> String {
   let escaped = escape_non_macro_lines(&with_admonitions);
 
   // Preserve explicit paragraph breaks so list items do not merge
-  escaped.replace("\n\n", "\n.br\n")
+  let result = escaped.replace("\n\n", "\n.br\n");
+  restore_formatting(&result)
 }
 
 /// Preserve existing troff formatting codes so they don't get double-escaped
@@ -564,7 +567,7 @@ fn selective_man_escape(text: &str) -> String {
       i += 2;
 
       // If it's a special escape, process accordingly
-      if chars[i - 1] == '(' && i + 2 <= chars.len() {
+      if chars[i - 1] == '(' && i + 1 < chars.len() {
         result.push(chars[i]);
         result.push(chars[i + 1]);
         i += 2;
