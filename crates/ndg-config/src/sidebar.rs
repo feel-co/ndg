@@ -384,6 +384,11 @@ impl SidebarMatch {
   /// always be validated/compiled via `SidebarConfig::validate()`.
   #[must_use]
   pub fn matches(&self, path_str: &str, title_str: &str) -> bool {
+    // A rule with no conditions matches nothing; require at least one filter.
+    if self.path.is_none() && self.title.is_none() {
+      return false;
+    }
+
     // Check path matching
     if let Some(ref path_match) = self.path {
       // Check exact path match
@@ -627,6 +632,11 @@ impl OptionsMatch {
   /// always be validated/compiled via `OptionsConfig::validate()`.
   #[must_use]
   pub fn matches(&self, option_name: &str) -> bool {
+    // A rule with no conditions matches nothing.
+    if self.name.is_none() {
+      return false;
+    }
+
     // Check name matching
     if let Some(ref name_match) = self.name {
       // Check exact name match
@@ -673,10 +683,7 @@ impl OptionsMatch {
   /// Check if this option should be hidden from the TOC.
   #[must_use]
   pub const fn is_hidden(&self) -> bool {
-    match self.hidden {
-      Some(hidden) => hidden,
-      None => false,
-    }
+    matches!(self.hidden, Some(true))
   }
 }
 

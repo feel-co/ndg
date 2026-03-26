@@ -2,7 +2,6 @@ use std::{
   collections::HashMap,
   fs,
   path::{Path, PathBuf},
-  sync::OnceLock,
 };
 
 use ndg_macros::Configurable;
@@ -449,22 +448,18 @@ impl Config {
           "The 'opengraph' config field is deprecated. Use 'meta.opengraph' \
            instead."
         );
-        if let Some(ref mut og) = self.opengraph {
-          og.extend(other_og);
-        } else {
-          self.opengraph = Some(other_og);
-        }
+
+        // Later value wins
+        self.opengraph = Some(other_og);
       }
       if let Some(other_meta) = other.meta_tags.take() {
         log::warn!(
           "The 'meta_tags' config field is deprecated. Use 'meta.tags' \
            instead."
         );
-        if let Some(ref mut meta) = self.meta_tags {
-          meta.extend(other_meta);
-        } else {
-          self.meta_tags = Some(other_meta);
-        }
+
+        // Later value wins
+        self.meta_tags = Some(other_meta);
       }
     }
 
@@ -530,52 +525,51 @@ impl Config {
     None
   }
 
-  /// Search for config files in common locations
+  /// Search for config files in common locations.
+  ///
+  /// This performs a fresh filesystem lookup on every call, and the result is
+  /// not cached so that tests calling from different working directories each
+  /// see the correct config for their directory.
   #[must_use]
   pub fn find_config_file() -> Option<PathBuf> {
-    static RESULT: OnceLock<Option<PathBuf>> = OnceLock::new();
-    RESULT
-      .get_or_init(|| {
-        let config_filenames = [
-          "ndg.toml",
-          "ndg.json",
-          ".ndg.toml",
-          ".ndg.json",
-          ".config/ndg.toml",
-          ".config/ndg.json",
-        ];
+    let config_filenames = [
+      "ndg.toml",
+      "ndg.json",
+      ".ndg.toml",
+      ".ndg.json",
+      ".config/ndg.toml",
+      ".config/ndg.json",
+    ];
 
-        let current_dir = std::env::current_dir().ok()?;
-        for filename in &config_filenames {
-          let config_path = current_dir.join(filename);
-          if config_path.exists() {
-            return Some(config_path);
-          }
+    let current_dir = std::env::current_dir().ok()?;
+    for filename in &config_filenames {
+      let config_path = current_dir.join(filename);
+      if config_path.exists() {
+        return Some(config_path);
+      }
+    }
+
+    if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
+      let xdg_config_dir = PathBuf::from(xdg_config_home).join("ndg");
+      for filename in &["config.toml", "config.json"] {
+        let config_path = xdg_config_dir.join(filename);
+        if config_path.exists() {
+          return Some(config_path);
         }
+      }
+    }
 
-        if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
-          let xdg_config_dir = PathBuf::from(xdg_config_home);
-          for filename in &["ndg.toml", "ndg.json"] {
-            let config_path = xdg_config_dir.join(filename);
-            if config_path.exists() {
-              return Some(config_path);
-            }
-          }
+    if let Ok(home) = std::env::var("HOME") {
+      let home_config_dir = PathBuf::from(home).join(".config").join("ndg");
+      for filename in &["config.toml", "config.json"] {
+        let config_path = home_config_dir.join(filename);
+        if config_path.exists() {
+          return Some(config_path);
         }
+      }
+    }
 
-        if let Ok(home) = std::env::var("HOME") {
-          let home_config_dir = PathBuf::from(home).join(".config").join("ndg");
-          for filename in &["config.toml", "config.json"] {
-            let config_path = home_config_dir.join(filename);
-            if config_path.exists() {
-              return Some(config_path);
-            }
-          }
-        }
-
-        None
-      })
-      .clone()
+    None
   }
 
   /// Validate all paths specified in the configuration
