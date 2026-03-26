@@ -25,6 +25,7 @@ ndg-templates.workspace  = true
 ndg-utils.workspace      = true
 
 color-eyre.workspace  = true
+indexmap.workspace    = true
 grass.workspace       = true
 html-escape.workspace = true
 log.workspace         = true

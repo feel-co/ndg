@@ -3,12 +3,12 @@ use std::{
   fmt::Write,
   fs,
   path::Path,
-  string::String,
   sync::{LazyLock, RwLock},
 };
 
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
+use indexmap::IndexMap;
 use ndg_commonmark::Header;
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
@@ -466,7 +466,7 @@ fn resolve_doc_template(
 )]
 pub fn render_options(
   config: &Config,
-  options: &HashMap<String, NixOption>,
+  options: &IndexMap<String, NixOption>,
 ) -> Result<String> {
   // Load templates with caching
   let options_template =
@@ -598,7 +598,7 @@ pub fn render_lib(
 
 /// Generate specialized TOC for options page
 fn generate_options_toc(
-  options: &HashMap<String, NixOption>,
+  options: &IndexMap<String, NixOption>,
   config: &Config,
   tera: &Tera,
 ) -> Result<String> {
@@ -1006,7 +1006,6 @@ struct NavItem {
   number:   Option<usize>,
 }
 
-
 /// Generate the document navigation HTML
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let mut doc_nav = String::new();
@@ -1066,7 +1065,8 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
             format!("{}{}", root_prefix, html_path.to_string_lossy());
 
           // Extract page title
-          let page_title = ndg_utils::markdown::extract_page_title(path, &html_path);
+          let page_title =
+            ndg_utils::markdown::extract_page_title(path, &html_path);
 
           // Apply sidebar configuration if available
           let (display_title, position) =
@@ -1142,7 +1142,8 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           let target_path =
             format!("{}{}", root_prefix, html_path.to_string_lossy());
 
-          let page_title = ndg_utils::markdown::extract_page_title(path, &html_path);
+          let page_title =
+            ndg_utils::markdown::extract_page_title(path, &html_path);
 
           // Apply sidebar configuration to special files if available
           let display_title = if let Some(sidebar_config) = &config.sidebar {
@@ -1357,19 +1358,14 @@ fn generate_toc(headers: &[Header]) -> String {
 }
 
 /// Generate the options HTML content
-fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
-  let mut options_html = String::with_capacity(options.len() * 500); // FIXME: Rough estimate for capacity
+fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
+  let mut options_html = String::with_capacity(options.len() * 500); // rough capacity estimate, average ~500 bytes per option
 
-  // Sort options by name
-  let mut option_keys: Vec<_> = options.keys().collect();
-  option_keys.sort();
-
-  for key in option_keys {
-    let option = &options[key];
+  // Iterate in the order established by process_options, i.e., priority sort.
+  for option in options.values() {
     let option_id = format!("option-{}", option.name.replace('.', "-"));
 
-    // Open option container with ID for direct linking
-    // Writing to String is infallible
+    // Open option container with ID for direct linking.
     let _ = writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">");
 
     // Option name with anchor link and copy button
@@ -1379,7 +1375,8 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
        class=\"option-anchor\">{}</a>\n    <span class=\"copy-link\" \
        title=\"Copy link to this option\"></span>\n    <span \
        class=\"copy-feedback\">Link copied!</span>\n  </h3>\n",
-      option_id, option.name
+      option_id,
+      encode_text(&option.name)
     );
 
     // Option metadata (internal/readOnly)
@@ -1476,71 +1473,44 @@ fn add_default_value(html: &mut String, option: &NixOption) {
 /// Add example value to options HTML
 fn add_example_value(html: &mut String, option: &NixOption) {
   if let Some(example_text) = &option.example_text {
-    // Process the example text to preserve code formatting
-    if example_text.contains('\n') {
-      // Multi-line examples - preserve formatting with pre/code
-      // Process special characters to ensure valid HTML
-      let safe_example = example_text.replace('<', "&lt;").replace('>', "&gt;");
+    // Strip surrounding backticks (literalExpression wrapper) before escaping,
+    // so the backtick positions are checked on the original text.
+    let inner: &str = if example_text.starts_with('`')
+      && example_text.ends_with('`')
+      && example_text.len() > 2
+    {
+      &example_text[1..example_text.len() - 1]
+    } else {
+      example_text
+    };
 
-      // Remove backticks if they're surrounding the entire content (from
-      // literalExpression)
-      let trimmed_example = if safe_example.starts_with('`')
-        && safe_example.ends_with('`')
-        && safe_example.len() > 2
-      {
-        &safe_example[1..safe_example.len() - 1]
-      } else {
-        &safe_example
-      };
+    let safe = encode_text(inner);
 
-      // Writing to String is infallible
+    if inner.contains('\n') {
       let _ = writeln!(
         html,
         "  <div class=\"option-example\">Example: \
-         <pre><code>{trimmed_example}</code></pre></div>"
+         <pre><code>{safe}</code></pre></div>"
       );
     } else {
-      // Check if this is already a code block (surrounded by backticks)
-      if example_text.starts_with('`')
-        && example_text.ends_with('`')
-        && example_text.len() > 2
-      {
-        // This is inline code - extract the content and properly escape it
-        let code_content = &example_text[1..example_text.len() - 1];
-        let safe_content =
-          code_content.replace('<', "&lt;").replace('>', "&gt;");
-        let _ = writeln!(
-          html,
-          "  <div class=\"option-example\">Example: \
-           <code>{safe_content}</code></div>"
-        );
-      } else {
-        // Regular inline example - still needs escaping
-        let safe_example =
-          example_text.replace('<', "&lt;").replace('>', "&gt;");
-        let _ = writeln!(
-          html,
-          "  <div class=\"option-example\">Example: \
-           <code>{safe_example}</code></div>"
-        );
-      }
+      let _ = writeln!(
+        html,
+        "  <div class=\"option-example\">Example: <code>{safe}</code></div>"
+      );
     }
   } else if let Some(example_val) = &option.example {
     let example_str = example_val.to_string();
-    let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
+    let safe = encode_text(&example_str);
     if example_str.contains('\n') {
-      // Multi-line JSON examples need special handling
       let _ = writeln!(
         html,
         "  <div class=\"option-example\">Example: \
-         <pre><code>{safe_example}</code></pre></div>"
+         <pre><code>{safe}</code></pre></div>"
       );
     } else {
-      // Single-line JSON examples
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\">Example: \
-         <code>{safe_example}</code></div>"
+        "  <div class=\"option-example\">Example: <code>{safe}</code></div>"
       );
     }
   }

@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used, reason = "Fine in tests")]
 use std::{collections::HashMap, fs, path::Path};
 
+use indexmap::IndexMap;
 use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
 use ndg_config::{Config, search::SearchConfig, sidebar::SidebarConfig};
 use ndg_html::template;
@@ -69,7 +70,7 @@ fn render_basic_page_renders_html() {
 fn render_options_page_includes_options() {
   let mut config = minimal_config();
   config.module_options = Some("dummy.json".into());
-  let mut options = HashMap::new();
+  let mut options = IndexMap::new();
   options.insert(
     "foo.bar".to_string(),
     create_basic_option("foo.bar", "desc"),
@@ -84,7 +85,7 @@ fn render_options_page_includes_options() {
 fn render_options_page_renders_description() {
   let mut config = minimal_config();
   config.module_options = Some("dummy.json".into());
-  let mut options = HashMap::new();
+  let mut options = IndexMap::new();
   options.insert(
     "foo.bar".to_string(),
     create_detailed_option(
@@ -173,7 +174,7 @@ fn render_page_with_headers_toc() {
 fn render_options_page_with_multiple_options() {
   let mut config = minimal_config();
   config.module_options = Some("dummy.json".into());
-  let mut options = HashMap::new();
+  let mut options = IndexMap::new();
   options.insert(
     "foo.bar".to_string(),
     create_basic_option("foo.bar", "desc1"),
@@ -249,7 +250,7 @@ fn render_page_contains_footer_html() {
 fn render_options_page_contains_navbar() {
   let mut config = minimal_config();
   config.module_options = Some("dummy.json".into());
-  let mut options = HashMap::new();
+  let mut options = IndexMap::new();
   options.insert(
     "test.option".to_string(),
     create_basic_option("test.option", "Test option"),
@@ -267,7 +268,7 @@ fn render_options_page_contains_footer() {
   let mut config = minimal_config();
   config.module_options = Some("dummy.json".into());
   config.footer_text = "Custom Footer Text".to_string();
-  let mut options = HashMap::new();
+  let mut options = IndexMap::new();
   options.insert(
     "test.option".to_string(),
     create_basic_option("test.option", "Test option"),

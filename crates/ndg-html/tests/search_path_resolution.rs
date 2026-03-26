@@ -200,9 +200,11 @@ This file should be transitively included in `main.html`
 
   let processor = Some(create_processor(&config, None));
 
-  // Populate config.included_files as a side effect of processing markdown files
-  let _processed_files = process_markdown_files(&mut config, processor.as_ref())
-    .expect("Failed to process markdown files");
+  // Populate config.included_files as a side effect of processing markdown
+  // files
+  let _processed_files =
+    process_markdown_files(&mut config, processor.as_ref())
+      .expect("Failed to process markdown files");
 
   let all_markdown_files = collect_markdown_files(&input_dir);
 

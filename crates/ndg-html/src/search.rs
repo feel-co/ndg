@@ -1,5 +1,4 @@
 use std::{
-  clone::Clone,
   collections::{HashMap, HashSet},
   fs,
   path::PathBuf,
