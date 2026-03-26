@@ -679,8 +679,19 @@ fn generate_options_toc(
 
       let option_value = tera::to_value({
         let mut map = tera::Map::new();
-        map.insert("name".to_string(), tera::to_value(&option.name)?);
-        map.insert("display_name".to_string(), tera::to_value(display_name)?);
+        // HTML-escape display strings: Tera::default() has no auto-escaping.
+        map.insert(
+          "name".to_string(),
+          tera::to_value(encode_text(&option.name).as_ref())?,
+        );
+        map.insert(
+          "id".to_string(),
+          tera::to_value(sanitize_option_id(&option.name))?,
+        );
+        map.insert(
+          "display_name".to_string(),
+          tera::to_value(encode_text(display_name).as_ref())?,
+        );
         map.insert("internal".to_string(), tera::to_value(option.internal)?);
         map.insert("read_only".to_string(), tera::to_value(option.read_only)?);
 
@@ -703,10 +714,13 @@ fn generate_options_toc(
         .map(String::as_str)
         .unwrap_or(parent);
 
-      category.insert("name".to_string(), tera::to_value(parent)?);
+      category.insert(
+        "name".to_string(),
+        tera::to_value(encode_text(parent).as_ref())?,
+      );
       category.insert(
         "display_name".to_string(),
-        tera::to_value(category_display_name)?,
+        tera::to_value(encode_text(category_display_name).as_ref())?,
       );
       category.insert("count".to_string(), tera::to_value(opts.len())?);
 
@@ -714,7 +728,14 @@ fn generate_options_toc(
       if let Some(parent_option) = direct_parent_options.get(parent) {
         let parent_option_value = tera::to_value({
           let mut map = tera::Map::new();
-          map.insert("name".to_string(), tera::to_value(&parent_option.name)?);
+          map.insert(
+            "name".to_string(),
+            tera::to_value(encode_text(&parent_option.name).as_ref())?,
+          );
+          map.insert(
+            "id".to_string(),
+            tera::to_value(sanitize_option_id(&parent_option.name))?,
+          );
           map.insert(
             "internal".to_string(),
             tera::to_value(parent_option.internal)?,
@@ -757,8 +778,18 @@ fn generate_options_toc(
 
         let child_value = tera::to_value({
           let mut map = tera::Map::new();
-          map.insert("name".to_string(), tera::to_value(&option.name)?);
-          map.insert("display_name".to_string(), tera::to_value(display_name)?);
+          map.insert(
+            "name".to_string(),
+            tera::to_value(encode_text(&option.name).as_ref())?,
+          );
+          map.insert(
+            "id".to_string(),
+            tera::to_value(sanitize_option_id(&option.name))?,
+          );
+          map.insert(
+            "display_name".to_string(),
+            tera::to_value(encode_text(display_name).as_ref())?,
+          );
           map.insert("internal".to_string(), tera::to_value(option.internal)?);
           map
             .insert("read_only".to_string(), tera::to_value(option.read_only)?);
@@ -1357,13 +1388,33 @@ fn generate_toc(headers: &[Header]) -> String {
   toc
 }
 
+/// Produce a safe HTML `id` / URL fragment from an option name.
+///
+/// Dots are the canonical separator in NixOS option names, but names may also
+/// contain `<name>` placeholders (angle brackets) and other characters that
+/// are invalid or dangerous in HTML `id` attributes and URL fragments. Replace
+/// every character that is not ASCII alphanumeric, `-`, or `_` with `-`.
+fn sanitize_option_id(name: &str) -> String {
+  let sanitized: String = name
+    .chars()
+    .map(|c| {
+      if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+        c
+      } else {
+        '-'
+      }
+    })
+    .collect();
+  format!("option-{sanitized}")
+}
+
 /// Generate the options HTML content
 fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
   let mut options_html = String::with_capacity(options.len() * 500); // rough capacity estimate, average ~500 bytes per option
 
   // Iterate in the order established by process_options, i.e., priority sort.
   for option in options.values() {
-    let option_id = format!("option-{}", option.name.replace('.', "-"));
+    let option_id = sanitize_option_id(&option.name);
 
     // Open option container with ID for direct linking.
     let _ = writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">");
@@ -1401,7 +1452,7 @@ fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
     let _ = writeln!(
       options_html,
       "  <div class=\"option-type\">Type: <code>{}</code></div>",
-      option.type_name
+      encode_text(&option.type_name)
     );
 
     // Option description
@@ -1421,10 +1472,12 @@ fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
     if let Some(declared_in) = &option.declared_in {
       // Writing to String is infallible
       if let Some(url) = &option.declared_in_url {
+        let safe_url = html_escape::encode_double_quoted_attribute(url);
         let _ = writeln!(
           options_html,
           "  <div class=\"option-declared\">Declared in: <code><a \
-           href=\"{url}\" target=\"_blank\">{declared_in}</a></code></div>"
+           href=\"{safe_url}\" \
+           target=\"_blank\">{declared_in}</a></code></div>"
         );
       } else {
         let _ = writeln!(

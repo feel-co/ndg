@@ -906,3 +906,141 @@ fn render_page_builtin_vars_take_precedence_over_user_vars() {
     "user var must not shadow built-in"
   );
 }
+
+// NixOS option names commonly contain `<name>` as a placeholder component,
+// e.g. `services.nginx.virtualHosts.<name>.serverName`. The `<` and `>` must
+// not appear raw inside an HTML `id` attribute or `href` fragment.
+#[test]
+fn render_options_id_attribute_is_safe_for_angle_bracket_names() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  let name = "services.nginx.virtualHosts.<name>.serverName";
+  let mut options = IndexMap::new();
+  options.insert(name.to_string(), create_basic_option(name, "desc"));
+
+  let html = template::render_options(&config, &options).expect("render");
+
+  // Raw `<name>` must never appear inside an id="..." attribute value.
+  // If it did the browser would parse `<name>` as an HTML tag, breaking the
+  // page structure.
+  assert!(
+    !html.contains("id=\"option-services-nginx-virtualHosts-<name>"),
+    "raw '<' must not appear inside an id attribute"
+  );
+  assert!(
+    !html.contains("href=\"#option-services-nginx-virtualHosts-<name>"),
+    "raw '<' must not appear inside an href fragment"
+  );
+
+  // The id and matching href must both be present so the anchor still works.
+  // The sanitized form replaces all non-alphanumeric chars except `-`/`_`
+  // with `-`, so `.` and `<`/`>` all become `-`.
+  let expected_id = "option-services-nginx-virtualHosts--name--serverName";
+  assert!(
+    html.contains(&format!("id=\"{expected_id}\"")),
+    "sanitized id must be present: {expected_id}"
+  );
+  assert!(
+    html.contains(&format!("href=\"#{expected_id}\"")),
+    "TOC href must match the sanitized id: #{expected_id}"
+  );
+
+  // The display text must still show the real name, properly HTML-escaped.
+  assert!(
+    html.contains("&lt;name&gt;"),
+    "display text must HTML-escape angle brackets"
+  );
+  assert!(
+    !html.contains("<name>"),
+    "raw unescaped <name> tag must not appear anywhere in output"
+  );
+}
+
+// `type_name` is rendered inside a `<code>` element. Values like
+// `null or (submodule)` are benign, but the field is free-form and must be
+// escaped to prevent injection.
+#[test]
+fn render_options_type_name_is_html_escaped() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  let mut options = IndexMap::new();
+  options.insert("foo.bar".to_string(), NixOption {
+    name: "foo.bar".to_string(),
+    description: "desc".to_string(),
+    type_name: "null or <special & \"type\">".to_string(),
+    ..Default::default()
+  });
+
+  let html = template::render_options(&config, &options).expect("render");
+
+  assert!(
+    !html.contains("<special"),
+    "raw '<special' must not appear in type output"
+  );
+  assert!(
+    html.contains("&lt;special"),
+    "angle bracket in type_name must be escaped to &lt;"
+  );
+  assert!(
+    html.contains("&amp;"),
+    "ampersand in type_name must be escaped to &amp;"
+  );
+}
+
+// `declared_in` is the human-readable path shown in the "Declared in:" line.
+// It is rendered as text content inside `<code>`, so angle brackets and
+// ampersands must be preserved as-is.
+#[test]
+fn render_options_declared_in_preserves_angle_brackets() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  let mut options = IndexMap::new();
+  options.insert("foo.bar".to_string(), NixOption {
+    name: "foo.bar".to_string(),
+    description: "desc".to_string(),
+    declared_in: Some("<modules>/foo/bar.nix".to_string()),
+    ..Default::default()
+  });
+
+  let html = template::render_options(&config, &options).expect("render");
+
+  assert!(
+    html.contains("<modules>"),
+    "raw '<modules>' must appear in declared_in output"
+  );
+  assert!(
+    !html.contains("&lt;modules&gt;"),
+    "angle brackets in declared_in must not be escaped"
+  );
+}
+
+// When `declared_in_url` contains an ampersand (valid in URLs, but must be
+// `&amp;` inside an HTML attribute), the href must be properly escaped.
+#[test]
+fn render_options_declared_in_url_ampersand_is_escaped_in_attribute() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  let mut options = IndexMap::new();
+  options.insert("foo.bar".to_string(), NixOption {
+    name: "foo.bar".to_string(),
+    description: "desc".to_string(),
+    declared_in: Some("foo/bar.nix".to_string()),
+    declared_in_url: Some(
+      "https://example.com/source?file=foo.nix&line=42".to_string(),
+    ),
+    ..Default::default()
+  });
+
+  let html = template::render_options(&config, &options).expect("render");
+
+  // Raw `&line=` inside an href attribute is invalid HTML; must be
+  // `&amp;line=`.
+  assert!(
+    !html.contains("href=\"https://example.com/source?file=foo.nix&line="),
+    "raw '&' inside href attribute must not appear"
+  );
+  assert!(
+    html.contains("&amp;line=42"),
+    "ampersand in href must be escaped to &amp;"
+  );
+}
