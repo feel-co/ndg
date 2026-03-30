@@ -102,14 +102,16 @@ fn setup_tera_templates(
   main_template_name: &str,
   main_template_content: &str,
 ) -> Result<Tera> {
-  // Create a cache key based on config template path and main template
-  let cache_key = format!(
-    "{}:{}",
-    config
-      .get_template_path()
-      .map_or_else(|| "default".to_string(), |p| p.display().to_string()),
-    main_template_name
-  );
+  // Create a cache key based on template configuration and main template.
+  // Use both template_dir and template_path to ensure uniqueness even when
+  // only template_path (a file) is set - get_template_path() returns None
+  // for file-only templates, causing cache collisions.
+  let template_key = config
+    .template_dir
+    .as_ref()
+    .or(config.template_path.as_ref())
+    .map_or_else(|| "default".to_string(), |p| p.display().to_string());
+  let cache_key = format!("{}:{}", template_key, main_template_name);
 
   // Check cache first
   {
@@ -952,9 +954,14 @@ fn get_template_content(
   template_name: &str,
   fallback: &str,
 ) -> Result<String> {
-  // Create cache key that includes template path to handle different configs
+  // Create cache key that includes template path to handle different configs.
+  // Use both template_dir and template_path to ensure uniqueness even when
+  // only template_path (a file) is set - get_template_path() returns None
+  // for file-only templates, causing cache collisions.
   let template_path_key = config
-    .get_template_path()
+    .template_dir
+    .as_ref()
+    .or(config.template_path.as_ref())
     .map_or_else(|| "default".to_string(), |p| p.display().to_string());
   let cache_key = format!("{template_path_key}:{template_name}");
 
