@@ -15,7 +15,7 @@ use ndg_html::{
   search::{SearchData, generate_search_index},
   template::render,
 };
-use ndg_utils::{collect_included_files, markdown::create_processor};
+use ndg_utils::{markdown::create_processor, process_markdown_files};
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -199,8 +199,12 @@ This file should be transitively included in `main.html`
   };
 
   let processor = Some(create_processor(&config, None));
-  config.included_files = collect_included_files(&config, processor.as_ref())
-    .expect("Failed to collect include files");
+
+  // Populate config.included_files as a side effect of processing markdown
+  // files
+  let _processed_files =
+    process_markdown_files(&mut config, processor.as_ref())
+      .expect("Failed to process markdown files");
 
   let all_markdown_files = collect_markdown_files(&input_dir);
 

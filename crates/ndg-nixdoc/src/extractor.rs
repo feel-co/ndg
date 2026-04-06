@@ -238,30 +238,24 @@ fn preceding_doc_comment(node: &rnix::SyntaxNode) -> Option<String> {
 
   // Walk backwards through siblings/tokens from just before this node.
   // `.skip(1)` skips the node itself (the first element of the iterator).
-  let mut cursor = node.siblings_with_tokens(Direction::Prev).skip(1);
-
-  let mut found: Option<String> = None;
-
-  for sibling in cursor.by_ref() {
-    match sibling.kind() {
+  for token in node.siblings_with_tokens(Direction::Prev).skip(1) {
+    match token.kind() {
       TOKEN_WHITESPACE => {},
       TOKEN_COMMENT => {
-        let text = sibling.to_string();
+        let text = token.to_string();
         if is_doc_comment(&text) {
-          // Take only the innermost (closest) doc comment.
-          if found.is_none() {
-            found = Some(text);
-          }
+          return Some(text);
         }
-        // Stop after any comment (doc or plain): a plain `# ...` or `/* */`
-        // separates this binding from any doc comment further up.
-        break;
+
+        // A plain `# ...` or `/* */` comment separates this binding from any
+        // doc comment further up; stop searching.
+        return None;
       },
-      _ => break,
+      _ => return None,
     }
   }
 
-  found
+  None
 }
 
 /// Return `true` when `text` is a Nixdoc block comment (`/** ... */`).

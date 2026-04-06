@@ -159,7 +159,7 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     stylesheet,
     script,
     title,
-    footer: _,
+    footer,
     module_options,
     options_toc_depth,
     manpage_urls,
@@ -193,6 +193,9 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     }
     if let Some(title) = title {
       config.title.clone_from(title);
+    }
+    if let Some(footer) = footer {
+      config.footer_text.clone_from(footer);
     }
     if let Some(module_options) = module_options {
       config.module_options = Some(module_options.clone());

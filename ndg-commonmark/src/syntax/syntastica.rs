@@ -8,16 +8,14 @@
 //!
 //! We programmatically load all available themes from `syntastica-themes`
 //! Some of the popular themes included are:
+//!
 //! - github (dark/light variants)
 //! - gruvbox (dark/light)
 //! - nord, dracula, catppuccin
 //! - tokyo night, solarized, monokai
 //! - And many more...
 
-use std::{
-  collections::HashMap,
-  sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Mutex};
 
 use syntastica::{Processor, render, renderer::HtmlRenderer};
 use syntastica_core::theme::ResolvedTheme;
@@ -30,11 +28,6 @@ use super::{
 
 /// Syntastica-based syntax highlighter.
 pub struct SyntasticaHighlighter {
-  #[allow(
-    dead_code,
-    reason = "Must be kept alive as processor holds reference to it"
-  )]
-  language_set:  Arc<LanguageSetImpl>,
   themes:        HashMap<String, ResolvedTheme>,
   default_theme: ResolvedTheme,
   processor:     Mutex<Processor<'static, LanguageSetImpl>>,
@@ -49,8 +42,6 @@ impl SyntasticaHighlighter {
   /// Currently never returns an error, but returns a Result for API
   /// consistency.
   pub fn new() -> SyntaxResult<Self> {
-    let language_set = Arc::new(LanguageSetImpl::new());
-
     let mut themes = HashMap::new();
 
     // Load all available themes
@@ -62,16 +53,16 @@ impl SyntasticaHighlighter {
 
     let default_theme = syntastica_themes::one::dark();
 
-    // Create processor with a static reference to the language set
-    // Safety: The Arc ensures the language set outlives the processor
-    let processor = unsafe {
-      let language_set_ref: &'static LanguageSetImpl =
-        &*std::ptr::from_ref::<LanguageSetImpl>(language_set.as_ref());
-      Processor::new(language_set_ref)
-    };
+    // Leak the language set into a `'static` reference so the `Processor` can
+    // hold it for the remainder of the process lifetime. This is sound for a
+    // CLI: the process exits when documentation generation completes and the OS
+    // reclaims the memory. It avoids the unsound lifetime fabrication that a
+    // raw-pointer cast would require.
+    let language_set_static: &'static LanguageSetImpl =
+      Box::leak(Box::new(LanguageSetImpl::new()));
+    let processor = Processor::new(language_set_static);
 
     Ok(Self {
-      language_set,
       themes,
       default_theme,
       processor: Mutex::new(processor),

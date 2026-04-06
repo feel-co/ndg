@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::OnceLock};
 
 pub const DEFAULT_TEMPLATE: &str = include_str!("../templates/default.html");
 pub const OPTIONS_TEMPLATE: &str = include_str!("../templates/options.html");
@@ -17,17 +17,22 @@ pub const MAIN_JS: &str = include_str!("../templates/main.js");
 
 #[must_use]
 pub fn all_templates() -> HashMap<&'static str, &'static str> {
-  let mut templates = HashMap::new();
-  templates.insert("default.html", DEFAULT_TEMPLATE);
-  templates.insert("options.html", OPTIONS_TEMPLATE);
-  templates.insert("search.html", SEARCH_TEMPLATE);
-  templates.insert("options_toc.html", OPTIONS_TOC_TEMPLATE);
-  templates.insert("navbar.html", NAVBAR_TEMPLATE);
-  templates.insert("footer.html", FOOTER_TEMPLATE);
-  templates.insert("lib.html", LIB_TEMPLATE);
-  templates.insert("default.css", DEFAULT_CSS);
-  templates.insert("search.js", SEARCH_JS);
-  templates.insert("search-worker.js", SEARCH_WORKER_JS);
-  templates.insert("main.js", MAIN_JS);
-  templates
+  static CACHE: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
+  CACHE
+    .get_or_init(|| {
+      let mut templates = HashMap::new();
+      templates.insert("default.html", DEFAULT_TEMPLATE);
+      templates.insert("options.html", OPTIONS_TEMPLATE);
+      templates.insert("search.html", SEARCH_TEMPLATE);
+      templates.insert("options_toc.html", OPTIONS_TOC_TEMPLATE);
+      templates.insert("navbar.html", NAVBAR_TEMPLATE);
+      templates.insert("footer.html", FOOTER_TEMPLATE);
+      templates.insert("lib.html", LIB_TEMPLATE);
+      templates.insert("default.css", DEFAULT_CSS);
+      templates.insert("search.js", SEARCH_JS);
+      templates.insert("search-worker.js", SEARCH_WORKER_JS);
+      templates.insert("main.js", MAIN_JS);
+      templates
+    })
+    .clone()
 }

@@ -1,9 +1,8 @@
 //! Proc-macros for NDG configuration system.
 //!
 //! Provides derive macros for automatic configuration handling.
-
 use proc_macro::TokenStream;
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Fields, Type, parse_macro_input};
 
 /// Attribute configuration for a field.
@@ -20,9 +19,6 @@ struct FieldConfig {
 
   /// Allow empty values (set to None).
   allow_empty: bool,
-
-  /// Pending replacement value (set before deprecated).
-  pending_replacement: Option<String>,
 }
 
 impl FieldConfig {
@@ -34,6 +30,13 @@ impl FieldConfig {
         continue;
       }
 
+      // Collect deprecated_version and replacement independently so
+      // that `#[config(deprecated = "v", replacement = "k")]` and
+      // `#[config(replacement = "k", deprecated = "v")]` produce identical
+      // results regardless of attribute order.
+      let mut deprecated_version: Option<String> = None;
+      let mut pending_replacement: Option<String> = None;
+
       let _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("key") {
           let value = meta.value()?;
@@ -42,12 +45,11 @@ impl FieldConfig {
         } else if meta.path.is_ident("deprecated") {
           let value = meta.value()?;
           let lit: syn::LitStr = value.parse()?;
-          config.deprecated =
-            Some((lit.value(), config.pending_replacement.take()));
+          deprecated_version = Some(lit.value());
         } else if meta.path.is_ident("replacement") {
           let value = meta.value()?;
           let lit: syn::LitStr = value.parse()?;
-          config.pending_replacement = Some(lit.value());
+          pending_replacement = Some(lit.value());
         } else if meta.path.is_ident("allow_empty") {
           config.allow_empty = true;
         } else if meta.path.is_ident("nested") {
@@ -55,10 +57,44 @@ impl FieldConfig {
         }
         Ok(())
       });
+
+      if let Some(version) = deprecated_version {
+        config.deprecated = Some((version, pending_replacement));
+      }
     }
 
     config
   }
+}
+
+/// Get the last path segment of a type, if it is a simple path type.
+fn last_type_segment(ty: &syn::Type) -> Option<&syn::Ident> {
+  if let syn::Type::Path(tp) = ty {
+    tp.path.segments.last().map(|s| &s.ident)
+  } else {
+    None
+  }
+}
+
+/// Returns true if the type's last path segment matches `name`. Works for
+/// `Option<T>`, `Vec<T>`, `HashMap<K, V>`, etc.
+fn type_is(ty: &syn::Type, name: &str) -> bool {
+  last_type_segment(ty).is_some_and(|ident| ident == name)
+}
+
+/// Get the first generic type argument of a type (e.g., T from `Option<T>`).
+fn first_type_arg(ty: &syn::Type) -> Option<&syn::Type> {
+  if let syn::Type::Path(tp) = ty
+    && let Some(last) = tp.path.segments.last()
+    && let syn::PathArguments::AngleBracketed(args) = &last.arguments
+  {
+    for arg in &args.args {
+      if let syn::GenericArgument::Type(inner) = arg {
+        return Some(inner);
+      }
+    }
+  }
+  None
 }
 
 /// Derive macro for configuration structs.
@@ -102,86 +138,87 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
   );
 
   let expanded = quote! {
-    impl #impl_generics #name #ty_generics #where_clause {
-      /// Apply a configuration override by key.
-      pub fn apply_override(
-        &mut self,
-        key: &str,
-        value: &str,
-      ) -> std::result::Result<(), crate::error::ConfigError> {
-        use crate::error::ConfigError;
+    const _: () = {
+      impl #impl_generics #name #ty_generics #where_clause {
+        /// Apply a configuration override by key.
+        pub fn apply_override(
+          &mut self,
+          key: &str,
+          value: &str,
+        ) -> std::result::Result<(), crate::error::ConfigError> {
+          use crate::error::ConfigError;
 
-        #(#field_handlers)*
+          #(#field_handlers)*
 
-        // Generate "did you mean" suggestions
-        let valid_keys: &[&str] = &[#(#valid_keys_ref),*];
-        let suggestions = #find_similar_fn(key, valid_keys, 3, 0.5);
+          // Generate "did you mean" suggestions
+          let valid_keys: &[&str] = &[#(#valid_keys_ref),*];
+          let suggestions = #find_similar_fn(key, valid_keys, 3, 0.5);
 
-        let error_msg = if suggestions.is_empty() {
-          format!("Unknown configuration key: '{key}'. See documentation for supported keys.")
-        } else {
-          let suggestions_str = suggestions.join("', '");
-          format!("Unknown configuration key: '{key}'. Did you mean: '{suggestions_str}'?")
-        };
+          let error_msg = if suggestions.is_empty() {
+            format!("Unknown configuration key: '{key}'. See documentation for supported keys.")
+          } else {
+            let suggestions_str = suggestions.join("', '");
+            format!("Unknown configuration key: '{key}'. Did you mean: '{suggestions_str}'?")
+          };
 
-        Err(ConfigError::Config(error_msg))
-      }
-
-      /// Merge another config into this one.
-      pub fn merge_fields(&mut self, other: Self) {
-        #(#merge_handlers)*
-      }
-    }
-
-    // Include the helper functions in the generated code with unique names
-    fn #find_similar_fn(
-      unknown: &str,
-      candidates: &[&str],
-      max_suggestions: usize,
-      threshold: f64,
-    ) -> Vec<String> {
-      let mut scored: Vec<(String, f64)> = candidates
-        .iter()
-        .map(|&candidate| (candidate.to_string(), #calc_similarity_fn(unknown, candidate)))
-        .filter(|(_, score)| *score >= threshold)
-        .collect();
-
-      scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-      scored.truncate(max_suggestions);
-      scored.into_iter().map(|(key, _)| key).collect()
-    }
-
-    fn #calc_similarity_fn(a: &str, b: &str) -> f64 {
-      let a_chars: Vec<char> = a.chars().collect();
-      let b_chars: Vec<char> = b.chars().collect();
-      let a_len = a_chars.len();
-      let b_len = b_chars.len();
-
-      if a_len == 0 && b_len == 0 {
-        return 1.0;
-      }
-      if a_len == 0 || b_len == 0 {
-        return 0.0;
-      }
-
-      let mut prev_row: Vec<usize> = (0..=b_len).collect();
-      let mut curr_row = vec![0; b_len + 1];
-
-      for i in 1..=a_len {
-        curr_row[0] = i;
-        for j in 1..=b_len {
-          let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
-          curr_row[j] = (prev_row[j] + 1)
-            .min(curr_row[j - 1] + 1)
-            .min(prev_row[j - 1] + cost);
+          Err(ConfigError::Config(error_msg))
         }
-        std::mem::swap(&mut prev_row, &mut curr_row);
+
+        /// Merge another config into this one.
+        pub fn merge_fields(&mut self, other: Self) {
+          #(#merge_handlers)*
+        }
       }
 
-      let distance = prev_row[b_len] as f64;
-      let max_len = a_len.max(b_len) as f64;
-      1.0 - (distance / max_len)
-    }
+      fn #find_similar_fn(
+        unknown: &str,
+        candidates: &[&str],
+        max_suggestions: usize,
+        threshold: f64,
+      ) -> Vec<String> {
+        let mut scored: Vec<(String, f64)> = candidates
+          .iter()
+          .map(|&candidate| (candidate.to_string(), #calc_similarity_fn(unknown, candidate)))
+          .filter(|(_, score)| *score >= threshold)
+          .collect();
+
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(max_suggestions);
+        scored.into_iter().map(|(key, _)| key).collect()
+      }
+
+      fn #calc_similarity_fn(a: &str, b: &str) -> f64 {
+        let a_chars: Vec<char> = a.chars().collect();
+        let b_chars: Vec<char> = b.chars().collect();
+        let a_len = a_chars.len();
+        let b_len = b_chars.len();
+
+        if a_len == 0 && b_len == 0 {
+          return 1.0;
+        }
+        if a_len == 0 || b_len == 0 {
+          return 0.0;
+        }
+
+        let mut prev_row: Vec<usize> = (0..=b_len).collect();
+        let mut curr_row = vec![0; b_len + 1];
+
+        for i in 1..=a_len {
+          curr_row[0] = i;
+          for j in 1..=b_len {
+            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            curr_row[j] = (prev_row[j] + 1)
+              .min(curr_row[j - 1] + 1)
+              .min(prev_row[j - 1] + cost);
+          }
+          std::mem::swap(&mut prev_row, &mut curr_row);
+        }
+
+        let distance = prev_row[b_len] as f64;
+        let max_len = a_len.max(b_len) as f64;
+        1.0 - (distance / max_len)
+      }
+    };
   };
 
   TokenStream::from(expanded)
@@ -229,28 +266,29 @@ fn generate_field_handler(
   }
 
   // Skip Vec and HashMap fields, they can't be directly overridden
-  let type_str = field_type.to_token_stream().to_string();
-  if type_str.starts_with("Vec<") || type_str.contains("HashMap<") {
+  if type_is(field_type, "Vec") || type_is(field_type, "HashMap") {
     return quote! {};
   }
 
   // Handle deprecation
-  let deprecation_check =
-    if let Some((version, replacement)) = &config.deprecated {
-      let msg = if let Some(replacement) = replacement {
+  let deprecation_check = if let Some((version, replacement)) =
+    &config.deprecated
+  {
+    let msg = replacement.as_ref().map_or_else(
+      || format!("The '{field_key}' config key is deprecated since {version}."),
+      |replacement| {
         format!(
           "The '{field_key}' config key is deprecated since {version}. Use \
            '{replacement}' instead."
         )
-      } else {
-        format!("The '{field_key}' config key is deprecated since {version}.")
-      };
-      quote! {
-        log::warn!(#msg);
-      }
-    } else {
-      quote! {}
-    };
+      },
+    );
+    quote! {
+      log::warn!(#msg);
+    }
+  } else {
+    quote! {}
+  };
 
   // Generate type-specific parsing
   let value_assignment =
@@ -301,11 +339,74 @@ fn generate_value_assignment(
   field_type: &Type,
   config: &FieldConfig,
 ) -> proc_macro2::TokenStream {
-  let type_str = field_type.to_token_stream().to_string();
+  // Option<SidebarOrdering> handling, must come before general Option<T> check
+  if type_is(field_type, "Option")
+    && first_type_arg(field_type)
+      .is_some_and(|inner| type_is(inner, "SidebarOrdering"))
+  {
+    return quote! {
+      self.#field_name = if value.is_empty() {
+        None
+      } else {
+        Some(value.parse().map_err(|e: String| ConfigError::Config(format!(
+          "Invalid value for '{}': '{}' - {}",
+          stringify!(#field_name), value, e
+        )))?)
+      };
+    };
+  }
 
-  // Option<T> handling
-  if type_str.starts_with("Option ") || type_str.starts_with("Option<") {
-    if config.allow_empty {
+  // Option<usize> handling, must come before general Option<T> check
+  if type_is(field_type, "Option")
+    && first_type_arg(field_type).is_some_and(|inner| type_is(inner, "usize"))
+  {
+    return quote! {
+      self.#field_name = if value.is_empty() {
+        None
+      } else {
+        Some(value.parse().map_err(|_| ConfigError::Config(format!(
+          "Invalid value for '{}': '{}'. Expected a positive integer",
+          stringify!(#field_name), value
+        )))?)
+      };
+    };
+  }
+
+  // Option<u8> handling, must come before general Option<T> check
+  if type_is(field_type, "Option")
+    && first_type_arg(field_type).is_some_and(|inner| type_is(inner, "u8"))
+  {
+    return quote! {
+      self.#field_name = if value.is_empty() {
+        None
+      } else {
+        Some(value.parse().map_err(|_| ConfigError::Config(format!(
+          "Invalid value for '{}': '{}'. Expected a number between 0-255",
+          stringify!(#field_name), value
+        )))?)
+      };
+    };
+  }
+
+  // Option<f32> handling, must come before general Option<T> check
+  if type_is(field_type, "Option")
+    && first_type_arg(field_type).is_some_and(|inner| type_is(inner, "f32"))
+  {
+    return quote! {
+      self.#field_name = if value.is_empty() {
+        None
+      } else {
+        Some(value.parse().map_err(|_| ConfigError::Config(format!(
+          "Invalid value for '{}': '{}'. Expected a number",
+          stringify!(#field_name), value
+        )))?)
+      };
+    };
+  }
+
+  // General Option<T> handling
+  if type_is(field_type, "Option") {
+    return if config.allow_empty {
       quote! {
         self.#field_name = if value.is_empty() {
           None
@@ -321,23 +422,26 @@ fn generate_value_assignment(
           format!("Invalid value for '{}': '{}'", stringify!(#field_name), value)
         ))?);
       }
-    }
+    };
   }
+
   // PathBuf handling
-  else if type_str.contains("PathBuf") {
-    quote! {
+  if type_is(field_type, "PathBuf") {
+    return quote! {
       self.#field_name = std::path::PathBuf::from(value);
-    }
+    };
   }
+
   // String handling
-  else if type_str == "String" {
-    quote! {
+  if type_is(field_type, "String") {
+    return quote! {
       self.#field_name = value.to_string();
-    }
+    };
   }
+
   // Bool handling
-  else if type_str == "bool" {
-    quote! {
+  if type_is(field_type, "bool") {
+    return quote! {
       self.#field_name = match value.to_lowercase().as_str() {
         "true" | "yes" | "1" => true,
         "false" | "no" | "0" => false,
@@ -348,106 +452,55 @@ fn generate_value_assignment(
           )));
         }
       };
-    }
+    };
   }
+
   // SidebarOrdering handling
-  else if type_str == "SidebarOrdering" {
-    quote! {
+  if type_is(field_type, "SidebarOrdering") {
+    return quote! {
       self.#field_name = value.parse().map_err(|e: String| ConfigError::Config(format!(
         "Invalid value for '{}': '{}' - {}",
         stringify!(#field_name), value, e
       )))?;
-    }
+    };
   }
-  // Option<SidebarOrdering> handling
-  else if type_str.contains("Option<SidebarOrdering>")
-    || type_str.contains("Option < SidebarOrdering >")
-  {
-    quote! {
-      self.#field_name = if value.is_empty() {
-        None
-      } else {
-        Some(value.parse().map_err(|e: String| ConfigError::Config(format!(
-          "Invalid value for '{}': '{}' - {}",
-          stringify!(#field_name), value, e
-        )))?)
-      };
-    }
-  }
+
   // usize handling
-  else if type_str == "usize" {
-    quote! {
+  if type_is(field_type, "usize") {
+    return quote! {
       self.#field_name = value.parse().map_err(|_| ConfigError::Config(format!(
         "Invalid value for '{}': '{}'. Expected a positive integer",
         stringify!(#field_name), value
       )))?;
-    }
+    };
   }
-  // Option<usize> handling
-  else if type_str.contains("Option<usize>") {
-    quote! {
-      self.#field_name = if value.is_empty() {
-        None
-      } else {
-        Some(value.parse().map_err(|_| ConfigError::Config(format!(
-          "Invalid value for '{}': '{}'. Expected a positive integer",
-          stringify!(#field_name), value
-        )))?)
-      };
-    }
-  }
+
   // u8 handling
-  else if type_str == "u8" {
-    quote! {
+  if type_is(field_type, "u8") {
+    return quote! {
       self.#field_name = value.parse().map_err(|_| ConfigError::Config(format!(
         "Invalid value for '{}': '{}'. Expected a number between 0-255",
         stringify!(#field_name), value
       )))?;
-    }
+    };
   }
-  // Option<u8> handling
-  else if type_str.contains("Option<u8>") {
-    quote! {
-      self.#field_name = if value.is_empty() {
-        None
-      } else {
-        Some(value.parse().map_err(|_| ConfigError::Config(format!(
-          "Invalid value for '{}': '{}'. Expected a number between 0-255",
-          stringify!(#field_name), value
-        )))?)
-      };
-    }
-  }
+
   // f32 handling
-  else if type_str == "f32" {
-    quote! {
+  if type_is(field_type, "f32") {
+    return quote! {
       self.#field_name = value.parse().map_err(|_| ConfigError::Config(format!(
         "Invalid value for '{}': '{}'. Expected a number",
         stringify!(#field_name), value
       )))?;
-    }
+    };
   }
-  // Option<f32> handling
-  else if type_str.contains("Option<f32>") {
-    quote! {
-      self.#field_name = if value.is_empty() {
-        None
-      } else {
-        Some(value.parse().map_err(|_| ConfigError::Config(format!(
-          "Invalid value for '{}': '{}'. Expected a number",
-          stringify!(#field_name), value
-        )))?)
-      };
-    }
-  }
+
   // Default: try to parse
-  else {
-    quote! {
-      self.#field_name = value.parse().map_err(|_| ConfigError::Config(format!(
-        "Invalid value for '{}': '{}'",
-        stringify!(#field_name), value
-      )))?;
-    }
+  quote! {
+    self.#field_name = value.parse().map_err(|_| ConfigError::Config(format!(
+      "Invalid value for '{}': '{}'",
+      stringify!(#field_name), value
+    )))?;
   }
 }
 
@@ -458,7 +511,6 @@ fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
     let field_config = FieldConfig::from_attrs(&field.attrs);
     let field_name = field.ident.as_ref().expect("Named field required");
     let field_type = &field.ty;
-    let type_str = field_type.to_token_stream().to_string();
 
     let handler = if field_config.nested {
       // For nested configs, replace if other has Some
@@ -467,8 +519,9 @@ fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
           self.#field_name = other.#field_name;
         }
       }
-    } else if type_str.starts_with("Option<HashMap<")
-      || type_str.starts_with("Option < HashMap <")
+    } else if type_is(field_type, "Option")
+      && first_type_arg(field_type)
+        .is_some_and(|inner| type_is(inner, "HashMap"))
     {
       // Option<HashMap> fields: extend if both Some, otherwise replace only if
       // other is Some
@@ -483,21 +536,19 @@ fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
           _ => {}
         }
       }
-    } else if type_str.starts_with("Option<")
-      || type_str.starts_with("Option <")
-    {
+    } else if type_is(field_type, "Option") {
       // Option fields: replace if other has Some
       quote! {
         if other.#field_name.is_some() {
           self.#field_name = other.#field_name;
         }
       }
-    } else if type_str.starts_with("Vec<") || type_str.starts_with("Vec <") {
+    } else if type_is(field_type, "Vec") {
       // Vec fields: extend
       quote! {
         self.#field_name.extend(other.#field_name);
       }
-    } else if type_str.contains("HashMap") {
+    } else if type_is(field_type, "HashMap") {
       // HashMap fields: extend (other takes precedence)
       quote! {
         self.#field_name.extend(other.#field_name);

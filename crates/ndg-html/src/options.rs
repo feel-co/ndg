@@ -5,6 +5,7 @@ use std::{
 };
 
 use color_eyre::eyre::{Context, Result};
+use indexmap::IndexMap;
 use log::debug;
 use ndg_config::Config;
 use ndg_manpage::types::NixOption;
@@ -168,43 +169,26 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     }
   }
 
-  // Sort options by priority (enable > package > other)
-  let mut sorted_options: Vec<_> = options.into_iter().collect();
-  sorted_options.sort_by(|(name_a, _), (name_b, _)| {
-    // Calculate priority for name_a
-    let priority_a = if name_a.starts_with("enable") {
-      0
-    } else if name_a.starts_with("package") {
-      1
-    } else {
-      2
+  // Sort options by priority (enable > package > other), with secondary
+  // alphabetical sort within each priority group.
+  let mut sorted: Vec<_> = options.into_iter().collect();
+  sorted.sort_by(|(name_a, _), (name_b, _)| {
+    let priority = |name: &str| {
+      if name.starts_with("enable") {
+        0
+      } else if name.starts_with("package") {
+        1
+      } else {
+        2
+      }
     };
-
-    // Calculate priority for name_b
-    let priority_b = if name_b.starts_with("enable") {
-      0
-    } else if name_b.starts_with("package") {
-      1
-    } else {
-      2
-    };
-
-    // Compare by priority first, then by name
-    priority_a.cmp(&priority_b).then_with(|| name_a.cmp(name_b))
+    priority(name_a)
+      .cmp(&priority(name_b))
+      .then_with(|| name_a.cmp(name_b))
   });
 
-  // Convert back to HashMap preserving the new order
-  let customized_options = sorted_options
-    .iter()
-    .map(|(key, opt)| {
-      let option_clone = opt.clone();
-      (key.clone(), option_clone)
-    })
-    .map(|(key, mut opt)| {
-      opt.name = html_escape::encode_text(&opt.name).to_string();
-      (key, opt)
-    })
-    .collect();
+  let customized_options: IndexMap<String, NixOption> =
+    sorted.into_iter().collect();
 
   // Render options page
   let html = template::render_options(config, &customized_options)?;
@@ -247,9 +231,7 @@ fn format_location(
       let path_str = path.as_str();
 
       if path_str.starts_with('/') {
-        // Local filesystem path handling
         let url = format!("file://{path_str}");
-
         if path_str.contains("nixops") && path_str.contains("/nix/") {
           let suffix_index = path_str.find("/nix/").map_or(0, |i| i + 5);
           let suffix = &path_str[suffix_index..];

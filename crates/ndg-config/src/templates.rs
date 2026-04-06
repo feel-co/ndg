@@ -68,14 +68,6 @@ footer_text = "Generated with ndg"
 # Whether to generate anchors for headings
 generate_anchors = true
 
-# Search configuration
-[search]
-# Whether to generate a search index
-enable = true
-
-# Maximum heading level to index
-max_heading_level = 3
-
 # Depth of parent categories in options TOC
 options_toc_depth = 2
 
@@ -93,6 +85,14 @@ revision = "main"
 
 # Additional meta tags to inject into the HTML head (example: { description = "Docs", keywords = "nix,docs" })
 # meta_tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
+
+# Search configuration
+[search]
+# Whether to generate a search index
+enable = true
+
+# Maximum heading level to index
+max_heading_level = 3
 
 # Sidebar configuration
 # [sidebar]

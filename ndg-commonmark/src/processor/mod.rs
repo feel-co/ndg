@@ -9,11 +9,13 @@
 //! The processor module is organized into focused submodules:
 //!
 //! - [`core`]: Main processor implementation and processing pipeline
-//! - [`process`]: High-level processing functions with error recovery
+//! - [`dom`]: DOM extraction helpers
+//! - [`process`]: High-level processing functions
 //! - [`extensions`]: Feature-gated processing functions for different Markdown
 //!   flavors
 //! - [`types`]: Core type definitions and configuration structures
 pub mod core;
+pub mod dom;
 pub mod extensions;
 pub mod process;
 pub mod types;

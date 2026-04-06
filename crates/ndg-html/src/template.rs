@@ -3,12 +3,12 @@ use std::{
   fmt::Write,
   fs,
   path::Path,
-  string::String,
   sync::{LazyLock, RwLock},
 };
 
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
+use indexmap::IndexMap;
 use ndg_commonmark::Header;
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
@@ -102,14 +102,16 @@ fn setup_tera_templates(
   main_template_name: &str,
   main_template_content: &str,
 ) -> Result<Tera> {
-  // Create a cache key based on config template path and main template
-  let cache_key = format!(
-    "{}:{}",
-    config
-      .get_template_path()
-      .map_or_else(|| "default".to_string(), |p| p.display().to_string()),
-    main_template_name
-  );
+  // Create a cache key based on template configuration and main template.
+  // Use both template_dir and template_path to ensure uniqueness even when
+  // only template_path (a file) is set - get_template_path() returns None
+  // for file-only templates, causing cache collisions.
+  let template_key = config
+    .template_dir
+    .as_ref()
+    .or(config.template_path.as_ref())
+    .map_or_else(|| "default".to_string(), |p| p.display().to_string());
+  let cache_key = format!("{}:{}", template_key, main_template_name);
 
   // Check cache first
   {
@@ -466,7 +468,7 @@ fn resolve_doc_template(
 )]
 pub fn render_options(
   config: &Config,
-  options: &HashMap<String, NixOption>,
+  options: &IndexMap<String, NixOption>,
 ) -> Result<String> {
   // Load templates with caching
   let options_template =
@@ -598,7 +600,7 @@ pub fn render_lib(
 
 /// Generate specialized TOC for options page
 fn generate_options_toc(
-  options: &HashMap<String, NixOption>,
+  options: &IndexMap<String, NixOption>,
   config: &Config,
   tera: &Tera,
 ) -> Result<String> {
@@ -679,8 +681,19 @@ fn generate_options_toc(
 
       let option_value = tera::to_value({
         let mut map = tera::Map::new();
-        map.insert("name".to_string(), tera::to_value(&option.name)?);
-        map.insert("display_name".to_string(), tera::to_value(display_name)?);
+        // HTML-escape display strings: Tera::default() has no auto-escaping.
+        map.insert(
+          "name".to_string(),
+          tera::to_value(encode_text(&option.name).as_ref())?,
+        );
+        map.insert(
+          "id".to_string(),
+          tera::to_value(sanitize_option_id(&option.name))?,
+        );
+        map.insert(
+          "display_name".to_string(),
+          tera::to_value(encode_text(display_name).as_ref())?,
+        );
         map.insert("internal".to_string(), tera::to_value(option.internal)?);
         map.insert("read_only".to_string(), tera::to_value(option.read_only)?);
 
@@ -703,10 +716,13 @@ fn generate_options_toc(
         .map(String::as_str)
         .unwrap_or(parent);
 
-      category.insert("name".to_string(), tera::to_value(parent)?);
+      category.insert(
+        "name".to_string(),
+        tera::to_value(encode_text(parent).as_ref())?,
+      );
       category.insert(
         "display_name".to_string(),
-        tera::to_value(category_display_name)?,
+        tera::to_value(encode_text(category_display_name).as_ref())?,
       );
       category.insert("count".to_string(), tera::to_value(opts.len())?);
 
@@ -714,7 +730,14 @@ fn generate_options_toc(
       if let Some(parent_option) = direct_parent_options.get(parent) {
         let parent_option_value = tera::to_value({
           let mut map = tera::Map::new();
-          map.insert("name".to_string(), tera::to_value(&parent_option.name)?);
+          map.insert(
+            "name".to_string(),
+            tera::to_value(encode_text(&parent_option.name).as_ref())?,
+          );
+          map.insert(
+            "id".to_string(),
+            tera::to_value(sanitize_option_id(&parent_option.name))?,
+          );
           map.insert(
             "internal".to_string(),
             tera::to_value(parent_option.internal)?,
@@ -757,8 +780,18 @@ fn generate_options_toc(
 
         let child_value = tera::to_value({
           let mut map = tera::Map::new();
-          map.insert("name".to_string(), tera::to_value(&option.name)?);
-          map.insert("display_name".to_string(), tera::to_value(display_name)?);
+          map.insert(
+            "name".to_string(),
+            tera::to_value(encode_text(&option.name).as_ref())?,
+          );
+          map.insert(
+            "id".to_string(),
+            tera::to_value(sanitize_option_id(&option.name))?,
+          );
+          map.insert(
+            "display_name".to_string(),
+            tera::to_value(encode_text(display_name).as_ref())?,
+          );
           map.insert("internal".to_string(), tera::to_value(option.internal)?);
           map
             .insert("read_only".to_string(), tera::to_value(option.read_only)?);
@@ -921,9 +954,14 @@ fn get_template_content(
   template_name: &str,
   fallback: &str,
 ) -> Result<String> {
-  // Create cache key that includes template path to handle different configs
+  // Create cache key that includes template path to handle different configs.
+  // Use both template_dir and template_path to ensure uniqueness even when
+  // only template_path (a file) is set - get_template_path() returns None
+  // for file-only templates, causing cache collisions.
   let template_path_key = config
-    .get_template_path()
+    .template_dir
+    .as_ref()
+    .or(config.template_path.as_ref())
     .map_or_else(|| "default".to_string(), |p| p.display().to_string());
   let cache_key = format!("{template_path_key}:{template_name}");
 
@@ -1006,46 +1044,6 @@ struct NavItem {
   number:   Option<usize>,
 }
 
-/// Extract page title from markdown file.
-///
-/// First attempts to read the file and extract the title from the first H1
-/// heading. Falls back to using the file stem as the title if reading fails or
-/// no H1 is found.
-fn extract_page_title(path: &Path, html_path: &Path) -> String {
-  std::fs::read_to_string(path).map_or_else(
-    |_| {
-      html_path
-        .file_stem()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string()
-    },
-    |content| {
-      content.lines().next().map_or_else(
-        || {
-          html_path
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string()
-        },
-        |first_line| {
-          first_line.strip_prefix("# ").map_or_else(
-            || {
-              html_path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string()
-            },
-            ndg_commonmark::utils::clean_anchor_patterns,
-          )
-        },
-      )
-    },
-  )
-}
-
 /// Generate the document navigation HTML
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let mut doc_nav = String::new();
@@ -1105,7 +1103,8 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
             format!("{}{}", root_prefix, html_path.to_string_lossy());
 
           // Extract page title
-          let page_title = extract_page_title(path, &html_path);
+          let page_title =
+            ndg_utils::markdown::extract_page_title(path, &html_path);
 
           // Apply sidebar configuration if available
           let (display_title, position) =
@@ -1181,7 +1180,8 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           let target_path =
             format!("{}{}", root_prefix, html_path.to_string_lossy());
 
-          let page_title = extract_page_title(path, &html_path);
+          let page_title =
+            ndg_utils::markdown::extract_page_title(path, &html_path);
 
           // Apply sidebar configuration to special files if available
           let display_title = if let Some(sidebar_config) = &config.sidebar {
@@ -1395,20 +1395,35 @@ fn generate_toc(headers: &[Header]) -> String {
   toc
 }
 
+/// Produce a safe HTML `id` / URL fragment from an option name.
+///
+/// Dots are the canonical separator in NixOS option names, but names may also
+/// contain `<name>` placeholders (angle brackets) and other characters that
+/// are invalid or dangerous in HTML `id` attributes and URL fragments. Replace
+/// every character that is not ASCII alphanumeric, `-`, or `_` with `-`.
+fn sanitize_option_id(name: &str) -> String {
+  let sanitized: String = name
+    .chars()
+    .map(|c| {
+      if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+        c
+      } else {
+        '-'
+      }
+    })
+    .collect();
+  format!("option-{sanitized}")
+}
+
 /// Generate the options HTML content
-fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
-  let mut options_html = String::with_capacity(options.len() * 500); // FIXME: Rough estimate for capacity
+fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
+  let mut options_html = String::with_capacity(options.len() * 500); // rough capacity estimate, average ~500 bytes per option
 
-  // Sort options by name
-  let mut option_keys: Vec<_> = options.keys().collect();
-  option_keys.sort();
+  // Iterate in the order established by process_options, i.e., priority sort.
+  for option in options.values() {
+    let option_id = sanitize_option_id(&option.name);
 
-  for key in option_keys {
-    let option = &options[key];
-    let option_id = format!("option-{}", option.name.replace('.', "-"));
-
-    // Open option container with ID for direct linking
-    // Writing to String is infallible
+    // Open option container with ID for direct linking.
     let _ = writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">");
 
     // Option name with anchor link and copy button
@@ -1418,7 +1433,8 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
        class=\"option-anchor\">{}</a>\n    <span class=\"copy-link\" \
        title=\"Copy link to this option\"></span>\n    <span \
        class=\"copy-feedback\">Link copied!</span>\n  </h3>\n",
-      option_id, option.name
+      option_id,
+      encode_text(&option.name)
     );
 
     // Option metadata (internal/readOnly)
@@ -1443,7 +1459,7 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
     let _ = writeln!(
       options_html,
       "  <div class=\"option-type\">Type: <code>{}</code></div>",
-      option.type_name
+      encode_text(&option.type_name)
     );
 
     // Option description
@@ -1463,10 +1479,12 @@ fn generate_options_html(options: &HashMap<String, NixOption>) -> String {
     if let Some(declared_in) = &option.declared_in {
       // Writing to String is infallible
       if let Some(url) = &option.declared_in_url {
+        let safe_url = html_escape::encode_double_quoted_attribute(url);
         let _ = writeln!(
           options_html,
           "  <div class=\"option-declared\">Declared in: <code><a \
-           href=\"{url}\" target=\"_blank\">{declared_in}</a></code></div>"
+           href=\"{safe_url}\" \
+           target=\"_blank\">{declared_in}</a></code></div>"
         );
       } else {
         let _ = writeln!(
@@ -1515,71 +1533,44 @@ fn add_default_value(html: &mut String, option: &NixOption) {
 /// Add example value to options HTML
 fn add_example_value(html: &mut String, option: &NixOption) {
   if let Some(example_text) = &option.example_text {
-    // Process the example text to preserve code formatting
-    if example_text.contains('\n') {
-      // Multi-line examples - preserve formatting with pre/code
-      // Process special characters to ensure valid HTML
-      let safe_example = example_text.replace('<', "&lt;").replace('>', "&gt;");
+    // Strip surrounding backticks (literalExpression wrapper) before escaping,
+    // so the backtick positions are checked on the original text.
+    let inner: &str = if example_text.starts_with('`')
+      && example_text.ends_with('`')
+      && example_text.len() > 2
+    {
+      &example_text[1..example_text.len() - 1]
+    } else {
+      example_text
+    };
 
-      // Remove backticks if they're surrounding the entire content (from
-      // literalExpression)
-      let trimmed_example = if safe_example.starts_with('`')
-        && safe_example.ends_with('`')
-        && safe_example.len() > 2
-      {
-        &safe_example[1..safe_example.len() - 1]
-      } else {
-        &safe_example
-      };
+    let safe = encode_text(inner);
 
-      // Writing to String is infallible
+    if inner.contains('\n') {
       let _ = writeln!(
         html,
         "  <div class=\"option-example\">Example: \
-         <pre><code>{trimmed_example}</code></pre></div>"
+         <pre><code>{safe}</code></pre></div>"
       );
     } else {
-      // Check if this is already a code block (surrounded by backticks)
-      if example_text.starts_with('`')
-        && example_text.ends_with('`')
-        && example_text.len() > 2
-      {
-        // This is inline code - extract the content and properly escape it
-        let code_content = &example_text[1..example_text.len() - 1];
-        let safe_content =
-          code_content.replace('<', "&lt;").replace('>', "&gt;");
-        let _ = writeln!(
-          html,
-          "  <div class=\"option-example\">Example: \
-           <code>{safe_content}</code></div>"
-        );
-      } else {
-        // Regular inline example - still needs escaping
-        let safe_example =
-          example_text.replace('<', "&lt;").replace('>', "&gt;");
-        let _ = writeln!(
-          html,
-          "  <div class=\"option-example\">Example: \
-           <code>{safe_example}</code></div>"
-        );
-      }
+      let _ = writeln!(
+        html,
+        "  <div class=\"option-example\">Example: <code>{safe}</code></div>"
+      );
     }
   } else if let Some(example_val) = &option.example {
     let example_str = example_val.to_string();
-    let safe_example = example_str.replace('<', "&lt;").replace('>', "&gt;");
+    let safe = encode_text(&example_str);
     if example_str.contains('\n') {
-      // Multi-line JSON examples need special handling
       let _ = writeln!(
         html,
         "  <div class=\"option-example\">Example: \
-         <pre><code>{safe_example}</code></pre></div>"
+         <pre><code>{safe}</code></pre></div>"
       );
     } else {
-      // Single-line JSON examples
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\">Example: \
-         <code>{safe_example}</code></div>"
+        "  <div class=\"option-example\">Example: <code>{safe}</code></div>"
       );
     }
   }
