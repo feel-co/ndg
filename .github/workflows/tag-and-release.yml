@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ndg_version: ${{ steps.read_version.outputs.ndg_version }}
-      tag_exists: ${{ steps.tag.outputs.tag_exists }}
+      tag_exists: ${{ steps.check_version.outputs.tag_exists }}
+      skip_workflow: ${{ steps.check_version.outputs.skip_workflow }}
     steps:
       - uses: cachix/install-nix-action@master
         with:
@@ -27,8 +28,39 @@ jobs:
         id: read_version
         run: |
           echo "ndg_version=v$(nix run nixpkgs#fq -- -r '.workspace.package.version' Cargo.toml)" >> "$GITHUB_OUTPUT"
+      - name: Check if version changed
+        id: check_version
+        run: |
+          VERSION="${{ steps.read_version.outputs.ndg_version }}"
+          
+          echo "Checking if version $VERSION has changed since last tag..."
+          
+          if git ls-remote --tags origin | grep -q "refs/tags/${VERSION}$"; then
+            echo "Tag $VERSION already exists on remote."
+            
+            LAST_TAG_ON_BRANCH=$(git describe --tags --abbrev=0 origin/main 2>/dev/null || echo "")
+            echo "Last tag on branch: $LAST_TAG_ON_BRANCH"
+            
+            if [ "$LAST_TAG_ON_BRANCH" = "$VERSION" ]; then
+              echo "Version has not changed since last tag on main. Exiting gracefully."
+              echo "skip_workflow=true" >> "$GITHUB_OUTPUT"
+              echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            else
+              echo "Version differs from last tag on branch but tag exists on remote (likely a re-tag). Exiting gracefully."
+              echo "skip_workflow=true" >> "$GITHUB_OUTPUT"
+              echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          
+          echo "Version is new. Proceeding with release."
+          echo "skip_workflow=false" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+
       - name: Tag
         id: tag
+        if: steps.check_version.outputs.skip_workflow != 'true'
         run: |
           set -ex
 
@@ -59,6 +91,7 @@ jobs:
 
   create-release:
     needs: tag
+    if: needs.tag.outputs.skip_workflow != 'true'
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -93,6 +126,7 @@ jobs:
 
   build-release:
     needs: [tag, create-release]
+    if: needs.tag.outputs.skip_workflow != 'true'
     strategy:
       matrix:
         include:
@@ -155,7 +189,7 @@ jobs:
 
   update-release-notes:
     needs: [tag, create-release, build-release]
-    if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
+    if: always() && needs.tag.outputs.skip_workflow != 'true' && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -220,7 +254,7 @@ jobs:
 
   generate-checksums:
     needs: [tag, create-release, build-release]
-    if: always() && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
+    if: always() && needs.tag.outputs.skip_workflow != 'true' && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
