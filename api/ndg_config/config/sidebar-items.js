@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_FOOTER_TEXT","DEFAULT_OUTPUT_DIR","DEFAULT_REVISION","DEFAULT_TAB_STYLE","DEFAULT_TITLE"],"fn":["_ndg_calc_similarity_config","_ndg_find_similar_keys_config"],"struct":["Config"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_FOOTER_TEXT","DEFAULT_OUTPUT_DIR","DEFAULT_REVISION","DEFAULT_TAB_STYLE","DEFAULT_TITLE"],"struct":["Config"]};

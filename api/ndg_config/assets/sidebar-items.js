@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["_ndg_calc_similarity_assetsconfig","_ndg_find_similar_keys_assetsconfig"],"struct":["AssetsConfig"]};
+window.SIDEBAR_ITEMS = {"struct":["AssetsConfig"]};

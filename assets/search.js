@@ -62,7 +62,6 @@ class SearchEngine {
         throw new Error("Search data file not found at any expected location");
       }
 
-      console.log(`Loading search data from: ${usedPath}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -87,7 +86,6 @@ class SearchEngine {
         this.initializeFromDocuments(documents);
       }
       this.isLoaded = true;
-      console.log(`Loaded ${documents.length} documents for search`);
     } catch (error) {
       console.error("Error loading search data:", error);
       this.documents = [];
@@ -103,7 +101,6 @@ class SearchEngine {
       this.documents = [];
     } else {
       this.documents = documents;
-      console.log(`Initialized with ${documents.length} documents`);
     }
     try {
       await this.buildTokenMap();
@@ -177,9 +174,6 @@ class SearchEngine {
             if (endIndex < totalDocs) {
               setTimeout(() => processChunk(endIndex, chunkSize), 0);
             } else {
-              console.log(
-                `Built token map with ${this.tokenMap.size} unique tokens from ${processedDocs} documents`,
-              );
               resolve();
             }
           } catch (error) {
@@ -383,7 +377,6 @@ class SearchEngine {
     }
 
     if (!this.isLoaded || this.documents.length === 0) {
-      console.log("Search data not available");
       return [];
     }
 
@@ -1043,7 +1036,6 @@ function initializeSearchWorker() {
       ? `${rootPath}assets/search-worker.js`
       : "/assets/search-worker.js";
     searchWorker = new Worker(workerPath);
-    console.log("Web Worker initialized for background search");
     return searchWorker;
   } catch (error) {
     console.warn("Web Worker creation failed, using main thread:", error);
@@ -1065,9 +1057,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize search engine immediately
   window.searchNamespace.engine
     .loadData()
-    .then(() => {
-      console.log("Search data loaded successfully");
-    })
+    .then(() => {})
     .catch((error) => {
       console.error("Failed to initialize search:", error);
     });
