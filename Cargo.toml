@@ -59,7 +59,7 @@ minify-html   = "0.18.1"
 oxc_allocator = "0.123.0"
 oxc_codegen   = "0.123.0"
 oxc_minifier  = "0.123.0"
-oxc_parser    = "0.123.0"
+oxc_parser    = "0.124.0"
 oxc_span      = "0.123.0"
 
 axum       = { version = "0.8.8", default-features = false }
