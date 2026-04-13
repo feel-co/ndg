@@ -110,7 +110,7 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           draft: false
@@ -180,7 +180,7 @@ jobs:
           cp target/${{ matrix.target }}/release/ndg ${{ matrix.name }}
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           files: ${{ matrix.name }}
@@ -282,7 +282,7 @@ jobs:
           fi
 
       - name: Upload Checksums
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           files: SHA256SUMS
