@@ -37,6 +37,13 @@ changes.
 
 ### Added
 
+- Optional `sidebar.group_by_dir` option to group sidebar items by parent
+  directory. When enabled, pages under the same subdirectory are collapsed
+  under a collapsible heading named after that directory. Root-level pages are
+  always shown flat. Groups are sorted alphabetically with a configurable
+  ordering algorithm. Configure via `sidebar.group_by_dir = true` in
+  `ndg.toml`. The `sidebar.show_group_counts` option (defaulting to `true`)
+  controls whether item count badges are displayed on each directory group.
 - Optional `serve` feature flag for local development server. When enabled, pass
   `--serve` and optionally `--serve-port` to `ndg html` to automatically start a
   local web server after documentation generation completes.

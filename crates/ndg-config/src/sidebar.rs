@@ -104,6 +104,20 @@ pub struct SidebarConfig {
   #[serde(default)]
   pub ordering: SidebarOrdering,
 
+  /// Whether to group sidebar items by their parent directory.
+  ///
+  /// When enabled, pages that share a parent directory are grouped under a
+  /// collapsible heading named after that directory. Pages at the root of
+  /// `input_dir` are never grouped.
+  #[serde(default)]
+  pub group_by_dir: bool,
+
+  /// Whether to show item count badges on directory groups in the sidebar.
+  ///
+  /// Only has effect when `group_by_dir` is `true`. Defaults to `true`.
+  #[serde(default = "default_true")]
+  pub show_group_counts: bool,
+
   /// Pattern-based matching rules for sidebar items.
   #[serde(default)]
   pub matches: Vec<SidebarMatch>,
@@ -111,6 +125,10 @@ pub struct SidebarConfig {
   /// Options sidebar configuration.
   #[serde(default)]
   pub options: Option<OptionsConfig>,
+}
+
+const fn default_true() -> bool {
+  true
 }
 
 impl SidebarConfig {
@@ -831,6 +849,8 @@ mod tests {
       numbered:             true,
       number_special_files: false,
       ordering:             SidebarOrdering::Custom,
+      group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -867,6 +887,8 @@ mod tests {
       numbered:             false,
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
+      group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -897,6 +919,8 @@ mod tests {
       numbered:             false,
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
+      group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),
@@ -921,6 +945,8 @@ mod tests {
       numbered:             false,
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
+      group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),
