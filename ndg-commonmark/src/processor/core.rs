@@ -554,6 +554,7 @@ impl MarkdownProcessor {
   /// Build comrak options from `MarkdownOptions` and feature flags.
   fn comrak_options(&self) -> Options<'_> {
     let mut options = Options::default();
+    // Markdown features present in GFM.
     if self.options.gfm {
       options.extension.table = true;
       options.extension.footnotes = true;
@@ -562,9 +563,13 @@ impl MarkdownProcessor {
       options.extension.superscript = true;
       options.extension.autolink = true;
     }
+
+    // Enable unsafe HTML references. This is not a security concern
+    // as all input is assumed to be trusted.
     options.render.r#unsafe = true;
+
     // Enable description lists but keep custom header processing
-    options.extension.header_ids = None;
+    options.extension.header_id_prefix = None;
     options.extension.description_lists = true;
     options
   }

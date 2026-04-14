@@ -23,7 +23,7 @@ clap = { version = "4.6.0", default-features = false, features = [
   "suggestions",
 ] }
 clap-verbosity-flag = "3.0.4"
-clap_complete = "4.6.0"
+clap_complete = "4.6.2"
 clap_mangen = "0.3.0"
 color-eyre = "0.6.5"
 env_logger = "0.11.10"
@@ -32,12 +32,13 @@ indicatif = { version = "0.18.4", features = [ "rayon" ] }
 jiff = "0.2.23"
 log = "0.4.29"
 num_cpus = "1.17.0"
+rand = "0.10.1"
 
-comrak = { version = "0.51.0", default-features = false, features = [ "syntect" ] }
+comrak = { version = "0.52.0", default-features = false, features = [ "syntect" ] }
 grass  = { version = "0.13.4", default-features = false }
 nixdoc = "0.2.0"
 
-rayon      = "1.11.0"
+rayon      = "1.12.0"
 regex      = "1.12.3"
 rnix       = "0.14.0"
 rowan      = "0.16.1"
@@ -50,17 +51,17 @@ toml       = { version = "1.1.2", default-features = false, features = [ "parse"
 walkdir    = "2.5.0"
 
 html-escape   = "0.2.13"
-html5ever     = "0.38.0"
-indexmap      = "2.13.0"
-kuchikikiki   = "0.9.2"
+html5ever     = "0.39.0"
+indexmap      = "2.14.0"
+kuchikikiki   = "0.10.0"
 lightningcss  = { version = "1.0.0-alpha.71", default-features = false }
-markup5ever   = "0.38.0"
+markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.123.0"
-oxc_codegen   = "0.123.0"
-oxc_minifier  = "0.123.0"
-oxc_parser    = "0.123.0"
-oxc_span      = "0.123.0"
+oxc_allocator = "0.125.0"
+oxc_codegen   = "0.125.0"
+oxc_minifier  = "0.125.0"
+oxc_parser    = "0.125.0"
+oxc_span      = "0.125.0"
 
 axum       = { version = "0.8.8", default-features = false }
 tokio      = { version = "1.51.0", default-features = false }
