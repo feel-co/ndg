@@ -111,7 +111,7 @@ fn setup_tera_templates(
     .as_ref()
     .or(config.template_path.as_ref())
     .map_or_else(|| "default".to_string(), |p| p.display().to_string());
-  let cache_key = format!("{}:{}", template_key, main_template_name);
+  let cache_key = format!("{template_key}:{main_template_name}");
 
   // Check cache first
   {
@@ -1069,7 +1069,7 @@ fn render_nav_item(output: &mut String, item: &NavItem) {
 /// Items at the root (empty `rel_dir`) are rendered flat. Items in a
 /// subdirectory are wrapped in a collapsible `<details>` element with a
 /// `<summary>` label derived from the directory name.
-fn render_grouped(output: &mut String, items: Vec<NavItem>) {
+fn render_grouped(output: &mut String, items: Vec<NavItem>, show_counts: bool) {
   use std::collections::BTreeMap;
 
   // Separate root items from directory-grouped items.
@@ -1111,11 +1111,15 @@ fn render_grouped(output: &mut String, items: Vec<NavItem>) {
       }
     };
     let count = group_items.len();
+    let count_badge = if show_counts {
+      format!("<span class=\"sidebar-dir-count\">{count}</span>")
+    } else {
+      String::new()
+    };
     let _ = writeln!(
       output,
       "<li class=\"sidebar-dir-group\"><details open><summary><span \
-       class=\"sidebar-dir-label\">{label}</span><span \
-       class=\"sidebar-dir-count\">{count}</span></summary><ul>"
+       class=\"sidebar-dir-label\">{label}</span>{count_badge}</summary><ul>"
     );
 
     for item in group_items {
@@ -1328,6 +1332,9 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
       let group_by_dir =
         config.sidebar.as_ref().is_some_and(|s| s.group_by_dir);
 
+      let show_group_counts =
+        config.sidebar.as_ref().is_some_and(|s| s.show_group_counts);
+
       // Render navigation items
       if should_number_special {
         // Combine special and regular items with unified numbering
@@ -1340,7 +1347,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         }
 
         if group_by_dir {
-          render_grouped(&mut doc_nav, all_items);
+          render_grouped(&mut doc_nav, all_items, show_group_counts);
         } else {
           // Render all items flat
           for item in all_items {
@@ -1358,7 +1365,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         }
 
         if group_by_dir {
-          render_grouped(&mut doc_nav, nav_items);
+          render_grouped(&mut doc_nav, nav_items, show_group_counts);
         } else {
           // Render regular entries with optional numbering
           for item in nav_items {

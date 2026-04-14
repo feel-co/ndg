@@ -112,6 +112,12 @@ pub struct SidebarConfig {
   #[serde(default)]
   pub group_by_dir: bool,
 
+  /// Whether to show item count badges on directory groups in the sidebar.
+  ///
+  /// Only has effect when `group_by_dir` is `true`. Defaults to `true`.
+  #[serde(default = "default_true")]
+  pub show_group_counts: bool,
+
   /// Pattern-based matching rules for sidebar items.
   #[serde(default)]
   pub matches: Vec<SidebarMatch>,
@@ -119,6 +125,10 @@ pub struct SidebarConfig {
   /// Options sidebar configuration.
   #[serde(default)]
   pub options: Option<OptionsConfig>,
+}
+
+const fn default_true() -> bool {
+  true
 }
 
 impl SidebarConfig {
@@ -840,6 +850,7 @@ mod tests {
       number_special_files: false,
       ordering:             SidebarOrdering::Custom,
       group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -877,6 +888,7 @@ mod tests {
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -908,6 +920,7 @@ mod tests {
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),
@@ -933,6 +946,7 @@ mod tests {
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
+      show_group_counts:    true,
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),
