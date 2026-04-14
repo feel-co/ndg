@@ -139,6 +139,8 @@ fn test_sidebar_integration() {
     numbered:             true,
     number_special_files: false,
     ordering:             SidebarOrdering::Alphabetical,
+    group_by_dir:         false,
+    show_group_counts:    true,
     matches:              vec![],
     options:              None,
   };
@@ -168,6 +170,8 @@ fn test_sidebar_integration() {
     numbered:             false,
     number_special_files: false,
     ordering:             SidebarOrdering::Custom,
+    group_by_dir:         false,
+    show_group_counts:    true,
     matches:              vec![
       SidebarMatch {
         path:      Some(PathMatch {
@@ -231,6 +235,8 @@ fn test_sidebar_integration() {
     numbered:             true,
     number_special_files: false,
     ordering:             SidebarOrdering::Alphabetical,
+    group_by_dir:         false,
+    show_group_counts:    true,
     matches:              vec![SidebarMatch {
       path:      Some(PathMatch {
         exact:          None,
