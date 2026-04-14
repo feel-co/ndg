@@ -548,6 +548,7 @@ fn sidebar_numbering_excludes_special_files() {
     numbered:             true,
     number_special_files: false, // Default behavior
     ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
+    group_by_dir:         false,
     matches:              vec![],
     options:              None,
   });
@@ -605,6 +606,7 @@ fn sidebar_numbering_special_files_included() {
     numbered:             true,
     number_special_files: true, // enable numbering for special files
     ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
+    group_by_dir:         false,
     matches:              vec![],
     options:              None,
   });
@@ -668,6 +670,7 @@ fn sidebar_numbering_disabled_no_numbers() {
     numbered:             false, // Numbering disabled
     number_special_files: false,
     ordering:             ndg_config::sidebar::SidebarOrdering::Alphabetical,
+    group_by_dir:         false,
     matches:              vec![],
     options:              None,
   });

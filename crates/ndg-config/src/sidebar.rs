@@ -104,6 +104,14 @@ pub struct SidebarConfig {
   #[serde(default)]
   pub ordering: SidebarOrdering,
 
+  /// Whether to group sidebar items by their parent directory.
+  ///
+  /// When enabled, pages that share a parent directory are grouped under a
+  /// collapsible heading named after that directory. Pages at the root of
+  /// `input_dir` are never grouped.
+  #[serde(default)]
+  pub group_by_dir: bool,
+
   /// Pattern-based matching rules for sidebar items.
   #[serde(default)]
   pub matches: Vec<SidebarMatch>,
@@ -831,6 +839,7 @@ mod tests {
       numbered:             true,
       number_special_files: false,
       ordering:             SidebarOrdering::Custom,
+      group_by_dir:         false,
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -867,6 +876,7 @@ mod tests {
       numbered:             false,
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
+      group_by_dir:         false,
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -897,6 +907,7 @@ mod tests {
       numbered:             false,
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
+      group_by_dir:         false,
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),
@@ -921,6 +932,7 @@ mod tests {
       numbered:             false,
       number_special_files: false,
       ordering:             SidebarOrdering::Alphabetical,
+      group_by_dir:         false,
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),

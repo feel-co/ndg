@@ -1040,8 +1040,90 @@ fn load_template_content(
 struct NavItem {
   path:     String,
   title:    String,
+  /// Parent directory relative to `input_dir` ().
+  rel_dir:  String, // empty string for root items
   position: Option<usize>,
   number:   Option<usize>,
+}
+
+/// Render a single navigation item as a `<li>` element, with optional
+/// numbering.
+fn render_nav_item(output: &mut String, item: &NavItem) {
+  if let Some(num) = item.number {
+    let _ = writeln!(
+      output,
+      "<li><a href=\"{}\">{num}. {}</a></li>",
+      item.path, item.title
+    );
+  } else {
+    let _ = writeln!(
+      output,
+      "<li><a href=\"{}\">{}</a></li>",
+      item.path, item.title
+    );
+  }
+}
+
+/// Render navigation items grouped by their parent directory.
+///
+/// Items at the root (empty `rel_dir`) are rendered flat. Items in a
+/// subdirectory are wrapped in a collapsible `<details>` element with a
+/// `<summary>` label derived from the directory name.
+fn render_grouped(output: &mut String, items: Vec<NavItem>) {
+  use std::collections::BTreeMap;
+
+  // Separate root items from directory-grouped items.
+  let mut root_items: Vec<NavItem> = Vec::new();
+  // BTreeMap preserves directory insertion order (sorted by dir name).
+  let mut dir_groups: BTreeMap<String, Vec<NavItem>> = BTreeMap::new();
+
+  for item in items {
+    if item.rel_dir.is_empty() {
+      root_items.push(item);
+    } else {
+      // Use only the first path component as the group label so that
+      // `features/foo/bar.md` is still grouped under `features`.
+      let top_dir = std::path::Path::new(&item.rel_dir)
+        .components()
+        .next()
+        .and_then(|c| c.as_os_str().to_str())
+        .unwrap_or(&item.rel_dir)
+        .to_string();
+      dir_groups.entry(top_dir).or_default().push(item);
+    }
+  }
+
+  // Render root items flat.
+  for item in root_items {
+    render_nav_item(output, &item);
+  }
+
+  // Render each directory group as a collapsible block.
+  for (dir_name, group_items) in dir_groups {
+    // Capitalise the first letter of the directory name for the label.
+    let label = {
+      let mut chars = dir_name.chars();
+      match chars.next() {
+        None => dir_name.clone(),
+        Some(first) => {
+          first.to_uppercase().collect::<String>() + chars.as_str()
+        },
+      }
+    };
+    let count = group_items.len();
+    let _ = writeln!(
+      output,
+      "<li class=\"sidebar-dir-group\"><details open><summary><span \
+       class=\"sidebar-dir-label\">{label}</span><span \
+       class=\"sidebar-dir-count\">{count}</span></summary><ul>"
+    );
+
+    for item in group_items {
+      render_nav_item(output, &item);
+    }
+
+    let _ = writeln!(output, "</ul></details></li>");
+  }
 }
 
 /// Generate the document navigation HTML
@@ -1128,6 +1210,11 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           Some(NavItem {
             path: target_path,
             title: display_title,
+            rel_dir: rel_doc_path
+              .parent()
+              .and_then(|p| p.to_str())
+              .unwrap_or("")
+              .to_string(),
             position,
             number: None,
           })
@@ -1202,6 +1289,11 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           Some(NavItem {
             path:     target_path,
             title:    display_title,
+            rel_dir:  rel_doc_path
+              .parent()
+              .and_then(|p| p.to_str())
+              .unwrap_or("")
+              .to_string(),
             position: None,
             number:   None,
           })
@@ -1233,6 +1325,9 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         .as_ref()
         .is_some_and(|s| s.numbered && s.number_special_files);
 
+      let group_by_dir =
+        config.sidebar.as_ref().is_some_and(|s| s.group_by_dir);
+
       // Render navigation items
       if should_number_special {
         // Combine special and regular items with unified numbering
@@ -1244,25 +1339,17 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           item.number = Some(idx + 1);
         }
 
-        // Render all items
-        for item in all_items {
-          if let Some(num) = item.number {
-            let _ = writeln!(
-              doc_nav,
-              "<li><a href=\"{}\">{num}. {}</a></li>",
-              item.path, item.title
-            );
-          } else {
-            let _ = writeln!(
-              doc_nav,
-              "<li><a href=\"{}\">{}</a></li>",
-              item.path, item.title
-            );
+        if group_by_dir {
+          render_grouped(&mut doc_nav, all_items);
+        } else {
+          // Render all items flat
+          for item in all_items {
+            render_nav_item(&mut doc_nav, &item);
           }
         }
       } else {
         // Render special entries first without numbering
-        for item in special_nav_items {
+        for item in &special_nav_items {
           let _ = writeln!(
             doc_nav,
             "<li><a href=\"{}\">{}</a></li>",
@@ -1270,20 +1357,12 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           );
         }
 
-        // Render regular entries with optional numbering
-        for item in nav_items {
-          if let Some(num) = item.number {
-            let _ = writeln!(
-              doc_nav,
-              "<li><a href=\"{}\">{num}. {}</a></li>",
-              item.path, item.title
-            );
-          } else {
-            let _ = writeln!(
-              doc_nav,
-              "<li><a href=\"{}\">{}</a></li>",
-              item.path, item.title
-            );
+        if group_by_dir {
+          render_grouped(&mut doc_nav, nav_items);
+        } else {
+          // Render regular entries with optional numbering
+          for item in nav_items {
+            render_nav_item(&mut doc_nav, &item);
           }
         }
       }
