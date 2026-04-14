@@ -18,8 +18,9 @@ path = "src/lib.rs"
 [features]
 default      = [ "ndg-flavored", "syntastica" ]
 gfm          = [  ]
-ndg-flavored = [ "gfm", "nixpkgs" ]
+ndg-flavored = [ "gfm", "nixpkgs", "wiki" ]
 nixpkgs      = [  ]
+wiki         = [  ]
 
 # Feature flags for Syntax highlighting.
 # Syntastica requires the "most" feature flag if we need Nix support, and Syntect

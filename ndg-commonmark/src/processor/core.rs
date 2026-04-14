@@ -310,6 +310,10 @@ impl MarkdownProcessor {
       );
     }
 
+    if cfg!(feature = "wiki") {
+      processed = super::extensions::process_wikilinks(&processed);
+    }
+
     (processed, included_files)
   }
 

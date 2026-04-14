@@ -33,6 +33,8 @@ pub use extensions::process_myst_autolinks;
 pub use extensions::process_option_references;
 #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
 pub use extensions::process_role_markup;
+#[cfg(feature = "wiki")]
+pub use extensions::process_wikilinks;
 #[cfg(feature = "nixpkgs")]
 pub use extensions::{
   process_block_elements,

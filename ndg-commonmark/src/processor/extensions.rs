@@ -1255,6 +1255,103 @@ fn extract_url_from_html(url_or_html: &str) -> &str {
   url_or_html
 }
 
+/// Process wikilinks and Obsidian-style links in markdown content.
+///
+/// Converts:
+///
+/// - `[[page]]` (Obsidian link) -> `[page](page.html)`
+/// - `[[name|url]]` (Wiki link) -> `[name](url)`
+///
+/// Being code-block aware to avoid processing inside fenced code blocks.
+///
+/// # Arguments
+///
+/// * `content` - The markdown content to process
+///
+/// # Returns
+///
+/// The processed markdown with wiki/Obsidian links converted to HTML
+#[cfg(feature = "wiki")]
+#[must_use]
+pub fn process_wikilinks(content: &str) -> String {
+  use crate::utils::codeblock::FenceTracker;
+
+  let mut result = String::with_capacity(content.len());
+  let lines = content.lines();
+  let mut tracker = FenceTracker::new();
+
+  for line in lines {
+    tracker = tracker.process_line(line);
+
+    if tracker.in_code_block() {
+      result.push_str(line);
+    } else {
+      result.push_str(&process_line_wikilinks(line));
+    }
+    result.push('\n');
+  }
+
+  result.trim_end().to_string()
+}
+
+/// Process wikilinks in a single line.
+#[cfg(feature = "wiki")]
+fn process_line_wikilinks(line: &str) -> String {
+  let mut result = String::with_capacity(line.len());
+  let mut chars = line.chars().peekable();
+
+  while let Some(ch) = chars.next() {
+    if ch == '[' && chars.peek() == Some(&'[') {
+      chars.next();
+
+      let mut inner = String::new();
+      let mut found_double_close = false;
+
+      while let Some(&next_ch) = chars.peek() {
+        chars.next();
+        if next_ch == ']' && chars.peek() == Some(&']') {
+          chars.next();
+          found_double_close = true;
+          break;
+        }
+        inner.push(next_ch);
+      }
+
+      if found_double_close {
+        if inner.is_empty() {
+          result.push_str("[[]]");
+        } else if inner.contains('|') {
+          let parts: Vec<&str> = inner.splitn(2, '|').collect();
+          let name = parts[0].trim();
+          let url = parts.get(1).unwrap_or(&name).trim();
+          let escaped_name = encode_text(name);
+          let escaped_url = encode_text(url);
+          let _ = write!(
+            result,
+            "<a href=\"{escaped_url}\" class=\"wikilink\">{escaped_name}</a>"
+          );
+        } else {
+          let page = inner.trim();
+          let escaped_page = encode_text(page);
+          let link_target = format!("{page}.html");
+          let _ = write!(
+            result,
+            "<a href=\"{link_target}\" \
+             class=\"obsidian-link\">{escaped_page}</a>"
+          );
+        }
+      } else {
+        result.push_str("[[");
+        result.push_str(&inner);
+      }
+    } else {
+      result.push(ch);
+    }
+  }
+
+  result
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -1354,5 +1451,67 @@ mod tests {
 
     // edge case: 7 hashes (invalid)
     assert!(!is_atx_header("####### Not valid"));
+  }
+
+  #[cfg(feature = "wiki")]
+  #[test]
+  fn test_wikilink_obsidian_basic() {
+    let input = "Check out [[Some Page]] for details.";
+    let result = process_wikilinks(input);
+    assert!(result.contains("href=\"Some Page.html\""));
+    assert!(result.contains("class=\"obsidian-link\""));
+    assert!(result.contains(">Some Page<"));
+  }
+
+  #[cfg(feature = "wiki")]
+  #[test]
+  fn test_wikilink_with_url() {
+    let input = "See [[Custom Name|https://example.com]]";
+    let result = process_wikilinks(input);
+    assert!(result.contains("href=\"https://example.com\""));
+    assert!(result.contains("class=\"wikilink\""));
+    assert!(result.contains(">Custom Name<"));
+  }
+
+  #[cfg(feature = "wiki")]
+  #[test]
+  fn test_wikilink_with_spaces() {
+    let input = "[[My Page Name]]";
+    let result = process_wikilinks(input);
+    assert!(result.contains("href=\"My Page Name.html\""));
+  }
+
+  #[cfg(feature = "wiki")]
+  #[test]
+  fn test_wikilink_in_code_block() {
+    let input = "```\n[[Wiki Link]]\n```\nThen [[Another]]";
+    let result = process_wikilinks(input);
+    assert!(result.contains("[[Wiki Link]]"));
+    assert!(result.contains("href=\"Another.html\""));
+  }
+
+  #[cfg(feature = "wiki")]
+  #[test]
+  fn test_wikilink_empty() {
+    let input = "[[]]";
+    let result = process_wikilinks(input);
+    assert!(result.contains("[[]]"));
+  }
+
+  #[cfg(feature = "wiki")]
+  #[test]
+  fn test_wikilink_malformed() {
+    let input = "[[ incomplete";
+    let result = process_wikilinks(input);
+    assert!(result.contains("[[ incomplete"));
+  }
+
+  #[cfg(feature = "wiki")]
+  #[test]
+  fn test_wikilink_html_escaping() {
+    let input = "See [[Page With <script>]] for info";
+    let result = process_wikilinks(input);
+    assert!(result.contains("&lt;script&gt;"));
+    assert!(!result.contains(">Page With <script><"));
   }
 }
