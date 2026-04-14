@@ -1,6 +1,9 @@
 if (!window.searchNamespace) window.searchNamespace = {};
 
 class SearchEngine {
+  // Characters to strip from search term ends for better matching
+  static STRIP_TRAILING_CHARS_RE = /[.,!?;:'"…—–-]+$/g;
+
   constructor() {
     this.documents = [];
     this.tokenMap = new Map();
@@ -727,7 +730,7 @@ class SearchEngine {
     return text
       .toLowerCase()
       .replace(/\s+/g, " ")
-      .replace(/[.,!?;:'"…—–-]+$/g, "")
+      .replace(SearchEngine.STRIP_TRAILING_CHARS_RE, "")
       .trim();
   }
 
