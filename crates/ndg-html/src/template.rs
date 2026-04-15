@@ -212,12 +212,48 @@ fn build_common_context(
       .map_or("search.html", String::as_str),
   );
 
+  // Build favicon HTML for the template head.
   if let Some(ref meta) = config.meta
-    && let Some(ref favicon) = meta.favicon
-      && let Some(favicon_name) = favicon.file_name().and_then(|n| n.to_str()) {
-        let favicon_path = format!("{root_prefix}{favicon_name}");
-        ctx.insert("favicon_path", &favicon_path);
-      }
+    && !meta.favicon.is_empty()
+  {
+    let favicon_links: Vec<String> = meta
+      .favicon
+      .iter()
+      .filter_map(|entry| {
+        let name = entry
+          .dest
+          .as_ref()
+          .map(|p| p.as_os_str())
+          .or(entry.href.file_name())
+          .and_then(|n| n.to_str())?;
+        let href = format!(
+          "{root_prefix}{}",
+          html_escape::encode_double_quoted_attribute(name)
+        );
+        let rel = html_escape::encode_double_quoted_attribute(&entry.rel);
+
+        let mut tag = format!(r#"<link rel="{rel}" href="{href}""#);
+        if let Some(ref mime_type) = entry.mime_type {
+          tag.push_str(&format!(
+            r#" type="{}""#,
+            html_escape::encode_double_quoted_attribute(mime_type)
+          ));
+        }
+        if let Some(ref sizes) = entry.sizes {
+          tag.push_str(&format!(
+            r#" sizes="{}""#,
+            html_escape::encode_double_quoted_attribute(sizes)
+          ));
+        }
+        tag.push_str(" />");
+        Some(tag)
+      })
+      .collect();
+
+    if !favicon_links.is_empty() {
+      ctx.insert("favicon_links", &favicon_links.join("\n    "));
+    }
+  }
 
   ctx
 }

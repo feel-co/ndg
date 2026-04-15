@@ -637,19 +637,24 @@ impl Config {
       }
     }
 
-    // Favicon file should exist if specified
-    if let Some(ref meta) = self.meta
-      && let Some(ref favicon) = meta.favicon {
-        if !favicon.exists() {
+    // Favicon files should exist if specified
+    if let Some(ref meta) = self.meta {
+      for (index, entry) in meta.favicon.iter().enumerate() {
+        if !entry.href.exists() {
           errors.push(format!(
-            "Favicon file does not exist: {}",
-            favicon.display()
+            "Favicon entry {} file does not exist: {}",
+            index + 1,
+            entry.href.display()
           ));
-        } else if !favicon.is_file() {
-          errors
-            .push(format!("Favicon path is not a file: {}", favicon.display()));
+        } else if !entry.href.is_file() {
+          errors.push(format!(
+            "Favicon entry {} path is not a file: {}",
+            index + 1,
+            entry.href.display()
+          ));
         }
       }
+    }
 
     // Assets directory should exist if specified
     if let Some(ref assets_dir) = self.assets_dir {

@@ -37,10 +37,30 @@ changes.
 
 ### Added
 
-- Optional `meta.favicon` option to specify a favicon file. The file is copied
-  to the root of the output directory and a `<link rel="icon">` tag is
-  automatically added to all HTML pages. Configure via
-  `meta.favicon = "path/to/favicon.ico"` in `ndg.toml`.
+- Optional `meta.favicon` option to specify one or more favicon entries. Each
+  entry produces a `<link>` tag in the HTML head and its file is copied to the
+  root of the output directory. Supports arbitrary `rel`, `type`, `sizes`, and
+  `dest` attributes to cover multiple icon sizes, Apple touch icons, and Android
+  manifest icons. The `dest` field controls the output filename, which is useful
+  when `href` points to a path with unwanted components (e.g. a Nix store path).
+  Configure via `[[meta.favicon]]` in `ndg.toml`:
+
+  ```toml
+  [[meta.favicon]]
+  href  = "favicon-32.png"
+  type  = "image/png"
+  sizes = "32x32"
+
+  [[meta.favicon]]
+  href  = "favicon-192.png"
+  type  = "image/png"
+  sizes = "192x192"
+
+  [[meta.favicon]]
+  href  = "/nix/store/...-apple-touch-icon.png"
+  dest  = "apple-touch-icon.png"
+  rel   = "apple-touch-icon"
+  ```
 - Optional `sidebar.group_by_dir` option to group sidebar items by parent
   directory. When enabled, pages under the same subdirectory are collapsed under
   a collapsible heading named after that directory. Root-level pages are always

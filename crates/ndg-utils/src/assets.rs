@@ -33,22 +33,24 @@ pub fn copy_assets(config: &Config) -> Result<()> {
   let assets_dir = config.output_dir.join("assets");
   fs::create_dir_all(&assets_dir)?;
 
-  // Copy favicon to output root if configured
-  if let Some(ref meta) = config.meta
-    && let Some(ref favicon) = meta.favicon
-      && favicon.exists() && favicon.is_file() {
-        let favicon_file_name = favicon
-          .file_name()
-          .ok_or_else(|| eyre::eyre!("Invalid favicon filename"))?;
-        let dest_path = config.output_dir.join(favicon_file_name);
-        fs::copy(favicon, &dest_path).wrap_err_with(|| {
+  // Copy favicon files to output root if configured
+  if let Some(ref meta) = config.meta {
+    for entry in &meta.favicon {
+      if entry.href.exists() && entry.href.is_file() {
+        let file_name = entry.output_filename().ok_or_else(|| {
+          eyre::eyre!("Favicon entry has no filename: {}", entry.href.display())
+        })?;
+        let dest_path = config.output_dir.join(file_name);
+        fs::copy(&entry.href, &dest_path).wrap_err_with(|| {
           format!(
             "Failed to copy favicon from {} to {}",
-            favicon.display(),
+            entry.href.display(),
             dest_path.display()
           )
         })?;
       }
+    }
+  }
 
   // Generate and write CSS
   let css = generate_css(config)?;
