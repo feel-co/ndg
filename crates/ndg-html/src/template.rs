@@ -212,6 +212,13 @@ fn build_common_context(
       .map_or("search.html", String::as_str),
   );
 
+  if let Some(ref meta) = config.meta
+    && let Some(ref favicon) = meta.favicon
+      && let Some(favicon_name) = favicon.file_name().and_then(|n| n.to_str()) {
+        let favicon_path = format!("{root_prefix}{favicon_name}");
+        ctx.insert("favicon_path", &favicon_path);
+      }
+
   ctx
 }
 

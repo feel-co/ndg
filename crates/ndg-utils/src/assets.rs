@@ -21,6 +21,7 @@ const MAIN_JS: &str = templates::MAIN_JS;
 /// - Main JavaScript files (main.js, search.js only if enabled)
 /// - Any custom assets from the configured assets directory
 /// - Any custom script files specified in the configuration
+/// - The favicon file if configured
 ///
 /// Assets are postprocessed (minified) if configured via `config.postprocess`
 ///
@@ -31,6 +32,23 @@ pub fn copy_assets(config: &Config) -> Result<()> {
   // Create assets directory
   let assets_dir = config.output_dir.join("assets");
   fs::create_dir_all(&assets_dir)?;
+
+  // Copy favicon to output root if configured
+  if let Some(ref meta) = config.meta
+    && let Some(ref favicon) = meta.favicon
+      && favicon.exists() && favicon.is_file() {
+        let favicon_file_name = favicon
+          .file_name()
+          .ok_or_else(|| eyre::eyre!("Invalid favicon filename"))?;
+        let dest_path = config.output_dir.join(favicon_file_name);
+        fs::copy(favicon, &dest_path).wrap_err_with(|| {
+          format!(
+            "Failed to copy favicon from {} to {}",
+            favicon.display(),
+            dest_path.display()
+          )
+        })?;
+      }
 
   // Generate and write CSS
   let css = generate_css(config)?;

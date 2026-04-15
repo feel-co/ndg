@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ title }}</title>
     {{ meta_tags_html | safe }} {{ opengraph_html | safe }}
+    {% if favicon_path %}<link rel="icon" href="{{ favicon_path }}" />{% endif %}
     <script>
       // Apply sidebar state immediately to prevent flash
       (function () {
