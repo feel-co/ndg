@@ -15,4 +15,9 @@ pub struct MetaConfig {
 
   /// Additional meta tags (e.g., `{"description": "...", "keywords": "..."}`)
   pub tags: Option<HashMap<String, String>>,
+
+  /// Path to a favicon file (e.g., favicon.ico, favicon.png).
+  /// The file is copied to the root of the output directory.
+  #[config(key = "favicon", allow_empty)]
+  pub favicon: Option<std::path::PathBuf>,
 }
