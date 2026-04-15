@@ -37,13 +37,17 @@ changes.
 
 ### Added
 
+- Optional `meta.favicon` option to specify a favicon file. The file is copied
+  to the root of the output directory and a `<link rel="icon">` tag is
+  automatically added to all HTML pages. Configure via
+  `meta.favicon = "path/to/favicon.ico"` in `ndg.toml`.
 - Optional `sidebar.group_by_dir` option to group sidebar items by parent
-  directory. When enabled, pages under the same subdirectory are collapsed
-  under a collapsible heading named after that directory. Root-level pages are
-  always shown flat. Groups are sorted alphabetically with a configurable
-  ordering algorithm. Configure via `sidebar.group_by_dir = true` in
-  `ndg.toml`. The `sidebar.show_group_counts` option (defaulting to `true`)
-  controls whether item count badges are displayed on each directory group.
+  directory. When enabled, pages under the same subdirectory are collapsed under
+  a collapsible heading named after that directory. Root-level pages are always
+  shown flat. Groups are sorted alphabetically with a configurable ordering
+  algorithm. Configure via `sidebar.group_by_dir = true` in `ndg.toml`. The
+  `sidebar.show_group_counts` option (defaulting to `true`) controls whether
+  item count badges are displayed on each directory group.
 - Optional `serve` feature flag for local development server. When enabled, pass
   `--serve` and optionally `--serve-port` to `ndg html` to automatically start a
   local web server after documentation generation completes.
@@ -57,8 +61,8 @@ changes.
   `template`, and `toc` to override site-wide defaults per page. An `extra`
   table is also supported and exposed to Tera templates as `{{ page.extra.* }}`
   for use in custom templates.
-- User-defined template variables via the `[vars]` table in `ndg.toml`. Keys
-  are injected into every Tera template context and can be referenced as
+- User-defined template variables via the `[vars]` table in `ndg.toml`. Keys are
+  injected into every Tera template context and can be referenced as
   `{{ key }}`. Built-in variables always take precedence.
 
 ### Changed
