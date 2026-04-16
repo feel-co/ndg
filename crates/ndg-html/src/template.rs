@@ -213,10 +213,8 @@ fn build_common_context(
   );
 
   // Build favicon HTML for the template head.
-  if let Some(ref meta) = config.meta
-    && !meta.favicon.is_empty()
-  {
-    let favicon_links: Vec<String> = meta
+  let favicon_links: Vec<String> = if let Some(ref meta) = config.meta {
+    meta
       .favicon
       .iter()
       .filter_map(|entry| {
@@ -248,12 +246,12 @@ fn build_common_context(
         tag.push_str(" />");
         Some(tag)
       })
-      .collect();
+      .collect()
+  } else {
+    Vec::new()
+  };
 
-    if !favicon_links.is_empty() {
-      ctx.insert("favicon_links", &favicon_links.join("\n    "));
-    }
-  }
+  ctx.insert("favicon_links", &favicon_links.join("\n    "));
 
   ctx
 }
