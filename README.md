@@ -44,7 +44,7 @@ crates that assist in repository maintenance or packaging---such as `xtask`.
 ### ndg
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/feel-co/ndg/rust.yml?branch=main)](https://github.com/feel-co/ndg/actions/workflows/rust.yml)
-[![Rust Version](https://img.shields.io/badge/rust-1.90+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.94+-orange.svg)](https://www.rust-lang.org)
 [![GitHub Release](https://img.shields.io/github/v/release/feel-co/ndg)](https://github.com/feel-co/ndg/releases/latest)
 
 [quickstart document]: ./ndg/README.md
@@ -80,7 +80,7 @@ do is to write the documentation for you...
 ### ndg-commonmark
 
 [![Documentation](https://img.shields.io/docsrs/ndg-commonmark/latest)](https://docs.rs/ndg-commonmark/latest/)
-[![Rust Version](https://img.shields.io/badge/rust-1.90+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.94+-orange.svg)](https://www.rust-lang.org)
 [![Crates.io Version](https://img.shields.io/crates/v/ndg-commonmark)](https://crates.io/crates/ndg-commonmark)
 
 [documentation for latest tagged release]: https://docs.rs/ndg-commonmark/latest/
