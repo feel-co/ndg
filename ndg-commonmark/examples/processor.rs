@@ -125,7 +125,7 @@ fn example_processor_methods() {
   println!("  Highlight theme: {:?}", options.highlight_theme);
 
   // Process content
-  let markdown = r#"
+  let markdown = r"
 ## Feature Demonstration
 
 This shows how to use the ndg-commonmark processor:
@@ -136,7 +136,7 @@ This shows how to use the ndg-commonmark processor:
 4. Access configuration details
 
 > **Note**: This is more efficient for batch processing!
-"#;
+";
 
   let result = processor.render(markdown);
   println!("\nProcessed content:");
@@ -179,7 +179,7 @@ fn example_batch_processing() {
     );
   }
 
-  println!("Total headers across all documents: {}", total_headers);
+  println!("Total headers across all documents: {total_headers}");
   println!();
 }
 

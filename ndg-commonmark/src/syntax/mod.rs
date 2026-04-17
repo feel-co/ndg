@@ -227,7 +227,7 @@ mod tests {
 
     println!("Available themes ({}):", themes.len());
     for theme in &themes {
-      println!("  - {}", theme);
+      println!("  - {theme}");
     }
   }
 

@@ -28,8 +28,7 @@ fn main() {
   // If there were double newlines, we'd see 8
   assert!(
     br_count <= 5,
-    "Found {} <br> tags, expected around 4-5. Double newlines may be present!",
-    br_count
+    "Found {br_count} <br> tags, expected around 4-5. Double newlines may be present!"
   );
 
   // Also verify no double <br><br> patterns

@@ -269,7 +269,7 @@ fn main() {
     let result = processor.render(markdown);
     // Should work fine when no tabs are present
     assert!(result.html.contains("    println"));
-    assert!(!result.html.contains("\t"));
+    assert!(!result.html.contains('\t'));
   }
 
   #[test]

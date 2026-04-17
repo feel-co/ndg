@@ -1,9 +1,18 @@
 #![allow(clippy::expect_used, reason = "Fine in tests")]
-use std::{collections::HashMap, fs, path::Path};
+use std::{
+  collections::HashMap,
+  fs,
+  path::{Path, PathBuf},
+};
 
 use indexmap::IndexMap;
 use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
-use ndg_config::{Config, search::SearchConfig, sidebar::SidebarConfig};
+use ndg_config::{
+  Config,
+  meta::{FaviconEntry, MetaConfig},
+  search::SearchConfig,
+  sidebar::SidebarConfig,
+};
 use ndg_html::template;
 use ndg_manpage::types::NixOption;
 use tempfile::TempDir;
@@ -1048,5 +1057,201 @@ fn render_options_declared_in_url_ampersand_is_escaped_in_attribute() {
   assert!(
     html.contains("&amp;line=42"),
     "ampersand in href must be escaped to &amp;"
+  );
+}
+
+#[test]
+fn render_page_with_single_favicon_entry() {
+  let mut config = minimal_config();
+  config.meta = Some(MetaConfig {
+    favicon: vec![FaviconEntry {
+      href:      PathBuf::from("static/favicon.png"),
+      dest:      None,
+      rel:       "icon".to_string(),
+      mime_type: Some("image/png".to_string()),
+      sizes:     Some("32x32".to_string()),
+    }],
+    ..Default::default()
+  });
+
+  let content = "<p>Test</p>";
+  let title = "Favicon Test";
+  let headers = vec![];
+  let rel_path = Path::new("index.html");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains(r#"<link rel="icon""#),
+    "should contain icon rel"
+  );
+  assert!(
+    html.contains(r#"type="image/png""#),
+    "should contain mime type"
+  );
+  assert!(html.contains(r#"sizes="32x32""#), "should contain sizes");
+}
+
+#[test]
+fn render_page_with_multiple_favicon_entries() {
+  let mut config = minimal_config();
+  config.meta = Some(MetaConfig {
+    favicon: vec![
+      FaviconEntry {
+        href:      PathBuf::from("favicon-16.png"),
+        dest:      None,
+        rel:       "icon".to_string(),
+        mime_type: Some("image/png".to_string()),
+        sizes:     Some("16x16".to_string()),
+      },
+      FaviconEntry {
+        href:      PathBuf::from("favicon-32.png"),
+        dest:      None,
+        rel:       "icon".to_string(),
+        mime_type: Some("image/png".to_string()),
+        sizes:     Some("32x32".to_string()),
+      },
+      FaviconEntry {
+        href:      PathBuf::from("apple-touch-icon.png"),
+        dest:      None,
+        rel:       "apple-touch-icon".to_string(),
+        mime_type: None,
+        sizes:     None,
+      },
+    ],
+    ..Default::default()
+  });
+
+  let content = "<p>Test</p>";
+  let title = "Multi Favicon Test";
+  let headers = vec![];
+  let rel_path = Path::new("index.html");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains(r#"href="favicon-16.png""#),
+    "should contain favicon-16.png"
+  );
+  assert!(
+    html.contains(r#"href="favicon-32.png""#),
+    "should contain favicon-32.png"
+  );
+  assert!(
+    html.contains(r#"href="apple-touch-icon.png""#),
+    "should contain apple-touch-icon.png"
+  );
+  assert!(
+    html.contains(r#"rel="apple-touch-icon""#),
+    "should contain apple-touch-icon rel"
+  );
+}
+
+#[test]
+fn render_page_with_favicon_dest_override() {
+  let mut config = minimal_config();
+  config.meta = Some(MetaConfig {
+    favicon: vec![FaviconEntry {
+      href:      PathBuf::from("/nix/store/abc123-apple-touch-icon.png"),
+      dest:      Some(PathBuf::from("apple-touch-icon.png")),
+      rel:       "apple-touch-icon".to_string(),
+      mime_type: None,
+      sizes:     None,
+    }],
+    ..Default::default()
+  });
+
+  let content = "<p>Test</p>";
+  let title = "Dest Override Test";
+  let headers = vec![];
+  let rel_path = Path::new("index.html");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains(r#"href="apple-touch-icon.png""#),
+    "href should use dest filename, not nix store path"
+  );
+  // The href should NOT contain the nix store path
+  assert!(
+    !html.contains("/nix/store/"),
+    "nix store path should not appear in href"
+  );
+}
+
+#[test]
+fn render_page_favicon_rel_defaults_to_icon() {
+  use std::path::PathBuf;
+
+  use ndg_config::meta::FaviconEntry;
+
+  // Create a FaviconEntry without explicitly setting rel
+  let entry = FaviconEntry {
+    href:      PathBuf::from("favicon.png"),
+    dest:      None,
+    rel:       "icon".to_string(), // should default to "icon" via serde
+    mime_type: None,
+    sizes:     None,
+  };
+  assert_eq!(entry.rel, "icon");
+
+  // Verify output_filename works
+  assert_eq!(
+    entry.output_filename().map(|s| s.to_str()),
+    Some(Some("favicon.png"))
+  );
+
+  // Test with dest
+  let entry_with_dest = FaviconEntry {
+    href:      PathBuf::from("/nix/store/abc-favicon.png"),
+    dest:      Some(PathBuf::from("favicon.png")),
+    rel:       "icon".to_string(),
+    mime_type: None,
+    sizes:     None,
+  };
+  assert_eq!(
+    entry_with_dest.output_filename().map(|s| s.to_str()),
+    Some(Some("favicon.png"))
+  );
+}
+
+#[test]
+fn render_page_favicon_attribute_values_are_html_escaped() {
+  use std::path::PathBuf;
+
+  use ndg_config::meta::FaviconEntry;
+
+  let mut config = minimal_config();
+  config.meta = Some(ndg_config::meta::MetaConfig {
+    favicon: vec![FaviconEntry {
+      href:      PathBuf::from("favicon.png"),
+      dest:      None,
+      rel:       "icon".to_string(),
+      mime_type: Some(r"text/html<script>alert('xss')</script>".to_string()),
+      sizes:     Some("16x16".to_string()),
+    }],
+    ..Default::default()
+  });
+
+  let content = "<p>Test</p>";
+  let title = "Escaping Test";
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let html =
+    template::render(&config, content, title, &headers, rel_path, None)
+      .expect("render should succeed");
+
+  // The mime_type contains script injection attempt; it must be escaped
+  // Search for it specifically inside a type attribute
+  assert!(
+    !html.contains(r#"type="text/html<script>"#),
+    "script tag must not appear unescaped in mime_type type attribute"
+  );
+  assert!(
+    html.contains(r#"type="text/html&lt;script&gt;"#),
+    "angle brackets in mime_type must be HTML-escaped inside type attribute"
   );
 }

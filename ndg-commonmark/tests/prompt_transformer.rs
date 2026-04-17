@@ -13,7 +13,7 @@ fn render_html_after_transform(
   options.extension.footnotes = true;
   options.extension.strikethrough = true;
   options.extension.tasklist = true;
-  options.extension.header_ids = Some(String::new());
+  options.extension.header_id_prefix = Some(String::new());
   options.render.r#unsafe = true;
 
   let root = parse_document(&arena, markdown, &options);

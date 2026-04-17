@@ -69,12 +69,12 @@ fn test_syntax_highlighting_with_unsupported_language() {
 
   let processor = MarkdownProcessor::new(options);
 
-  let markdown = r#"
+  let markdown = r"
 ```nonexistent-language
 some code here
 that should still be wrapped
 ```
-"#;
+";
 
   let result = processor.render(markdown);
 
@@ -213,14 +213,11 @@ fn test_syntax_manager_fallback_behavior() {
   );
 
   // Should either succeed with fallback or fail gracefully
-  match result {
-    Ok(html) => {
-      assert!(!html.is_empty());
-      assert!(html.contains("some random code"));
-    },
-    Err(_) => {
-      // This is acceptable if no fallback is configured
-    },
+  if let Ok(html) = result {
+    assert!(!html.is_empty());
+    assert!(html.contains("some random code"));
+  } else {
+    // This is acceptable if no fallback is configured
   }
 }
 

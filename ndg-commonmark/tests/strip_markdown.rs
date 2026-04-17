@@ -54,7 +54,7 @@ fn test_strip_markdown_removes_formatting() {
   let result = strip_markdown(md);
   assert!(!result.contains("**"), "Bold markers should be removed");
   assert!(
-    !result.contains("*"),
+    !result.contains('*'),
     "Italic markers should be removed, got: {result}"
   );
   assert!(result.contains("bold"), "Bold text content should remain");

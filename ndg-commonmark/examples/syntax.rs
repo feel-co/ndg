@@ -98,7 +98,7 @@ with lib;
   if html.len() > 500 {
     println!("{}...\n", &html[..500]);
   } else {
-    println!("{}\n", html);
+    println!("{html}\n");
   }
 
   println!("Title: {:?}", result.title);
@@ -146,7 +146,7 @@ impl Default for Config {
   if highlighted.len() > 200 {
     println!("{}...\n", &highlighted[..200]);
   } else {
-    println!("{}\n", highlighted);
+    println!("{highlighted}\n");
   }
 
   Ok(())
@@ -183,19 +183,19 @@ fn demo_multiple_languages() -> Result<(), Box<dyn std::error::Error>> {
   ];
 
   for (lang_name, lang_code, code) in examples {
-    println!("--- {} ---", lang_name);
+    println!("--- {lang_name} ---");
 
     match manager.highlight_code(code, lang_code, None) {
       Ok(highlighted) => {
-        println!("✓ Successfully highlighted {} code", lang_name);
+        println!("✓ Successfully highlighted {lang_name} code");
         if highlighted.len() > 100 {
           println!("Preview: {}...", &highlighted[..100]);
         } else {
-          println!("Full output: {}", highlighted);
+          println!("Full output: {highlighted}");
         }
       },
       Err(e) => {
-        println!("✗ Failed to highlight {}: {}", lang_name, e);
+        println!("✗ Failed to highlight {lang_name}: {e}");
       },
     }
     println!();
@@ -210,23 +210,23 @@ fn demo_themes() -> Result<(), Box<dyn std::error::Error>> {
   let manager = create_default_manager()?;
   let themes = manager.highlighter().available_themes();
 
-  println!("Available themes: {:?}", themes);
+  println!("Available themes: {themes:?}");
 
   let sample_code = "fn main() { println!(\"Hello, themes!\"); }";
 
   for theme in themes.iter().take(3) {
     // Show first 3 themes
-    println!("--- Theme: {} ---", theme);
+    println!("--- Theme: {theme} ---");
     match manager.highlight_code(sample_code, "rust", Some(theme)) {
       Ok(highlighted) => {
         if highlighted.len() > 150 {
           println!("{}...", &highlighted[..150]);
         } else {
-          println!("{}", highlighted);
+          println!("{highlighted}");
         }
       },
       Err(e) => {
-        println!("Error with theme {}: {}", theme, e);
+        println!("Error with theme {theme}: {e}");
       },
     }
     println!();
@@ -256,9 +256,9 @@ fn demo_language_detection() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(detected_lang) =
       manager.highlighter().language_from_filename(filename)
     {
-      println!("✓ {}: detected as '{}'", filename, detected_lang);
+      println!("✓ {filename}: detected as '{detected_lang}'");
     } else {
-      println!("✗ {}: no language detected", filename);
+      println!("✗ {filename}: no language detected");
     }
   }
 
@@ -269,7 +269,7 @@ fn demo_language_detection() -> Result<(), Box<dyn std::error::Error>> {
   let aliases = vec!["js", "py", "ts", "sh", "yml"];
   for alias in aliases {
     let resolved = manager.resolve_language(alias);
-    println!("  {} -> {}", alias, resolved);
+    println!("  {alias} -> {resolved}");
   }
 
   Ok(())
