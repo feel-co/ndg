@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["MetaConfig"]};
+window.SIDEBAR_ITEMS = {"fn":["default_rel"],"struct":["FaviconEntry","MetaConfig"]};
