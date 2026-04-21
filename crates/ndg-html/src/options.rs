@@ -69,6 +69,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
           example_text:    None,
           declared_in:     None,
           declared_in_url: None,
+          defined_in:      Vec::new(),
           internal:        false,
           read_only:       false,
         };
@@ -78,8 +79,31 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
           option.type_name.clone_from(type_name);
         }
 
-        if let Some(Value::String(desc)) = option_data.get("description") {
-          let processed_desc = escape_html_in_markdown(desc);
+        if let Some(desc) = option_data.get("description") {
+          let desc_text = match desc {
+            Value::String(s) => s.clone(),
+            Value::Object(obj)
+              if obj.get("_type").and_then(|t| t.as_str())
+                == Some("literalMD") =>
+            {
+              obj
+                .get("text")
+                .and_then(|t| t.as_str())
+                .unwrap_or("")
+                .to_string()
+            },
+            _ => String::new(),
+          };
+          // Only escape HTML for plain string descriptions, not literalMD
+          let processed_desc = if let Value::Object(obj) = desc {
+            if obj.get("_type").and_then(|t| t.as_str()) == Some("literalMD") {
+              desc_text
+            } else {
+              escape_html_in_markdown(&desc_text)
+            }
+          } else {
+            escape_html_in_markdown(&desc_text)
+          };
           let result = processor.render(&processed_desc);
           option.description = result.html;
         }
@@ -117,6 +141,18 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
           let (display, url) = format_location(&decls[0], &config.revision);
           option.declared_in = display;
           option.declared_in_url = url;
+        }
+
+        // Process definitions with location handling
+        if let Some(Value::Array(defs)) = option_data.get("definitions")
+          && !defs.is_empty()
+        {
+          for def in defs {
+            let (display, url) = format_location(def, &config.revision);
+            if let Some(display) = display {
+              option.defined_in.push((display, url));
+            }
+          }
         }
 
         // Read-only status

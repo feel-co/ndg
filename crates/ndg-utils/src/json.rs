@@ -24,11 +24,23 @@ pub fn extract_value(value: &Value, wrap_code: bool) -> Option<String> {
     match type_name.as_str() {
       // literalDocBook and literalMD are deprecated as of 24.11
       // and supported only for backwards compatibility
-      "literalExpression" | "literalDocBook" | "literalMD" => {
+      "literalExpression" => {
         if let Some(Value::String(text)) = obj.get("text") {
-          if wrap_code && type_name.as_str() == "literalExpression" {
+          if wrap_code {
             return Some(format!("`{}`", text.clone()));
           }
+          return Some(text.clone());
+        }
+      },
+      "literalMD" => {
+        if let Some(Value::String(text)) = obj.get("text") {
+          // literalMD contains markdown that should be rendered, not wrapped in
+          // code
+          return Some(text.clone());
+        }
+      },
+      "literalDocBook" => {
+        if let Some(Value::String(text)) = obj.get("text") {
           return Some(text.clone());
         }
       },
