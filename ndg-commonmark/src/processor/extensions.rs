@@ -5,6 +5,24 @@ use html_escape::encode_text;
 
 use super::{dom::safe_select, process::process_safe};
 
+/// Sanitize an option name into a valid HTML ID, matching nixos-render-docs
+/// XML ID format.
+///
+/// Translates `*`, `<`, `>`, `[`, `]`, `:`, `"`, and space to `_`.
+/// Dots are preserved to match nixos-render-docs behavior.
+fn sanitize_option_id(name: &str) -> String {
+  let sanitized: String = name
+    .chars()
+    .map(|c| {
+      match c {
+        '*' | '<' | '>' | '[' | ']' | ':' | '"' | ' ' => '_',
+        c => c,
+      }
+    })
+    .collect();
+  format!("option-{sanitized}")
+}
+
 /// Apply GitHub Flavored Markdown (GFM) extensions to the input markdown.
 ///
 /// This is a placeholder for future GFM-specific preprocessing or AST
@@ -409,7 +427,7 @@ pub fn format_role_markup(
           valid_options.is_none_or(|opts| opts.contains(content)); // If no validation set, link all options
 
         if should_link {
-          let option_id = format!("option-{}", content.replace('.', "-"));
+          let option_id = sanitize_option_id(content);
           format!(
             "<a class=\"option-reference\" \
              href=\"options.html#{option_id}\"><code \
@@ -1178,7 +1196,7 @@ pub fn process_option_references(
             valid_options.is_none_or(|opts| opts.contains(code_text.as_str()));
 
           if should_link {
-            let option_id = format!("option-{}", code_text.replace('.', "-"));
+            let option_id = sanitize_option_id(code_text.as_str());
             let attrs = vec![
               (ExpandedName::new("", "href"), Attribute {
                 prefix: None,

@@ -1526,16 +1526,20 @@ fn generate_toc(headers: &[Header]) -> String {
 ///
 /// Dots are the canonical separator in NixOS option names, but names may also
 /// contain `<name>` placeholders (angle brackets) and other characters that
-/// are invalid or dangerous in HTML `id` attributes and URL fragments. Replace
-/// every character that is not ASCII alphanumeric, `-`, or `_` with `-`.
+/// are invalid or dangerous in HTML `id` attributes and URL fragments.
+///
+/// This function matches the XML ID sanitization used by nixos-render-docs:
+/// `*`, `<`, `>`, `[`, `]`, `:`, `"`, and space are translated to `_`.
+/// Dots are preserved as they are valid in option names.
 fn sanitize_option_id(name: &str) -> String {
+  // Match nixos-render-docs XML ID sanitization:
+  // translate *, <, >, [, ], :, ", space to _
   let sanitized: String = name
     .chars()
     .map(|c| {
-      if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
-        c
-      } else {
-        '-'
+      match c {
+        '*' | '<' | '>' | '[' | ']' | ':' | '"' | ' ' => '_',
+        c => c,
       }
     })
     .collect();
@@ -1620,6 +1624,28 @@ fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
            <code>{declared_in}</code></div>"
         );
       }
+    }
+
+    // Option defined in; list all definition locations
+    if !option.defined_in.is_empty() {
+      let _ = writeln!(
+        options_html,
+        "  <div class=\"option-defined\">Defined in:</div>"
+      );
+      let _ = writeln!(options_html, "  <ul class=\"option-defined-list\">");
+      for (display, url) in &option.defined_in {
+        if let Some(url) = url {
+          let safe_url = html_escape::encode_double_quoted_attribute(url);
+          let _ = writeln!(
+            options_html,
+            "    <li><code><a href=\"{safe_url}\" \
+             target=\"_blank\">{display}</a></code></li>"
+          );
+        } else {
+          let _ = writeln!(options_html, "    <li><code>{display}</code></li>");
+        }
+      }
+      let _ = writeln!(options_html, "  </ul>");
     }
 
     // Close option div
