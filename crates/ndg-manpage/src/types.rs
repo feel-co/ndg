@@ -35,6 +35,9 @@ pub struct NixOption {
   /// Option declaration URL for hyperlink
   pub declared_in_url: Option<String>,
 
+  /// Paths to files where the option is defined
+  pub defined_in: Vec<(String, Option<String>)>,
+
   /// Whether this option is internal
   pub internal: bool,
 
