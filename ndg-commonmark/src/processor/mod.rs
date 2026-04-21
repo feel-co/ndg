@@ -84,9 +84,9 @@ mod tests {
       assert!(result.contains(
         "<code class=\"nixos-option\">hjem.users.&lt;name&gt;.enable</code>"
       ));
-      // Should have properly formatted option ID in href with preserved special
-      // chars
-      assert!(result.contains("option-hjem-users-<name>-enable"));
+      // Should have properly formatted option ID in href with sanitized special
+      // chars to remain compatible with n-r-d
+      assert!(result.contains("option-hjem.users._name_.enable"));
     }
   }
 
@@ -149,8 +149,8 @@ mod tests {
         "<code class=\"nixos-option\">hjem.users.&lt;name&gt;.enable</code>"
       ));
 
-      // Should preserve special characters in the option ID (the actual anchor)
-      assert!(result.contains("options.html#option-hjem-users-<name>-enable"));
+      // Should sanitize special characters in the option ID
+      assert!(result.contains("options.html#option-hjem.users._name_.enable"));
     }
   }
 
@@ -167,8 +167,8 @@ mod tests {
         None,
       );
 
-      // Option ID should preserve angle brackets
-      assert!(result.contains("option-services-foo-<bar>-enable"));
+      // Option ID should sanitize angle brackets to underscores
+      assert!(result.contains("option-services.foo._bar_.enable"));
 
       // Display text should be HTML escaped
       assert!(result.contains("&lt;bar&gt;"));

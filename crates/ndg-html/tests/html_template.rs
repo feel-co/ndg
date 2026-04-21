@@ -948,9 +948,9 @@ fn render_options_id_attribute_is_safe_for_angle_bracket_names() {
   );
 
   // The id and matching href must both be present so the anchor still works.
-  // The sanitized form replaces all non-alphanumeric chars except `-`/`_`
-  // with `-`, so `.` and `<`/`>` all become `-`.
-  let expected_id = "option-services-nginx-virtualHosts--name--serverName";
+  // The sanitized form replaces special chars (* < > [ ] : " space) with `_`
+  // per nixos-render-docs XML ID format.
+  let expected_id = "option-services.nginx.virtualHosts._name_.serverName";
   assert!(
     html.contains(&format!("id=\"{expected_id}\"")),
     "sanitized id must be present: {expected_id}"
@@ -1026,6 +1026,100 @@ fn render_options_declared_in_preserves_angle_brackets() {
   assert!(
     !html.contains("&lt;modules&gt;"),
     "angle brackets in declared_in must not be escaped"
+  );
+}
+
+// Regression test for mkOption formatting parity with nixos-render-docs.
+// Verifies option IDs, literalMD handling, defined_by, and raw markdown.
+#[test]
+fn render_options_mkoption_parity() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+
+  let mut options = IndexMap::new();
+  options.insert(
+    "services.nginx.virtualHosts.<name>.serverName".to_string(),
+    NixOption {
+      name: "services.nginx.virtualHosts.<name>.serverName".to_string(),
+      description: "<p>Server name <strong>with markdown</strong></p>".to_string(),
+      type_name: "string".to_string(),
+      default_text: Some("`example.com`".to_string()),
+      example_text: Some("`server.example.com`".to_string()),
+      declared_in: Some("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix".to_string()),
+      declared_in_url: Some("https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/services/web-servers/nginx.nix".to_string()),
+      defined_in: vec![
+        ("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix".to_string(), Some("https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/services/web-servers/nginx.nix".to_string())),
+        ("<nixpkgs>/nixos/modules/services/web-servers/default.nix".to_string(), None),
+      ],
+      internal: false,
+      read_only: false,
+      ..Default::default()
+    },
+  );
+
+  let html = template::render_options(&config, &options).expect("render");
+
+  // 1. Option ID sanitization: must match nixos-render-docs XML ID format
+  // < and > become _, not -
+  let expected_id = "option-services.nginx.virtualHosts._name_.serverName";
+  assert!(
+    html.contains(&format!("id=\"{expected_id}\"")),
+    "option id must use underscore for angle brackets: {expected_id}"
+  );
+  assert!(
+    html.contains(&format!("href=\"#{expected_id}\"")),
+    "anchor href must match sanitized id: #{expected_id}"
+  );
+
+  // 2. literalMD handling: description should be rendered as raw markdown HTML
+  assert!(
+    html.contains("<strong>with markdown</strong>"),
+    "literalMD description must render markdown as HTML"
+  );
+
+  // 3. Default/example values: literalExpression backticks stripped
+  assert!(
+    html.contains("<code>example.com</code>"),
+    "default value must strip literalExpression backticks"
+  );
+  assert!(
+    html.contains("<code>server.example.com</code>"),
+    "example value must strip literalExpression backticks"
+  );
+
+  // 4. Declared in with hyperlink
+  assert!(
+    html.contains("Declared in:"),
+    "must show 'Declared in' label"
+  );
+  assert!(
+    html.contains("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix"),
+    "declared_in path must be present"
+  );
+
+  // 5. Defined in section with multiple entries
+  assert!(html.contains("Defined in:"), "must show 'Defined in' label");
+  assert!(
+    html.contains("<ul class=\"option-defined-list\">"),
+    "defined_in must use unordered list"
+  );
+  assert!(
+    html.contains("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix"),
+    "first defined_in entry must be present"
+  );
+  assert!(
+    html.contains("<nixpkgs>/nixos/modules/services/web-servers/default.nix"),
+    "second defined_in entry must be present"
+  );
+
+  // 6. No raw angle brackets in id/href
+  assert!(
+    !html.contains("id=\"option-services-nginx-virtualHosts-<name>"),
+    "raw '<' must not appear in id attribute"
+  );
+  assert!(
+    !html.contains("href=\"#option-services-nginx-virtualHosts-<name>"),
+    "raw '<' must not appear in href attribute"
   );
 }
 

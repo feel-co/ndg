@@ -69,7 +69,7 @@ fn test_role_option() {
   let md = "{option}`services.nginx.enable`";
   let html = ndg_html(md);
   assert_html_exact(&html, &[
-    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
+    r#"<a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
   ]);
 }
 
@@ -321,7 +321,7 @@ fn test_role_markup_in_lists() {
     r#"<code class="command">nixos-rebuild switch</code>"#,
     r#"<code class="env-var">HOME</code>"#,
     r#"<code class="file-path">/etc/nixos/configuration.nix</code>"#,
-    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
+    r#"<a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
     r#"<code class="nix-var">pkgs</code>"#,
     r#"<span class="manpage-reference">nix.conf(5)</span>"#,
   ]);
@@ -377,7 +377,7 @@ fn test_reported_issue_regression() {
     r#"<li><code class="command">nixos-rebuild switch</code></li>"#,
     r#"<li><code class="env-var">HOME</code></li>"#,
     r#"<li><code class="file-path">/etc/nixos/configuration.nix</code></li>"#,
-    r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a></li>"#,
+    r#"<li><a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a></li>"#,
     r#"<li><code class="nix-var">pkgs</code></li>"#,
     r#"<li><span class="manpage-reference">nix.conf(5)</span></li>"#,
   ]);
@@ -427,7 +427,7 @@ fn test_auto_link_options_enabled() {
   let html = processor.render(md).html;
 
   assert_html_contains(&html, &[
-    r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
+    r#"<a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
   ]);
 }
 

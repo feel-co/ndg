@@ -119,7 +119,7 @@ Visit the [](#getting-started) guide.
   assert!(result.html.contains(
     r#"<code class="file-path">/etc/nixos/configuration.nix</code>"#
   ));
-  assert!(result.html.contains(r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#));
+  assert!(result.html.contains(r#"<a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a>"#));
   assert!(result.html.contains(r#"<code class="nix-var">pkgs</code>"#));
   assert!(
     result
@@ -259,9 +259,9 @@ Valid option: {option}`boot.loader.grub.enable`
 
   // Should process valid options only when explicitly marked
   assert!(result.html.contains(
-        r#"<a class="option-reference" href="options.html#option-boot-loader-grub-enable""#
+        r#"<a class="option-reference" href="options.html#option-boot.loader.grub.enable""#
     ));
-  assert!(result.html.contains("boot-loader-grub-enable"));
+  assert!(result.html.contains("boot.loader.grub.enable"));
 
   // Should not auto-link things that look like filenames
   assert!(result.html.contains(r"<code>$HOME/config</code>"));
@@ -304,12 +304,12 @@ Table with options:
 
   // Should process role-based options
   assert!(result.html.contains(
-        r#"<a class="option-reference" href="options.html#option-services-nginx-enable">"#
+        r#"<a class="option-reference" href="options.html#option-services.nginx.enable">"#
     ));
 
   // Should process explicitly marked options
   assert!(result.html.contains(
-        r#"<a class="option-reference" href="options.html#option-boot-initrd-luks-devices">"#
+        r#"<a class="option-reference" href="options.html#option-boot.initrd.luks.devices">"#
     ));
 
   // Should not process plain code that looks like a filename
@@ -320,6 +320,6 @@ Table with options:
   assert!(result.html.contains(r"<code>file.name.txt</code>"));
 
   // Should process options in tables when explicitly marked with {option} role
-  assert!(result.html.contains("option-services-openssh-enable"));
-  assert!(result.html.contains("option-networking-hostName"));
+  assert!(result.html.contains("option-services.openssh.enable"));
+  assert!(result.html.contains("option-networking.hostName"));
 }
