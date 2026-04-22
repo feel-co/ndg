@@ -84,6 +84,9 @@ changes.
 - User-defined template variables via the `[vars]` table in `ndg.toml`. Keys are
   injected into every Tera template context and can be referenced as
   `{{ key }}`. Built-in variables always take precedence.
+- "Defined in" section for options showing where each option is defined in
+  addition to where it is declared. Renders as an unordered list with
+  hyperlinks when GitHub URLs are available.
 
 ### Changed
 
@@ -101,6 +104,16 @@ changes.
 
 ### Fixed
 
+- Fixed inconsistent escaping of `<name>` in option IDs (issue #165). Option
+  reference links (`{option}` role markup) now generate the same IDs as option
+  page anchors. Both use underscore-based sanitization matching
+  nixos-render-docs' XML ID format: `*`, `<`, `>`, `[`, `]`, `:`, `"`, and space
+  are translated to `_`, while dots are preserved as valid option name
+  separators (e.g., `option-services.nginx.enable`).
+- Fixed `literalMD` and `literalExpression` handling in option rendering to
+  match nixos-render-docs behavior. `literalMD` descriptions are now rendered
+  as raw markdown without HTML-escaping, and `literalExpression` backticks are
+  stripped from default/example values.
 - Fixed search index to properly include content from `{=include=}` directives.
   Included files are now searchable as part of their parent document.
 - Fixed memory leak in mobile search focus trap. Event listeners are now

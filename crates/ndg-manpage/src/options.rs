@@ -333,6 +333,7 @@ fn parse_option(
     example_text:    None,
     declared_in:     None,
     declared_in_url: None,
+    defined_in:      Vec::new(),
     internal:        false,
     read_only:       false,
   };

@@ -28,7 +28,8 @@ fn main() {
   // If there were double newlines, we'd see 8
   assert!(
     br_count <= 5,
-    "Found {br_count} <br> tags, expected around 4-5. Double newlines may be present!"
+    "Found {br_count} <br> tags, expected around 4-5. Double newlines may be \
+     present!"
   );
 
   // Also verify no double <br><br> patterns
@@ -62,7 +63,7 @@ fn test_new_processor_role_markup_in_lists() {
   assert!(html.contains(
     r#"<li><code class="file-path">/etc/nixos/configuration.nix</code></li>"#
   ));
-  assert!(html.contains(r#"<li><a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a></li>"#));
+  assert!(html.contains(r#"<li><a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a></li>"#));
   assert!(html.contains(r#"<li><code class="nix-var">pkgs</code></li>"#));
   assert!(html.contains(
     r#"<li><span class="manpage-reference">nix.conf(5)</span></li>"#
@@ -106,8 +107,8 @@ Valid: {option}`boot.loader.systemd-boot.enable`";
 
   // Only the valid option paths marked with {option} should be converted to
   // links
-  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-services-nginx-enable"><code class="nixos-option">services.nginx.enable</code></a>"#));
-  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-boot-loader-systemd-boot-enable"><code class="nixos-option">boot.loader.systemd-boot.enable</code></a>"#));
+  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a>"#));
+  assert!(html.contains(r#"<a class="option-reference" href="options.html#option-boot.loader.systemd-boot.enable"><code class="nixos-option">boot.loader.systemd-boot.enable</code></a>"#));
 
   // These should remain as plain code
   assert!(html.contains(r"<code>some/path.conf</code>"));
