@@ -7,7 +7,15 @@ use std::{
 use ndg_macros::Configurable;
 use serde::{Deserialize, Serialize};
 
-use crate::{assets, error::ConfigError, meta, postprocess, search, sidebar};
+use crate::{
+  anchor,
+  assets,
+  error::ConfigError,
+  meta,
+  postprocess,
+  search,
+  sidebar,
+};
 
 /// Default output directory for generated documentation.
 pub const DEFAULT_OUTPUT_DIR: &str = "build";
@@ -138,6 +146,10 @@ pub struct Config {
   #[config(nested)]
   pub postprocess: Option<postprocess::PostprocessConfig>,
 
+  /// Anchor configuration for option IDs and compatibility.
+  #[config(nested)]
+  pub anchor: Option<anchor::AnchorConfig>,
+
   /// Nix files or directories to extract nixdoc comments from.
   ///
   /// Each entry may be a `.nix` file or a directory. Directories are scanned
@@ -202,6 +214,7 @@ impl Default for Config {
       meta:              None,
       sidebar:           None,
       postprocess:       None,
+      anchor:            None,
       nixdoc_inputs:     Vec::new(),
       vars:              HashMap::new(),
       opengraph:         None,
@@ -230,6 +243,25 @@ impl Config {
   #[must_use]
   pub fn search_max_heading_level(&self) -> u8 {
     self.search.as_ref().map_or(3, |s| s.max_heading_level)
+  }
+
+  /// Returns whether to use the legacy option ID format (hyphens instead of
+  /// dots).
+  #[must_use]
+  pub fn use_legacy_option_id_format(&self) -> bool {
+    self
+      .anchor
+      .as_ref()
+      .map_or(false, |a| a.legacy_option_id_format)
+  }
+
+  /// Returns whether to generate compatibility anchors for old option IDs.
+  #[must_use]
+  pub fn generate_compatibility_anchors(&self) -> bool {
+    self
+      .anchor
+      .as_ref()
+      .map_or(false, |a| a.compatibility_anchors)
   }
 
   /// Load configuration from a file (TOML or JSON).

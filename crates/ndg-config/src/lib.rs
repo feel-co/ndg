@@ -1,3 +1,4 @@
+pub mod anchor;
 pub mod assets;
 pub mod config;
 pub mod error;
