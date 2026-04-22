@@ -97,6 +97,7 @@
 <li><a href="#author">author</a>
 <li><a href="#template">template</a>
 <li><a href="#toc">toc</a>
+<li><a href="#tags">tags</a>
 <li><a href="#extra">extra</a>
 </ul><li><a href="#template-variables">Template Variables</a>
 <li><a href="#interaction-with-global-configuration">Interaction with Global Configuration</a>
@@ -191,6 +192,14 @@ toc = false
 +++
 </code></pre>
 <p>Defaults to <code>true</code> (TOC is generated whenever headings are present).</p>
+<h3 id="tags"><code>tags</code></h3>
+<p>Per-page tags, as a list of strings. Injected as <code>&lt;meta name="keywords"&gt;</code> and
+take precedence over the global <code>meta.tags.keywords</code> configuration for this page
+only.</p>
+<pre><code class="language-toml">+++
+tags = ["nix", "configuration", "modules"]
++++
+</code></pre>
 <h3 id="extra"><code>extra</code></h3>
 <p>Arbitrary user-defined data, as a TOML table. The entire table is serialised and
 made available in Tera templates as <code>{{ page.extra }}</code>. Individual keys are
@@ -243,6 +252,11 @@ regardless of whether they affect rendering automatically:</p>
 <td>Frontmatter toc setting, if set</td>
 </tr>
 <tr>
+<td><code>{{ page.tags }}</code></td>
+<td><code>Array|null</code></td>
+<td>Frontmatter tags, if set</td>
+</tr>
+<tr>
 <td><code>{{ page.extra }}</code></td>
 <td><code>Object|null</code></td>
 <td>Frontmatter extra table, if set</td>
@@ -270,6 +284,10 @@ the affected page only. All other pages remain unaffected.</p>
 <tr>
 <td><code>author</code></td>
 <td><code>meta.tags.author</code></td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>meta.tags.keywords</code></td>
 </tr>
 <tr>
 <td><code>title</code></td>
@@ -330,6 +348,7 @@ gh_issue = 42
 <li><a href="#author">author</a>
 <li><a href="#template">template</a>
 <li><a href="#toc">toc</a>
+<li><a href="#tags">tags</a>
 <li><a href="#extra">extra</a>
 </ul><li><a href="#template-variables">Template Variables</a>
 <li><a href="#interaction-with-global-configuration">Interaction with Global Configuration</a>
