@@ -35,6 +35,16 @@ changes.
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Option reference links (`{option}` role markup) now generate IDs matching option
+page anchors. The ID format has changed to match nixos-render-docs XML format:
+dots (.) are now preserved as valid option name separators, while `*`, `<`, `>`,
+`[`, `]`, `:`, `"`, and space are translated to `_`. This means links using the
+old format (e.g., `#option-foo-bar`) will break and must be updated to the new
+format (e.g., `#option-foo.bar`). Any manually written option links in
+documentation using the old hyphen-based format will need to be updated.
+
 ### Added
 
 - Optional `meta.favicon` option to specify one or more favicon entries. Each
@@ -61,6 +71,7 @@ changes.
   dest  = "apple-touch-icon.png"
   rel   = "apple-touch-icon"
   ```
+
 - Per-page `tags` frontmatter support for Markdown documents. Tags are injected
   as `<meta name="keywords">` and override the global `meta.tags.keywords`
   configuration for that page. Useful for adding page-specific categorization
@@ -93,8 +104,8 @@ changes.
   injected into every Tera template context and can be referenced as
   `{{ key }}`. Built-in variables always take precedence.
 - "Defined in" section for options showing where each option is defined in
-  addition to where it is declared. Renders as an unordered list with
-  hyperlinks when GitHub URLs are available.
+  addition to where it is declared. Renders as an unordered list with hyperlinks
+  when GitHub URLs are available.
 
 ### Changed
 
@@ -119,8 +130,8 @@ changes.
   are translated to `_`, while dots are preserved as valid option name
   separators (e.g., `option-services.nginx.enable`).
 - Fixed `literalMD` and `literalExpression` handling in option rendering to
-  match nixos-render-docs behavior. `literalMD` descriptions are now rendered
-  as raw markdown without HTML-escaping, and `literalExpression` backticks are
+  match nixos-render-docs behavior. `literalMD` descriptions are now rendered as
+  raw markdown without HTML-escaping, and `literalExpression` backticks are
   stripped from default/example values.
 - Fixed search index to properly include content from `{=include=}` directives.
   Included files are now searchable as part of their parent document.
