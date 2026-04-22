@@ -36,6 +36,7 @@ struct PageContext {
   author:      Option<String>,
   template:    Option<String>,
   toc:         Option<bool>,
+  tags:        Option<Vec<String>>,
   extra:       serde_json::Value,
 }
 
@@ -48,6 +49,7 @@ impl PageContext {
         author:      None,
         template:    None,
         toc:         None,
+        tags:        None,
         extra:       serde_json::Value::Null,
       };
     };
@@ -62,6 +64,7 @@ impl PageContext {
       author: fm.author.clone(),
       template: fm.template.clone(),
       toc: fm.toc,
+      tags: fm.tags.clone(),
       extra,
     }
   }
@@ -333,6 +336,9 @@ fn generate_meta_tags_html(
     }
     if let Some(ref author) = fm.author {
       merged.insert("author".to_owned(), author.clone());
+    }
+    if let Some(ref tags) = fm.tags {
+      merged.insert("keywords".to_owned(), tags.join(", "));
     }
   }
 

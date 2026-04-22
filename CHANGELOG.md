@@ -61,6 +61,14 @@ changes.
   dest  = "apple-touch-icon.png"
   rel   = "apple-touch-icon"
   ```
+- Per-page `tags` frontmatter support for Markdown documents. Tags are injected
+  as `<meta name="keywords">` and override the global `meta.tags.keywords`
+  configuration for that page. Useful for adding page-specific categorization
+  beyond the global site-wide keywords.
+- Wiki/Obsidian-style link support (`[[page]]` and `[[name|url]]`) via the
+  `ndg-commonmark/wiki` feature flag. Converts double-bracket links to HTML
+  anchors with appropriate CSS classes (`wikilink` for external, `obsidian-link`
+  for internal links).
 - Optional `sidebar.group_by_dir` option to group sidebar items by parent
   directory. When enabled, pages under the same subdirectory are collapsed under
   a collapsible heading named after that directory. Root-level pages are always

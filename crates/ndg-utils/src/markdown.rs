@@ -42,6 +42,10 @@ pub struct PageFrontmatter {
   /// When `false`, suppresses the table of contents for this page.
   pub toc: Option<bool>,
 
+  /// Per-page tags. Injected as `<meta name="keywords">` and override the
+  /// global `meta.tags.keywords` for this page.
+  pub tags: Option<Vec<String>>,
+
   /// Arbitrary user-defined data. Accessible in templates as
   /// `{{ page.extra.key }}`.
   pub extra: Option<toml::Table>,

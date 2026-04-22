@@ -106,6 +106,18 @@ toc = false
 
 Defaults to `true` (TOC is generated whenever headings are present).
 
+### `tags`
+
+Per-page tags, as a list of strings. Injected as `<meta name="keywords">` and
+take precedence over the global `meta.tags.keywords` configuration for this page
+only.
+
+```toml
++++
+tags = ["nix", "configuration", "modules"]
++++
+```
+
 ### `extra`
 
 Arbitrary user-defined data, as a TOML table. The entire table is serialised and
@@ -145,6 +157,7 @@ regardless of whether they affect rendering automatically:
 | `{{ page.author }}`      | `String\|null`  | Frontmatter author, if set        |
 | `{{ page.template }}`    | `String\|null`  | Frontmatter template name, if set |
 | `{{ page.toc }}`         | `Boolean\|null` | Frontmatter toc setting, if set   |
+| `{{ page.tags }}`        | `Array\|null`   | Frontmatter tags, if set          |
 | `{{ page.extra }}`       | `Object\|null`  | Frontmatter extra table, if set   |
 
 <!--markdownlint-enable MD013-->
@@ -172,6 +185,7 @@ the affected page only. All other pages remain unaffected.
 | ----------------- | --------------------------------------- |
 | `description`     | `meta.tags.description`                 |
 | `author`          | `meta.tags.author`                      |
+| `tags`            | `meta.tags.keywords`                    |
 | `title`           | First H1 heading                        |
 | `template`        | File-stem template, then `default.html` |
 | `toc`             | Default TOC generation                  |
