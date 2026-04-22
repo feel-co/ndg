@@ -540,7 +540,7 @@ pub fn render_options(
   }
 
   // Create options HTML
-  let options_html = generate_options_html(options);
+  let options_html = generate_options_html(options, config);
 
   // Generate options TOC using Tera templating
   let options_toc = generate_options_toc(options, config, &tera)?;
@@ -1552,8 +1552,38 @@ fn sanitize_option_id(name: &str) -> String {
   format!("option-{sanitized}")
 }
 
+/// Produce a legacy HTML `id` / URL fragment from an option name.
+///
+/// This function produces IDs using the old format where dots are replaced
+/// with hyphens, for compatibility with older documentation builds.
+///
+/// # Arguments
+///
+/// * `name` - The option name to sanitize
+///
+/// # Returns
+///
+/// A String suitable for use as an HTML id attribute, prefixed with "option-"
+/// and with special characters (but not dots) replaced with underscores.
+fn sanitize_option_id_legacy(name: &str) -> String {
+  let sanitized: String = name
+    .chars()
+    .map(|c| {
+      match c {
+        '*' | '<' | '>' | '[' | ']' | ':' | '"' | ' ' | '.' => '_',
+        c => c,
+      }
+    })
+    .collect();
+  format!("option-{sanitized}")
+}
+
 /// Generate the options HTML content
-fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
+fn generate_options_html(
+  options: &IndexMap<String, NixOption>,
+  config: &Config,
+) -> String {
+  let generate_compat = config.generate_compatibility_anchors();
   let mut options_html = String::with_capacity(options.len() * 500); // rough capacity estimate, average ~500 bytes per option
 
   // Iterate in the order established by process_options, i.e., priority sort.
@@ -1562,6 +1592,17 @@ fn generate_options_html(options: &IndexMap<String, NixOption>) -> String {
 
     // Open option container with ID for direct linking.
     let _ = writeln!(options_html, "<div class=\"option\" id=\"{option_id}\">");
+
+    // Generate compatibility anchor for legacy links if enabled
+    if generate_compat {
+      let legacy_id = sanitize_option_id_legacy(&option.name);
+      if legacy_id != option_id {
+        let _ = writeln!(
+          options_html,
+          "<div class=\"option-compat-anchor\" id=\"{legacy_id}\"></div>"
+        );
+      }
+    }
 
     // Option name with anchor link and copy button
     let _ = write!(
