@@ -42,8 +42,15 @@ page anchors. The ID format has changed to match nixos-render-docs XML format:
 dots (.) are now preserved as valid option name separators, while `*`, `<`, `>`,
 `[`, `]`, `:`, `"`, and space are translated to `_`. This means links using the
 old format (e.g., `#option-foo-bar`) will break and must be updated to the new
-format (e.g., `#option-foo.bar`). Any manually written option links in
-documentation using the old hyphen-based format will need to be updated.
+format (e.g., `#option-foo.bar`). **Any manually written option links in
+documentation using the old hyphen-based format will need to be updated**.
+
+> [!TIP]
+> Set `anchor.compatibility_anchors = true` to generate hidden fallback anchor
+> elements with legacy IDs (dots converted to underscores), allowing old
+> documentation links to resolve to the correct option. The
+> `anchor.legacy_option_id_format` option controls whether to generate option
+> IDs using the legacy format.
 
 ### Added
 
@@ -106,6 +113,7 @@ documentation using the old hyphen-based format will need to be updated.
 - "Defined in" section for options showing where each option is defined in
   addition to where it is declared. Renders as an unordered list with hyperlinks
   when GitHub URLs are available.
+- Option ID compatibility anchors via the `anchor` configuration table.
 
 ### Changed
 
