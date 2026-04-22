@@ -15,7 +15,7 @@ version      = "2.7.0-beta3"
 
 [workspace.dependencies]
 anyhow = "1.0.102"
-clap = { version = "4.6.0", default-features = false, features = [
+clap = { version = "4.6.1", default-features = false, features = [
   "std",
   "derive",
   "help",
@@ -57,14 +57,14 @@ kuchikikiki   = "0.10.0"
 lightningcss  = { version = "1.0.0-alpha.71", default-features = false }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.125.0"
-oxc_codegen   = "0.125.0"
-oxc_minifier  = "0.125.0"
-oxc_parser    = "0.125.0"
-oxc_span      = "0.125.0"
+oxc_allocator = "0.127.0"
+oxc_codegen   = "0.127.0"
+oxc_minifier  = "0.127.0"
+oxc_parser    = "0.127.0"
+oxc_span      = "0.127.0"
 
-axum       = { version = "0.8.8", default-features = false }
-tokio      = { version = "1.51.1", default-features = false }
+axum       = { version = "0.8.9", default-features = false }
+tokio      = { version = "1.52.1", default-features = false }
 tower-http = { version = "0.6.8", default-features = false }
 
 proc-macro2 = "1.0.106"
