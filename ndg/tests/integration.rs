@@ -1089,3 +1089,87 @@ fn test_config_with_cli_module_options_succeeds() {
     "module_options file should exist"
   );
 }
+
+/// Test that README.md is used as index.html when readme_as_homepage is enabled
+#[test]
+fn test_readme_as_homepage_enabled() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let input_dir = temp_dir.path().join("input");
+  let output_dir = temp_dir.path().join("output");
+  fs::create_dir_all(&input_dir).expect("Failed to create input dir in test");
+  fs::create_dir_all(&output_dir).expect("Failed to create output dir in test");
+
+  // Create README.md
+  fs::write(
+    input_dir.join("README.md"),
+    "# README\n\nThis is the readme.",
+  )
+  .expect("Failed to write README.md in test");
+
+  // Create config with index.use_readme enabled
+  let mut config = Config {
+    input_dir: Some(input_dir.clone()),
+    output_dir: output_dir.clone(),
+    index: Some(ndg::config::index::IndexConfig {
+      use_readme: true,
+      ..Default::default()
+    }),
+    ..Default::default()
+  };
+
+  // Process markdown files
+  let processor = ndg::utils::create_processor(&config, None);
+  let processed =
+    ndg::utils::process_markdown_files(&mut config, Some(&processor))
+      .expect("Failed to process markdown files");
+
+  // Verify README.md was output as index.html
+  assert_eq!(processed.len(), 1, "Expected exactly one processed file");
+  assert_eq!(
+    processed[0].output_path, "index.html",
+    "README.md should be output as index.html when index.use_readme is enabled"
+  );
+}
+
+/// Test that README.md is NOT used as index.html when readme_as_homepage is
+/// disabled
+#[test]
+fn test_readme_as_homepage_disabled() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let input_dir = temp_dir.path().join("input");
+  let output_dir = temp_dir.path().join("output");
+  fs::create_dir_all(&input_dir).expect("Failed to create input dir in test");
+  fs::create_dir_all(&output_dir).expect("Failed to create output dir in test");
+
+  // Create README.md
+  fs::write(
+    input_dir.join("README.md"),
+    "# README\n\nThis is the readme.",
+  )
+  .expect("Failed to write README.md in test");
+
+  // Create config with index.use_readme disabled (default)
+  let mut config = Config {
+    input_dir: Some(input_dir.clone()),
+    output_dir: output_dir.clone(),
+    index: Some(ndg::config::index::IndexConfig {
+      use_readme: false,
+      ..Default::default()
+    }),
+    ..Default::default()
+  };
+
+  // Process markdown files
+  let processor = ndg::utils::create_processor(&config, None);
+  let processed =
+    ndg::utils::process_markdown_files(&mut config, Some(&processor))
+      .expect("Failed to process markdown files");
+
+  // Verify README.md was output as README.html, not index.html
+  assert_eq!(processed.len(), 1, "Expected exactly one processed file");
+  assert_eq!(
+    processed[0].output_path, "README.html",
+    "README.md should be output as README.html when index.use_readme is \
+     disabled"
+  );
+}
