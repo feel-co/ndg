@@ -80,6 +80,16 @@ tab_style = "none"
 # GitHub revision for linking to source files (defaults to 'local')
 revision = "main"
 
+# Index page configuration
+# [index]
+# Whether to use README.md as the homepage when index.md is not present.
+# When enabled, README.md will be rendered as index.html instead of README.html.
+# use_readme = false
+
+# Whether to generate a fallback index.html when no index file is provided.
+# When disabled, no fallback index will be created if there's no index.md or README.md.
+# generate_fallback = true
+
 # OpenGraph tags to inject into the HTML head (example: { og:title = "My Project", og:image = "..." })
 # opengraph = { og:title = "My Project", og:image = "https://example.com/image.png" }
 
@@ -182,6 +192,10 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "highlight_code": true,
   "tab_style": "none",
   "revision": "main",
+  "index": {
+    "use_readme": false,
+    "generate_fallback": true
+  },
   "opengraph": {
     "og:title": "My Project"
   },

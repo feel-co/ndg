@@ -275,6 +275,20 @@ pub fn process_markdown_files(
       })?;
       let mut output_path = rel_path.to_path_buf();
       output_path.set_extension("html");
+
+      // If index.use_readme is enabled and this is README.md, output to
+      // index.html
+      if config.use_readme_as_homepage() {
+        let file_name = rel_path
+          .file_name()
+          .and_then(|n| n.to_str())
+          .unwrap_or("")
+          .to_ascii_lowercase();
+        if file_name == "readme.md" {
+          output_path.set_file_name("index.html");
+        }
+      }
+
       let output_path_str = output_path.to_string_lossy().to_string();
 
       // Check if this file is included in another file

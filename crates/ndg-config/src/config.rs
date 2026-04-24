@@ -11,6 +11,7 @@ use crate::{
   anchor,
   assets,
   error::ConfigError,
+  index,
   meta,
   postprocess,
   search,
@@ -158,6 +159,14 @@ pub struct Config {
   #[serde(default)]
   pub nixdoc_inputs: Vec<PathBuf>,
 
+  /// Index page configuration.
+  ///
+  /// Controls how the site homepage (`index.html`) is generated, including
+  /// whether to use `README.md` as the homepage and whether to generate a
+  /// fallback index when no index file is provided.
+  #[config(nested)]
+  pub index: Option<index::IndexConfig>,
+
   /// User-defined variables available in all Tera templates.
   ///
   /// Variables defined here are injected into every template context and can
@@ -190,35 +199,36 @@ impl Default for Config {
   #[allow(deprecated)]
   fn default() -> Self {
     Self {
-      input_dir:         None,
-      output_dir:        PathBuf::from(DEFAULT_OUTPUT_DIR),
-      module_options:    None,
-      template_path:     None,
-      template_dir:      None,
-      stylesheet_paths:  Vec::new(),
-      script_paths:      Vec::new(),
-      assets_dir:        None,
-      assets:            None,
-      manpage_urls_path: None,
-      title:             DEFAULT_TITLE.to_string(),
-      jobs:              None,
-      generate_anchors:  true,
-      generate_search:   true,
-      search:            None,
-      footer_text:       DEFAULT_FOOTER_TEXT.to_string(),
-      options_toc_depth: 2,
-      highlight_code:    true,
-      revision:          DEFAULT_REVISION.to_string(),
-      included_files:    std::collections::HashMap::new(),
-      tab_style:         DEFAULT_TAB_STYLE.to_string(),
-      meta:              None,
-      sidebar:           None,
-      postprocess:       None,
-      anchor:            None,
-      nixdoc_inputs:     Vec::new(),
-      vars:              HashMap::new(),
-      opengraph:         None,
-      meta_tags:         None,
+      input_dir:          None,
+      output_dir:         PathBuf::from(DEFAULT_OUTPUT_DIR),
+      module_options:     None,
+      template_path:      None,
+      template_dir:       None,
+      stylesheet_paths:   Vec::new(),
+      script_paths:       Vec::new(),
+      assets_dir:         None,
+      assets:             None,
+      manpage_urls_path:  None,
+      title:              DEFAULT_TITLE.to_string(),
+      jobs:               None,
+      generate_anchors:   true,
+      generate_search:    true,
+      search:             None,
+      footer_text:        DEFAULT_FOOTER_TEXT.to_string(),
+      options_toc_depth:  2,
+      highlight_code:     true,
+      revision:           DEFAULT_REVISION.to_string(),
+      included_files:     std::collections::HashMap::new(),
+      tab_style:          DEFAULT_TAB_STYLE.to_string(),
+      meta:               None,
+      sidebar:            None,
+      postprocess:        None,
+      anchor:           None,
+      nixdoc_inputs:    Vec::new(),
+      index:            None,
+      vars:             HashMap::new(),
+      opengraph:          None,
+      meta_tags:          None,
     }
   }
 }
@@ -262,6 +272,20 @@ impl Config {
       .anchor
       .as_ref()
       .map_or(false, |a| a.compatibility_anchors)
+  }
+
+  /// Returns whether to use README.md as the homepage when index.md is not
+  /// present.
+  #[must_use]
+  pub fn use_readme_as_homepage(&self) -> bool {
+    self.index.as_ref().map_or(false, |i| i.use_readme)
+  }
+
+  /// Returns whether to generate a fallback index.html when no index file is
+  /// provided.
+  #[must_use]
+  pub fn generate_fallback_index(&self) -> bool {
+    self.index.as_ref().map_or(true, |i| i.generate_fallback)
   }
 
   /// Load configuration from a file (TOML or JSON).

@@ -319,7 +319,12 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
 
   // Check if we need to create a fallback index.html
   let index_path = config.output_dir.join("index.html");
+  let has_homepage = processed_markdown
+    .iter()
+    .any(|item| item.output_path.ends_with("index.html"));
   if !index_path.exists()
+    && !has_homepage
+    && config.generate_fallback_index()
     && (options_processed || nixdoc_processed || !markdown_files.is_empty())
   {
     info!("Creating fallback index.html");
