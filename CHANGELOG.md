@@ -128,6 +128,10 @@ documentation using the old hyphen-based format will need to be updated**.
 - Tera template caching now enabled for better performance
 - HTML writing is now performed in parallel for improved build times
 - Improved HTML rendering and accessibility
+- Optimized slugify function with result caching. Repeated slug generation for
+  the same input text is now significantly faster.
+- Config file search (`find_config_file`) now caches its result to avoid
+  redundant filesystem searches.
 
 ### Fixed
 
@@ -154,13 +158,6 @@ documentation using the old hyphen-based format will need to be updated**.
   `{=include=}` with files that end with admonitions.
 - Improved HTML processing error handling. Errors during HTML serialization are
   now logged instead of silently failing, making debugging easier.
-
-### Changed
-
-- Optimized slugify function with result caching. Repeated slug generation for
-  the same input text is now significantly faster.
-- Config file search (`find_config_file`) now caches its result to avoid
-  redundant filesystem searches.
 
 ## [2.6.0]
 
