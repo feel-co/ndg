@@ -3,7 +3,7 @@ use std::{
   fmt::Write,
   fs,
   path::Path,
-  sync::{LazyLock, RwLock},
+  sync::{Arc, LazyLock, RwLock},
 };
 
 use color_eyre::eyre::{Context, Result, bail};
@@ -71,7 +71,7 @@ impl PageContext {
 }
 
 /// Cache for template content strings to avoid repeated disk I/O
-static TEMPLATE_CONTENT_CACHE: LazyLock<RwLock<HashMap<String, String>>> =
+static TEMPLATE_CONTENT_CACHE: LazyLock<RwLock<HashMap<String, Arc<str>>>> =
   LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Cache for compiled Tera instances keyed by template configuration
@@ -807,22 +807,18 @@ fn generate_options_toc(
         .collect();
 
       // Sort by suffix
-      child_options.sort_by(|a, b| {
-        let a_suffix = a
-          .name
-          .strip_prefix(&format!("{parent}."))
-          .unwrap_or(&a.name);
-        let b_suffix = b
-          .name
-          .strip_prefix(&format!("{parent}."))
-          .unwrap_or(&b.name);
-        a_suffix.cmp(b_suffix)
+      let parent_prefix = format!("{parent}.");
+      child_options.sort_by_cached_key(|a| {
+        a.name
+          .strip_prefix(&parent_prefix)
+          .unwrap_or(&a.name)
+          .to_string()
       });
 
       for option in child_options {
         let display_name = option
           .name
-          .strip_prefix(&format!("{parent}."))
+          .strip_prefix(&parent_prefix)
           .unwrap_or(&option.name);
 
         let child_value = tera::to_value({
@@ -1018,7 +1014,7 @@ fn get_template_content(
       .read()
       .expect("template content cache lock not poisoned");
     if let Some(cached) = cache.get(&cache_key) {
-      return Ok(cached.clone());
+      return Ok(cached.as_ref().to_string());
     }
   }
 
@@ -1030,7 +1026,9 @@ fn get_template_content(
     let mut cache = TEMPLATE_CONTENT_CACHE
       .write()
       .expect("template content cache lock not poisoned");
-    cache.entry(cache_key).or_insert_with(|| content.clone());
+    cache
+      .entry(cache_key)
+      .or_insert_with(|| Arc::from(content.as_str()));
   }
 
   Ok(content)
