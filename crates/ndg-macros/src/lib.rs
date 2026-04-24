@@ -408,18 +408,18 @@ fn generate_value_assignment(
   if type_is(field_type, "Option") {
     return if config.allow_empty {
       quote! {
-        self.#field_name = if value.is_empty() {
-          None
-        } else {
-          Some(value.parse().map_err(|_| ConfigError::Config(
-            format!("Invalid value for '{}': '{}'", stringify!(#field_name), value)
-          ))?)
-        };
-      }
+              self.#field_name = if value.is_empty() {
+                None
+              } else {
+                Some(value.parse().map_err(|_| ConfigError::Config(
+      format!("Invalid value for '{field_name}': '{value}'", field_name = stringify!(#field_name))
+                ))?)
+              };
+            }
     } else {
       quote! {
         self.#field_name = Some(value.parse().map_err(|_| ConfigError::Config(
-          format!("Invalid value for '{}': '{}'", stringify!(#field_name), value)
+          format!("Invalid value for '{field_name}': '{value}'", field_name = stringify!(#field_name))
         ))?);
       }
     };
