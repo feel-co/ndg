@@ -1837,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "ndg"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "axum",
  "clap",
@@ -1895,7 +1895,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-config"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "log",
  "ndg-commonmark",
@@ -1910,7 +1910,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-html"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "color-eyre",
  "grass",
@@ -1934,7 +1934,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-macros"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1943,7 +1943,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-manpage"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "color-eyre",
  "jiff",
@@ -1959,7 +1959,7 @@ dependencies = [
 
 [[package]]
 name = "ndg-nixdoc"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "log",
  "nixdoc",
@@ -1973,11 +1973,11 @@ dependencies = [
 
 [[package]]
 name = "ndg-templates"
-version = "2.7.0-beta4"
+version = "2.7.0"
 
 [[package]]
 name = "ndg-utils"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "color-eyre",
  "fs_extra",
@@ -5315,7 +5315,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "2.7.0-beta4"
+version = "2.7.0"
 dependencies = [
  "anyhow",
  "clap",
