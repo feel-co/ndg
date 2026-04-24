@@ -33,6 +33,23 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
+## [Unreleased]
+
+### Added
+
+- New `[index]` configuration section for controlling homepage generation.
+  - `index.use_readme` (default: `false`): When enabled, `README.md` is rendered
+    as `index.html` (the site homepage) instead of `README.html` when no
+    `index.md` is present.
+  - `index.generate_fallback` (default: `true`): Controls whether NDG creates a
+    fallback index page listing all documentation when no index file is
+    provided.
+
+### Fixed
+
+- Double HTML escaping and flaky anchor generation after 2.7.0's breaking
+  changes.
+
 ## [2.7.0]
 
 ### Breaking Changes
@@ -54,6 +71,13 @@ documentation using the old hyphen-based format will need to be updated**.
 
 ### Added
 
+- New `[index]` configuration section for controlling homepage generation.
+  - `index.use_readme` (default: `false`): When enabled, `README.md` is rendered
+    as `index.html` (the site homepage) instead of `README.html` when no
+    `index.md` is present.
+  - `index.generate_fallback` (default: `true`): Controls whether NDG creates a
+    fallback index page listing all documentation when no index file is
+    provided.
 - Optional `meta.favicon` option to specify one or more favicon entries. Each
   entry produces a `<link>` tag in the HTML head and its file is copied to the
   root of the output directory. Supports arbitrary `rel`, `type`, `sizes`, and
