@@ -14,7 +14,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::template;
+use crate::{template, template::sanitize_option_id};
 
 /// Represents a searchable anchor/heading within a document
 #[derive(Debug, Serialize, Deserialize)]
@@ -232,7 +232,7 @@ pub fn generate_search_index(
       let raw_description = option_value["description"].as_str().unwrap_or("");
       let plain_description = html::content_to_plaintext(raw_description);
 
-      let title = format!("Option: {}", html_escape::encode_text(key));
+      let title = format!("Option: {key}");
       let tokens = tokenize(&plain_description);
       let title_tokens = tokenize(&title);
 
@@ -240,8 +240,7 @@ pub fn generate_search_index(
         id: doc_id.to_string(),
         title,
         content: plain_description,
-        // XXX: this leads to breakage sometimes, I don't regret it
-        path: format!("options.html#option-{}", key.replace('.', "-")),
+        path: format!("options.html#{}", sanitize_option_id(key)),
         tokens,
         title_tokens,
         // options don't have sub-anchors (or at least we hope they don't)

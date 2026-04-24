@@ -70,8 +70,6 @@ fn test_search_html_escape() {
     .expect("Failed to read options.html in search_widget test");
 
   for option_key in ["hjem.users.<name>.clobberFiles", "system.<config>.path"] {
-    let escaped_key = option_key.replace('<', "&lt;").replace('>', "&gt;");
-
     let search_entry = search_docs
       .iter()
       .find(|doc| {
@@ -95,11 +93,12 @@ fn test_search_html_escape() {
       .as_str()
       .expect("Search entry title is not a string");
     assert!(
-      title.contains(&escaped_key),
-      "Search title should contain HTML-escaped key. Expected: {escaped_key}, \
-       Found: {title}"
+      title.contains(option_key),
+      "Search title should contain the raw option key. Expected: \
+       {option_key}, Found: {title}"
     );
 
+    let escaped_key = option_key.replace('<', "&lt;").replace('>', "&gt;");
     assert!(
       options_html.contains(&escaped_key),
       "Options HTML should contain HTML-escaped key: {escaped_key}"

@@ -1535,7 +1535,7 @@ fn generate_toc(headers: &[Header]) -> String {
 /// This function matches the XML ID sanitization used by nixos-render-docs:
 /// `*`, `<`, `>`, `[`, `]`, `:`, `"`, and space are translated to `_`.
 /// Dots are preserved as they are valid in option names.
-fn sanitize_option_id(name: &str) -> String {
+pub fn sanitize_option_id(name: &str) -> String {
   // Match nixos-render-docs XML ID sanitization:
   // translate *, <, >, [, ], :, ", space to _
   let sanitized: String = name
