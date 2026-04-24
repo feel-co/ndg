@@ -77,7 +77,7 @@ jobs:
             git tag $VERSION
             echo "Tags after:"
             git tag -l
-            git push --tags
+            git push origin $VERSION
             echo "Verifying tag on remote:"
             git fetch --tags
             if git ls-remote --tags origin | grep -q "refs/tags/${VERSION}$"; then
