@@ -47,6 +47,9 @@ changes.
 
 ### Fixed
 
+- Markdown links to `.md` files (e.g. `[foo](./bar.md)`) are now correctly
+  rewritten to `.html` in generated output, preserving URL fragments and query
+  strings.
 - Double HTML escaping and flaky anchor generation after 2.7.0's breaking
   changes.
 

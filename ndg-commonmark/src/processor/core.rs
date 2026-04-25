@@ -613,6 +613,7 @@ impl MarkdownProcessor {
     Self::process_list_item_inline_anchors(document);
     Self::process_paragraph_inline_anchors(document);
     Self::process_remaining_inline_anchors(document);
+    Self::process_markdown_links(document);
     Self::process_option_anchor_links(document);
     Self::process_empty_auto_links(document);
     Self::process_empty_html_links(document);
@@ -1072,6 +1073,45 @@ impl MarkdownProcessor {
           if let Some(option_path) = option_anchor.strip_prefix("opt-") {
             let option_name = option_path.replace('-', ".");
             link_element.append(kuchikikiki::NodeRef::new_text(option_name));
+          }
+        }
+      }
+    }
+  }
+
+  /// Process markdown file links: convert .md hrefs to .html
+  fn process_markdown_links(document: &kuchikikiki::NodeRef) {
+    for link_node in safe_select(document, "a") {
+      let link_element = link_node;
+      if let Some(element) = link_element.as_element() {
+        let href = element
+          .attributes
+          .borrow()
+          .get(local_name!("href"))
+          .map(std::string::ToString::to_string);
+
+        if let Some(href_value) = href {
+          // Only process relative links ending in .md (not absolute URLs, not anchors)
+          if !href_value.starts_with("http://")
+            && !href_value.starts_with("https://")
+            && !href_value.starts_with('#')
+            && !href_value.starts_with("mailto:")
+          {
+            // Split off fragment (#) and query (?) to check the path extension
+            let (path_part, suffix) = href_value
+              .find(|c| c == '#' || c == '?')
+              .map_or((href_value.as_str(), ""), |idx| href_value.split_at(idx));
+
+            if std::path::Path::new(path_part)
+              .extension()
+              .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
+            {
+              let new_href = format!("{}.html{}", &path_part[..path_part.len() - 3], suffix);
+              element
+                .attributes
+                .borrow_mut()
+                .insert(local_name!("href"), new_href);
+            }
           }
         }
       }
