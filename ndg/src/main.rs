@@ -123,16 +123,16 @@ fn main() -> Result<()> {
   }
 
   // Run the main documentation generation process
-  #[cfg(feature = "serve")]
-  let output_dir = config.output_dir.clone();
   generate_documentation(&mut config)?;
 
-  // Check if we should serve the documentation
+  // Handle --open flag if present
+  handle_open_flag(&cli.command, &config.output_dir);
+
+  // Handle --serve if enabled
   #[cfg(feature = "serve")]
   {
-    let should_serve =
-      matches!(&cli.command, Some(Commands::Html { serve: true, .. }));
-    if should_serve {
+    let output_dir = config.output_dir.clone();
+    if matches!(&cli.command, Some(Commands::Html { serve: true, .. })) {
       let serve_port =
         if let Some(Commands::Html { serve_port, .. }) = &cli.command {
           *serve_port
@@ -145,6 +145,18 @@ fn main() -> Result<()> {
   }
 
   Ok(())
+}
+
+/// Handle the --open flag to open the generated documentation in browser.
+fn handle_open_flag(command: &Option<Commands>, output_dir: &Path) {
+  let should_open = matches!(command, Some(Commands::Html { open: true, .. }));
+  if should_open {
+    let index_path = output_dir.join("index.html");
+    info!("Opening {} in browser", index_path.display());
+    if let Err(e) = open::that(&index_path) {
+      log::error!("Failed to open browser: {e}");
+    }
+  }
 }
 
 /// Merge CLI command options into the configuration
@@ -170,6 +182,7 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
       serve: _,
     #[cfg(feature = "serve")]
       serve_port: _,
+    open: _,
   }) = &cli.command
   {
     if let Some(input_dir) = input_dir {

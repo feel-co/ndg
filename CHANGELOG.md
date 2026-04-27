@@ -44,6 +44,15 @@ changes.
   - `index.generate_fallback` (default: `true`): Controls whether NDG creates a
     fallback index page listing all documentation when no index file is
     provided.
+- `--dest-dir` alias for `--output-dir` in `ndg html` command.
+- `--open` flag for `ndg html` to open the generated documentation in the
+  default browser after generation completes.
+
+### Changed
+
+- `ndg-builder` now takes a **list** of stylesheets instead of a single one as
+  `--stylesheet` is now additive and can be specified multiple times. When a
+  _string_ is provided, `ndg-builder` will be an evaluation failure.
 
 ### Fixed
 
