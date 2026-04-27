@@ -93,5 +93,6 @@ pub fn escape_non_macro_lines(text: &str) -> String {
         escape_leading_dot(line)
       }
     })
-    .collect()
+    .collect::<Vec<_>>()
+    .join("\n")
 }
