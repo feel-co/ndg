@@ -106,9 +106,11 @@
   optionsDepth ? 2,
   generateSearch ? true,
   highlightCode ? true,
+  extraConfig ? {},
 } @ args: let
   inherit (builtins) isList;
   inherit (lib.modules) mkIf;
+  inherit (lib.attrsets) optionalAttrs;
   inherit (lib.asserts) assertMsg;
 in
   # TODO explain this one
@@ -125,19 +127,21 @@ in
       ))
       .optionsJSON;
 
-    ndgConfig = writers.writeToml "ndg.toml" {
-      # Core Options
-      inherit title;
-      output_dir = builtins.placeholder "out";
-      input_dir = mkIf (inputDir != null) (toString inputDir);
-      module_options = mkIf (inputDir != null) "\"${configJSON}/share/doc/nixos/options.json\""; # TODO: check if there are options
-      search.enable = generateSearch;
-      highlight_code = highlightCode;
-      sidebar.options.depth = optionsDepth;
-      manpage_urls_path = mkIf (manpageUrls != null) manpageUrls;
-      stylesheet_paths = mkIf (stylesheets != []) stylesheets;
-      script_paths = mkIf (stylesheets != []) scripts;
-    };
+    ndgConfig =
+      writers.writeToml "ndg.toml" {
+        # Core Options
+        inherit title;
+        output_dir = builtins.placeholder "out";
+        input_dir = mkIf (inputDir != null) (toString inputDir);
+        module_options = mkIf (inputDir != null) "\"${configJSON}/share/doc/nixos/options.json\""; # TODO: check if there are options
+        search.enable = generateSearch;
+        highlight_code = highlightCode;
+        sidebar.options.depth = optionsDepth;
+        manpage_urls_path = mkIf (manpageUrls != null) manpageUrls;
+        stylesheet_paths = mkIf (stylesheets != []) stylesheets;
+        script_paths = mkIf (stylesheets != []) scripts;
+      }
+      // optionalAttrs (extraConfig != {}) extraConfig;
   in
     runCommandLocal "ndg-builder" {
       nativeBuildInputs = [ndg];
