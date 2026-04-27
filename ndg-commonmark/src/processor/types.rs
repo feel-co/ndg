@@ -20,9 +20,47 @@
 //! let processor = MarkdownProcessor::new(options);
 //! ```
 
-use std::collections::{HashMap, HashSet};
+use std::{
+  collections::{HashMap, HashSet},
+  sync::LazyLock,
+};
 
 use comrak::nodes::AstNode;
+use regex::Regex;
+
+static COMMAND_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
+  Regex::new(r"^\s*\$\s+(.+)$").unwrap_or_else(|e| {
+    log::error!(
+      "Failed to compile COMMAND_PROMPT_RE regex: {e}\n Falling back to never \
+       matching regex."
+    );
+    crate::utils::never_matching_regex().unwrap_or_else(|_| {
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
+    })
+  })
+});
+
+static REPL_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
+  Regex::new(r"^nix-repl>\s*(.*)$").unwrap_or_else(|e| {
+    log::error!(
+      "Failed to compile REPL_PROMPT_RE regex: {e}\n Falling back to never \
+       matching regex."
+    );
+    crate::utils::never_matching_regex().unwrap_or_else(|_| {
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
+    })
+  })
+});
 
 /// Options for configuring the Markdown processor.
 #[derive(Debug, Clone)]
@@ -144,45 +182,7 @@ pub struct PromptTransformer;
 
 impl AstTransformer for PromptTransformer {
   fn transform<'a>(&self, node: &'a AstNode<'a>) {
-    use std::sync::LazyLock;
-
     use comrak::nodes::NodeValue;
-    use regex::Regex;
-
-    static COMMAND_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
-      Regex::new(r"^\s*\$\s+(.+)$").unwrap_or_else(|e| {
-        log::error!(
-          "Failed to compile COMMAND_PROMPT_RE regex: {e}\n Falling back to \
-           never matching regex."
-        );
-        crate::utils::never_matching_regex().unwrap_or_else(|_| {
-          // As a last resort, create a regex that matches nothing
-          #[allow(
-            clippy::expect_used,
-            reason = "This pattern is guaranteed to be valid"
-          )]
-          Regex::new(r"[^\s\S]")
-            .expect("regex pattern [^\\s\\S] should always compile")
-        })
-      })
-    });
-    static REPL_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
-      Regex::new(r"^nix-repl>\s*(.*)$").unwrap_or_else(|e| {
-        log::error!(
-          "Failed to compile REPL_PROMPT_RE regex: {e}\n Falling back to \
-           never matching regex."
-        );
-        crate::utils::never_matching_regex().unwrap_or_else(|_| {
-          // As a last resort, create a regex that matches nothing
-          #[allow(
-            clippy::expect_used,
-            reason = "This pattern is guaranteed to be valid"
-          )]
-          Regex::new(r"[^\s\S]")
-            .expect("regex pattern [^\\s\\S] should always compile")
-        })
-      })
-    });
 
     for child in node.children() {
       {

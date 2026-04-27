@@ -5,6 +5,7 @@
 use std::{
   collections::HashMap,
   path::{Path, PathBuf},
+  sync::LazyLock,
 };
 
 use comrak::{
@@ -15,6 +16,7 @@ use comrak::{
 };
 use log::trace;
 use markup5ever::local_name;
+use regex::Regex;
 use walkdir::WalkDir;
 
 use super::{
@@ -32,6 +34,49 @@ use crate::{
   types::{Header, MarkdownResult},
   utils,
 };
+
+static HEADER_ANCHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
+  Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h[1-6]>")
+    .unwrap_or_else(|e| {
+      log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
+      utils::never_matching_regex().unwrap_or_else(|_| {
+        #[allow(
+          clippy::expect_used,
+          reason = "This pattern is guaranteed to be valid"
+        )]
+        Regex::new(r"[^\s\S]")
+          .expect("regex pattern [^\\s\\S] should always compile")
+      })
+    })
+});
+
+static HEADER_NO_ID_RE: LazyLock<Regex> = LazyLock::new(|| {
+  Regex::new(r"<h([1-6])>(.*?)</h[1-6]>").unwrap_or_else(|e| {
+    log::error!("Failed to compile HEADER_NO_ID_RE regex: {e}");
+    utils::never_matching_regex().unwrap_or_else(|_| {
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
+    })
+  })
+});
+
+static HTML_TAG_RE: LazyLock<Regex> = LazyLock::new(|| {
+  Regex::new(r"<[^>]+>").unwrap_or_else(|e| {
+    log::error!("Failed to compile HTML_TAG_RE regex: {e}");
+    utils::never_matching_regex().unwrap_or_else(|_| {
+      #[allow(
+        clippy::expect_used,
+        reason = "This pattern is guaranteed to be valid"
+      )]
+      Regex::new(r"[^\s\S]")
+        .expect("regex pattern [^\\s\\S] should always compile")
+    })
+  })
+});
 
 impl MarkdownProcessor {
   /// Create a new `MarkdownProcessor` with the given options.
@@ -475,57 +520,6 @@ impl MarkdownProcessor {
   /// proper id attributes. Also adds auto-generated IDs to headers without
   /// explicit anchors.
   fn process_header_anchors_html(html: &str) -> String {
-    use std::sync::LazyLock;
-
-    use regex::Regex;
-
-    // First pass: handle explicit {#id} syntax
-    static HEADER_ANCHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
-      Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h[1-6]>")
-        .unwrap_or_else(|e| {
-          log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
-          utils::never_matching_regex().unwrap_or_else(|_| {
-            #[allow(
-              clippy::expect_used,
-              reason = "This pattern is guaranteed to be valid"
-            )]
-            Regex::new(r"[^\s\S]")
-              .expect("regex pattern [^\\s\\S] should always compile")
-          })
-        })
-    });
-
-    // Second pass: add IDs to headers without attributes (no id yet)
-    // Matches <h1>content</h1> but not <h1 id="...">content</h1>
-    static HEADER_NO_ID_RE: LazyLock<Regex> = LazyLock::new(|| {
-      Regex::new(r"<h([1-6])>(.*?)</h[1-6]>").unwrap_or_else(|e| {
-        log::error!("Failed to compile HEADER_NO_ID_RE regex: {e}");
-        utils::never_matching_regex().unwrap_or_else(|_| {
-          #[allow(
-            clippy::expect_used,
-            reason = "This pattern is guaranteed to be valid"
-          )]
-          Regex::new(r"[^\s\S]")
-            .expect("regex pattern [^\\s\\S] should always compile")
-        })
-      })
-    });
-
-    // Regex to strip HTML tags for slugification
-    static HTML_TAG_RE: LazyLock<Regex> = LazyLock::new(|| {
-      Regex::new(r"<[^>]+>").unwrap_or_else(|e| {
-        log::error!("Failed to compile HTML_TAG_RE regex: {e}");
-        utils::never_matching_regex().unwrap_or_else(|_| {
-          #[allow(
-            clippy::expect_used,
-            reason = "This pattern is guaranteed to be valid"
-          )]
-          Regex::new(r"[^\s\S]")
-            .expect("regex pattern [^\\s\\S] should always compile")
-        })
-      })
-    });
-
     // First pass: explicit {#id} syntax
     let result = HEADER_ANCHOR_RE
       .replace_all(html, |caps: &regex::Captures| {
@@ -1091,7 +1085,8 @@ impl MarkdownProcessor {
           .map(std::string::ToString::to_string);
 
         if let Some(href_value) = href {
-          // Only process relative links ending in .md (not absolute URLs, not anchors)
+          // Only process relative links ending in .md (not absolute URLs, not
+          // anchors)
           if !href_value.starts_with("http://")
             && !href_value.starts_with("https://")
             && !href_value.starts_with('#')
@@ -1100,13 +1095,16 @@ impl MarkdownProcessor {
             // Split off fragment (#) and query (?) to check the path extension
             let (path_part, suffix) = href_value
               .find(|c| c == '#' || c == '?')
-              .map_or((href_value.as_str(), ""), |idx| href_value.split_at(idx));
+              .map_or((href_value.as_str(), ""), |idx| {
+                href_value.split_at(idx)
+              });
 
             if std::path::Path::new(path_part)
               .extension()
               .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
             {
-              let new_href = format!("{}.html{}", &path_part[..path_part.len() - 3], suffix);
+              let new_href =
+                format!("{}.html{}", &path_part[..path_part.len() - 3], suffix);
               element
                 .attributes
                 .borrow_mut()
