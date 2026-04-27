@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg-commonmark/src/processor/core.rs`."><title>core.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ndg_commonmark" data-themes="" data-resource-suffix="" data-rustdoc-version="1.97.0-nightly (9838411cb 2026-04-25)" data-channel="nightly" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-aa4d37ac.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ndg_commonmark/processor/</div>core.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Core implementation of the Markdown processor.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ndg-commonmark/src/processor/core.rs`."><title>core.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ndg_commonmark" data-themes="" data-resource-suffix="" data-rustdoc-version="1.97.0-nightly (ca9a134e0 2026-04-26)" data-channel="nightly" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-aa4d37ac.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ndg_commonmark/processor/</div>core.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Core implementation of the Markdown processor.
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! Main implementation of `MarkdownProcessor` and its methods focused on the
 <a href=#4 id=4 data-nosnippet>4</a>//! core rendering pipeline and configuration management.
@@ -1148,78 +1148,81 @@
 <a href=#1148 id=1148 data-nosnippet>1148</a>
 <a href=#1149 id=1149 data-nosnippet>1149</a><span class="doccomment">/// Extract all inline text from a heading node.
 <a href=#1150 id=1150 data-nosnippet>1150</a></span><span class="kw">pub fn </span>extract_inline_text&lt;<span class="lifetime">'a</span>&gt;(node: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AstNode&lt;<span class="lifetime">'a</span>&gt;) -&gt; String {
-<a href=#1151 id=1151 data-nosnippet>1151</a>  <span class="kw">let </span><span class="kw-2">mut </span>text = String::new();
-<a href=#1152 id=1152 data-nosnippet>1152</a>  <span class="kw">for </span>child <span class="kw">in </span>node.children() {
-<a href=#1153 id=1153 data-nosnippet>1153</a>    <span class="kw">match </span><span class="kw-2">&amp;</span>child.data.borrow().value {
-<a href=#1154 id=1154 data-nosnippet>1154</a>      NodeValue::Text(t) =&gt; text.push_str(t),
-<a href=#1155 id=1155 data-nosnippet>1155</a>      NodeValue::Code(t) =&gt; text.push_str(<span class="kw-2">&amp;</span>t.literal),
-<a href=#1156 id=1156 data-nosnippet>1156</a>      NodeValue::Link(..)
-<a href=#1157 id=1157 data-nosnippet>1157</a>      | NodeValue::Emph
-<a href=#1158 id=1158 data-nosnippet>1158</a>      | NodeValue::Strong
-<a href=#1159 id=1159 data-nosnippet>1159</a>      | NodeValue::Strikethrough
-<a href=#1160 id=1160 data-nosnippet>1160</a>      | NodeValue::Superscript
-<a href=#1161 id=1161 data-nosnippet>1161</a>      | NodeValue::Subscript
-<a href=#1162 id=1162 data-nosnippet>1162</a>      | NodeValue::FootnoteReference(..) =&gt; {
-<a href=#1163 id=1163 data-nosnippet>1163</a>        text.push_str(<span class="kw-2">&amp;</span>extract_inline_text(child));
-<a href=#1164 id=1164 data-nosnippet>1164</a>      },
-<a href=#1165 id=1165 data-nosnippet>1165</a>      <span class="attr">#[allow(clippy::match_same_arms, reason = <span class="string">"Explicit for clarity"</span>)]
-<a href=#1166 id=1166 data-nosnippet>1166</a>      </span>NodeValue::HtmlInline(<span class="kw">_</span>) | NodeValue::Image(..) =&gt; {},
-<a href=#1167 id=1167 data-nosnippet>1167</a>      <span class="kw">_ </span>=&gt; {},
-<a href=#1168 id=1168 data-nosnippet>1168</a>    }
-<a href=#1169 id=1169 data-nosnippet>1169</a>  }
-<a href=#1170 id=1170 data-nosnippet>1170</a>  text
-<a href=#1171 id=1171 data-nosnippet>1171</a>}
-<a href=#1172 id=1172 data-nosnippet>1172</a>
-<a href=#1173 id=1173 data-nosnippet>1173</a><span class="doccomment">/// Collect all markdown files from the input directory
-<a href=#1174 id=1174 data-nosnippet>1174</a></span><span class="kw">pub fn </span>collect_markdown_files(input_dir: <span class="kw-2">&amp;</span>Path) -&gt; Vec&lt;PathBuf&gt; {
-<a href=#1175 id=1175 data-nosnippet>1175</a>  <span class="kw">let </span><span class="kw-2">mut </span>files = Vec::with_capacity(<span class="number">100</span>);
-<a href=#1176 id=1176 data-nosnippet>1176</a>
-<a href=#1177 id=1177 data-nosnippet>1177</a>  <span class="kw">for </span>entry <span class="kw">in </span>WalkDir::new(input_dir)
-<a href=#1178 id=1178 data-nosnippet>1178</a>    .follow_links(<span class="bool-val">true</span>)
-<a href=#1179 id=1179 data-nosnippet>1179</a>    .into_iter()
-<a href=#1180 id=1180 data-nosnippet>1180</a>    .filter_map(Result::ok)
-<a href=#1181 id=1181 data-nosnippet>1181</a>  {
-<a href=#1182 id=1182 data-nosnippet>1182</a>    <span class="kw">let </span>path = entry.path();
-<a href=#1183 id=1183 data-nosnippet>1183</a>    <span class="kw">if </span>path.is_file() &amp;&amp; path.extension().is_some_and(|ext| ext == <span class="string">"md"</span>) {
-<a href=#1184 id=1184 data-nosnippet>1184</a>      files.push(path.to_owned());
-<a href=#1185 id=1185 data-nosnippet>1185</a>    }
-<a href=#1186 id=1186 data-nosnippet>1186</a>  }
-<a href=#1187 id=1187 data-nosnippet>1187</a>
-<a href=#1188 id=1188 data-nosnippet>1188</a>  <span class="macro">trace!</span>(<span class="string">"Found {} markdown files to process"</span>, files.len());
-<a href=#1189 id=1189 data-nosnippet>1189</a>  files
-<a href=#1190 id=1190 data-nosnippet>1190</a>}
-<a href=#1191 id=1191 data-nosnippet>1191</a>
-<a href=#1192 id=1192 data-nosnippet>1192</a><span class="doccomment">/// Features that can be queried on a processor instance.
-<a href=#1193 id=1193 data-nosnippet>1193</a></span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-<a href=#1194 id=1194 data-nosnippet>1194</a></span><span class="kw">pub enum </span>ProcessorFeature {
-<a href=#1195 id=1195 data-nosnippet>1195</a>  <span class="doccomment">/// GitHub Flavored Markdown support
-<a href=#1196 id=1196 data-nosnippet>1196</a>  </span>Gfm,
-<a href=#1197 id=1197 data-nosnippet>1197</a>  <span class="doccomment">/// Nixpkgs documentation extensions
-<a href=#1198 id=1198 data-nosnippet>1198</a>  </span>Nixpkgs,
-<a href=#1199 id=1199 data-nosnippet>1199</a>  <span class="doccomment">/// Syntax highlighting for code blocks
-<a href=#1200 id=1200 data-nosnippet>1200</a>  </span>SyntaxHighlighting,
-<a href=#1201 id=1201 data-nosnippet>1201</a>  <span class="doccomment">/// Manpage URL mapping support
-<a href=#1202 id=1202 data-nosnippet>1202</a>  </span>ManpageUrls,
-<a href=#1203 id=1203 data-nosnippet>1203</a>}
-<a href=#1204 id=1204 data-nosnippet>1204</a>
-<a href=#1205 id=1205 data-nosnippet>1205</a><span class="doccomment">/// Standalone HTML post-processing function to avoid borrowing issues.
-<a href=#1206 id=1206 data-nosnippet>1206</a></span><span class="kw">fn </span>kuchiki_postprocess_html&lt;F&gt;(html: <span class="kw-2">&amp;</span>str, transform_fn: F) -&gt; String
-<a href=#1207 id=1207 data-nosnippet>1207</a><span class="kw">where
-<a href=#1208 id=1208 data-nosnippet>1208</a>  </span>F: FnOnce(<span class="kw-2">&amp;</span>kuchikikiki::NodeRef),
-<a href=#1209 id=1209 data-nosnippet>1209</a>{
-<a href=#1210 id=1210 data-nosnippet>1210</a>  process_safe(
-<a href=#1211 id=1211 data-nosnippet>1211</a>    html,
-<a href=#1212 id=1212 data-nosnippet>1212</a>    |html| {
-<a href=#1213 id=1213 data-nosnippet>1213</a>      <span class="kw">use </span>tendril::TendrilSink;
-<a href=#1214 id=1214 data-nosnippet>1214</a>
-<a href=#1215 id=1215 data-nosnippet>1215</a>      <span class="kw">let </span>document = kuchikikiki::parse_html().one(html);
-<a href=#1216 id=1216 data-nosnippet>1216</a>      transform_fn(<span class="kw-2">&amp;</span>document);
+<a href=#1151 id=1151 data-nosnippet>1151</a>  <span class="kw">fn </span>inner&lt;<span class="lifetime">'a</span>&gt;(node: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AstNode&lt;<span class="lifetime">'a</span>&gt;) -&gt; String {
+<a href=#1152 id=1152 data-nosnippet>1152</a>    <span class="kw">let </span><span class="kw-2">mut </span>text = String::new();
+<a href=#1153 id=1153 data-nosnippet>1153</a>    <span class="kw">for </span>child <span class="kw">in </span>node.children() {
+<a href=#1154 id=1154 data-nosnippet>1154</a>      <span class="kw">match </span><span class="kw-2">&amp;</span>child.data.borrow().value {
+<a href=#1155 id=1155 data-nosnippet>1155</a>        NodeValue::Text(t) =&gt; text.push_str(t),
+<a href=#1156 id=1156 data-nosnippet>1156</a>        NodeValue::Code(t) =&gt; text.push_str(<span class="kw-2">&amp;</span>t.literal),
+<a href=#1157 id=1157 data-nosnippet>1157</a>        NodeValue::Link(..)
+<a href=#1158 id=1158 data-nosnippet>1158</a>        | NodeValue::Emph
+<a href=#1159 id=1159 data-nosnippet>1159</a>        | NodeValue::Strong
+<a href=#1160 id=1160 data-nosnippet>1160</a>        | NodeValue::Strikethrough
+<a href=#1161 id=1161 data-nosnippet>1161</a>        | NodeValue::Superscript
+<a href=#1162 id=1162 data-nosnippet>1162</a>        | NodeValue::Subscript
+<a href=#1163 id=1163 data-nosnippet>1163</a>        | NodeValue::FootnoteReference(..) =&gt; {
+<a href=#1164 id=1164 data-nosnippet>1164</a>          text.push_str(<span class="kw-2">&amp;</span>inner(child));
+<a href=#1165 id=1165 data-nosnippet>1165</a>        },
+<a href=#1166 id=1166 data-nosnippet>1166</a>        <span class="attr">#[allow(clippy::match_same_arms, reason = <span class="string">"Explicit for clarity"</span>)]
+<a href=#1167 id=1167 data-nosnippet>1167</a>        </span>NodeValue::HtmlInline(<span class="kw">_</span>) | NodeValue::Image(..) =&gt; {},
+<a href=#1168 id=1168 data-nosnippet>1168</a>        <span class="kw">_ </span>=&gt; {},
+<a href=#1169 id=1169 data-nosnippet>1169</a>      }
+<a href=#1170 id=1170 data-nosnippet>1170</a>    }
+<a href=#1171 id=1171 data-nosnippet>1171</a>    text
+<a href=#1172 id=1172 data-nosnippet>1172</a>  }
+<a href=#1173 id=1173 data-nosnippet>1173</a>  inner(node)
+<a href=#1174 id=1174 data-nosnippet>1174</a>}
+<a href=#1175 id=1175 data-nosnippet>1175</a>
+<a href=#1176 id=1176 data-nosnippet>1176</a><span class="doccomment">/// Collect all markdown files from the input directory
+<a href=#1177 id=1177 data-nosnippet>1177</a></span><span class="kw">pub fn </span>collect_markdown_files(input_dir: <span class="kw-2">&amp;</span>Path) -&gt; Vec&lt;PathBuf&gt; {
+<a href=#1178 id=1178 data-nosnippet>1178</a>  <span class="kw">let </span><span class="kw-2">mut </span>files = Vec::with_capacity(<span class="number">100</span>);
+<a href=#1179 id=1179 data-nosnippet>1179</a>
+<a href=#1180 id=1180 data-nosnippet>1180</a>  <span class="kw">for </span>entry <span class="kw">in </span>WalkDir::new(input_dir)
+<a href=#1181 id=1181 data-nosnippet>1181</a>    .follow_links(<span class="bool-val">true</span>)
+<a href=#1182 id=1182 data-nosnippet>1182</a>    .into_iter()
+<a href=#1183 id=1183 data-nosnippet>1183</a>    .filter_map(Result::ok)
+<a href=#1184 id=1184 data-nosnippet>1184</a>  {
+<a href=#1185 id=1185 data-nosnippet>1185</a>    <span class="kw">let </span>path = entry.path();
+<a href=#1186 id=1186 data-nosnippet>1186</a>    <span class="kw">if </span>path.is_file() &amp;&amp; path.extension().is_some_and(|ext| ext == <span class="string">"md"</span>) {
+<a href=#1187 id=1187 data-nosnippet>1187</a>      files.push(path.to_owned());
+<a href=#1188 id=1188 data-nosnippet>1188</a>    }
+<a href=#1189 id=1189 data-nosnippet>1189</a>  }
+<a href=#1190 id=1190 data-nosnippet>1190</a>
+<a href=#1191 id=1191 data-nosnippet>1191</a>  <span class="macro">trace!</span>(<span class="string">"Found {} markdown files to process"</span>, files.len());
+<a href=#1192 id=1192 data-nosnippet>1192</a>  files
+<a href=#1193 id=1193 data-nosnippet>1193</a>}
+<a href=#1194 id=1194 data-nosnippet>1194</a>
+<a href=#1195 id=1195 data-nosnippet>1195</a><span class="doccomment">/// Features that can be queried on a processor instance.
+<a href=#1196 id=1196 data-nosnippet>1196</a></span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+<a href=#1197 id=1197 data-nosnippet>1197</a></span><span class="kw">pub enum </span>ProcessorFeature {
+<a href=#1198 id=1198 data-nosnippet>1198</a>  <span class="doccomment">/// GitHub Flavored Markdown support
+<a href=#1199 id=1199 data-nosnippet>1199</a>  </span>Gfm,
+<a href=#1200 id=1200 data-nosnippet>1200</a>  <span class="doccomment">/// Nixpkgs documentation extensions
+<a href=#1201 id=1201 data-nosnippet>1201</a>  </span>Nixpkgs,
+<a href=#1202 id=1202 data-nosnippet>1202</a>  <span class="doccomment">/// Syntax highlighting for code blocks
+<a href=#1203 id=1203 data-nosnippet>1203</a>  </span>SyntaxHighlighting,
+<a href=#1204 id=1204 data-nosnippet>1204</a>  <span class="doccomment">/// Manpage URL mapping support
+<a href=#1205 id=1205 data-nosnippet>1205</a>  </span>ManpageUrls,
+<a href=#1206 id=1206 data-nosnippet>1206</a>}
+<a href=#1207 id=1207 data-nosnippet>1207</a>
+<a href=#1208 id=1208 data-nosnippet>1208</a><span class="doccomment">/// Standalone HTML post-processing function to avoid borrowing issues.
+<a href=#1209 id=1209 data-nosnippet>1209</a></span><span class="kw">fn </span>kuchiki_postprocess_html&lt;F&gt;(html: <span class="kw-2">&amp;</span>str, transform_fn: F) -&gt; String
+<a href=#1210 id=1210 data-nosnippet>1210</a><span class="kw">where
+<a href=#1211 id=1211 data-nosnippet>1211</a>  </span>F: FnOnce(<span class="kw-2">&amp;</span>kuchikikiki::NodeRef),
+<a href=#1212 id=1212 data-nosnippet>1212</a>{
+<a href=#1213 id=1213 data-nosnippet>1213</a>  process_safe(
+<a href=#1214 id=1214 data-nosnippet>1214</a>    html,
+<a href=#1215 id=1215 data-nosnippet>1215</a>    |html| {
+<a href=#1216 id=1216 data-nosnippet>1216</a>      <span class="kw">use </span>tendril::TendrilSink;
 <a href=#1217 id=1217 data-nosnippet>1217</a>
-<a href=#1218 id=1218 data-nosnippet>1218</a>      <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
-<a href=#1219 id=1219 data-nosnippet>1219</a>      <span class="kw">let _ </span>= document.serialize(<span class="kw-2">&amp;mut </span>out);
-<a href=#1220 id=1220 data-nosnippet>1220</a>      String::from_utf8_lossy(<span class="kw-2">&amp;</span>out).into_owned()
-<a href=#1221 id=1221 data-nosnippet>1221</a>    },
-<a href=#1222 id=1222 data-nosnippet>1222</a>    html,
-<a href=#1223 id=1223 data-nosnippet>1223</a>  )
-<a href=#1224 id=1224 data-nosnippet>1224</a>}
+<a href=#1218 id=1218 data-nosnippet>1218</a>      <span class="kw">let </span>document = kuchikikiki::parse_html().one(html);
+<a href=#1219 id=1219 data-nosnippet>1219</a>      transform_fn(<span class="kw-2">&amp;</span>document);
+<a href=#1220 id=1220 data-nosnippet>1220</a>
+<a href=#1221 id=1221 data-nosnippet>1221</a>      <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href=#1222 id=1222 data-nosnippet>1222</a>      <span class="kw">let _ </span>= document.serialize(<span class="kw-2">&amp;mut </span>out);
+<a href=#1223 id=1223 data-nosnippet>1223</a>      String::from_utf8_lossy(<span class="kw-2">&amp;</span>out).into_owned()
+<a href=#1224 id=1224 data-nosnippet>1224</a>    },
+<a href=#1225 id=1225 data-nosnippet>1225</a>    html,
+<a href=#1226 id=1226 data-nosnippet>1226</a>  )
+<a href=#1227 id=1227 data-nosnippet>1227</a>}
 </code></pre></div></section></main></body></html>
