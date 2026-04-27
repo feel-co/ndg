@@ -32,6 +32,7 @@ indicatif = { version = "0.18.4", features = [ "rayon" ] }
 jiff = "0.2.24"
 log = "0.4.29"
 num_cpus = "1.17.0"
+open = "5.3.4"
 rand = "0.10.1"
 
 comrak = { version = "0.52.0", default-features = false, features = [ "syntect" ] }

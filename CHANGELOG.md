@@ -44,6 +44,9 @@ changes.
   - `index.generate_fallback` (default: `true`): Controls whether NDG creates a
     fallback index page listing all documentation when no index file is
     provided.
+- `--dest-dir` alias for `--output-dir` in `ndg html` command.
+- `--open` flag for `ndg html` to open the generated documentation in the
+  default browser after generation completes.
 
 ### Changed
 
