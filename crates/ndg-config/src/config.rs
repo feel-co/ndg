@@ -303,55 +303,58 @@ impl Config {
     reason = "Clearer with explicit match on extension"
   )]
   pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
-    let path = path.as_ref();
-    let content = fs::read_to_string(path).map_err(|e| {
-      ConfigError::Config(format!(
-        "Failed to read config file: {}: {}",
-        path.display(),
-        e
-      ))
-    })?;
+    fn inner(path: &Path) -> Result<Config, ConfigError> {
+      let content = fs::read_to_string(path).map_err(|e| {
+        ConfigError::Config(format!(
+          "Failed to read config file: {}: {}",
+          path.display(),
+          e
+        ))
+      })?;
 
-    match path.extension().and_then(|ext| ext.to_str()) {
-      Some(ext) => {
-        match ext.to_lowercase().as_str() {
-          "json" => {
-            serde_json::from_str(&content)
-              .map_err(ConfigError::from)
-              .map_err(|e| {
-                ConfigError::Config(format!(
-                  "Failed to parse JSON config from {}: {}",
-                  path.display(),
-                  e
-                ))
-              })
-          },
-          "toml" => {
-            toml::from_str(&content)
-              .map_err(ConfigError::from)
-              .map_err(|e| {
-                ConfigError::Config(format!(
-                  "Failed to parse TOML config from {}: {}",
-                  path.display(),
-                  e
-                ))
-              })
-          },
-          _ => {
-            Err(ConfigError::Config(format!(
-              "Unsupported config file format: {}",
-              path.display()
-            )))
-          },
-        }
-      },
-      None => {
-        Err(ConfigError::Config(format!(
-          "Config file has no extension: {}",
-          path.display()
-        )))
-      },
+      match path.extension().and_then(|ext| ext.to_str()) {
+        Some(ext) => {
+          match ext.to_lowercase().as_str() {
+            "json" => {
+              serde_json::from_str(&content)
+                .map_err(ConfigError::from)
+                .map_err(|e| {
+                  ConfigError::Config(format!(
+                    "Failed to parse JSON config from {}: {}",
+                    path.display(),
+                    e
+                  ))
+                })
+            },
+            "toml" => {
+              toml::from_str(&content)
+                .map_err(ConfigError::from)
+                .map_err(|e| {
+                  ConfigError::Config(format!(
+                    "Failed to parse TOML config from {}: {}",
+                    path.display(),
+                    e
+                  ))
+                })
+            },
+            _ => {
+              Err(ConfigError::Config(format!(
+                "Unsupported config file format: {}",
+                path.display()
+              )))
+            },
+          }
+        },
+        None => {
+          Err(ConfigError::Config(format!(
+            "Config file has no extension: {}",
+            path.display()
+          )))
+        },
+      }
     }
+
+    inner(path.as_ref())
   }
 
   /// Load configuration from file and CLI arguments, merging them.

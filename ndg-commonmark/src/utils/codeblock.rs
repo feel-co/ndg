@@ -135,47 +135,51 @@ impl InlineTracker {
       chars.next();
     }
 
-    if tick_count >= 3 {
-      // This is a code fence
-      if !self.in_code_block {
-        // Starting a code block
+    fn inner(this: &InlineTracker, count: usize) -> (InlineTracker, usize) {
+      if count >= 3 {
+        // This is a code fence
+        if !this.in_code_block {
+          // Starting a code block
+          (
+            InlineTracker {
+              in_code_block:  true,
+              in_inline_code: false, // clear inline code when entering block
+              fence_char:     Some('`'),
+              fence_count:    count,
+            },
+            count,
+          )
+        } else if this.fence_char == Some('`') && count >= this.fence_count {
+          // Ending a code block
+          (
+            InlineTracker {
+              in_code_block:  false,
+              in_inline_code: false,
+              fence_char:     None,
+              fence_count:    0,
+            },
+            count,
+          )
+        } else {
+          // Inside a different fence type, no state change
+          (*this, count)
+        }
+      } else if count == 1 && !this.in_code_block {
+        // Single backtick - inline code toggle
         (
-          Self {
-            in_code_block:  true,
-            in_inline_code: false, // clear inline code when entering block
-            fence_char:     Some('`'),
-            fence_count:    tick_count,
+          InlineTracker {
+            in_inline_code: !this.in_inline_code,
+            ..*this
           },
-          tick_count,
-        )
-      } else if self.fence_char == Some('`') && tick_count >= self.fence_count {
-        // Ending a code block
-        (
-          Self {
-            in_code_block:  false,
-            in_inline_code: false,
-            fence_char:     None,
-            fence_count:    0,
-          },
-          tick_count,
+          count,
         )
       } else {
-        // Inside a different fence type, no state change
-        (*self, tick_count)
+        // Multiple backticks but less than 3, or inside code block
+        (*this, count)
       }
-    } else if tick_count == 1 && !self.in_code_block {
-      // Single backtick - inline code toggle
-      (
-        Self {
-          in_inline_code: !self.in_inline_code,
-          ..*self
-        },
-        tick_count,
-      )
-    } else {
-      // Multiple backticks but less than 3, or inside code block
-      (*self, tick_count)
     }
+
+    inner(self, tick_count)
   }
 
   /// Process tildes and update state.
@@ -199,38 +203,41 @@ impl InlineTracker {
       chars.next();
     }
 
-    if tilde_count >= 3 {
-      if !self.in_code_block {
-        // Starting a tilde code block
-        (
-          Self {
-            in_code_block:  true,
-            in_inline_code: false, // clear inline code when entering block
-            fence_char:     Some('~'),
-            fence_count:    tilde_count,
-          },
-          tilde_count,
-        )
-      } else if self.fence_char == Some('~') && tilde_count >= self.fence_count
-      {
-        // Ending a tilde code block
-        (
-          Self {
-            in_code_block:  false,
-            in_inline_code: false,
-            fence_char:     None,
-            fence_count:    0,
-          },
-          tilde_count,
-        )
+    fn inner(this: &InlineTracker, count: usize) -> (InlineTracker, usize) {
+      if count >= 3 {
+        if !this.in_code_block {
+          // Starting a tilde code block
+          (
+            InlineTracker {
+              in_code_block:  true,
+              in_inline_code: false, // clear inline code when entering block
+              fence_char:     Some('~'),
+              fence_count:    count,
+            },
+            count,
+          )
+        } else if this.fence_char == Some('~') && count >= this.fence_count {
+          // Ending a tilde code block
+          (
+            InlineTracker {
+              in_code_block:  false,
+              in_inline_code: false,
+              fence_char:     None,
+              fence_count:    0,
+            },
+            count,
+          )
+        } else {
+          // Inside a different fence type, no state change
+          (*this, count)
+        }
       } else {
-        // Inside a different fence type, no state change
-        (*self, tilde_count)
+        // Less than 3 tildes, no state change
+        (*this, count)
       }
-    } else {
-      // Less than 3 tildes, no state change
-      (*self, tilde_count)
     }
+
+    inner(self, tilde_count)
   }
 
   /// Process a newline and update state.

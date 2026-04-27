@@ -1148,26 +1148,29 @@ impl MarkdownProcessor {
 
 /// Extract all inline text from a heading node.
 pub fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
-  let mut text = String::new();
-  for child in node.children() {
-    match &child.data.borrow().value {
-      NodeValue::Text(t) => text.push_str(t),
-      NodeValue::Code(t) => text.push_str(&t.literal),
-      NodeValue::Link(..)
-      | NodeValue::Emph
-      | NodeValue::Strong
-      | NodeValue::Strikethrough
-      | NodeValue::Superscript
-      | NodeValue::Subscript
-      | NodeValue::FootnoteReference(..) => {
-        text.push_str(&extract_inline_text(child));
-      },
-      #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
-      NodeValue::HtmlInline(_) | NodeValue::Image(..) => {},
-      _ => {},
+  fn inner<'a>(node: &'a AstNode<'a>) -> String {
+    let mut text = String::new();
+    for child in node.children() {
+      match &child.data.borrow().value {
+        NodeValue::Text(t) => text.push_str(t),
+        NodeValue::Code(t) => text.push_str(&t.literal),
+        NodeValue::Link(..)
+        | NodeValue::Emph
+        | NodeValue::Strong
+        | NodeValue::Strikethrough
+        | NodeValue::Superscript
+        | NodeValue::Subscript
+        | NodeValue::FootnoteReference(..) => {
+          text.push_str(&inner(child));
+        },
+        #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
+        NodeValue::HtmlInline(_) | NodeValue::Image(..) => {},
+        _ => {},
+      }
     }
+    text
   }
-  text
+  inner(node)
 }
 
 /// Collect all markdown files from the input directory

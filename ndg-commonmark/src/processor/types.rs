@@ -257,16 +257,28 @@ impl MarkdownOptionsBuilder {
 
   /// Set the syntax highlighting theme.
   #[must_use]
-  pub fn highlight_theme<S: Into<String>>(mut self, theme: Option<S>) -> Self {
-    self.options.highlight_theme = theme.map(Into::into);
-    self
+  pub fn highlight_theme<S: Into<String>>(self, theme: Option<S>) -> Self {
+    fn inner(
+      mut this: MarkdownOptionsBuilder,
+      theme: Option<String>,
+    ) -> MarkdownOptionsBuilder {
+      this.options.highlight_theme = theme;
+      this
+    }
+    inner(self, theme.map(Into::into))
   }
 
   /// Set the manpage URLs path.
   #[must_use]
-  pub fn manpage_urls_path<S: Into<String>>(mut self, path: Option<S>) -> Self {
-    self.options.manpage_urls_path = path.map(Into::into);
-    self
+  pub fn manpage_urls_path<S: Into<String>>(self, path: Option<S>) -> Self {
+    fn inner(
+      mut this: MarkdownOptionsBuilder,
+      path: Option<String>,
+    ) -> MarkdownOptionsBuilder {
+      this.options.manpage_urls_path = path;
+      this
+    }
+    inner(self, path.map(Into::into))
   }
 
   /// Enable or disable automatic linking for {option} role markup.
