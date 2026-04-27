@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock};
 
-use ndg_commonmark::{process_safe, utils::never_matching_regex};
+use ndg_commonmark::utils::never_matching_regex;
 use regex::Regex;
 
 // These patterns need to be applied sequentially to preserve troff formatting
@@ -51,43 +51,31 @@ pub static ROFF_ESCAPES: LazyLock<HashMap<char, &'static str>> =
 /// Escapes a string for use in manpages
 #[must_use]
 pub fn man_escape(s: &str) -> String {
-  process_safe(
-    s,
-    |text| {
-      let mut result = String::with_capacity(text.len() * 2);
+  let mut result = String::with_capacity(s.len() * 2);
 
-      for c in text.chars() {
-        if let Some(escape) = ROFF_ESCAPES.get(&c) {
-          result.push_str(escape);
-        } else {
-          result.push(c);
-        }
-      }
+  for c in s.chars() {
+    if let Some(escape) = ROFF_ESCAPES.get(&c) {
+      result.push_str(escape);
+    } else {
+      result.push(c);
+    }
+  }
 
-      result
-    },
-    s,
-  )
+  result
 }
 
 /// Escape a leading dot to prevent it from being interpreted as a troff command
 #[must_use]
 pub fn escape_leading_dot(text: &str) -> String {
-  process_safe(
-    text,
-    |text| {
-      if text.starts_with('.')
-        || text.starts_with('\'')
-        || text.starts_with("\\&'")
-        || text.starts_with("\\[aq]")
-      {
-        format!("\\&{text}")
-      } else {
-        text.to_string()
-      }
-    },
-    text,
-  )
+  if text.starts_with('.')
+    || text.starts_with('\'')
+    || text.starts_with("\\&'")
+    || text.starts_with("\\[aq]")
+  {
+    format!("\\&{text}")
+  } else {
+    text.to_string()
+  }
 }
 
 /// Escape lines except those starting with man macros we emit (e.g., .IP)
@@ -105,6 +93,5 @@ pub fn escape_non_macro_lines(text: &str) -> String {
         escape_leading_dot(line)
       }
     })
-    .collect::<Vec<_>>()
-    .join("\n")
+    .collect()
 }
