@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TabStyle"],"struct":["MarkdownOptions","MarkdownOptionsBuilder","MarkdownProcessor","PromptTransformer"],"trait":["AstTransformer"]};
+window.SIDEBAR_ITEMS = {"enum":["TabStyle"],"static":["COMMAND_PROMPT_RE","REPL_PROMPT_RE"],"struct":["MarkdownOptions","MarkdownOptionsBuilder","MarkdownProcessor","PromptTransformer"],"trait":["AstTransformer"]};

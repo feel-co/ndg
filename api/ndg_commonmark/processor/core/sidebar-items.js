@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ProcessorFeature"],"fn":["collect_markdown_files","extract_inline_text","kuchiki_postprocess_html"]};
+window.SIDEBAR_ITEMS = {"enum":["ProcessorFeature"],"fn":["collect_markdown_files","extract_inline_text","kuchiki_postprocess_html"],"static":["HEADER_ANCHOR_RE","HEADER_NO_ID_RE","HTML_TAG_RE"]};
