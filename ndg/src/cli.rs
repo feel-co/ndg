@@ -69,7 +69,7 @@ pub enum Commands {
     input_dir: Option<PathBuf>,
 
     /// Output directory for generated documentation.
-    #[arg(short, long)]
+    #[arg(short, long, alias = "dest-dir")]
     output_dir: Option<PathBuf>,
 
     /// Number of threads to use for parallel processing.
@@ -136,6 +136,10 @@ pub enum Commands {
     #[cfg(feature = "serve")]
     #[arg(long = "serve-port", default_value = "3000")]
     serve_port: u16,
+
+    /// Open the generated documentation in the default browser.
+    #[arg(long = "open", action = clap::ArgAction::SetTrue)]
+    open: bool,
   },
 
   /// Generate manpage from options.
