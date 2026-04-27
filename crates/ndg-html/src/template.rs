@@ -235,16 +235,18 @@ fn build_common_context(
 
         let mut tag = format!(r#"<link rel="{rel}" href="{href}""#);
         if let Some(ref mime_type) = entry.mime_type {
-          tag.push_str(&format!(
+          let _ = write!(
+            tag,
             r#" type="{}""#,
             html_escape::encode_double_quoted_attribute(mime_type)
-          ));
+          );
         }
         if let Some(ref sizes) = entry.sizes {
-          tag.push_str(&format!(
+          let _ = write!(
+            tag,
             r#" sizes="{}""#,
             html_escape::encode_double_quoted_attribute(sizes)
-          ));
+          );
         }
         tag.push_str(" />");
         Some(tag)
