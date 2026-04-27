@@ -45,6 +45,12 @@ changes.
     fallback index page listing all documentation when no index file is
     provided.
 
+### Changed
+
+- `ndg-builder` now takes a **list** of stylesheets instead of a single one as
+  `--stylesheet` is now additive and can be specified multiple times. When a
+  _string_ is provided, `ndg-builder` will be an evaluation failure.
+
 ### Fixed
 
 - Markdown links to `.md` files (e.g. `[foo](./bar.md)`) are now correctly

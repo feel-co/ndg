@@ -5,6 +5,7 @@
   ndg,
   runCommandLocal,
   nixosOptionsDoc,
+  writers,
   # Options
   checkModules ? false,
   rawModules ? [
@@ -97,21 +98,24 @@
   title ? "Site created by NDG",
   description ? "Generate static site docs of nix options",
   optionsDocArgs ? {},
-  scripts ? [],
   inputDir ? null,
-  stylesheet ? null,
+  stylesheets ? [],
+  scripts ? [],
   verbose ? true,
   manpageUrls ? null,
   optionsDepth ? 2,
   generateSearch ? true,
   highlightCode ? true,
 } @ args: let
+  inherit (builtins) typeOf;
+  inherit (lib.modules) mkIf;
   inherit (lib.asserts) assertMsg;
 in
   # TODO explain this one
   assert args ? specialArgs -> args ? rawModules;
+  assert assertMsg (typeOf stylesheets "list") "The stylesheets option is now additive, and takes a list instead";
   assert assertMsg (args ? evaluatedModules -> !(args ? rawModules)) "evaluatedModules and rawModules are mutually exclusive"; let
-    inherit (lib.strings) optionalString concatMapStringsSep;
+    inherit (lib.strings) optionalString;
 
     configJSON =
       (nixosOptionsDoc (
@@ -120,35 +124,27 @@ in
         // {inherit (evaluatedModules) options;}
       ))
       .optionsJSON;
+
+    ndgConfig = writers.writeToml "ndg.toml" {
+      # Core Options
+      inherit title;
+      output_dir = builtins.placeholder "out";
+      input_dir = mkIf (inputDir != null) (toString inputDir);
+      module_options = mkIf (inputDir != null) "\"${configJSON}/share/doc/nixos/options.json\""; # TODO: check if there are options
+      search.enable = generateSearch;
+      highlight_code = highlightCode;
+      sidebar.options.depth = optionsDepth;
+      manpage_urls_path = mkIf (manpageUrls != null) manpageUrls;
+      stylesheet_paths = mkIf (stylesheets != []) stylesheets;
+      script_paths = mkIf (stylesheets != []) scripts;
+    };
   in
     runCommandLocal "ndg-builder" {
       nativeBuildInputs = [ndg];
       meta = {inherit description;};
     } (
+      optionalString (inputDir == null) ''
+        ndg --config-file "${ndgConfig}" ${optionalString verbose "--verbose"} html \
+          --jobs $NIX_BUILD_CORES --output-dir "$out"
       ''
-        mkdir -p $out
-        config_path="$TMPDIR/ndg-builder.toml"
-        {
-          echo "output_dir = \"$out\""
-      ''
-      + optionalString (inputDir != null) ''
-        echo "input_dir = \"${toString inputDir}\""
-      ''
-      + optionalString (inputDir == null) ''
-        echo "module_options = \"${configJSON}/share/doc/nixos/options.json\""
-      ''
-      + ''
-        } > "$config_path"
-
-        ndg --config-file "$config_path" ${optionalString verbose "--verbose"} html \
-          --jobs $NIX_BUILD_CORES --output-dir "$out" --title "${title}" \
-          --module-options "${configJSON}/share/doc/nixos/options.json" \
-      ''
-      + optionalString (scripts != []) ''${concatMapStringsSep "-" (x: "--script ${x}") scripts} \''
-      + optionalString (stylesheet != null) ''--stylesheet ${toString stylesheet} \''
-      + optionalString (inputDir != null) ''--input-dir ${inputDir} \''
-      + optionalString (manpageUrls != null) ''--manpage-urls ${manpageUrls} \''
-      + optionalString generateSearch ''--generate-search \''
-      + optionalString highlightCode ''--highlight-code \''
-      + "--options-depth ${toString optionsDepth}"
     )
