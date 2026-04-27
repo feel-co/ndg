@@ -412,7 +412,7 @@ documentation using the old hyphen-based format will need to be updated**.
 - Prevented panic on empty fence character extraction in ndg-commonmark
 
 [Unreleased]: https://github.com/feel-co/ndg/compare/v2.7.0...HEAD
-[2.6.0]: https://github.com/feel-co/ndg/compare/v2.6.0...v2.7.0
+[2.7.0]: https://github.com/feel-co/ndg/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/feel-co/ndg/compare/v2.5.1...v2.6.0
 [2.5.0]: https://github.com/feel-co/ndg/compare/v2.4.1...v2.5.0
 [2.5.1]: https://github.com/feel-co/ndg/compare/v2.5.0...v2.5.1
