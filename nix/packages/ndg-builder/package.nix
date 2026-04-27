@@ -107,13 +107,13 @@
   generateSearch ? true,
   highlightCode ? true,
 } @ args: let
-  inherit (builtins) typeOf;
+  inherit (builtins) isList;
   inherit (lib.modules) mkIf;
   inherit (lib.asserts) assertMsg;
 in
   # TODO explain this one
   assert args ? specialArgs -> args ? rawModules;
-  assert assertMsg (typeOf stylesheets "list") "The stylesheets option is now additive, and takes a list instead";
+  assert assertMsg (isList stylesheets) "The stylesheets option is now additive, and takes a list instead";
   assert assertMsg (args ? evaluatedModules -> !(args ? rawModules)) "evaluatedModules and rawModules are mutually exclusive"; let
     inherit (lib.strings) optionalString;
 
