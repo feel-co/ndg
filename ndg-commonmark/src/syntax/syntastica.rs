@@ -15,11 +15,26 @@
 //! - tokyo night, solarized, monokai
 //! - And many more...
 
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+  collections::HashMap,
+  fs,
+  path::{Path, PathBuf},
+  sync::Mutex,
+};
 
-use syntastica::{Processor, render, renderer::HtmlRenderer};
+use syntastica::{
+  Processor,
+  language_set::{HighlightConfiguration, LanguageSet},
+  render,
+  renderer::HtmlRenderer,
+};
 use syntastica_core::theme::ResolvedTheme;
-use syntastica_parsers::{Lang, LanguageSetImpl};
+use syntastica_parsers::{LANGUAGES, Lang};
+use syntastica_query_preprocessor::{
+  process_highlights,
+  process_injections,
+  process_locals,
+};
 
 use super::{
   error::{SyntaxError, SyntaxResult},
@@ -30,8 +45,97 @@ use super::{
 pub struct SyntasticaHighlighter {
   themes:        HashMap<String, ResolvedTheme>,
   default_theme: ResolvedTheme,
-  processor:     Mutex<Processor<'static, LanguageSetImpl>>,
+  processor:     Mutex<Processor<'static, UserQueryLanguageSet>>,
   renderer:      Mutex<HtmlRenderer>,
+}
+
+struct UserQueryLanguageSet {
+  configs: HashMap<Lang, HighlightConfiguration>,
+}
+
+impl UserQueryLanguageSet {
+  fn new(syntax_queries_dir: Option<&Path>) -> SyntaxResult<Self> {
+    let mut configs = HashMap::new();
+
+    for &lang in LANGUAGES {
+      let mut highlights_query = lang.highlights_query().to_string();
+      let mut injections_query = lang.injections_query().to_string();
+      let mut locals_query = lang.locals_query().to_string();
+
+      if let Some(base_dir) = syntax_queries_dir {
+        if let Some(query) = read_user_query(base_dir, lang, "highlights.scm")?
+        {
+          highlights_query = process_highlights("", true, &query);
+        }
+
+        if let Some(query) = read_user_query(base_dir, lang, "injections.scm")?
+        {
+          injections_query = process_injections("", true, &query);
+        }
+
+        if let Some(query) = read_user_query(base_dir, lang, "locals.scm")? {
+          locals_query = process_locals("", true, &query);
+        }
+      }
+
+      let mut config = HighlightConfiguration::new(
+        lang.get(),
+        <&str>::from(lang),
+        &highlights_query,
+        &injections_query,
+        &locals_query,
+      )
+      .map_err(|e| {
+        SyntaxError::BackendError(format!(
+          "failed to build highlight config for '{}': {e}",
+          <&str>::from(lang)
+        ))
+      })?;
+      config.configure(syntastica::theme::THEME_KEYS);
+      configs.insert(lang, config);
+    }
+
+    Ok(Self { configs })
+  }
+}
+
+impl<'s> LanguageSet<'s> for UserQueryLanguageSet {
+  type Language = Lang;
+
+  fn get_language(
+    &self,
+    language: Self::Language,
+  ) -> syntastica::Result<&HighlightConfiguration> {
+    self.configs.get(&language).ok_or_else(|| {
+      syntastica::Error::UnsupportedLanguage(<&str>::from(language).to_string())
+    })
+  }
+}
+
+fn read_user_query(
+  base_dir: &Path,
+  lang: Lang,
+  file_name: &str,
+) -> SyntaxResult<Option<String>> {
+  let query_path = query_path_for_lang(base_dir, lang, file_name);
+  if !query_path.exists() {
+    return Ok(None);
+  }
+
+  fs::read_to_string(&query_path).map(Some).map_err(|e| {
+    SyntaxError::BackendError(format!(
+      "failed to read query override '{}': {e}",
+      query_path.display()
+    ))
+  })
+}
+
+fn query_path_for_lang(
+  base_dir: &Path,
+  lang: Lang,
+  file_name: &str,
+) -> PathBuf {
+  base_dir.join(<&str>::from(lang)).join(file_name)
 }
 
 impl SyntasticaHighlighter {
@@ -41,7 +145,7 @@ impl SyntasticaHighlighter {
   ///
   /// Currently never returns an error, but returns a Result for API
   /// consistency.
-  pub fn new() -> SyntaxResult<Self> {
+  pub fn new(syntax_queries_dir: Option<&Path>) -> SyntaxResult<Self> {
     let mut themes = HashMap::new();
 
     // Load all available themes
@@ -58,8 +162,8 @@ impl SyntasticaHighlighter {
     // CLI: the process exits when documentation generation completes and the OS
     // reclaims the memory. It avoids the unsound lifetime fabrication that a
     // raw-pointer cast would require.
-    let language_set_static: &'static LanguageSetImpl =
-      Box::leak(Box::new(LanguageSetImpl::new()));
+    let language_set_static: &'static UserQueryLanguageSet =
+      Box::leak(Box::new(UserQueryLanguageSet::new(syntax_queries_dir)?));
     let processor = Processor::new(language_set_static);
 
     Ok(Self {
@@ -286,8 +390,10 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
 /// # Errors
 ///
 /// Returns an error if the Syntastica highlighter fails to initialize.
-pub fn create_syntastica_manager() -> SyntaxResult<SyntaxManager> {
-  let highlighter = Box::new(SyntasticaHighlighter::new()?);
+pub fn create_syntastica_manager(
+  syntax_queries_dir: Option<&Path>,
+) -> SyntaxResult<SyntaxManager> {
+  let highlighter = Box::new(SyntasticaHighlighter::new(syntax_queries_dir)?);
   let config = SyntaxConfig {
     default_theme: Some("one-dark".to_string()),
     ..Default::default()
