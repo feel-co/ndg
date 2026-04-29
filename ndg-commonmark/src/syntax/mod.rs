@@ -42,7 +42,9 @@ compile_error!(
 ///
 /// Returns an error if both syntastica and syntect features are enabled,
 /// or if neither feature is enabled, or if backend initialization fails.
-pub fn create_default_manager() -> SyntaxResult<SyntaxManager> {
+pub fn create_default_manager(
+  syntax_queries_dir: Option<&std::path::Path>,
+) -> SyntaxResult<SyntaxManager> {
   // Runtime check for mutual exclusivity (backup to compile-time check)
   #[cfg(all(feature = "syntastica", feature = "syntect"))]
   {
@@ -51,7 +53,7 @@ pub fn create_default_manager() -> SyntaxResult<SyntaxManager> {
 
   #[cfg(feature = "syntastica")]
   {
-    create_syntastica_manager()
+    create_syntastica_manager(syntax_queries_dir)
   }
 
   #[cfg(feature = "syntect")]
@@ -99,7 +101,7 @@ mod tests {
   #[cfg(feature = "syntastica")]
   #[test]
   fn test_syntastica_highlighter() {
-    let highlighter = SyntasticaHighlighter::new()
+    let highlighter = SyntasticaHighlighter::new(None)
       .expect("Failed to create SyntasticaHighlighter");
     assert_eq!(highlighter.name(), "Syntastica");
     assert!(!highlighter.supported_languages().is_empty());
@@ -109,7 +111,7 @@ mod tests {
   #[cfg(feature = "syntastica")]
   #[test]
   fn test_syntastica_highlight_simple() {
-    let highlighter = SyntasticaHighlighter::new()
+    let highlighter = SyntasticaHighlighter::new(None)
       .expect("Failed to create SyntasticaHighlighter");
     let result = highlighter.highlight("fn main() {}", "rust", None);
     assert!(result.is_ok());
@@ -120,7 +122,7 @@ mod tests {
   #[cfg(any(feature = "syntastica", feature = "syntect"))]
   #[test]
   fn test_syntax_manager() {
-    let manager = create_default_manager()
+    let manager = create_default_manager(None)
       .expect("Failed to create default syntax manager");
     assert!(!manager.highlighter().supported_languages().is_empty());
 
@@ -131,7 +133,7 @@ mod tests {
   #[cfg(any(feature = "syntastica", feature = "syntect"))]
   #[test]
   fn test_language_resolution() {
-    let manager = create_default_manager()
+    let manager = create_default_manager(None)
       .expect("Failed to create default syntax manager");
 
     // Test alias resolution
@@ -173,7 +175,7 @@ mod tests {
   #[cfg(any(feature = "syntastica", feature = "syntect"))]
   #[test]
   fn test_extended_theme_availability() {
-    let manager = create_default_manager()
+    let manager = create_default_manager(None)
       .expect("Failed to create default syntax manager");
     let themes = manager.highlighter().available_themes();
 
@@ -234,7 +236,7 @@ mod tests {
   #[cfg(feature = "syntect")]
   #[test]
   fn test_nix_language_support() {
-    let manager = create_default_manager()
+    let manager = create_default_manager(None)
       .expect("Failed to create default syntax manager");
     let languages = manager.highlighter().supported_languages();
 

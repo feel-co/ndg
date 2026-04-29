@@ -84,6 +84,12 @@ pub struct MarkdownOptions {
   /// Optional: Path to manpage URL mappings (for {manpage} roles).
   pub manpage_urls_path: Option<String>,
 
+  /// Optional: Path to user-provided Tree-sitter query overrides.
+  ///
+  /// Expected layout:
+  /// `queries/<language>/{highlights,injections,locals}.scm`
+  pub syntax_queries_path: Option<String>,
+
   /// Enable automatic linking for option role markup.
   /// When `true`, `{option}` roles will be converted to links to options.html.
   /// When `false`, they will be rendered as plain `<code>` elements.
@@ -114,14 +120,18 @@ impl MarkdownOptions {
   #[must_use]
   pub const fn with_all_features() -> Self {
     Self {
-      gfm:               cfg!(feature = "gfm"),
-      nixpkgs:           cfg!(feature = "nixpkgs"),
-      highlight_code:    cfg!(any(feature = "syntastica", feature = "syntect")),
-      highlight_theme:   None,
-      manpage_urls_path: None,
-      auto_link_options: true,
-      valid_options:     None,
-      tab_style:         TabStyle::None,
+      gfm:                 cfg!(feature = "gfm"),
+      nixpkgs:             cfg!(feature = "nixpkgs"),
+      highlight_code:      cfg!(any(
+        feature = "syntastica",
+        feature = "syntect"
+      )),
+      highlight_theme:     None,
+      manpage_urls_path:   None,
+      syntax_queries_path: None,
+      auto_link_options:   true,
+      valid_options:       None,
+      tab_style:           TabStyle::None,
     }
   }
 
@@ -138,6 +148,7 @@ impl MarkdownOptions {
       highlight_code,
       highlight_theme: None,
       manpage_urls_path: None,
+      syntax_queries_path: None,
       auto_link_options: true,
       valid_options: None,
       tab_style: TabStyle::None,
@@ -148,14 +159,15 @@ impl MarkdownOptions {
 impl Default for MarkdownOptions {
   fn default() -> Self {
     Self {
-      gfm:               cfg!(feature = "gfm"),
-      nixpkgs:           cfg!(feature = "nixpkgs"),
-      highlight_code:    cfg!(feature = "syntastica"),
-      manpage_urls_path: None,
-      highlight_theme:   None,
-      auto_link_options: true,
-      valid_options:     None,
-      tab_style:         TabStyle::None,
+      gfm:                 cfg!(feature = "gfm"),
+      nixpkgs:             cfg!(feature = "nixpkgs"),
+      highlight_code:      cfg!(feature = "syntastica"),
+      manpage_urls_path:   None,
+      syntax_queries_path: None,
+      highlight_theme:     None,
+      auto_link_options:   true,
+      valid_options:       None,
+      tab_style:           TabStyle::None,
     }
   }
 }
@@ -276,6 +288,19 @@ impl MarkdownOptionsBuilder {
       path: Option<String>,
     ) -> MarkdownOptionsBuilder {
       this.options.manpage_urls_path = path;
+      this
+    }
+    inner(self, path.map(Into::into))
+  }
+
+  /// Set the path to user-provided Tree-sitter query overrides.
+  #[must_use]
+  pub fn syntax_queries_path<S: Into<String>>(self, path: Option<S>) -> Self {
+    fn inner(
+      mut this: MarkdownOptionsBuilder,
+      path: Option<String>,
+    ) -> MarkdownOptionsBuilder {
+      this.options.syntax_queries_path = path;
       this
     }
     inner(self, path.map(Into::into))
