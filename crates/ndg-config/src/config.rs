@@ -80,6 +80,10 @@ pub struct Config {
   #[config(key = "manpage_urls_path", allow_empty)]
   pub manpage_urls_path: Option<PathBuf>,
 
+  /// Path to user-defined Tree-sitter query overrides.
+  #[config(key = "syntax_queries_path", allow_empty)]
+  pub syntax_queries_path: Option<PathBuf>,
+
   /// Title for the documentation.
   #[config(key = "title")]
   pub title: String,
@@ -199,36 +203,37 @@ impl Default for Config {
   #[allow(deprecated)]
   fn default() -> Self {
     Self {
-      input_dir:         None,
-      output_dir:        PathBuf::from(DEFAULT_OUTPUT_DIR),
-      module_options:    None,
-      template_path:     None,
-      template_dir:      None,
-      stylesheet_paths:  Vec::new(),
-      script_paths:      Vec::new(),
-      assets_dir:        None,
-      assets:            None,
-      manpage_urls_path: None,
-      title:             DEFAULT_TITLE.to_string(),
-      jobs:              None,
-      generate_anchors:  true,
-      generate_search:   true,
-      search:            None,
-      footer_text:       DEFAULT_FOOTER_TEXT.to_string(),
-      options_toc_depth: 2,
-      highlight_code:    true,
-      revision:          DEFAULT_REVISION.to_string(),
-      included_files:    std::collections::HashMap::new(),
-      tab_style:         DEFAULT_TAB_STYLE.to_string(),
-      meta:              None,
-      sidebar:           None,
-      postprocess:       None,
-      anchor:            None,
-      nixdoc_inputs:     Vec::new(),
-      index:             None,
-      vars:              HashMap::new(),
-      opengraph:         None,
-      meta_tags:         None,
+      input_dir:           None,
+      output_dir:          PathBuf::from(DEFAULT_OUTPUT_DIR),
+      module_options:      None,
+      template_path:       None,
+      template_dir:        None,
+      stylesheet_paths:    Vec::new(),
+      script_paths:        Vec::new(),
+      assets_dir:          None,
+      assets:              None,
+      manpage_urls_path:   None,
+      syntax_queries_path: None,
+      title:               DEFAULT_TITLE.to_string(),
+      jobs:                None,
+      generate_anchors:    true,
+      generate_search:     true,
+      search:              None,
+      footer_text:         DEFAULT_FOOTER_TEXT.to_string(),
+      options_toc_depth:   2,
+      highlight_code:      true,
+      revision:            DEFAULT_REVISION.to_string(),
+      included_files:      std::collections::HashMap::new(),
+      tab_style:           DEFAULT_TAB_STYLE.to_string(),
+      meta:                None,
+      sidebar:             None,
+      postprocess:         None,
+      anchor:              None,
+      nixdoc_inputs:       Vec::new(),
+      index:               None,
+      vars:                HashMap::new(),
+      opengraph:           None,
+      meta_tags:           None,
     }
   }
 }
@@ -741,6 +746,20 @@ impl Config {
         errors.push(format!(
           "Manpage URLs path is not a file: {}",
           manpage_urls_path.display()
+        ));
+      }
+    }
+
+    if let Some(ref syntax_queries_path) = self.syntax_queries_path {
+      if !syntax_queries_path.exists() {
+        errors.push(format!(
+          "Syntax queries path does not exist: {}",
+          syntax_queries_path.display()
+        ));
+      } else if !syntax_queries_path.is_dir() {
+        errors.push(format!(
+          "Syntax queries path is not a directory: {}",
+          syntax_queries_path.display()
         ));
       }
     }
