@@ -1624,9 +1624,9 @@ checksum = "35e770254dd7802184595b1d30da2a15cb72569e2aca2b177aef8d22eac8a693"
 
 [[package]]
 name = "kuchikikiki"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5da435798cb61709158341550630ffee2b5e0714670e3627a46a7192cfe9dd9"
+checksum = "3cb6fe49f2d2600e2ddcbaca08fe52fda29d46a7c21b3e9ed6b210f6b4d6067d"
 dependencies = [
  "bitflags",
  "crc",
@@ -3646,9 +3646,9 @@ checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "selectors"
-version = "0.36.1"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5d9c0c92a92d33f08817311cf3f2c29a3538a8240e94a6a3c622ce652d7e00c"
+checksum = "2cfaaa6035167f0e604e42723c7650d59ee269ef220d7bbe0565602c8a0173b9"
 dependencies = [
  "bitflags",
  "cssparser 0.36.0",
