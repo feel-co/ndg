@@ -58,7 +58,7 @@ kuchikikiki   = "0.10.0"
 lightningcss  = { version = "1.0.0-alpha.71", default-features = false }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.127.0"
+oxc_allocator = "0.128.0"
 oxc_codegen   = "0.127.0"
 oxc_minifier  = "0.127.0"
 oxc_parser    = "0.127.0"

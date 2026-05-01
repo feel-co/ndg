@@ -2010,7 +2010,7 @@ dependencies = [
  "ndg-commonmark",
  "ndg-config",
  "ndg-templates",
- "oxc_allocator 0.127.0",
+ "oxc_allocator 0.128.0",
  "oxc_codegen 0.127.0",
  "oxc_minifier 0.127.0",
  "oxc_parser 0.127.0",
@@ -2245,6 +2245,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxc_allocator"
+version = "0.128.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b554cc48bdde5684b8a2bf3355524694ee47d9de4246eaf6199b8aecfd952cb"
+dependencies = [
+ "allocator-api2",
+ "hashbrown 0.17.0",
+ "oxc_data_structures 0.128.0",
+ "rustc-hash 2.1.2",
+]
+
+[[package]]
 name = "oxc_ast"
 version = "0.95.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2407,6 +2419,12 @@ name = "oxc_data_structures"
 version = "0.127.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1defc2fd17ee94f2c8511b0c4a4756d5868fbee891478953f2354ef444b1962f"
+
+[[package]]
+name = "oxc_data_structures"
+version = "0.128.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c425cdc1a05603d9b6d13786892d69364a0c18de06ffa511109a9e0a760b423c"
 
 [[package]]
 name = "oxc_diagnostics"
