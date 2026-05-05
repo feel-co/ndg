@@ -128,7 +128,7 @@ in
       .optionsJSON;
 
     ndgConfig =
-      writers.writeToml "ndg.toml" {
+      writers.writeTOML "ndg.toml" {
         # Core Options
         inherit title;
         output_dir = builtins.placeholder "out";
