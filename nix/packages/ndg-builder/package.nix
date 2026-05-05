@@ -138,7 +138,7 @@ in
       }
       // optionalAttrs (inputDir != null) {
         input_dir = inputDir;
-        module_options = "\"${configJSON}/share/doc/nixos/options.json\""; # TODO: check if there are options
+        module_options = "${configJSON}/share/doc/nixos/options.json"; # TODO: check if there are options
       }
       // optionalAttrs (manpageUrls != null) { manpage_urls_path = manpageUrls; }
       // optionalAttrs (stylesheets != []) { stylesheet_paths = stylesheets; }
