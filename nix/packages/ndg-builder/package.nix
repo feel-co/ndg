@@ -139,7 +139,7 @@ in
         sidebar.options.depth = optionsDepth;
         manpage_urls_path = mkIf (manpageUrls != null) manpageUrls;
         stylesheet_paths = mkIf (stylesheets != []) stylesheets;
-        script_paths = mkIf (stylesheets != []) scripts;
+        script_paths = mkIf (scripts != []) scripts;
       }
       // optionalAttrs (extraConfig != {}) extraConfig;
   in
