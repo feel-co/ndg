@@ -1,0 +1,27 @@
+[package]
+name        = "ndg-pdf"
+description = "PDF output generation for NDG"
+publish     = false
+
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+keywords.workspace     = true
+license.workspace      = true
+readme.workspace       = true
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[dependencies]
+color-eyre.workspace     = true
+ndg-commonmark.workspace = true
+ndg-utils.workspace      = true
+printpdf.workspace       = true
+serde_json.workspace     = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
