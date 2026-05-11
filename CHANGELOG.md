@@ -58,6 +58,8 @@ HTML documentation.
 - `--dest-dir` alias for `--output-dir` in `ndg html` command.
 - `--open` flag for `ndg html` to open the generated documentation in the
   default browser after generation completes.
+- `syntax_queries_path` configuration for replacing Syntastica's bundled
+  Tree-sitter highlight queries with project-provided queries.
 
 - New `ndg pdf` subcommand and `ndg-pdf` crate for generating PDF documentation
   from module options. Supports custom title (`-T`), header (`-H`), and footer
