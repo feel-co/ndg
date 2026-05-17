@@ -35,8 +35,8 @@
 pub mod cli;
 pub mod error;
 
-// Re-export internal crates for backward compatibility
 pub use ndg_config as config;
 pub use ndg_html as html;
 pub use ndg_manpage as manpage;
+pub use ndg_pdf as pdf;
 pub use ndg_utils as utils;

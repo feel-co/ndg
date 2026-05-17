@@ -21,6 +21,7 @@ ndg-config.workspace     = true
 ndg-html.workspace       = true
 ndg-manpage.workspace    = true
 ndg-nixdoc.workspace     = true
+ndg-pdf.workspace        = true
 ndg-utils.workspace      = true
 
 open.workspace           = true
