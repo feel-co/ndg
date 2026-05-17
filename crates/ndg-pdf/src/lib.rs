@@ -1,15 +1,33 @@
 use std::{
-  collections::{BTreeMap, HashMap},
-  fmt::Write as _,
+  collections::HashMap,
   fs,
   path::{Path, PathBuf},
   sync::OnceLock,
 };
 
 use color_eyre::eyre::{Context, Result};
+use html_escape::decode_html_entities;
 use ndg_commonmark::{MarkdownProcessor, ProcessorPreset, create_processor};
 use ndg_utils::json::extract_value;
-use printpdf::{GeneratePdfOptions, PdfDocument, PdfSaveOptions};
+use printpdf::{
+  BuiltinFont,
+  Color,
+  Line,
+  LinePoint,
+  Mm,
+  Op,
+  PaintMode,
+  PdfDocument,
+  PdfFontHandle,
+  PdfPage,
+  PdfSaveOptions,
+  Point,
+  Pt,
+  Rect,
+  Rgb,
+  TextItem,
+  WindingOrder,
+};
 use serde_json::Value;
 
 /// Generate a PDF document from Nix module options JSON.
@@ -131,7 +149,7 @@ pub fn generate_pdf(
     blocks.extend(parse_markdown_blocks(footer_text));
   }
 
-  let pdf_bytes = render_pdf(&blocks).wrap_err("Failed to render PDF")?;
+  let pdf_bytes = render_pdf(&blocks);
   fs::write(&output_file, pdf_bytes).wrap_err_with(|| {
     format!("Failed to write PDF to {}", output_file.display())
   })?;
@@ -177,9 +195,27 @@ fn extract_option_value(
     return Some(text.clone());
   }
 
-  option_data
-    .get(fallback_key)
-    .and_then(|value| extract_value(value, false))
+  let value = option_data.get(fallback_key)?;
+
+  // literalExpression values are Nix code and must be shown as code blocks,
+  // matching the block-level treatment in the HTML renderer.
+  if let Value::Object(obj) = value {
+    match obj.get("_type").and_then(Value::as_str) {
+      Some("literalExpression") => {
+        let text = obj.get("text").and_then(Value::as_str).unwrap_or("");
+        return Some(format!("```\n{text}\n```"));
+      },
+      Some("literalMD") => {
+        return obj
+          .get("text")
+          .and_then(Value::as_str)
+          .map(ToOwned::to_owned);
+      },
+      _ => {},
+    }
+  }
+
+  extract_value(value, false)
 }
 
 fn blank_paragraph() -> Block {
@@ -406,7 +442,7 @@ fn parse_html_nodes(html: &str) -> Vec<HtmlNode> {
 
     if let Some(j) = html[i..].find('<') {
       let raw = &html[i..i + j];
-      let text = decode_html_entities(raw);
+      let text = decode_html_entities(raw).into_owned();
       if !text.is_empty() {
         let node = HtmlNode {
           tag: None,
@@ -422,7 +458,7 @@ fn parse_html_nodes(html: &str) -> Vec<HtmlNode> {
       }
       i += j;
     } else {
-      let text = decode_html_entities(&html[i..]);
+      let text = decode_html_entities(&html[i..]).into_owned();
       if !text.is_empty() {
         let node = HtmlNode {
           tag: None,
@@ -494,7 +530,7 @@ fn parse_attrs(input: &str) -> HashMap<String, String> {
         while i < bytes.len() && bytes[i] != quote {
           i += 1;
         }
-        let value = decode_html_entities(&input[value_start..i]);
+        let value = decode_html_entities(&input[value_start..i]).into_owned();
         attrs.insert(key, value);
         if i < bytes.len() {
           i += 1;
@@ -504,7 +540,10 @@ fn parse_attrs(input: &str) -> HashMap<String, String> {
         while i < bytes.len() && !bytes[i].is_ascii_whitespace() {
           i += 1;
         }
-        attrs.insert(key, decode_html_entities(&input[value_start..i]));
+        attrs.insert(
+          key,
+          decode_html_entities(&input[value_start..i]).into_owned(),
+        );
       }
     } else {
       attrs.insert(key, String::new());
@@ -800,304 +839,632 @@ fn extract_code_block(node: &HtmlNode) -> String {
   lines.join("\n").trim_end().to_string()
 }
 
-fn decode_html_entities(input: &str) -> String {
-  let mut out = String::with_capacity(input.len());
-  let mut rest = input;
-  while let Some(amp) = rest.find('&') {
-    out.push_str(&rest[..amp]);
-    let tail = &rest[amp..];
-    let (entity, len) = if tail.starts_with("&lt;") {
-      ("<", 4)
-    } else if tail.starts_with("&gt;") {
-      (">", 4)
-    } else if tail.starts_with("&amp;") {
-      ("&", 5)
-    } else if tail.starts_with("&quot;") {
-      ("\"", 6)
-    } else if tail.starts_with("&apos;") {
-      ("'", 6)
-    } else if tail.starts_with("&#39;") {
-      ("'", 5)
-    } else if tail.starts_with("&nbsp;") {
-      (" ", 6)
-    } else {
-      ("&", 1)
-    };
-    out.push_str(entity);
-    rest = &rest[amp + len..];
+/// Transliterate a string to the `WinAnsiEncoding` (Windows-1252) subset that
+/// PDF built-in fonts support. Characters outside Latin-1 that appear in
+/// `WinAnsiEncoding`'s 0x80–0x9F range are mapped to ASCII equivalents;
+/// anything else that cannot be represented falls back to `?`.
+fn sanitize_for_pdf(s: &str) -> String {
+  let mut out = String::with_capacity(s.len());
+  for c in s.chars() {
+    match c as u32 {
+      0x00A0 => out.push(' '),
+      0x0000..=0x007F | 0x00A1..=0x00FF => out.push(c),
+      0x0152 => out.push_str("OE"),
+      0x0153 => out.push_str("oe"),
+      0x0160 => out.push('S'),
+      0x0161 => out.push('s'),
+      0x0178 => out.push('Y'),
+      0x017D => out.push('Z'),
+      0x017E => out.push('z'),
+      0x0192 => out.push('f'),
+      0x02C6 => out.push('^'),
+      0x02DC => out.push('~'),
+      0x2013 => out.push('-'),
+      0x2014 => out.push_str("--"),
+      0x2018 | 0x2019 => out.push('\''),
+      0x201A => out.push(','),
+      0x201C..=0x201E => out.push('"'),
+      0x2020 => out.push('+'),
+      0x2021 => out.push_str("++"),
+      0x2022 => out.push('*'),
+      0x2026 => out.push_str("..."),
+      0x2039 => out.push('<'),
+      0x203A => out.push('>'),
+      0x20AC => out.push_str("EUR"),
+      0x2122 => out.push_str("(tm)"),
+      _ => out.push('?'),
+    }
   }
-  out.push_str(rest);
   out
 }
 
-fn render_pdf(blocks: &[Block]) -> Result<Vec<u8>> {
-  let html = render_document_html(blocks);
-  let mut warnings = Vec::new();
-  let document = PdfDocument::from_html(
-    &html,
-    &BTreeMap::new(),
-    &BTreeMap::new(),
-    &GeneratePdfOptions {
-      page_width: Some(210.0),
-      page_height: Some(297.0),
-      margin_top: Some(16.0),
-      margin_right: Some(18.0),
-      margin_bottom: Some(18.0),
-      margin_left: Some(18.0),
-      ..GeneratePdfOptions::default()
-    },
-    &mut warnings,
-  )
-  .map_err(|e| color_eyre::eyre::eyre!(e))?;
-
-  Ok(document.save(
-    &PdfSaveOptions {
-      optimize: false,
-      ..PdfSaveOptions::default()
-    },
-    &mut warnings,
-  ))
-}
-
-fn render_document_html(blocks: &[Block]) -> String {
-  let mut html = String::from(
-    r#"<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-html {
-  font-family: "DejaVu Sans", "Noto Sans", sans-serif;
-  font-size: 10.8pt;
-  color: #111827;
-}
-body {
-  line-height: 1.42;
-}
-h1 {
-  font-size: 22pt;
-  margin: 0 0 18pt;
-  padding-bottom: 6pt;
-  border-bottom: 1.2pt solid #111827;
-}
-h2 {
-  font-size: 14pt;
-  margin: 18pt 0 8pt;
-  page-break-after: avoid;
-}
-h3 {
-  font-size: 11pt;
-  margin: 12pt 0 5pt;
-  page-break-after: avoid;
-}
-p {
-  margin: 0 0 8pt;
-  orphans: 3;
-  widows: 3;
-}
-.inline-code {
-  font-family: "DejaVu Sans", "Noto Sans", sans-serif;
-  font-size: 0.9em;
-  font-weight: 600;
-  background-color: #eef2f7;
-  color: #0f172a;
-  border: 0.45pt solid #d5dde8;
-  border-radius: 2pt;
-  padding-left: 2pt;
-  padding-right: 2pt;
-}
-pre {
-  font-family: "DejaVu Sans", "Noto Sans", sans-serif;
-  font-size: 9.4pt;
-  line-height: 1.32;
-  white-space: pre-wrap;
-  background-color: #f3f6fa;
-  color: #111827;
-  border: 0.6pt solid #d6dee9;
-  border-left: 3.2pt solid #334155;
-  padding: 8pt 9pt;
-  margin: 8pt 0 11pt;
-  page-break-inside: avoid;
-}
-pre code {
-  font-family: "DejaVu Sans", "Noto Sans", sans-serif;
-  background: transparent;
-  border: 0;
-  padding: 0;
-}
-.admonition {
-  margin: 10pt 0 12pt;
-  padding: 8pt 10pt 9pt 12pt;
-  background-color: #fff7df;
-  border: 0.6pt solid #f0d28a;
-  border-left: 4pt solid #cf6f12;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
-.admonition-title {
-  font-size: 10.4pt;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin: 0 0 5pt;
-  color: #5f3106;
-  text-transform: uppercase;
-}
-.admonition p:last-child {
-  margin-bottom: 0;
-}
-blockquote {
-  margin: 8pt 0 10pt;
-  padding: 2pt 0 2pt 10pt;
-  border-left: 2.2pt solid #94a3b8;
-  color: #334155;
-}
-ul,
-ol {
-  margin: 4pt 0 9pt 18pt;
-  padding: 0;
-}
-li {
-  margin: 2pt 0;
-}
-a {
-  color: #0f4c81;
-}
-hr {
-  border: 0;
-  border-top: 0.8pt solid #cbd5e1;
-  margin: 12pt 0;
-}
-</style>
-</head>
-<body>
-"#,
-  );
+fn render_pdf(blocks: &[Block]) -> Vec<u8> {
+  let mut builder = PdfBuilder::new();
   for block in blocks {
-    render_block_html(block, &mut html);
+    builder.render_block(block);
   }
-  html.push_str("</body></html>");
-  html
+  builder.finish()
 }
 
-fn render_block_html(block: &Block, out: &mut String) {
-  match block {
-    Block::Heading { level, content } => {
-      let tag = match level {
-        1 => "h1",
-        2 => "h2",
-        _ => "h3",
-      };
-      let _ = write!(out, "<{tag}>");
-      render_inlines_html(content, out);
-      let _ = writeln!(out, "</{tag}>");
-    },
-    Block::Paragraph(content) if paragraph_is_blank(content) => {
-      out.push_str("<p>&nbsp;</p>\n");
-    },
-    Block::Paragraph(content) => {
-      out.push_str("<p>");
-      render_inlines_html(content, out);
-      out.push_str("</p>\n");
-    },
-    Block::List { ordered, items } => {
-      let tag = if *ordered { "ol" } else { "ul" };
-      let _ = writeln!(out, "<{tag}>");
-      for item in items {
-        out.push_str("<li>");
-        render_inlines_html(&item.content, out);
-        for child in &item.children {
-          render_block_html(child, out);
-        }
-        out.push_str("</li>\n");
-      }
-      let _ = writeln!(out, "</{tag}>");
-    },
-    Block::Quote(children) => {
-      out.push_str("<blockquote>\n");
-      for child in children {
-        render_block_html(child, out);
-      }
-      out.push_str("</blockquote>\n");
-    },
-    Block::FencedCode(code) => {
-      out.push_str("<pre><code>");
-      escape_html_into(code, out);
-      out.push_str("</code></pre>\n");
-    },
-    Block::Admonition { title, body } => {
-      out.push_str(r#"<section class="admonition">"#);
-      out.push_str(r#"<p class="admonition-title">"#);
-      escape_html_into(&title.to_uppercase(), out);
-      out.push_str("</p>\n");
-      for child in body {
-        render_block_html(child, out);
-      }
-      out.push_str("</section>\n");
-    },
-    Block::ThematicBreak => out.push_str("<hr>\n"),
-  }
+#[derive(Clone, Copy)]
+enum FontKind {
+  Regular,
+  Bold,
+  Italic,
+  Code,
 }
 
-fn paragraph_is_blank(content: &[Inline]) -> bool {
-  content.iter().all(|inline| {
-    match inline {
-      Inline::Text(text) => text.trim().is_empty(),
-      _ => false,
-    }
+const fn font_handle(kind: FontKind) -> PdfFontHandle {
+  PdfFontHandle::Builtin(match kind {
+    FontKind::Regular => BuiltinFont::Helvetica,
+    FontKind::Bold => BuiltinFont::HelveticaBold,
+    FontKind::Italic => BuiltinFont::HelveticaOblique,
+    FontKind::Code => BuiltinFont::Courier,
   })
 }
 
-fn render_inlines_html(inlines: &[Inline], out: &mut String) {
+const fn char_width_factor(kind: FontKind) -> f32 {
+  match kind {
+    FontKind::Regular | FontKind::Italic => 0.50,
+    FontKind::Bold => 0.56,
+    FontKind::Code => 0.60,
+  }
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn text_width_pt(text: &str, kind: FontKind, size: f32) -> f32 {
+  text.chars().count() as f32 * size * char_width_factor(kind)
+}
+
+#[derive(Clone)]
+struct Word {
+  text: String,
+  font: FontKind,
+}
+
+fn inlines_to_words(inlines: &[Inline]) -> Vec<Word> {
+  let mut words = Vec::new();
   for inline in inlines {
     match inline {
-      Inline::Text(text) => escape_html_into(text, out),
-      Inline::Code(text) => {
-        out.push_str(r#"<span class="inline-code">"#);
-        escape_html_into(text, out);
-        out.push_str("</span>");
+      Inline::Text(t) => {
+        for w in t.split_whitespace() {
+          words.push(Word {
+            text: sanitize_for_pdf(w),
+            font: FontKind::Regular,
+          });
+        }
       },
-      Inline::Emphasis(text) => {
-        out.push_str("<em>");
-        escape_html_into(text, out);
-        out.push_str("</em>");
+      Inline::Code(t) if !t.trim().is_empty() => {
+        words.push(Word {
+          text: sanitize_for_pdf(t),
+          font: FontKind::Code,
+        });
       },
-      Inline::Strong(text) => {
-        out.push_str("<strong>");
-        escape_html_into(text, out);
-        out.push_str("</strong>");
+      Inline::Emphasis(t) => {
+        for w in t.split_whitespace() {
+          words.push(Word {
+            text: sanitize_for_pdf(w),
+            font: FontKind::Italic,
+          });
+        }
+      },
+      Inline::Strong(t) => {
+        for w in t.split_whitespace() {
+          words.push(Word {
+            text: sanitize_for_pdf(w),
+            font: FontKind::Bold,
+          });
+        }
       },
       Inline::Link {
         label,
         url,
         render_as_url,
       } => {
-        if url.is_empty() || !render_as_url {
-          escape_html_into(label, out);
-        } else {
-          out.push_str("<a href=\"");
-          escape_html_into(url, out);
-          out.push_str("\">");
-          escape_html_into(label, out);
-          out.push_str("</a> ");
-          out.push('(');
-          escape_html_into(url, out);
-          out.push(')');
+        for w in label.split_whitespace() {
+          words.push(Word {
+            text: sanitize_for_pdf(w),
+            font: FontKind::Regular,
+          });
+        }
+        if *render_as_url && !url.is_empty() {
+          words.push(Word {
+            text: format!("({url})"),
+            font: FontKind::Regular,
+          });
         }
       },
+      Inline::Code(_) => {},
     }
   }
+  words
 }
 
-fn escape_html_into(input: &str, out: &mut String) {
-  for ch in input.chars() {
-    match ch {
-      '&' => out.push_str("&amp;"),
-      '<' => out.push_str("&lt;"),
-      '>' => out.push_str("&gt;"),
-      '"' => out.push_str("&quot;"),
-      '\'' => out.push_str("&#39;"),
-      _ => out.push(ch),
+/// Returns each line as a vec of indices into `words`.
+fn wrap_words(words: &[Word], max_w: f32, size: f32) -> Vec<Vec<usize>> {
+  let space = size * 0.28;
+  let mut lines: Vec<Vec<usize>> = Vec::new();
+  let mut line: Vec<usize> = Vec::new();
+  let mut line_w = 0.0f32;
+
+  for (i, word) in words.iter().enumerate() {
+    let w = text_width_pt(&word.text, word.font, size);
+    let gap = if line.is_empty() { 0.0 } else { space };
+    if !line.is_empty() && line_w + gap + w > max_w {
+      lines.push(std::mem::take(&mut line));
+      line_w = 0.0;
     }
+    line_w += (if line.is_empty() { 0.0 } else { space }) + w;
+    line.push(i);
+  }
+  if !line.is_empty() {
+    lines.push(line);
+  }
+  lines
+}
+
+struct PdfBuilder {
+  doc:      PdfDocument,
+  page_ops: Vec<Op>,
+  y:        f32,
+  page_num: usize,
+}
+
+impl PdfBuilder {
+  const PAGE_W: f32 = 595.28; // 210 mm
+  const PAGE_H: f32 = 841.89; // 297 mm
+  const ML: f32 = 51.02; // 18 mm left margin
+  const MT: f32 = 45.35; // 16 mm top margin
+  const MB: f32 = 45.35; // 16 mm bottom margin
+  const CW: f32 = Self::PAGE_W - Self::ML - 51.02; // content width (18 mm right margin)
+  const BS: f32 = 10.8; // body font size (pt)
+  const BH: f32 = 15.3; // body line height (BS * 1.42)
+
+  fn new() -> Self {
+    Self {
+      doc:      PdfDocument::new(""),
+      page_ops: Vec::new(),
+      y:        Self::PAGE_H - Self::MT,
+      page_num: 0,
+    }
+  }
+
+  fn rgb(r: u8, g: u8, b: u8) -> Color {
+    Color::Rgb(Rgb {
+      r:           f32::from(r) / 255.0,
+      g:           f32::from(g) / 255.0,
+      b:           f32::from(b) / 255.0,
+      icc_profile: None,
+    })
+  }
+
+  fn flush_page(&mut self) {
+    if !self.page_ops.is_empty() {
+      let ops = std::mem::take(&mut self.page_ops);
+      self
+        .doc
+        .with_pages(vec![PdfPage::new(Mm(210.0), Mm(297.0), ops)]);
+    }
+  }
+
+  fn new_page(&mut self) {
+    self.flush_page();
+    self.y = Self::PAGE_H - Self::MT;
+    self.page_num += 1;
+  }
+
+  fn check_space(&mut self, needed: f32) {
+    if self.y - needed < Self::MB {
+      self.new_page();
+    }
+  }
+
+  fn emit_words(
+    &mut self,
+    words: &[Word],
+    indices: &[usize],
+    x: f32,
+    y: f32,
+    size: f32,
+    col: Color,
+  ) {
+    if indices.is_empty() {
+      return;
+    }
+    self.page_ops.push(Op::StartTextSection);
+    self.page_ops.push(Op::SetFillColor { col });
+    self.page_ops.push(Op::SetTextCursor {
+      pos: Point { x: Pt(x), y: Pt(y) },
+    });
+    let mut first = true;
+    for &i in indices {
+      let word = &words[i];
+      let text = if first {
+        word.text.clone()
+      } else {
+        format!(" {}", word.text)
+      };
+      first = false;
+      self.page_ops.push(Op::SetFont {
+        font: font_handle(word.font),
+        size: Pt(size),
+      });
+      self.page_ops.push(Op::ShowText {
+        items: vec![TextItem::Text(text)],
+      });
+    }
+    self.page_ops.push(Op::EndTextSection);
+  }
+
+  fn render_text_block(
+    &mut self,
+    words: &[Word],
+    x: f32,
+    max_w: f32,
+    size: f32,
+    line_h: f32,
+  ) {
+    for indices in wrap_words(words, max_w, size) {
+      self.check_space(line_h);
+      self.emit_words(words, &indices, x, self.y, size, Self::rgb(17, 24, 39));
+      self.y -= line_h;
+    }
+  }
+
+  fn render_block(&mut self, block: &Block) {
+    match block {
+      Block::Heading { level, content } => self.render_heading(*level, content),
+      Block::Paragraph(inlines) => {
+        let words = inlines_to_words(inlines);
+        if words.is_empty() {
+          return;
+        }
+        self.render_text_block(&words, Self::ML, Self::CW, Self::BS, Self::BH);
+        self.y -= 4.0;
+      },
+      Block::List { ordered, items } => {
+        self.render_list(*ordered, items, Self::ML);
+      },
+      Block::Quote(children) => self.render_quote(children),
+      Block::FencedCode(code) => self.render_code(code),
+      Block::Admonition { title, body } => self.render_admonition(title, body),
+      Block::ThematicBreak => self.render_hr(),
+    }
+  }
+
+  fn render_heading(&mut self, level: u8, content: &[Inline]) {
+    let (size, above, below) = match level {
+      1 => (22.0_f32, 0.0_f32, 8.0_f32),
+      2 => (14.0, 14.0, 6.0),
+      _ => (11.0, 8.0, 4.0),
+    };
+    let line_h = size * 1.3;
+
+    self.y -= above;
+
+    let words: Vec<Word> = content
+      .iter()
+      .flat_map(|inline| {
+        let text = match inline {
+          Inline::Text(t)
+          | Inline::Code(t)
+          | Inline::Emphasis(t)
+          | Inline::Strong(t) => t.as_str(),
+          Inline::Link { label, .. } => label.as_str(),
+        };
+        text
+          .split_whitespace()
+          .filter(|w| !w.is_empty())
+          .map(|w| {
+            Word {
+              text: sanitize_for_pdf(w),
+              font: FontKind::Bold,
+            }
+          })
+          .collect::<Vec<_>>()
+      })
+      .collect();
+
+    for indices in wrap_words(&words, Self::CW, size) {
+      self.check_space(line_h);
+      self.emit_words(
+        &words,
+        &indices,
+        Self::ML,
+        self.y,
+        size,
+        Self::rgb(17, 24, 39),
+      );
+      self.y -= line_h;
+    }
+
+    if level == 1 {
+      let rule_y = self.y + line_h * 0.5;
+      self.draw_line(
+        Self::ML,
+        rule_y,
+        Self::ML + Self::CW,
+        rule_y,
+        1.2,
+        Self::rgb(17, 24, 39),
+      );
+      self.y -= 4.0;
+    }
+
+    self.y -= below;
+  }
+
+  fn render_list(&mut self, ordered: bool, items: &[ListItem], x: f32) {
+    let indent = 14.0_f32;
+    let text_x = x + indent;
+    let max_w = Self::ML + Self::CW - text_x;
+
+    for (i, item) in items.iter().enumerate() {
+      let marker = if ordered {
+        format!("{}.", i + 1)
+      } else {
+        "-".to_string()
+      };
+
+      let content_words = inlines_to_words(&item.content);
+      let content_lines = wrap_words(&content_words, max_w, Self::BS);
+      let lines_count = content_lines.len().max(1);
+
+      #[allow(clippy::cast_precision_loss)]
+      self.check_space(Self::BH * lines_count as f32);
+
+      let mword = vec![Word {
+        text: marker,
+        font: FontKind::Regular,
+      }];
+      self.emit_words(&mword, &[0], x, self.y, Self::BS, Self::rgb(17, 24, 39));
+
+      if !content_words.is_empty() {
+        for (li, indices) in content_lines.iter().enumerate() {
+          if li > 0 {
+            self.y -= Self::BH;
+          }
+          self.emit_words(
+            &content_words,
+            indices,
+            text_x,
+            self.y,
+            Self::BS,
+            Self::rgb(17, 24, 39),
+          );
+        }
+      }
+      self.y -= Self::BH;
+
+      for child in &item.children {
+        match child {
+          Block::List { ordered, items } => {
+            self.render_list(*ordered, items, text_x);
+          },
+          _ => self.render_block(child),
+        }
+      }
+    }
+    self.y -= 4.0;
+  }
+
+  fn render_quote(&mut self, children: &[Block]) {
+    let start_y = self.y;
+    for child in children {
+      self.render_block(child);
+    }
+    let end_y = self.y;
+    if start_y > end_y {
+      self.draw_line(
+        Self::ML + 2.0,
+        start_y,
+        Self::ML + 2.0,
+        end_y,
+        2.2,
+        Self::rgb(148, 163, 184),
+      );
+    }
+  }
+
+  #[allow(clippy::suboptimal_flops, clippy::cast_precision_loss)]
+  fn render_code(&mut self, code: &str) {
+    let size = 9.4_f32;
+    let line_h = size * 1.32;
+    let pad = 7.0;
+    let bar_w = 3.2;
+    let lines: Vec<&str> = code.lines().collect();
+    let total_h = lines.len() as f32 * line_h + 2.0 * pad;
+
+    if self.y - total_h < Self::MB {
+      self.new_page();
+    }
+
+    let box_y = self.y - total_h;
+
+    self.page_ops.push(Op::SaveGraphicsState);
+    self.page_ops.push(Op::SetFillColor {
+      col: Self::rgb(0xF3, 0xF6, 0xFA),
+    });
+    self.page_ops.push(Op::DrawRectangle {
+      rectangle: Rect {
+        x:             Pt(Self::ML - pad),
+        y:             Pt(box_y),
+        width:         Pt(Self::CW + 2.0 * pad),
+        height:        Pt(total_h),
+        mode:          Some(PaintMode::Fill),
+        winding_order: Some(WindingOrder::NonZero),
+      },
+    });
+    self.page_ops.push(Op::SetFillColor {
+      col: Self::rgb(0x33, 0x41, 0x55),
+    });
+    self.page_ops.push(Op::DrawRectangle {
+      rectangle: Rect {
+        x:             Pt(Self::ML - pad),
+        y:             Pt(box_y),
+        width:         Pt(bar_w),
+        height:        Pt(total_h),
+        mode:          Some(PaintMode::Fill),
+        winding_order: Some(WindingOrder::NonZero),
+      },
+    });
+    self.page_ops.push(Op::RestoreGraphicsState);
+
+    self.y -= pad;
+    for line in &lines {
+      self.page_ops.push(Op::StartTextSection);
+      self.page_ops.push(Op::SetFillColor {
+        col: Self::rgb(17, 24, 39),
+      });
+      self.page_ops.push(Op::SetFont {
+        font: PdfFontHandle::Builtin(BuiltinFont::Courier),
+        size: Pt(size),
+      });
+      self.page_ops.push(Op::SetTextCursor {
+        pos: Point {
+          x: Pt(Self::ML),
+          y: Pt(self.y),
+        },
+      });
+      self.page_ops.push(Op::ShowText {
+        items: vec![TextItem::Text(sanitize_for_pdf(line))],
+      });
+      self.page_ops.push(Op::EndTextSection);
+      self.y -= line_h;
+    }
+    self.y -= pad + 8.0;
+  }
+
+  fn render_admonition(&mut self, title: &str, body: &[Block]) {
+    let bar_w = 4.0_f32;
+    let pad_l = 10.0_f32;
+    let pad_t = 6.0_f32;
+    let pad_b = 4.0_f32;
+    let t_size = 10.4_f32;
+    let t_line_h = t_size * 1.4;
+
+    let start_y = self.y;
+    let start_page = self.page_num;
+    let ops_start = self.page_ops.len();
+
+    self.y -= pad_t;
+
+    let tw = vec![Word {
+      text: sanitize_for_pdf(&title.to_uppercase()),
+      font: FontKind::Bold,
+    }];
+    self.check_space(t_line_h);
+    self.emit_words(
+      &tw,
+      &[0],
+      Self::ML + bar_w + pad_l,
+      self.y,
+      t_size,
+      Self::rgb(0x5F, 0x31, 0x06),
+    );
+    self.y -= t_line_h + 3.0;
+
+    for child in body {
+      self.render_block(child);
+    }
+    self.y -= pad_b;
+
+    let end_y = self.y;
+    let height = start_y - end_y;
+
+    if height > 0.0 && self.page_num == start_page {
+      let content_ops: Vec<Op> = self.page_ops.drain(ops_start..).collect();
+
+      self.page_ops.push(Op::SaveGraphicsState);
+      self.page_ops.push(Op::SetFillColor {
+        col: Self::rgb(0xFF, 0xF7, 0xDF),
+      });
+      self.page_ops.push(Op::DrawRectangle {
+        rectangle: Rect {
+          x:             Pt(Self::ML),
+          y:             Pt(end_y),
+          width:         Pt(Self::CW),
+          height:        Pt(height),
+          mode:          Some(PaintMode::Fill),
+          winding_order: Some(WindingOrder::NonZero),
+        },
+      });
+      self.page_ops.push(Op::SetFillColor {
+        col: Self::rgb(0xCF, 0x6F, 0x12),
+      });
+      self.page_ops.push(Op::DrawRectangle {
+        rectangle: Rect {
+          x:             Pt(Self::ML),
+          y:             Pt(end_y),
+          width:         Pt(bar_w),
+          height:        Pt(height),
+          mode:          Some(PaintMode::Fill),
+          winding_order: Some(WindingOrder::NonZero),
+        },
+      });
+      self.page_ops.push(Op::RestoreGraphicsState);
+      self.page_ops.extend(content_ops);
+    }
+
+    self.y -= 8.0;
+  }
+
+  fn render_hr(&mut self) {
+    self.y -= 6.0;
+    self.check_space(2.0);
+    self.draw_line(
+      Self::ML,
+      self.y,
+      Self::ML + Self::CW,
+      self.y,
+      0.8,
+      Self::rgb(0xCB, 0xD5, 0xE1),
+    );
+    self.y -= 8.0;
+  }
+
+  fn draw_line(
+    &mut self,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+    width: f32,
+    col: Color,
+  ) {
+    self.page_ops.push(Op::SaveGraphicsState);
+    self
+      .page_ops
+      .push(Op::SetOutlineThickness { pt: Pt(width) });
+    self.page_ops.push(Op::SetOutlineColor { col });
+    self.page_ops.push(Op::DrawLine {
+      line: Line {
+        points:    vec![
+          LinePoint {
+            p:      Point {
+              x: Pt(x1),
+              y: Pt(y1),
+            },
+            bezier: false,
+          },
+          LinePoint {
+            p:      Point {
+              x: Pt(x2),
+              y: Pt(y2),
+            },
+            bezier: false,
+          },
+        ],
+        is_closed: false,
+      },
+    });
+    self.page_ops.push(Op::RestoreGraphicsState);
+  }
+
+  fn finish(mut self) -> Vec<u8> {
+    self.flush_page();
+    let mut warnings = Vec::new();
+    self.doc.save(&PdfSaveOptions::default(), &mut warnings)
   }
 }
 
@@ -1106,45 +1473,22 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_pdf_html_renderer_preserves_semantic_markdown() {
+  fn test_render_produces_valid_pdf() {
     let blocks = parse_markdown_blocks(
-      "Use `null`, {option}`hjem.<user>.files`, and \
-       [docs](https://example.com).\n\n::: {.note}\nImportant body.\n:::\n\n\
-       ```nix\nhjem.linker = null;\n# preserved\n```",
+      "# Title\n\nUse `null` or `pkgs.something`.\n\n::: {.note}\nImportant \
+       note.\n:::\n\n```nix\nhjem.linker = null;\n```",
     );
-    let html = render_document_html(&blocks);
-
-    assert!(html.contains(r#"<span class="inline-code">null</span>"#));
-    assert!(
-      html.contains(
-        r#"<span class="inline-code">hjem.&lt;user&gt;.files</span>"#
-      )
-    );
-    assert!(html.contains(r#"<section class="admonition">"#));
-    assert!(html.contains(r#"<p class="admonition-title">NOTE</p>"#));
-    assert!(
-      html.contains("<pre><code>hjem.linker = null;\n# preserved</code></pre>")
-    );
-    assert!(html.contains(
-      r#"<a href="https://example.com">docs</a> (https://example.com)"#
-    ));
-    assert!(!html.contains("{option}`"));
-    assert!(!html.contains(":::{.note}"));
+    let bytes = render_pdf(&blocks);
+    assert!(bytes.starts_with(b"%PDF-"), "missing PDF header");
   }
 
   #[test]
-  fn test_pdf_html_renderer_includes_visual_styles() {
-    let html = render_document_html(&[Block::Admonition {
-      title: "Warning".to_string(),
-      body:  vec![Block::Paragraph(vec![Inline::Text(
-        "Styled admonition body.".to_string(),
-      )])],
-    }]);
-
-    assert!(html.contains("border-left: 4pt solid #cf6f12"));
-    assert!(html.contains("background-color: #fff7df"));
-    assert!(html.contains("page-break-inside: avoid"));
-    assert!(html.contains(r".inline-code"));
-    assert!(html.contains("border: 0.45pt solid #d5dde8"));
+  fn test_inline_code_and_links_parsed() {
+    let blocks = parse_markdown_blocks(
+      "Use `null`, {option}`hjem.<user>.files`, and [docs](https://example.com).",
+    );
+    // Blocks must parse without panic and contain at least one Paragraph.
+    assert!(blocks.iter().any(|b| matches!(b, Block::Paragraph(_))));
+    assert!(!blocks.iter().any(|b| matches!(b, Block::FencedCode(_))));
   }
 }

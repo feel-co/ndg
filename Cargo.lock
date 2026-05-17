@@ -2450,6 +2450,7 @@ name = "ndg-pdf"
 version = "2.7.0"
 dependencies = [
  "color-eyre",
+ "html-escape",
  "ndg-commonmark",
  "ndg-utils",
  "printpdf",

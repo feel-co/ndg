@@ -15,6 +15,7 @@ version.workspace      = true
 
 [dependencies]
 color-eyre.workspace     = true
+html-escape.workspace    = true
 ndg-commonmark.workspace = true
 ndg-utils.workspace      = true
 printpdf.workspace       = true
