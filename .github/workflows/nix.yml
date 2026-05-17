@@ -30,11 +30,9 @@ jobs:
                - 'ndg/**'
                - 'ndg-commonmark/**'
                - 'xtask/**'
-               - 'flake/*'
+               - 'nix/*'
                - 'flake.nix'
                - 'flake.lock'
-               - 'default.nix'
-               - 'shell.nix'
                - '**.rs'
   nix:
     name: Build with Nix
