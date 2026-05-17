@@ -77,7 +77,9 @@ jobs:
         uses: actions/checkout@v6
 
       - name: "Build packages"
-        run: nix build -L .#packages.${{ matrix.system }}.default -v
+        run: |
+          nix build -L .#packages.${{ matrix.system }}.default -v
+          nix build -L .#packages.${{ matrix.system }}.ndg-builder -v
 
       # We already have cachix, but this'll help re-use our Nix store
       # inside the cache to achieve less wasted CI time. Unfortunately
