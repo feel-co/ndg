@@ -109,7 +109,7 @@
   extraConfig ? {},
 } @ args: let
   inherit (builtins) isList;
-  inherit (lib.modules) mkIf;
+  inherit (lib.modules) mkMerge;
   inherit (lib.attrsets) optionalAttrs;
   inherit (lib.asserts) assertMsg;
 in
@@ -128,23 +128,24 @@ in
       .optionsJSON;
 
     ndgConfig =
-      writers.writeTOML "ndg.toml" ({
-        # Core Options
-        inherit title;
-        output_dir = builtins.placeholder "out";
-        search.enable = generateSearch;
-        highlight_code = highlightCode;
-        sidebar.options.depth = optionsDepth;
-      }
-      // optionalAttrs (inputDir != null) {
-        input_dir = inputDir;
-        module_options = "${configJSON}/share/doc/nixos/options.json"; # TODO: check if there are options
-      }
-      // optionalAttrs (manpageUrls != null) { manpage_urls_path = manpageUrls; }
-      // optionalAttrs (stylesheets != []) { stylesheet_paths = stylesheets; }
-      // optionalAttrs (scripts != []) { script_paths = scripts; }
-      // optionalAttrs (extraConfig != {}) extraConfig
-      );
+      writers.writeTOML "ndg.toml" (mkMerge [
+        {
+          # Core Options
+          inherit title;
+          output_dir = placeholder "out";
+          search.enable = generateSearch;
+          highlight_code = highlightCode;
+          sidebar.options.depth = optionsDepth;
+        }
+        (optionalAttrs (inputDir != null) {
+          input_dir = inputDir;
+          module_options = "${configJSON}/share/doc/nixos/options.json"; # TODO: check if there are options
+        })
+        (optionalAttrs (manpageUrls != null) { manpage_urls_path = manpageUrls; })
+        (optionalAttrs (stylesheets != []) { stylesheet_paths = stylesheets; })
+        (optionalAttrs (scripts != []) { script_paths = scripts; })
+        (optionalAttrs (extraConfig != {}) extraConfig)
+      ]);
   in
     runCommandLocal "ndg-builder" {
       nativeBuildInputs = [ndg];
