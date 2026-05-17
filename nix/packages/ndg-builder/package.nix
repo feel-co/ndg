@@ -109,8 +109,7 @@
   extraConfig ? {},
 } @ args: let
   inherit (builtins) isList;
-  inherit (lib.modules) mkMerge;
-  inherit (lib.attrsets) optionalAttrs;
+  inherit (lib.attrsets) optionalAttrs mergeAttrsList;
   inherit (lib.asserts) assertMsg;
 in
   # TODO explain this one
@@ -128,7 +127,7 @@ in
       .optionsJSON;
 
     ndgConfig =
-      writers.writeTOML "ndg.toml" (mkMerge [
+      writers.writeTOML "ndg.toml" (mergeAttrsList [
         {
           # Core Options
           inherit title;
