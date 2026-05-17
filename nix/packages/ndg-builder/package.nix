@@ -109,7 +109,7 @@
   extraConfig ? {},
 } @ args: let
   inherit (builtins) isList;
-  inherit (lib.modules) mkIf;
+  inherit (lib.modules) mkMerge;
   inherit (lib.attrsets) optionalAttrs;
   inherit (lib.asserts) assertMsg;
 in
@@ -128,27 +128,27 @@ in
       .optionsJSON;
 
     ndgConfig =
-      writers.writeToml "ndg.toml" {
-        # Core Options
-        inherit title;
-        output_dir = builtins.placeholder "out";
-        input_dir = mkIf (inputDir != null) (toString inputDir);
-        module_options = mkIf (inputDir != null) "\"${configJSON}/share/doc/nixos/options.json\""; # TODO: check if there are options
-        search.enable = generateSearch;
-        highlight_code = highlightCode;
-        sidebar.options.depth = optionsDepth;
-        manpage_urls_path = mkIf (manpageUrls != null) manpageUrls;
-        stylesheet_paths = mkIf (stylesheets != []) stylesheets;
-        script_paths = mkIf (scripts != []) scripts;
-      }
-      // optionalAttrs (extraConfig != {}) extraConfig;
+      writers.writeTOML "ndg.toml" (mkMerge [
+        {
+          # Core Options
+          inherit title;
+          output_dir = placeholder "out";
+          search.enable = generateSearch;
+          highlight_code = highlightCode;
+          sidebar.options.depth = optionsDepth;
+          module_options = "${configJSON}/share/doc/nixos/options.json"; # TODO: check if there are options
+        }
+        (optionalAttrs (inputDir != null) { input_dir = inputDir; })
+        (optionalAttrs (manpageUrls != null) { manpage_urls_path = manpageUrls; })
+        (optionalAttrs (stylesheets != []) { stylesheet_paths = stylesheets; })
+        (optionalAttrs (scripts != []) { script_paths = scripts; })
+        (optionalAttrs (extraConfig != {}) extraConfig)
+      ]);
   in
     runCommandLocal "ndg-builder" {
       nativeBuildInputs = [ndg];
       meta = {inherit description;};
-    } (
-      optionalString (inputDir == null) ''
+    } ''
         ndg --config-file "${ndgConfig}" ${optionalString verbose "--verbose"} html \
           --jobs $NIX_BUILD_CORES --output-dir "$out"
       ''
-    )
