@@ -136,11 +136,9 @@ in
           search.enable = generateSearch;
           highlight_code = highlightCode;
           sidebar.options.depth = optionsDepth;
-        }
-        (optionalAttrs (inputDir != null) {
-          input_dir = inputDir;
           module_options = "${configJSON}/share/doc/nixos/options.json"; # TODO: check if there are options
-        })
+        }
+        (optionalAttrs (inputDir != null) { input_dir = inputDir; })
         (optionalAttrs (manpageUrls != null) { manpage_urls_path = manpageUrls; })
         (optionalAttrs (stylesheets != []) { stylesheet_paths = stylesheets; })
         (optionalAttrs (scripts != []) { script_paths = scripts; })
