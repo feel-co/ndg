@@ -23,7 +23,7 @@ clap = { version = "4.6.1", default-features = false, features = [
   "suggestions",
 ] }
 clap-verbosity-flag = "3.0.4"
-clap_complete = "4.6.2"
+clap_complete = "4.6.5"
 clap_mangen = "0.3.0"
 color-eyre = "0.6.5"
 env_logger = "0.11.10"
@@ -32,7 +32,7 @@ indicatif = { version = "0.18.4", features = [ "rayon" ] }
 jiff = "0.2.24"
 log = "0.4.29"
 num_cpus = "1.17.0"
-open = "5.3.4"
+open = "5.3.5"
 rand = "0.10.1"
 
 comrak = { version = "0.52.0", default-features = false, features = [ "syntect" ] }
@@ -54,21 +54,21 @@ walkdir    = "2.5.0"
 html-escape   = "0.2.13"
 html5ever     = "0.39.0"
 indexmap      = "2.14.0"
-kuchikikiki   = "0.10.0"
+kuchikikiki   = "0.12.0"
 lightningcss  = { version = "1.0.0-alpha.71", default-features = false }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.127.0"
-oxc_codegen   = "0.127.0"
-oxc_minifier  = "0.127.0"
-oxc_parser    = "0.127.0"
-oxc_span      = "0.127.0"
+oxc_allocator = "0.132.0"
+oxc_codegen   = "0.132.0"
+oxc_minifier  = "0.132.0"
+oxc_parser    = "0.132.0"
+oxc_span      = "0.132.0"
 printpdf      = "0.9.1"
 
 
 axum       = { version = "0.8.9", default-features = false }
-tokio      = { version = "1.52.1", default-features = false }
-tower-http = { version = "0.6.8", default-features = false }
+tokio      = { version = "1.52.3", default-features = false }
+tower-http = { version = "0.6.11", default-features = false }
 
 proc-macro2 = "1.0.106"
 quote       = "1.0.45"
