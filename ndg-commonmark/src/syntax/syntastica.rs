@@ -65,8 +65,10 @@ impl UserQueryLanguageSet {
       if let Some(base_dir) = syntax_queries_dir {
         if let Some(query) = read_user_query(base_dir, lang, "highlights.scm")?
         {
-          let processed = process_highlights("", true, &query);
-          if is_extends_query(&query) {
+          let extends = is_extends_query(&query);
+          let processed =
+            process_highlights("", true, &rewrite_any_of_predicates(&query));
+          if extends {
             highlights_query = format!("{highlights_query}\n{processed}");
           } else {
             highlights_query = processed;
@@ -75,8 +77,10 @@ impl UserQueryLanguageSet {
 
         if let Some(query) = read_user_query(base_dir, lang, "injections.scm")?
         {
-          let processed = process_injections("", true, &query);
-          if is_extends_query(&query) {
+          let extends = is_extends_query(&query);
+          let processed =
+            process_injections("", true, &rewrite_any_of_predicates(&query));
+          if extends {
             injections_query = format!("{injections_query}\n{processed}");
           } else {
             injections_query = processed;
@@ -84,8 +88,10 @@ impl UserQueryLanguageSet {
         }
 
         if let Some(query) = read_user_query(base_dir, lang, "locals.scm")? {
-          let processed = process_locals("", true, &query);
-          if is_extends_query(&query) {
+          let extends = is_extends_query(&query);
+          let processed =
+            process_locals("", true, &rewrite_any_of_predicates(&query));
+          if extends {
             locals_query = format!("{locals_query}\n{processed}");
           } else {
             locals_query = processed;
@@ -133,6 +139,127 @@ fn is_extends_query(content: &str) -> bool {
     .next()
     .map(|l| matches!(l.trim(), ";; extends" | ";;extends"))
     .unwrap_or(false)
+}
+
+/// Rewrites `(#any-of? @cap "a" "b" ...)` into `(#match? @cap "^(a|b|...)$")`.
+///
+/// nvim-treesitter's `#any-of?` is a Lua-backed predicate with no standard
+/// tree-sitter equivalent. The rewrite preserves the same semantics using the
+/// `#match?` predicate that tree-sitter-highlight natively supports.
+fn rewrite_any_of_predicates(query: &str) -> String {
+  const NEEDLE: &str = "#any-of?";
+  let mut result = String::with_capacity(query.len());
+  let mut remaining = query;
+
+  loop {
+    match remaining.find(NEEDLE) {
+      None => {
+        result.push_str(remaining);
+        break;
+      },
+      Some(pos) => {
+        result.push_str(&remaining[..pos]);
+        let from = &remaining[pos..];
+        match parse_any_of_predicate(from) {
+          Some((replacement, consumed)) => {
+            result.push_str(&replacement);
+            remaining = &from[consumed..];
+          },
+          None => {
+            result.push_str(NEEDLE);
+            remaining = &from[NEEDLE.len()..];
+          },
+        }
+      },
+    }
+  }
+
+  result
+}
+
+fn parse_any_of_predicate(s: &str) -> Option<(String, usize)> {
+  const NEEDLE: &str = "#any-of?";
+  let mut pos = NEEDLE.len();
+
+  let skip_ws = |p: usize| p + s[p..].len() - s[p..].trim_start().len();
+
+  pos = skip_ws(pos);
+
+  if !s[pos..].starts_with('@') {
+    return None;
+  }
+
+  let cap_start = pos;
+  pos += 1;
+  while pos < s.len() {
+    let b = s.as_bytes()[pos];
+    if b.is_ascii_whitespace() || b == b')' {
+      break;
+    }
+    pos += 1;
+  }
+  let capture_name = &s[cap_start..pos];
+
+  pos = skip_ws(pos);
+
+  let mut values: Vec<&str> = Vec::new();
+  while pos < s.len() && s.as_bytes()[pos] == b'"' {
+    pos += 1;
+    let val_start = pos;
+    while pos < s.len() && s.as_bytes()[pos] != b'"' {
+      if s.as_bytes()[pos] == b'\\' {
+        pos += 1;
+      }
+      pos += 1;
+    }
+    if pos >= s.len() {
+      return None;
+    }
+    values.push(&s[val_start..pos]);
+    pos += 1;
+    pos = skip_ws(pos);
+  }
+
+  if values.is_empty() {
+    return None;
+  }
+
+  let pattern = format!(
+    "^({})$",
+    values
+      .iter()
+      .map(|v| ts_regex_escape(v))
+      .collect::<Vec<_>>()
+      .join("|")
+  );
+  Some((format!("#match? {capture_name} \"{pattern}\""), pos))
+}
+
+fn ts_regex_escape(s: &str) -> String {
+  let mut out = String::with_capacity(s.len());
+  for c in s.chars() {
+    if matches!(
+      c,
+      '.'
+        | '*'
+        | '+'
+        | '?'
+        | '^'
+        | '$'
+        | '{'
+        | '}'
+        | '['
+        | ']'
+        | '|'
+        | '('
+        | ')'
+        | '\\'
+    ) {
+      out.push('\\');
+    }
+    out.push(c);
+  }
+  out
 }
 
 fn read_user_query(
@@ -422,4 +549,81 @@ pub fn create_syntastica_manager(
     ..Default::default()
   };
   Ok(SyntaxManager::new(highlighter, config))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_is_extends_query() {
+    assert!(is_extends_query(";; extends\n(foo) @bar"));
+    assert!(is_extends_query(";;extends\n(foo) @bar"));
+    assert!(!is_extends_query("(foo) @bar"));
+    assert!(!is_extends_query(""));
+    assert!(!is_extends_query("; extends")); // single semicolon is a comment, not the directive
+  }
+
+  #[test]
+  fn test_rewrite_any_of_basic() {
+    let input = r#"((identifier) @_name (#any-of? @_name "foo" "bar"))"#;
+    let output = rewrite_any_of_predicates(input);
+    assert!(output.contains("#match?"));
+    assert!(output.contains("@_name"));
+    assert!(output.contains("^(foo|bar)$"));
+    assert!(!output.contains("#any-of?"));
+  }
+
+  #[test]
+  fn test_rewrite_any_of_multiple() {
+    let input = r#"
+      ((identifier) @a (#any-of? @a "x" "y"))
+      ((identifier) @b (#any-of? @b "p" "q" "r"))
+    "#;
+    let output = rewrite_any_of_predicates(input);
+    assert_eq!(output.matches("#match?").count(), 2);
+    assert!(!output.contains("#any-of?"));
+    assert!(output.contains("^(x|y)$"));
+    assert!(output.contains("^(p|q|r)$"));
+  }
+
+  #[test]
+  fn test_rewrite_any_of_regex_escaping() {
+    let input = r#"((identifier) @a (#any-of? @a "foo.bar" "baz"))"#;
+    let output = rewrite_any_of_predicates(input);
+    assert!(output.contains("foo\\.bar"));
+  }
+
+  #[test]
+  fn test_rewrite_any_of_no_match_passthrough() {
+    let input = "(foo) @bar (#eq? @bar \"baz\")";
+    let output = rewrite_any_of_predicates(input);
+    assert_eq!(input, output);
+  }
+
+  #[test]
+  fn test_rewrite_any_of_nvf_nix_query() {
+    // Matches the actual query from nvf's nix.nix
+    let input = r#"
+;; extends
+
+((apply_expression
+  function: (variable_expression
+    name: (identifier) @_func
+    (#any-of? @_func "mkLuaInline" "entryAnywhere"))
+  argument: (indented_string_expression
+    (string_fragment) @injection.content))
+(#set! injection.language "lua")
+(#set! injection.combined))
+"#;
+    let output = rewrite_any_of_predicates(input);
+    assert!(!output.contains("#any-of?"));
+    assert!(
+      output.contains("#match? @_func \"^(mkLuaInline|entryAnywhere)$\"")
+    );
+    // Non-any-of predicates must be preserved
+    assert!(output.contains("#set! injection.language"));
+    assert!(output.contains("#set! injection.combined"));
+    assert!(output.contains(";; extends"));
+  }
 }

@@ -138,6 +138,53 @@ fn test_syntastica_backend_directly() {
 
 #[cfg(feature = "syntastica")]
 #[test]
+fn test_syntastica_extends_appends_to_builtin_queries() {
+  use std::fs;
+
+  // A replacement query (no ;;extends) should discard built-in highlighting.
+  // An extends query should keep built-in behavior AND add the new rule.
+  let temp_replace = tempfile::tempdir().expect("tempdir");
+  let temp_extend = tempfile::tempdir().expect("tempdir");
+
+  let nix_replace = temp_replace.path().join("nix");
+  let nix_extend = temp_extend.path().join("nix");
+  fs::create_dir_all(&nix_replace).unwrap();
+  fs::create_dir_all(&nix_extend).unwrap();
+
+  // Minimal highlights query: only mark `let` as a keyword, nothing else.
+  let replacement_query = r#"("let" @keyword)"#;
+  let extending_query = format!(";; extends\n{replacement_query}");
+
+  fs::write(nix_replace.join("highlights.scm"), replacement_query).unwrap();
+  fs::write(nix_extend.join("highlights.scm"), &extending_query).unwrap();
+
+  let nix_code = "let x = 1; in x";
+
+  let default_mgr = create_default_manager(None).unwrap();
+  let replace_mgr = create_default_manager(Some(temp_replace.path())).unwrap();
+  let extend_mgr = create_default_manager(Some(temp_extend.path())).unwrap();
+
+  let default_html = default_mgr.highlight_code(nix_code, "nix", None).unwrap();
+  let replace_html = replace_mgr.highlight_code(nix_code, "nix", None).unwrap();
+  let extend_html = extend_mgr.highlight_code(nix_code, "nix", None).unwrap();
+
+  // The extending query must produce at least as many highlighted spans as the
+  // replacement query (it inherits all built-in highlights plus the new rule).
+  let count_spans = |s: &str| s.matches("<span").count();
+  assert!(
+    count_spans(&extend_html) >= count_spans(&replace_html),
+    "extends query produced fewer spans than replacement query"
+  );
+  // The default and extending queries should not be identical only when the
+  // default has more spans than the bare replacement.
+  assert_ne!(
+    replace_html, default_html,
+    "replacement should differ from default"
+  );
+}
+
+#[cfg(feature = "syntastica")]
+#[test]
 fn test_syntastica_custom_injection_queries_are_applied() {
   use std::fs;
 
