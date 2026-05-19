@@ -379,6 +379,8 @@ config when present). For a full list of CLI options, see the help output with
 <li><code>module_options</code> - Path to <code>options.json</code> for NixOS module documentation</li>
 <li><code>options_toc_depth</code> - Depth of option categories in TOC (default: <code>2</code>)</li>
 <li><code>manpage_urls_path</code> - Path to manpage URL mappings JSON file</li>
+<li><code>syntax_queries_path</code> - Directory containing Tree-sitter query overrides for
+Syntastica</li>
 <li><code>revision</code> - Git revision for source file links (default: <code>"local"</code>)</li>
 <li><code>tab_style</code> - How to handle tabs in code blocks: <code>"none"</code>, <code>"warn"</code>, or
 <code>"normalize"</code> (default: <code>"none"</code>)</li>
@@ -408,6 +410,7 @@ generate_anchors = true
 
 # Code block handling
 tab_style = "normalize"  # converts tabs to spaces
+syntax_queries_path = "queries" # expects '&lt;lang&gt;/{highlights,injections,locals}.scm'
 
 # Custom assets
 stylesheet_paths = ["custom.css"]
@@ -446,6 +449,22 @@ this significantly speeds up generation:</p>
 <p>Provides a JSON file mapping manpage references to URLs. This allows NDG to
 automatically link manpage citations in your documentation:</p>
 <pre class="highlight"><code class="language-json"><span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"man(1)"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"https://man7.org/linux/man-pages/man1/man.1.html"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;<span style="color:rgb(86,182,194);">"bash(1)"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"https://man7.org/linux/man-pages/man1/bash.1.html"</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
+<p><strong>Syntax Query Overrides (<code>syntax_queries_path</code>):</strong></p>
+<p>When using the default Syntastica syntax highlighter, you can override
+Tree-sitter queries per language.</p>
+<p>Directory layout:</p>
+<pre><code class="language-text">queries/
+  markdown/
+    highlights.scm
+    injections.scm
+    locals.scm
+</code></pre>
+<ul>
+<li>Any file you provide overrides the built-in query for that language/query
+type.</li>
+<li>Missing files fall back to Syntastica defaults.</li>
+<li>Query overrides are preprocessed with Neovim-like compatibility enabled.</li>
+</ul>
 <p><strong>Custom Assets (<code>assets_dir</code>, <code>stylesheet_paths</code>, <code>script_paths</code>):</strong></p>
 <ul>
 <li><code>assets_dir</code> - Directory to copy wholesale into the output (images, fonts,
