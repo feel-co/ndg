@@ -99,6 +99,7 @@
 <ul><li><a href="#cli-flags-and-configuration-options">CLI Flags and Configuration Options</a>
 <li><a href="#generating-html-documents">Generating HTML Documents</a>
 <li><a href="#generating-manpages">Generating Manpages</a>
+<li><a href="#generating-pdfs">Generating PDFs</a>
 </ul><li><a href="#customization">Customization</a>
 <ul><li><a href="#sidebar-customization">Sidebar Customization</a>
 <li><a href="#per-page-frontmatter">Per-Page Frontmatter</a>
@@ -132,19 +133,19 @@
 </div>
 <h2 id="what-is-it">What is it?</h2>
 <p><strong>NDG</strong> is a fast, customizable and convenient utility for generating HTML
-documents and manpages for your Nix related projects from Markdown inputs, and
-Nix module options. It can be considered a more opinionated and more specialized
-alternative to MdBook, choosing to focus on Nix-related projects. While this
-project is designed for <a href="https://hjem.feel-co.org">Hjem</a> in mind, it is
-perfectly possible to use NDG outside of Nix contexts. All Nix-specific
+documents, manpages, and PDFs for your Nix related projects from Markdown inputs
+and Nix module options. It can be considered a more opinionated and more
+specialized alternative to MdBook, choosing to focus on Nix-related projects.
+While this project is designed for <a href="https://hjem.feel-co.org">Hjem</a> in mind, it
+is perfectly possible to use NDG outside of Nix contexts. All Nix-specific
 features, such as module options page and Nixpkgs-flavored <a href="https://commonmark.org/">CommonMark</a> parsing
 are optional and can be controlled via various knobs.</p>
 <h3 id="features">Features</h3>
 <p>We would like for NDG to be fast, but also flexible and powerful. It boasts
 several features such as:</p>
 <ul>
-<li><strong>Markdown to HTML and Manpage conversion</strong> with support for Nixpkgs-flavored
-CommonMark features<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref="">1</a></sup>.
+<li><strong>Markdown to HTML, Manpage, and PDF conversion</strong> with support for
+Nixpkgs-flavored CommonMark features<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref="">1</a></sup>.
 <ul>
 <li><strong>Useful Markdown Companions</strong>
 <ul>
@@ -204,22 +205,24 @@ NDG: Not a Docs Generator
 Usage: ndg [OPTIONS] [COMMAND]
 
 Commands:
-  init     Initialize a new NDG configuration file
-  export   Export default templates to a directory for customization
-  html     Process documentation and generate HTML
-  manpage  Generate manpage from options
-  help     Print this message or the help of the given subcommand(s)
+  init    Initialize a new NDG configuration file
+  export  Export default templates to a directory for customization
+  html    Process documentation and generate HTML
+  man     Generate manpage from options
+  pdf     Generate PDF from options
+  help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -v, --verbose                     Enable verbose debug logging
+  -v, --verbose...                  Increase logging verbosity
+  -q, --quiet...                    Decrease logging verbosity
   -c, --config-file &lt;CONFIG_FILES&gt;  Path to configuration file(s) (TOML or JSON, can be specified multiple times) Multiple files are merged in order, with later files overriding earl
 ier ones
       --config &lt;CONFIG_OVERRIDES&gt;   Override configuration values (KEY=VALUE format, can be used multiple times)
   -h, --help                        Print help
   -V, --version                     Print version
 </code></pre>
-<p>You can review <code>ndg html</code> and <code>ndg manpage</code> commands' help texts by passing
-<code>--help</code> to get more insight.</p>
+<p>You can review <code>ndg html</code>, <code>ndg man</code>, and <code>ndg pdf</code> commands' help texts by
+passing <code>--help</code> to get more insight.</p>
 <h3 id="quickstart">Quickstart</h3>
 <p>The easiest and fastest way to get started with NDG is using the <code>init</code>
 subcommand to generate a configuration file, and tweak it per your needs.</p>
@@ -531,14 +534,25 @@ page for a listing of your module options. See the
 <h3 id="generating-manpages">Generating Manpages</h3>
 <p>NDG allows generating manual pages for your project using your <code>options.json</code>.
 Due to the shortcomings of Troff, manpage generation is not as robust or mature
-as HTML. Nevertheless, the <code>manpage</code> subcommand allows generating a manpage from
+as HTML. Nevertheless, the <code>man</code> subcommand allows generating a manpage from
 your options:</p>
-<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">manpage</span>&nbsp;<span style="color:rgb(232,102,113);">-j</span>&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;<span style="color:rgb(232,102,113);">--output-file</span>&nbsp;<span style="color:rgb(232,102,113);">./man/project.5</span>&nbsp;<span style="color:rgb(232,102,113);">--title</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--section</span>&nbsp;<span style="color:rgb(209,154,102);">5</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;=&gt;&nbsp;This&nbsp;will&nbsp;generate&nbsp;./man/project.5&nbsp;as&nbsp;your&nbsp;manpage.</span><br></code></pre>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">man</span>&nbsp;<span style="color:rgb(232,102,113);">-j</span>&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;<span style="color:rgb(232,102,113);">--output-file</span>&nbsp;<span style="color:rgb(232,102,113);">./man/project.5</span>&nbsp;<span style="color:rgb(232,102,113);">--title</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--section</span>&nbsp;<span style="color:rgb(209,154,102);">5</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;=&gt;&nbsp;This&nbsp;will&nbsp;generate&nbsp;./man/project.5&nbsp;as&nbsp;your&nbsp;manpage.</span><br></code></pre>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>For manpages, you <strong>must</strong> provide an <code>options.json</code> using <code>--module-options</code>
 or <code>-j</code>. Since we do not convert arbitrary pages in the Manpages mode, this is
 necessary to generate the main page containing module options.</p>
+</div>
+<h3 id="generating-pdfs">Generating PDFs</h3>
+<p>NDG can also generate PDF documentation from your <code>options.json</code> using the <code>pdf</code>
+subcommand:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">pdf</span>&nbsp;<span style="color:rgb(232,102,113);">-j</span>&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;<span style="color:rgb(232,102,113);">--output-file</span>&nbsp;<span style="color:rgb(232,102,113);">./project-options.pdf</span>&nbsp;<span style="color:rgb(232,102,113);">--title</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--header</span>&nbsp;<span style="color:rgb(152,195,121);">"Generated&nbsp;by&nbsp;NDG"</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;=&gt;&nbsp;This&nbsp;will&nbsp;generate&nbsp;./project-options.pdf&nbsp;with&nbsp;your&nbsp;module&nbsp;options.</span><br></code></pre>
+<p>The PDF output supports custom header (<code>-H</code>) and footer (<code>-F</code>) text, and renders
+structured content including headings, lists, code blocks, and admonitions.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PDF generation, like manpages, is limited to <code>options.json</code> inputs. Markdown
+to PDF conversion is not currently supported.</p>
 </div>
 <h2 id="customization">Customization</h2>
 <p>NDG is an opinionated CLI utility due to the reasons that warranted its
@@ -1013,6 +1027,7 @@ if this is the case! <a href="#fnref-1" class="footnote-backref" data-footnote-b
 <ul><li><a href="#cli-flags-and-configuration-options">CLI Flags and Configuration Options</a>
 <li><a href="#generating-html-documents">Generating HTML Documents</a>
 <li><a href="#generating-manpages">Generating Manpages</a>
+<li><a href="#generating-pdfs">Generating PDFs</a>
 </ul><li><a href="#customization">Customization</a>
 <ul><li><a href="#sidebar-customization">Sidebar Customization</a>
 <li><a href="#per-page-frontmatter">Per-Page Frontmatter</a>
