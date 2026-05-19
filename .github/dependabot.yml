@@ -5,9 +5,19 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
 
   # Update used workflows
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 7
+
+  # Update Nixpkgs
+  - package-ecosystem: nix
+    directory: "/"
+    schedule:
+      interval: "monthly"
