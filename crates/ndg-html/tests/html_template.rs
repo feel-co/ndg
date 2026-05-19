@@ -922,6 +922,132 @@ fn render_page_builtin_vars_take_precedence_over_user_vars() {
   );
 }
 
+#[test]
+fn render_page_exposes_builtin_ndg_version() {
+  let config = minimal_config();
+
+  let tmp = TempDir::new().expect("create tempdir");
+  let template_path = tmp.path().join("default.html");
+  fs::write(&template_path, "version={{ ndg_version }}")
+    .expect("write template");
+  let mut config = config;
+  config.template_path = Some(template_path);
+
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let html =
+    template::render(&config, "body", "Title", &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains("version=2."),
+    "built-in ndg_version should be present in template output"
+  );
+}
+
+#[test]
+fn render_page_user_vars_can_override_ndg_version() {
+  let mut config = minimal_config();
+  config
+    .vars
+    .insert("ndg_version".to_string(), "custom-override".to_string());
+
+  let tmp = TempDir::new().expect("create tempdir");
+  let template_path = tmp.path().join("default.html");
+  fs::write(&template_path, "version={{ ndg_version }}")
+    .expect("write template");
+  config.template_path = Some(template_path);
+
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let html =
+    template::render(&config, "body", "Title", &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains("version=custom-override"),
+    "user-defined ndg_version should override the built-in default"
+  );
+}
+
+#[test]
+fn render_page_substitutes_vars_in_content() {
+  let mut config = minimal_config();
+  config
+    .vars
+    .insert("project_version".to_string(), "3.4.5".to_string());
+  config
+    .vars
+    .insert("repo_url".to_string(), "https://example.com".to_string());
+
+  let tmp = TempDir::new().expect("create tempdir");
+  let template_path = tmp.path().join("default.html");
+  fs::write(&template_path, "{{ content }}").expect("write template");
+  config.template_path = Some(template_path);
+
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let content = "<p>Version {{ project_version }}, URL {{ repo_url }}</p>";
+  let html =
+    template::render(&config, content, "Title", &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains("Version 3.4.5"),
+    "{{ project_version }} in content should be substituted"
+  );
+  assert!(
+    html.contains("URL https://example.com"),
+    "{{ repo_url }} in content should be substituted"
+  );
+}
+
+#[test]
+fn render_page_substitutes_builtin_vars_in_content() {
+  let config = minimal_config();
+
+  let tmp = TempDir::new().expect("create tempdir");
+  let template_path = tmp.path().join("default.html");
+  fs::write(&template_path, "{{ content }}").expect("write template");
+  let mut config = config;
+  config.template_path = Some(template_path);
+
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let content = "<p>Generated with ndg {{ ndg_version }}</p>";
+  let html =
+    template::render(&config, content, "Title", &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains("Generated with ndg 2."),
+    "built-in {{ ndg_version }} in content should be substituted"
+  );
+}
+
+#[test]
+fn render_page_unknown_vars_in_content_left_as_is() {
+  let config = minimal_config();
+
+  let tmp = TempDir::new().expect("create tempdir");
+  let template_path = tmp.path().join("default.html");
+  fs::write(&template_path, "{{ content }}").expect("write template");
+  let mut config = config;
+  config.template_path = Some(template_path);
+
+  let headers = vec![];
+  let rel_path = std::path::Path::new("index.html");
+  let content = "<p>Unknown: {{ no_such_var }}</p>";
+  let html =
+    template::render(&config, content, "Title", &headers, rel_path, None)
+      .expect("render should succeed");
+
+  assert!(
+    html.contains("{{ no_such_var }}"),
+    "unknown var placeholder should be left unchanged in content"
+  );
+}
+
 // NixOS option names commonly contain `<name>` as a placeholder component,
 // e.g. `services.nginx.virtualHosts.<name>.serverName`. The `<` and `>` must
 // not appear raw inside an HTML `id` attribute or `href` fragment.

@@ -110,7 +110,7 @@ with lib;
 fn demo_syntax_manager() -> Result<(), Box<dyn std::error::Error>> {
   println!("2. Direct Syntax Manager Usage\n");
 
-  let manager = create_default_manager()?;
+  let manager = create_default_manager(None)?;
 
   println!("Backend: {}", manager.highlighter().name());
   println!(
@@ -155,7 +155,7 @@ impl Default for Config {
 fn demo_multiple_languages() -> Result<(), Box<dyn std::error::Error>> {
   println!("3. Multiple Language Support\n");
 
-  let manager = create_default_manager()?;
+  let manager = create_default_manager(None)?;
 
   let examples = vec![
     (
@@ -207,7 +207,7 @@ fn demo_multiple_languages() -> Result<(), Box<dyn std::error::Error>> {
 fn demo_themes() -> Result<(), Box<dyn std::error::Error>> {
   println!("4. Theme Showcase\n");
 
-  let manager = create_default_manager()?;
+  let manager = create_default_manager(None)?;
   let themes = manager.highlighter().available_themes();
 
   println!("Available themes: {themes:?}");
@@ -238,7 +238,7 @@ fn demo_themes() -> Result<(), Box<dyn std::error::Error>> {
 fn demo_language_detection() -> Result<(), Box<dyn std::error::Error>> {
   println!("5. Language Detection from Filenames\n");
 
-  let manager = create_default_manager()?;
+  let manager = create_default_manager(None)?;
 
   let test_files = vec![
     "main.rs",

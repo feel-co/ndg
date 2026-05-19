@@ -329,6 +329,8 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 - `module_options` - Path to `options.json` for NixOS module documentation
 - `options_toc_depth` - Depth of option categories in TOC (default: `2`)
 - `manpage_urls_path` - Path to manpage URL mappings JSON file
+- `syntax_queries_path` - Directory containing Tree-sitter query overrides for
+  Syntastica
 - `revision` - Git revision for source file links (default: `"local"`)
 - `tab_style` - How to handle tabs in code blocks: `"none"`, `"warn"`, or
   `"normalize"` (default: `"none"`)
@@ -360,6 +362,7 @@ generate_anchors = true
 
 # Code block handling
 tab_style = "normalize"  # converts tabs to spaces
+syntax_queries_path = "queries" # expects '<lang>/{highlights,injections,locals}.scm'
 
 # Custom assets
 stylesheet_paths = ["custom.css"]
@@ -418,6 +421,26 @@ automatically link manpage citations in your documentation:
   "bash(1)": "https://man7.org/linux/man-pages/man1/bash.1.html"
 }
 ```
+
+**Syntax Query Overrides (`syntax_queries_path`):**
+
+When using the default Syntastica syntax highlighter, you can override
+Tree-sitter queries per language.
+
+Directory layout:
+
+```text
+queries/
+  markdown/
+    highlights.scm
+    injections.scm
+    locals.scm
+```
+
+- Any file you provide overrides the built-in query for that language/query
+  type.
+- Missing files fall back to Syntastica defaults.
+- Query overrides are preprocessed with Neovim-like compatibility enabled.
 
 **Custom Assets (`assets_dir`, `stylesheet_paths`, `script_paths`):**
 

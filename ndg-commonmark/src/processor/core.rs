@@ -88,7 +88,12 @@ impl MarkdownProcessor {
       .and_then(|path| crate::utils::load_manpage_urls(path).ok());
 
     let syntax_manager = if options.highlight_code {
-      match create_default_manager() {
+      match create_default_manager(
+        options
+          .syntax_queries_path
+          .as_deref()
+          .map(std::path::Path::new),
+      ) {
         Ok(manager) => {
           log::info!("Syntax highlighting initialized successfully");
           Some(manager)

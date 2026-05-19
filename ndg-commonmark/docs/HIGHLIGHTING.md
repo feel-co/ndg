@@ -287,3 +287,34 @@ impl SyntaxHighlighter for CustomHighlighter {
     }
 }
 ```
+
+### Tree-sitter Query Overrides
+
+When syntax highlighting is enabled with the `syntastica` backend, you can
+override Tree-sitter queries through configuration.
+
+Set `syntax_queries_path` in your NDG config, then place query files in this
+layout:
+
+```text
+<syntax_queries_path>/
+  <language>/
+    highlights.scm
+    injections.scm
+    locals.scm
+```
+
+- `<language>` must match a Syntastica language name (for example: `markdown`,
+  `rust`, `nix`, `html`).
+- Any file you provide overrides that built-in query for the language.
+- Missing files fall back to bundled Syntastica queries.
+- User queries are processed with Neovim-like compatibility enabled, including
+  common injection query syntax patterns.
+
+Example override to force Markdown fenced code blocks to be injected as Bash:
+
+```scm
+((fenced_code_block
+  (code_fence_content) @injection.content)
+ (#set! injection.language "bash"))
+```

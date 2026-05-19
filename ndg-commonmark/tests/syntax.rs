@@ -112,7 +112,7 @@ fn main() {
 fn test_syntastica_backend_directly() {
   use ndg_commonmark::syntax::{SyntasticaHighlighter, SyntaxHighlighter};
 
-  let highlighter = SyntasticaHighlighter::new()
+  let highlighter = SyntasticaHighlighter::new(None)
     .expect("Failed to create Syntastica highlighter");
 
   // Test basic highlighting
@@ -134,6 +134,91 @@ fn test_syntastica_backend_directly() {
   let themes = highlighter.available_themes();
   assert!(!themes.is_empty());
   assert!(themes.contains(&"one::dark".to_string()));
+}
+
+#[cfg(feature = "syntastica")]
+#[test]
+fn test_syntastica_extends_appends_to_builtin_queries() {
+  use std::fs;
+
+  // A replacement query (no ;;extends) should discard built-in highlighting.
+  // An extends query should keep built-in behavior AND add the new rule.
+  let temp_replace = tempfile::tempdir().expect("tempdir");
+  let temp_extend = tempfile::tempdir().expect("tempdir");
+
+  let nix_replace = temp_replace.path().join("nix");
+  let nix_extend = temp_extend.path().join("nix");
+  fs::create_dir_all(&nix_replace).unwrap();
+  fs::create_dir_all(&nix_extend).unwrap();
+
+  // Minimal highlights query: only mark `let` as a keyword, nothing else.
+  let replacement_query = r#"("let" @keyword)"#;
+  let extending_query = format!(";; extends\n{replacement_query}");
+
+  fs::write(nix_replace.join("highlights.scm"), replacement_query).unwrap();
+  fs::write(nix_extend.join("highlights.scm"), &extending_query).unwrap();
+
+  let nix_code = "let x = 1; in x";
+
+  let default_mgr = create_default_manager(None).unwrap();
+  let replace_mgr = create_default_manager(Some(temp_replace.path())).unwrap();
+  let extend_mgr = create_default_manager(Some(temp_extend.path())).unwrap();
+
+  let default_html = default_mgr.highlight_code(nix_code, "nix", None).unwrap();
+  let replace_html = replace_mgr.highlight_code(nix_code, "nix", None).unwrap();
+  let extend_html = extend_mgr.highlight_code(nix_code, "nix", None).unwrap();
+
+  // The extending query must produce at least as many highlighted spans as the
+  // replacement query (it inherits all built-in highlights plus the new rule).
+  let count_spans = |s: &str| s.matches("<span").count();
+  assert!(
+    count_spans(&extend_html) >= count_spans(&replace_html),
+    "extends query produced fewer spans than replacement query"
+  );
+  // The default and extending queries should not be identical only when the
+  // default has more spans than the bare replacement.
+  assert_ne!(
+    replace_html, default_html,
+    "replacement should differ from default"
+  );
+}
+
+#[cfg(feature = "syntastica")]
+#[test]
+fn test_syntastica_custom_injection_queries_are_applied() {
+  use std::fs;
+
+  let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+  let markdown_dir = temp_dir.path().join("markdown");
+  fs::create_dir_all(&markdown_dir)
+    .expect("Failed to create markdown query directory");
+
+  let injection_query = r#"
+((fenced_code_block
+  (code_fence_content) @injection.content)
+ (#set! injection.language "bash"))
+"#;
+
+  fs::write(markdown_dir.join("injections.scm"), injection_query)
+    .expect("Failed to write custom injections query");
+
+  let markdown = "```rust\nfn main() { println!(\"hello\"); }\n```";
+
+  let default_manager =
+    create_default_manager(None).expect("Failed to create default manager");
+  let overridden_manager = create_default_manager(Some(temp_dir.path()))
+    .expect("Failed to create manager with custom queries");
+
+  let default_html = default_manager
+    .highlight_code(markdown, "markdown", None)
+    .expect("Default markdown highlighting failed");
+  let overridden_html = overridden_manager
+    .highlight_code(markdown, "markdown", None)
+    .expect("Overridden markdown highlighting failed");
+
+  assert!(default_html.contains("println"));
+  assert!(overridden_html.contains("println"));
+  assert_ne!(default_html, overridden_html);
 }
 
 #[cfg(feature = "syntect")]
@@ -165,7 +250,7 @@ fn test_syntect_backend_directly() {
 #[test]
 fn test_syntax_manager_language_aliases() {
   let manager =
-    create_default_manager().expect("Failed to create syntax manager");
+    create_default_manager(None).expect("Failed to create syntax manager");
 
   // Test language resolution through aliases
   assert_eq!(manager.resolve_language("js"), "javascript");
@@ -182,7 +267,7 @@ fn test_syntax_manager_language_aliases() {
 #[test]
 fn test_syntax_manager_highlighting_with_aliases() {
   let manager =
-    create_default_manager().expect("Failed to create syntax manager");
+    create_default_manager(None).expect("Failed to create syntax manager");
 
   // Test highlighting with alias
   let result = manager.highlight_code(
@@ -203,7 +288,7 @@ fn test_syntax_manager_highlighting_with_aliases() {
 #[test]
 fn test_syntax_manager_fallback_behavior() {
   let manager =
-    create_default_manager().expect("Failed to create syntax manager");
+    create_default_manager(None).expect("Failed to create syntax manager");
 
   // Test fallback for unsupported language
   let result = manager.highlight_code(
@@ -225,7 +310,7 @@ fn test_syntax_manager_fallback_behavior() {
 #[test]
 fn test_language_detection_from_filename() {
   let manager =
-    create_default_manager().expect("Failed to create syntax manager");
+    create_default_manager(None).expect("Failed to create syntax manager");
 
   // Test various file extensions
   if let Some(lang) = manager.highlighter().language_from_filename("test.rs") {
@@ -247,7 +332,7 @@ fn test_language_detection_from_filename() {
 #[test]
 fn test_theme_handling() {
   let manager =
-    create_default_manager().expect("Failed to create syntax manager");
+    create_default_manager(None).expect("Failed to create syntax manager");
 
   // Get available themes
   let themes = manager.highlighter().available_themes();

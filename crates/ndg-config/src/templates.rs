@@ -74,6 +74,9 @@ options_toc_depth = 2
 # Whether to enable syntax highlighting for code blocks
 highlight_code = true
 
+# Path to user-defined Tree-sitter query overrides
+# syntax_queries_path = "queries"
+
 # How to handle hard tabs in code blocks (one of "none", "warn", or "normalize")
 tab_style = "none"
 
@@ -190,6 +193,7 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   },
   "options_toc_depth": 2,
   "highlight_code": true,
+  "syntax_queries_path": "queries",
   "tab_style": "none",
   "revision": "main",
   "index": {

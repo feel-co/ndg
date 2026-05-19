@@ -17,6 +17,7 @@ use ndg_utils::{
   html::{calculate_root_relative_path, generate_asset_paths},
   markdown::PageFrontmatter,
 };
+use regex::Regex;
 use serde_json::Value;
 use tera::Tera;
 
@@ -27,6 +28,54 @@ const OPTIONS_TOC_TEMPLATE: &str = templates::OPTIONS_TOC_TEMPLATE;
 const NAVBAR_TEMPLATE: &str = templates::NAVBAR_TEMPLATE;
 const FOOTER_TEMPLATE: &str = templates::FOOTER_TEMPLATE;
 const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
+
+/// Current ndg version, available as the built-in `{{ ndg_version }}` variable.
+const NDG_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Compiled regex for matching `{{ key }}` variable placeholders in content.
+static VAR_PLACEHOLDER_RE: LazyLock<Regex> = LazyLock::new(|| {
+  Regex::new(r"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}")
+    .expect("compile var placeholder regex")
+});
+
+/// Substitute `{{ key }}` placeholders in content with values from the config
+/// variables map.
+///
+/// Built-in defaults (`ndg_version`) and user-defined vars from `[vars]` are
+/// both used for substitution. User vars override built-in defaults.
+///
+/// This enables variable replacement in markdown source text rendered to HTML.
+fn substitute_content_vars(
+  content: &str,
+  vars: &HashMap<String, String>,
+) -> String {
+  let mut result = String::with_capacity(content.len());
+  let mut last_match_end = 0;
+
+  for caps in VAR_PLACEHOLDER_RE.captures_iter(content) {
+    let full_match = caps.get(0).expect("match zero always present");
+    let key = &caps[1];
+
+    // Append text before the match
+    result.push_str(&content[last_match_end..full_match.start()]);
+
+    // Look up the replacement value
+    if let Some(value) = vars.get(key) {
+      result.push_str(value);
+    } else if key == "ndg_version" {
+      result.push_str(NDG_VERSION);
+    } else {
+      // Unknown variable, leave the original placeholder unchanged
+      result.push_str(full_match.as_str());
+    }
+
+    last_match_end = full_match.end();
+  }
+
+  // Append remaining text after the last match
+  result.push_str(&content[last_match_end..]);
+  result
+}
 
 /// Per-page frontmatter data exposed to Tera templates as the `page` variable.
 #[derive(serde::Serialize)]
@@ -166,11 +215,17 @@ fn build_common_context(
 ) -> tera::Context {
   let mut ctx = tera::Context::new();
 
-  // Insert user-defined variables first so built-in variables always win.
+  // Insert overridable built-in defaults BEFORE user vars so that entries in
+  // ndg.toml's [vars] section take precedence.
+  ctx.insert("ndg_version", NDG_VERSION);
+
+  // Insert user-defined variables (from ndg.toml [vars]).
   for (key, value) in &config.vars {
     ctx.insert(key.as_str(), value);
   }
 
+  // Insert non-overridable built-in variables AFTER user vars so they cannot
+  // be shadowed by entries in [vars].
   ctx.insert("site_title", &config.title);
   ctx.insert("footer_text", &config.footer_text);
   ctx.insert("has_options", has_options);
@@ -428,10 +483,13 @@ pub fn render(
   let (navbar_html, footer_html) =
     render_navbar_footer(&tera, config, &asset_paths, has_options)?;
 
+  // Substitute variables in content (e.g. {{ project_version }} in markdown)
+  let substituted_content = substitute_content_vars(content, &config.vars);
+
   // Build common context and add page-specific fields
   let mut tera_context =
     build_common_context(config, &asset_paths, &root_prefix, has_options);
-  tera_context.insert("content", content);
+  tera_context.insert("content", &substituted_content);
   tera_context.insert("title", effective_title);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);

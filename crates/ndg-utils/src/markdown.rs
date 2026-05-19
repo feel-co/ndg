@@ -395,6 +395,11 @@ pub fn create_processor(
       .manpage_urls_path(Some(mappings_path.to_string_lossy().to_string()));
   }
 
+  if let Some(queries_path) = &config.syntax_queries_path {
+    builder = builder
+      .syntax_queries_path(Some(queries_path.to_string_lossy().to_string()));
+  }
+
   if let Some(options) = valid_options {
     builder = builder.valid_options(Some(options));
   }
