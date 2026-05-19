@@ -65,16 +65,31 @@ impl UserQueryLanguageSet {
       if let Some(base_dir) = syntax_queries_dir {
         if let Some(query) = read_user_query(base_dir, lang, "highlights.scm")?
         {
-          highlights_query = process_highlights("", true, &query);
+          let processed = process_highlights("", true, &query);
+          if is_extends_query(&query) {
+            highlights_query = format!("{highlights_query}\n{processed}");
+          } else {
+            highlights_query = processed;
+          }
         }
 
         if let Some(query) = read_user_query(base_dir, lang, "injections.scm")?
         {
-          injections_query = process_injections("", true, &query);
+          let processed = process_injections("", true, &query);
+          if is_extends_query(&query) {
+            injections_query = format!("{injections_query}\n{processed}");
+          } else {
+            injections_query = processed;
+          }
         }
 
         if let Some(query) = read_user_query(base_dir, lang, "locals.scm")? {
-          locals_query = process_locals("", true, &query);
+          let processed = process_locals("", true, &query);
+          if is_extends_query(&query) {
+            locals_query = format!("{locals_query}\n{processed}");
+          } else {
+            locals_query = processed;
+          }
         }
       }
 
@@ -110,6 +125,14 @@ impl<'s> LanguageSet<'s> for UserQueryLanguageSet {
       syntastica::Error::UnsupportedLanguage(<&str>::from(language).to_string())
     })
   }
+}
+
+fn is_extends_query(content: &str) -> bool {
+  content
+    .lines()
+    .next()
+    .map(|l| matches!(l.trim(), ";; extends" | ";;extends"))
+    .unwrap_or(false)
 }
 
 fn read_user_query(
