@@ -35,6 +35,17 @@ changes.
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Running `ndg` without a subcommand now generates all enabled output formats
+(HTML + manpage + PDF), not just HTML. This means `module_options` MUST be
+configured when running bare `ndg`, or you must use `ndg html` to generate only
+HTML documentation.
+
+> [!TIP]
+> Use `ndg html` instead of bare `ndg` to preserve the old single-format
+> behavior.
+
 ### Added
 
 - New `[index]` configuration section for controlling homepage generation.
@@ -48,11 +59,25 @@ changes.
 - `--open` flag for `ndg html` to open the generated documentation in the
   default browser after generation completes.
 
+- New `ndg pdf` subcommand and `ndg-pdf` crate for generating PDF documentation
+  from module options. Supports custom title (`-T`), header (`-H`), and footer
+  (`-F`) text. Renders structured content including headings, lists, code
+  blocks, and admonitions.
+- Output mode routing: subcommands now generate only their respective format:
+  - `ndg html` -> HTML,
+  - `ndg man` -> manpage,
+  - `ndg pdf` -> PDF
+
 ### Changed
 
 - `ndg-builder` now takes a **list** of stylesheets instead of a single one as
   `--stylesheet` is now additive and can be specified multiple times. When a
   _string_ is provided, `ndg-builder` will be an evaluation failure.
+- Renamed `ndg manpage` subcommand to `ndg man`. The old `manpage` name remains
+  as a backward-compatible alias.
+- Running `ndg` without a subcommand now generates ALL outputs. This expects
+  `module_options` in the configuration file to be provided. To replicate
+  previous behaviour, you must use `ndg html`.
 
 ### Fixed
 

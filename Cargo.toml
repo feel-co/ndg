@@ -63,6 +63,8 @@ oxc_codegen   = "0.127.0"
 oxc_minifier  = "0.127.0"
 oxc_parser    = "0.127.0"
 oxc_span      = "0.127.0"
+printpdf      = "0.9.1"
+
 
 axum       = { version = "0.8.9", default-features = false }
 tokio      = { version = "1.52.1", default-features = false }
@@ -83,6 +85,7 @@ ndg-html       = { path = "./crates/ndg-html", version = "2.7.0" }
 ndg-macros     = { path = "./crates/ndg-macros", version = "2.7.0" }
 ndg-manpage    = { path = "./crates/ndg-manpage", version = "2.7.0" }
 ndg-nixdoc     = { path = "./crates/ndg-nixdoc", version = "2.7.0" }
+ndg-pdf        = { path = "./crates/ndg-pdf", version = "2.7.0" }
 ndg-templates  = { path = "./crates/ndg-templates", version = "2.7.0" }
 ndg-utils      = { path = "./crates/ndg-utils", version = "2.7.0" }
 

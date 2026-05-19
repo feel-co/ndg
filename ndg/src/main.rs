@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::eyre::{Context, Result, bail};
 use log::info;
-use ndg::{config, html, manpage, utils};
+use ndg::{config, html, manpage, pdf, utils};
 use rayon::prelude::*;
 
 mod cli;
@@ -17,16 +17,15 @@ use config::Config;
 fn main() -> Result<()> {
   color_eyre::install()?;
 
-  // Parse command line arguments
   let cli = Cli::parse_args();
 
-  // Initialize logging with verbosity from CLI
   env_logger::Builder::new()
     .filter_level(cli.verbose.log_level_filter())
     .write_style(env_logger::WriteStyle::Always)
     .init();
 
-  // Handle subcommands
+  let output_mode = output_mode(cli.command.as_ref());
+
   if let Some(command) = &cli.command {
     match command {
       Commands::Init {
@@ -34,7 +33,6 @@ fn main() -> Result<()> {
         format,
         force,
       } => {
-        // Check if file already exists and that we're not forcing overwrite
         if output.exists() && !force {
           bail!(
             "Configuration file already exists: {}. Use --force to overwrite.",
@@ -42,7 +40,6 @@ fn main() -> Result<()> {
           );
         }
 
-        // Create parent directories if needed
         if let Some(parent) = output.parent()
           && !parent.exists()
         {
@@ -52,7 +49,6 @@ fn main() -> Result<()> {
           info!("Created directory: {}", parent.display());
         }
 
-        // Generate the config file
         Config::generate_default_config(format, output).wrap_err_with(
           || {
             format!(
@@ -81,7 +77,7 @@ fn main() -> Result<()> {
         return Ok(());
       },
 
-      Commands::Manpage {
+      Commands::Man {
         module_options,
         output_file,
         header,
@@ -99,15 +95,28 @@ fn main() -> Result<()> {
         );
       },
 
-      // Html command handled below via merge_cli_into_config
+      Commands::Pdf {
+        module_options,
+        output_file,
+        header,
+        footer,
+        title,
+      } => {
+        return pdf::generate_pdf(
+          module_options,
+          output_file.as_deref(),
+          title.as_deref(),
+          header.as_deref(),
+          footer.as_deref(),
+        );
+      },
+
+      // HTML and "all outputs" modes are handled below.
       Commands::Html { .. } => {},
     }
   }
 
-  // Create configuration from CLI and/or config file
   let mut config = Config::load(&cli.config_files, &cli.config_overrides)?;
-
-  // Merge CLI command options into config
   merge_cli_into_config(&mut config, &cli);
 
   // Validate that at least one content source is provided. This check must
@@ -122,33 +131,71 @@ fn main() -> Result<()> {
     );
   }
 
-  // Run the main documentation generation process
-  generate_documentation(&mut config)?;
+  if output_mode.generate_html() {
+    generate_documentation(&mut config)?;
+  }
+  if output_mode.generate_man() {
+    generate_man_output(&config)?;
+  }
+  if output_mode.generate_pdf() {
+    generate_pdf_output(&config)?;
+  }
 
-  // Handle --open flag if present
-  handle_open_flag(&cli.command, &config.output_dir);
+  handle_open_flag(cli.command.as_ref(), &config.output_dir);
 
   // Handle --serve if enabled
   #[cfg(feature = "serve")]
   {
     let output_dir = config.output_dir.clone();
-    if matches!(&cli.command, Some(Commands::Html { serve: true, .. })) {
-      let serve_port =
-        if let Some(Commands::Html { serve_port, .. }) = &cli.command {
-          *serve_port
-        } else {
-          3000
-        };
+    if let Some(Commands::Html {
+      serve: true,
+      serve_port,
+      ..
+    }) = &cli.command
+    {
       let runtime = tokio::runtime::Runtime::new()?;
-      runtime.block_on(serve::serve_docs(&output_dir, serve_port))?;
+      runtime.block_on(serve::serve_docs(&output_dir, *serve_port))?;
     }
   }
 
   Ok(())
 }
 
+#[derive(Clone, Copy, Debug)]
+enum OutputMode {
+  All,
+  Html,
+  Man,
+  Pdf,
+}
+
+const fn output_mode(command: Option<&Commands>) -> OutputMode {
+  match command {
+    None => OutputMode::All,
+    Some(
+      Commands::Html { .. } | Commands::Init { .. } | Commands::Export { .. },
+    ) => OutputMode::Html,
+    Some(Commands::Man { .. }) => OutputMode::Man,
+    Some(Commands::Pdf { .. }) => OutputMode::Pdf,
+  }
+}
+
+impl OutputMode {
+  const fn generate_html(self) -> bool {
+    matches!(self, Self::All | Self::Html)
+  }
+
+  const fn generate_man(self) -> bool {
+    matches!(self, Self::All | Self::Man)
+  }
+
+  const fn generate_pdf(self) -> bool {
+    matches!(self, Self::All | Self::Pdf)
+  }
+}
+
 /// Handle the --open flag to open the generated documentation in browser.
-fn handle_open_flag(command: &Option<Commands>, output_dir: &Path) {
+fn handle_open_flag(command: Option<&Commands>, output_dir: &Path) {
   let should_open = matches!(command, Some(Commands::Html { open: true, .. }));
   if should_open {
     let index_path = output_dir.join("index.html");
@@ -232,6 +279,43 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
       config.revision.clone_from(revision);
     }
   }
+}
+
+fn generate_man_output(config: &Config) -> Result<()> {
+  let Some(module_options) = config.module_options.as_deref() else {
+    bail!(
+      "Configuration error: module options are required for man output. Set \
+       'module_options' in config or use 'ndg man -j <options.json>'."
+    );
+  };
+
+  let output_file = config.output_dir.join("options.5");
+  manpage::generate_manpage(
+    module_options,
+    Some(output_file.as_path()),
+    Some(&config.title),
+    None,
+    Some(&config.footer_text),
+    5,
+  )
+}
+
+fn generate_pdf_output(config: &Config) -> Result<()> {
+  let Some(module_options) = config.module_options.as_deref() else {
+    bail!(
+      "Configuration error: module options are required for PDF output. Set \
+       'module_options' in config or use 'ndg pdf -j <options.json>'."
+    );
+  };
+
+  let output_file = config.output_dir.join("options.pdf");
+  pdf::generate_pdf(
+    module_options,
+    Some(output_file.as_path()),
+    Some(&config.title),
+    None,
+    Some(&config.footer_text),
+  )
 }
 
 /// Main documentation generation process

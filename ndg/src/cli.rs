@@ -143,7 +143,8 @@ pub enum Commands {
   },
 
   /// Generate manpage from options.
-  Manpage {
+  #[command(alias = "manpage")]
+  Man {
     /// Path to a JSON file containing module options.
     #[arg(short = 'j', long, required = true)]
     module_options: PathBuf,
@@ -167,6 +168,29 @@ pub enum Commands {
     /// Section number for the manpage
     #[arg(short = 's', long, default_value = "5")]
     section: u8,
+  },
+
+  /// Generate PDF from options.
+  Pdf {
+    /// Path to a JSON file containing module options.
+    #[arg(short = 'j', long, required = true)]
+    module_options: PathBuf,
+
+    /// Output file for the generated PDF.
+    #[arg(short, long)]
+    output_file: Option<PathBuf>,
+
+    /// Header text to include at the beginning of the document.
+    #[arg(short = 'H', long)]
+    header: Option<String>,
+
+    /// Footer text to include at the end of the document.
+    #[arg(short = 'F', long)]
+    footer: Option<String>,
+
+    /// Title for the PDF document.
+    #[arg(short = 'T', long)]
+    title: Option<String>,
   },
 }
 
