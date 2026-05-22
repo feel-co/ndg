@@ -436,7 +436,7 @@ module.exports = { processFile };
 ";
     let result = process_js(js, &config).unwrap();
     let expected =
-      "const fs=require(`fs`);function processFile(filename){return \
+      "const fs=require(\"fs\");function processFile(filename){return \
        fs.readFileSync(filename,`utf8`).trim()}module.exports={processFile};";
     assert_eq!(result, expected);
   }
