@@ -95,3 +95,55 @@ fn test_header_with_image() {
   // Image alt text is not included in header text extraction
   assert_eq!(headers[0].text, "Welcome ");
 }
+
+#[test]
+fn test_no_headers_from_code_block() {
+  let md = r#"- **Create memorable custom ID anchors** for important sections:
+
+  ```markdown
+  ## Installation {#my-epic-installation}
+
+  Refer to the [installation instructions](#my-epic-installation) above.
+  ```
+
+## Building from Source
+"#;
+  let headers = extract_headers_from_markdown(md);
+  assert_eq!(headers.len(), 1, "Should only extract actual headings, not code block content");
+  assert_eq!(headers[0].text, "Building from Source");
+}
+
+#[test]
+fn test_code_block_preserved_in_output() {
+  let md = r#"- **Create memorable custom ID anchors** for important sections:
+
+  ```markdown
+  ## Installation {#my-epic-installation}
+
+  Refer to the [installation instructions](#my-epic-installation) above.
+  ```
+
+## Building from Source
+"#;
+  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let result = processor.render(md);
+  let html = result.html;
+
+  // The code block should be preserved as a single code block
+  assert!(
+    html.contains("<code class=\"language-markdown\">"),
+    "Code block should be preserved in HTML output"
+  );
+
+  // The content inside should NOT be converted to actual headings
+  assert!(
+    !html.contains("<h2 id=\"my-epic-installation\">"),
+    "Code block content should not be converted to actual headings"
+  );
+
+  // The actual heading should still be rendered
+  assert!(
+    html.contains("<h2 id=\"building-from-source\">"),
+    "Actual heading should still be rendered"
+  );
+}

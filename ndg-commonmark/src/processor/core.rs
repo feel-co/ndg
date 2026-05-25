@@ -412,7 +412,7 @@ impl MarkdownProcessor {
     // Normalize custom anchors with no heading level to h2
     let mut normalized = String::with_capacity(content.len());
     for line in content.lines() {
-      let trimmed = line.trim_end();
+      let trimmed = line.trim();
       if !trimmed.starts_with('#')
         && let Some(anchor_start) = trimmed.rfind("{#")
         && let Some(anchor_end) = trimmed[anchor_start..].find('}')

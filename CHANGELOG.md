@@ -33,7 +33,7 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
-## Unreleased
+## [2.8.1]
 
 ### Fixes
 
@@ -42,8 +42,13 @@ changes.
 - Duplicate style element that caused inconsistencies in the sidebar has been
   removed, the table of contents section in the sidebar now looks more
   consistent in itself.
+- Header extraction no longer treats indented heading-like lines inside fenced
+  code blocks as document headings. The normalization step in
+  `extract_headers()` now trims leading whitespace before checking whether a
+  `{#id}` line starts with `#`, preventing code block content from leaking into
+  the sidebar TOC.
 
-## 2.8.0
+## [2.8.0]
 
 ### Breaking Changes
 
@@ -441,7 +446,8 @@ documentation using the old hyphen-based format will need to be updated**.
 - Prevented panic in theme name fallback logic in ndg-commonmark
 - Prevented panic on empty fence character extraction in ndg-commonmark
 
-[Unreleased]: https://github.com/feel-co/ndg/compare/v2.8.0...HEAD
+[Unreleased]: https://github.com/feel-co/ndg/compare/v2.8.1...HEAD
+[2.8.1]: https://github.com/feel-co/ndg/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/feel-co/ndg/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/feel-co/ndg/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/feel-co/ndg/compare/v2.5.1...v2.6.0
