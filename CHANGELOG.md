@@ -33,6 +33,16 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
+## Unreleased
+
+### Fixes
+
+- The postprocessing test for Javascript now correctly asserts the expected
+  format after OXC minifier's codegen changes.
+- Duplicate style element that caused inconsistencies in the sidebar has been
+  removed, the table of contents section in the sidebar now looks more
+  consistent in itself.
+
 ## 2.8.0
 
 ### Breaking Changes
