@@ -39,6 +39,9 @@ changes.
 
 - The postprocessing test for Javascript now correctly asserts the expected
   format after OXC minifier's codegen changes.
+- Syntastica syntax highlighting now builds language configurations lazily,
+  avoiding expensive all-language initialization when creating a Markdown
+  processor.
 - Duplicate style element that caused inconsistencies in the sidebar has been
   removed, the table of contents section in the sidebar now looks more
   consistent in itself.
