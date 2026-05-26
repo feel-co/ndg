@@ -2,11 +2,11 @@ name: Tag and Release
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
-    paths:
-      - "Cargo.toml"
-      - "Cargo.lock"
+  workflow_run:
+    workflows: ["Build and Test with Cargo"]
+    types:
+      - completed
+    branches: [main]
 
 permissions:
   contents: write
@@ -14,6 +14,7 @@ permissions:
 jobs:
   tag:
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
     outputs:
       ndg_version: ${{ steps.read_version.outputs.ndg_version }}
       tag_exists: ${{ steps.check_version.outputs.tag_exists }}

@@ -2,8 +2,6 @@ name: Publish Crates
 
 on:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
   workflow_run:
     workflows: ["Tag and Release"]
     types:
@@ -13,6 +11,7 @@ jobs:
   publish:
     name: Publish ndg-commonmark
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
 
@@ -33,8 +32,15 @@ jobs:
             exit 0
           fi
 
-          cargo publish -p ndg-commonmark \
-            --no-verify --locked --token ${{ secrets.CARGO_REGISTRY_SECRET }}
+          OUTPUT=$(cargo publish -p ndg-commonmark \
+            --no-verify --locked --token ${{ secrets.CARGO_REGISTRY_SECRET }} 2>&1) && echo "$OUTPUT" || {
+            if echo "$OUTPUT" | grep -q "already exists"; then
+              echo "Version already published on crates.io, skipping."
+              exit 0
+            fi
+            echo "$OUTPUT" >&2
+            exit 1
+          }
 
       - name: Wait for ndg-commonmark to be available
         run: |
