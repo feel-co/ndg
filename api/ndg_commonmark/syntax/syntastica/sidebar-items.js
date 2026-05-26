@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_syntastica_manager","is_extends_query","parse_any_of_predicate","query_path_for_lang","read_user_query","rewrite_any_of_predicates","ts_regex_escape"],"struct":["SyntasticaHighlighter","UserQueryLanguageSet"]};
+window.SIDEBAR_ITEMS = {"fn":["build_highlight_config","create_syntastica_manager","is_extends_query","parse_any_of_predicate","query_path_for_lang","read_user_query","rewrite_any_of_predicates","ts_regex_escape"],"struct":["SyntasticaHighlighter","UserQueryLanguageSet"]};
