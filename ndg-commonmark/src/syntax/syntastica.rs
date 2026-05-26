@@ -29,7 +29,7 @@ use syntastica::{
   renderer::HtmlRenderer,
 };
 use syntastica_core::theme::ResolvedTheme;
-use syntastica_parsers::{LANGUAGES, Lang};
+use syntastica_parsers::Lang;
 use syntastica_query_preprocessor::{
   process_highlights,
   process_injections,
@@ -50,74 +50,115 @@ pub struct SyntasticaHighlighter {
 }
 
 struct UserQueryLanguageSet {
-  configs: HashMap<Lang, HighlightConfiguration>,
+  configs:            Mutex<HashMap<Lang, &'static HighlightConfiguration>>,
+  syntax_queries_dir: Option<PathBuf>,
 }
 
 impl UserQueryLanguageSet {
-  fn new(syntax_queries_dir: Option<&Path>) -> SyntaxResult<Self> {
-    let mut configs = HashMap::new();
+  fn new(syntax_queries_dir: Option<&Path>) -> Self {
+    Self {
+      configs:            Mutex::new(HashMap::new()),
+      syntax_queries_dir: syntax_queries_dir.map(Path::to_path_buf),
+    }
+  }
 
-    for &lang in LANGUAGES {
-      let mut highlights_query = lang.highlights_query().to_string();
-      let mut injections_query = lang.injections_query().to_string();
-      let mut locals_query = lang.locals_query().to_string();
-
-      if let Some(base_dir) = syntax_queries_dir {
-        if let Some(query) = read_user_query(base_dir, lang, "highlights.scm")?
-        {
-          let extends = is_extends_query(&query);
-          let processed =
-            process_highlights("", true, &rewrite_any_of_predicates(&query));
-          if extends {
-            highlights_query = format!("{highlights_query}\n{processed}");
-          } else {
-            highlights_query = processed;
-          }
-        }
-
-        if let Some(query) = read_user_query(base_dir, lang, "injections.scm")?
-        {
-          let extends = is_extends_query(&query);
-          let processed =
-            process_injections("", true, &rewrite_any_of_predicates(&query));
-          if extends {
-            injections_query = format!("{injections_query}\n{processed}");
-          } else {
-            injections_query = processed;
-          }
-        }
-
-        if let Some(query) = read_user_query(base_dir, lang, "locals.scm")? {
-          let extends = is_extends_query(&query);
-          let processed =
-            process_locals("", true, &rewrite_any_of_predicates(&query));
-          if extends {
-            locals_query = format!("{locals_query}\n{processed}");
-          } else {
-            locals_query = processed;
-          }
-        }
-      }
-
-      let mut config = HighlightConfiguration::new(
-        lang.get(),
-        <&str>::from(lang),
-        &highlights_query,
-        &injections_query,
-        &locals_query,
-      )
+  fn config_for(
+    &self,
+    lang: Lang,
+  ) -> syntastica::Result<&'static HighlightConfiguration> {
+    if let Some(config) = self
+      .configs
+      .lock()
       .map_err(|e| {
-        SyntaxError::BackendError(format!(
-          "failed to build highlight config for '{}': {e}",
-          <&str>::from(lang)
+        syntastica::Error::UnsupportedLanguage(format!(
+          "syntax language-set lock poisoned: {e}"
         ))
-      })?;
-      config.configure(syntastica::theme::THEME_KEYS);
-      configs.insert(lang, config);
+      })?
+      .get(&lang)
+      .copied()
+    {
+      return Ok(config);
     }
 
-    Ok(Self { configs })
+    let config =
+      build_highlight_config(lang, self.syntax_queries_dir.as_deref())
+        .map_err(|e| syntastica::Error::UnsupportedLanguage(e.to_string()))?;
+
+    let mut configs = self.configs.lock().map_err(|e| {
+      syntastica::Error::UnsupportedLanguage(format!(
+        "syntax language-set lock poisoned: {e}"
+      ))
+    })?;
+
+    if let Some(config) = configs.get(&lang).copied() {
+      return Ok(config);
+    }
+
+    let config = Box::leak(Box::new(config));
+    configs.insert(lang, config);
+
+    Ok(config)
   }
+}
+
+fn build_highlight_config(
+  lang: Lang,
+  syntax_queries_dir: Option<&Path>,
+) -> SyntaxResult<HighlightConfiguration> {
+  let mut highlights_query = lang.highlights_query().to_string();
+  let mut injections_query = lang.injections_query().to_string();
+  let mut locals_query = lang.locals_query().to_string();
+
+  if let Some(base_dir) = syntax_queries_dir {
+    if let Some(query) = read_user_query(base_dir, lang, "highlights.scm")? {
+      let extends = is_extends_query(&query);
+      let processed =
+        process_highlights("", true, &rewrite_any_of_predicates(&query));
+      if extends {
+        highlights_query = format!("{highlights_query}\n{processed}");
+      } else {
+        highlights_query = processed;
+      }
+    }
+
+    if let Some(query) = read_user_query(base_dir, lang, "injections.scm")? {
+      let extends = is_extends_query(&query);
+      let processed =
+        process_injections("", true, &rewrite_any_of_predicates(&query));
+      if extends {
+        injections_query = format!("{injections_query}\n{processed}");
+      } else {
+        injections_query = processed;
+      }
+    }
+
+    if let Some(query) = read_user_query(base_dir, lang, "locals.scm")? {
+      let extends = is_extends_query(&query);
+      let processed =
+        process_locals("", true, &rewrite_any_of_predicates(&query));
+      if extends {
+        locals_query = format!("{locals_query}\n{processed}");
+      } else {
+        locals_query = processed;
+      }
+    }
+  }
+
+  let mut config = HighlightConfiguration::new(
+    lang.get(),
+    <&str>::from(lang),
+    &highlights_query,
+    &injections_query,
+    &locals_query,
+  )
+  .map_err(|e| {
+    SyntaxError::BackendError(format!(
+      "failed to build highlight config for '{}': {e}",
+      <&str>::from(lang)
+    ))
+  })?;
+  config.configure(syntastica::theme::THEME_KEYS);
+  Ok(config)
 }
 
 impl<'s> LanguageSet<'s> for UserQueryLanguageSet {
@@ -127,9 +168,7 @@ impl<'s> LanguageSet<'s> for UserQueryLanguageSet {
     &self,
     language: Self::Language,
   ) -> syntastica::Result<&HighlightConfiguration> {
-    self.configs.get(&language).ok_or_else(|| {
-      syntastica::Error::UnsupportedLanguage(<&str>::from(language).to_string())
-    })
+    self.config_for(language)
   }
 }
 
@@ -313,7 +352,7 @@ impl SyntasticaHighlighter {
     // reclaims the memory. It avoids the unsound lifetime fabrication that a
     // raw-pointer cast would require.
     let language_set_static: &'static UserQueryLanguageSet =
-      Box::leak(Box::new(UserQueryLanguageSet::new(syntax_queries_dir)?));
+      Box::leak(Box::new(UserQueryLanguageSet::new(syntax_queries_dir)));
     let processor = Processor::new(language_set_static);
 
     Ok(Self {
