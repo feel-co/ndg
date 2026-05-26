@@ -1,12 +1,18 @@
 #![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
+fn processor() -> MarkdownProcessor {
+  let mut options = MarkdownOptions::default();
+  options.highlight_code = false;
+  MarkdownProcessor::new(options)
+}
+
 /// Integration test to verify complete migration from legacy to new processor
 /// Mainly I just want to make sure this went as smoothly as it could, and that
 /// the new parser is as robust as I expect.
 #[test]
 fn test_migration_integration() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   let complex_markdown = r#"# Main Documentation
 
@@ -204,7 +210,7 @@ Visit the [](#getting-started) guide.
 /// Test that the new processor handles edge cases gracefully
 #[test]
 fn test_edge_cases_integration() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   let edge_case_markdown = r#"
 # Header with special chars & symbols {#special-id}
@@ -280,6 +286,7 @@ fn test_options_integration() {
   let mut options = MarkdownOptions::default();
   options.gfm = true;
   options.nixpkgs = true;
+  options.highlight_code = false;
 
   let processor = MarkdownProcessor::new(options);
 

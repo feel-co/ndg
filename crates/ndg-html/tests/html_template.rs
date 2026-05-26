@@ -27,6 +27,7 @@ fn minimal_config() -> Config {
   Config {
     title: "Test Site".to_string(),
     footer_text: "Footer".to_string(),
+    highlight_code: false,
     search: Some(SearchConfig {
       enable: false,
       ..Default::default()
@@ -758,6 +759,7 @@ This is a standalone page.
     footer_text: "Footer".to_string(),
     input_dir: Some(input_dir.to_path_buf()),
     output_dir: output_dir.clone(),
+    highlight_code: false,
     search: Some(ndg_config::search::SearchConfig {
       enable: false,
       ..Default::default()

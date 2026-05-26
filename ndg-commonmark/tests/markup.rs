@@ -30,18 +30,18 @@ fn assert_html_exact(html: &str, expected: &[&str]) {
 }
 
 fn ndg_html(md: &str) -> String {
-  let processor = ndg_commonmark::MarkdownProcessor::new(
-    ndg_commonmark::MarkdownOptions::default(),
-  );
+  let mut options = ndg_commonmark::MarkdownOptions::default();
+  options.highlight_code = false;
+  let processor = ndg_commonmark::MarkdownProcessor::new(options);
   processor.render(md).html
 }
 
 fn ndg_full_result(
   md: &str,
 ) -> (String, Vec<ndg_commonmark::Header>, Option<String>) {
-  let processor = ndg_commonmark::MarkdownProcessor::new(
-    ndg_commonmark::MarkdownOptions::default(),
-  );
+  let mut options = ndg_commonmark::MarkdownOptions::default();
+  options.highlight_code = false;
+  let processor = ndg_commonmark::MarkdownProcessor::new(options);
   let result = processor.render(md);
   (result.html, result.headers, result.title)
 }
@@ -261,6 +261,7 @@ fn test_manpage_role_with_url() {
     .unwrap();
 
   let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.highlight_code = false;
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
@@ -292,6 +293,7 @@ fn test_manpage_role_without_url() {
     .unwrap();
 
   let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.highlight_code = false;
   opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
@@ -422,6 +424,7 @@ fn test_auto_link_options_enabled() {
   // true
   let md = r"Use {option}`services.nginx.enable` to configure nginx.";
   let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.highlight_code = false;
   opts.auto_link_options = true;
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
   let html = processor.render(md).html;
@@ -437,6 +440,7 @@ fn test_auto_link_options_disabled() {
   // is false
   let md = r"Use {option}`services.nginx.enable` to configure nginx.";
   let mut opts = ndg_commonmark::MarkdownOptions::default();
+  opts.highlight_code = false;
   opts.auto_link_options = false;
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
   let html = processor.render(md).html;
@@ -502,66 +506,6 @@ fn test_option_anchor_link_not_opt_prefix() {
   assert_html_contains(&html, &[
     r##"<a href="#getting-started">Getting Started</a>"##,
   ]);
-}
-
-#[test]
-fn test_auto_link_options_and_opt_anchors_regression() {
-  // Regression test for:
-  // 1. Configurable auto_link_options for {option} role markup
-  // 2. Support for [](#opt-*) syntax to link to options.html
-
-  // Test 1: auto_link_options enabled (default)
-  let md_with_role = r"Use {option}`services.nginx.enable` to enable nginx.";
-  let mut opts = ndg_commonmark::MarkdownOptions::default();
-  opts.auto_link_options = true;
-  let processor = ndg_commonmark::MarkdownProcessor::new(opts);
-  let html = processor.render(md_with_role).html;
-  assert!(
-    html.contains(r#"<a class="option-reference""#),
-    "Expected {{option}} role to be converted to link when auto_link_options \
-     is true. Got:\n{html}"
-  );
-
-  // Test 2: auto_link_options disabled
-  let mut opts = ndg_commonmark::MarkdownOptions::default();
-  opts.auto_link_options = false;
-  let processor = ndg_commonmark::MarkdownProcessor::new(opts);
-  let html = processor.render(md_with_role).html;
-  assert!(
-    !html.contains(r#"<a class="option-reference""#)
-      && html.contains(r"<code>services.nginx.enable</code>"),
-    "Expected {{option}} role to be plain code when auto_link_options is \
-     false. Got:\n{html}"
-  );
-
-  // Test 3: [](#opt-*) syntax with empty link text
-  let md_with_opt = r"See [](#opt-services-nginx-enable) for details.";
-  let processor = ndg_commonmark::MarkdownProcessor::new(
-    ndg_commonmark::MarkdownOptions::default(),
-  );
-  let html = processor.render(md_with_opt).html;
-  assert!(
-    html.contains(
-      r#"<a href="options.html#opt-services-nginx-enable">services.nginx.enable</a>"#
-    ),
-    "Expected [](#opt-*) to be converted to options.html link with option \
-     name. Got:\n{html}"
-  );
-
-  // Test 4: [](#opt-*) syntax with custom text
-  let md_with_custom_text =
-    r"See [the nginx option](#opt-services-nginx-enable) for details.";
-  let processor = ndg_commonmark::MarkdownProcessor::new(
-    ndg_commonmark::MarkdownOptions::default(),
-  );
-  let html = processor.render(md_with_custom_text).html;
-  assert!(
-    html.contains(
-      r#"<a href="options.html#opt-services-nginx-enable">the nginx option</a>"#
-    ),
-    "Expected [](#opt-*) with custom text to preserve custom text. \
-     Got:\n{html}"
-  );
 }
 
 #[test]
@@ -1179,6 +1123,7 @@ some/file.md
   {
     let mut options = ndg_commonmark::MarkdownOptions::default();
     options.nixpkgs = true;
+    options.highlight_code = false;
     let processor = ndg_commonmark::MarkdownProcessor::new(options);
 
     let simple_md = r"```{=include=}

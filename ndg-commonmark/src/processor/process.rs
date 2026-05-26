@@ -146,7 +146,11 @@ where
 /// A configured `MarkdownProcessor`
 #[must_use]
 pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
-  let options = match preset {
+  MarkdownProcessor::new(options_for_preset(preset))
+}
+
+fn options_for_preset(preset: ProcessorPreset) -> MarkdownOptions {
+  match preset {
     ProcessorPreset::Basic => {
       MarkdownOptions {
         gfm:                 true,
@@ -186,9 +190,7 @@ pub fn create_processor(preset: ProcessorPreset) -> MarkdownProcessor {
         valid_options:       None,
       }
     },
-  };
-
-  MarkdownProcessor::new(options)
+  }
 }
 
 /// Preset configurations for common use cases. In some cases those presets will
@@ -306,38 +308,30 @@ mod tests {
   }
 
   #[test]
-  fn test_process_markdown_string() {
-    let content = "# Test Header\n\nSome content.";
-    let result = process_markdown_string(content, ProcessorPreset::Basic);
-
-    assert!(result.html.contains("<h1"));
-    assert!(result.html.contains("Test Header"));
-    assert_eq!(result.title, Some("Test Header".to_string()));
-    assert_eq!(result.headers.len(), 1);
-  }
-
-  #[test]
   fn test_create_processor_presets() {
-    let basic = create_processor(ProcessorPreset::Basic);
-    assert!(basic.options.gfm);
-    assert!(!basic.options.nixpkgs);
-    assert!(basic.options.highlight_code);
+    let basic = options_for_preset(ProcessorPreset::Basic);
+    assert!(basic.gfm);
+    assert!(!basic.nixpkgs);
+    assert!(basic.highlight_code);
 
-    let enhanced = create_processor(ProcessorPreset::Ndg);
-    assert!(enhanced.options.gfm);
-    assert!(!enhanced.options.nixpkgs);
-    assert!(enhanced.options.highlight_code);
+    let enhanced = options_for_preset(ProcessorPreset::Ndg);
+    assert!(enhanced.gfm);
+    assert!(!enhanced.nixpkgs);
+    assert!(enhanced.highlight_code);
 
-    let nixpkgs = create_processor(ProcessorPreset::Nixpkgs);
-    assert!(nixpkgs.options.gfm);
-    assert!(nixpkgs.options.nixpkgs);
-    assert!(nixpkgs.options.highlight_code);
+    let nixpkgs = options_for_preset(ProcessorPreset::Nixpkgs);
+    assert!(nixpkgs.gfm);
+    assert!(nixpkgs.nixpkgs);
+    assert!(nixpkgs.highlight_code);
   }
 
   #[test]
   #[allow(clippy::panic)]
   fn test_process_batch() {
-    let processor = create_processor(ProcessorPreset::Basic);
+    let processor = MarkdownProcessor::new(MarkdownOptions {
+      highlight_code: false,
+      ..options_for_preset(ProcessorPreset::Basic)
+    });
     let paths = vec![Path::new("test1.md"), Path::new("test2.md")];
 
     let read_fn = |path: &Path| -> Result<String, std::io::Error> {

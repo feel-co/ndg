@@ -1,9 +1,15 @@
 #![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
+fn processor() -> MarkdownProcessor {
+  let mut options = MarkdownOptions::default();
+  options.highlight_code = false;
+  MarkdownProcessor::new(options)
+}
+
 #[test]
 fn test_codeblock_no_extra_newlines() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   let md = r#"# Test
 
@@ -41,7 +47,7 @@ fn main() {
 
 #[test]
 fn test_new_processor_role_markup_in_lists() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   let md = r"- {command}`nixos-rebuild switch`
 - {env}`HOME`
@@ -77,7 +83,7 @@ fn test_new_processor_role_markup_in_lists() {
 
 #[test]
 fn test_new_processor_option_reference_edge_case() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   let md = r"- `hjem.<user>.home` is where user home resides!";
 
@@ -94,7 +100,7 @@ fn test_new_processor_option_reference_edge_case() {
 
 #[test]
 fn test_new_processor_valid_vs_invalid_options() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   let md = r"Valid: {option}`services.nginx.enable`
 Invalid: `some/path.conf`
@@ -118,7 +124,7 @@ Valid: {option}`boot.loader.systemd-boot.enable`";
 
 #[test]
 fn test_new_processor_headers_and_title() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   let md = r"# Main Title
 
@@ -143,98 +149,61 @@ fn test_new_processor_headers_and_title() {
 }
 
 #[test]
-fn test_new_processor_autolink() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+fn test_new_processor_autolinks() {
+  let processor = processor();
 
-  let md = "Visit https://example.com for info.";
+  let cases = [
+    (
+      "Visit https://example.com for info.",
+      &[r#"<a href="https://example.com">https://example.com</a>"#][..],
+      &[][..],
+    ),
+    (
+      "Check out https://github.com and also https://rust-lang.org for more \
+       info.",
+      &[
+        r#"<a href="https://github.com">https://github.com</a>"#,
+        r#"<a href="https://rust-lang.org">https://rust-lang.org</a>"#,
+      ][..],
+      &[][..],
+    ),
+    (
+      r"Already a link: [Visit https://example.com](https://example.com)",
+      &[r#"<a href="https://example.com">"#][..],
+      &[r#"<a href="https://example.com"><a href="https://example.com">"#][..],
+    ),
+    (
+      "Visit https://example.com. Also try https://github.com/user/repo!",
+      &[
+        r#"<a href="https://example.com">https://example.com</a>."#,
+        r#"<a href="https://github.com/user/repo">https://github.com/user/repo</a>!"#,
+      ][..],
+      &[][..],
+    ),
+    (
+      "HTTP: http://example.com and HTTPS: https://example.com",
+      &[
+        r#"<a href="http://example.com">http://example.com</a>"#,
+        r#"<a href="https://example.com">https://example.com</a>"#,
+      ][..],
+      &[][..],
+    ),
+  ];
 
-  let result = processor.render(md);
-  let html = result.html;
-
-  // Should convert plain URLs to clickable links
-  assert!(
-    html.contains(r#"<a href="https://example.com">https://example.com</a>"#)
-  );
-}
-
-#[test]
-fn test_new_processor_autolink_multiple_urls() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
-
-  let md = "Check out https://github.com and also https://rust-lang.org for \
-            more info.";
-
-  let result = processor.render(md);
-  let html = result.html;
-
-  // Should convert both URLs to clickable links
-  assert!(
-    html.contains(r#"<a href="https://github.com">https://github.com</a>"#)
-  );
-  assert!(
-    html
-      .contains(r#"<a href="https://rust-lang.org">https://rust-lang.org</a>"#)
-  );
-}
-
-#[test]
-fn test_new_processor_autolink_in_existing_link() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
-
-  let md = r"Already a link: [Visit https://example.com](https://example.com)";
-
-  let result = processor.render(md);
-  let html = result.html;
-
-  // Should not double-process URLs that are already inside links
-  // The URL in the link text should remain as text, not become a nested link
-  assert!(!html.contains(
-        r#"<a href="https://example.com"><a href="https://example.com">https://example.com</a></a>"#
-    ));
-  assert!(html.contains(r#"<a href="https://example.com">"#));
-}
-
-#[test]
-fn test_new_processor_autolink_with_punctuation() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
-
-  let md = "Visit https://example.com. Also try https://github.com/user/repo!";
-
-  let result = processor.render(md);
-  let html = result.html;
-
-  // Should not include trailing punctuation in the links
-  assert!(
-    html.contains(r#"<a href="https://example.com">https://example.com</a>."#)
-  );
-  assert!(
-        html.contains(
-            r#"<a href="https://github.com/user/repo">https://github.com/user/repo</a>!"#
-        )
-    );
-}
-
-#[test]
-fn test_new_processor_autolink_http_and_https() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
-
-  let md = "HTTP: http://example.com and HTTPS: https://example.com";
-
-  let result = processor.render(md);
-  let html = result.html;
-
-  // Should handle both HTTP and HTTPS
-  assert!(
-    html.contains(r#"<a href="http://example.com">http://example.com</a>"#)
-  );
-  assert!(
-    html.contains(r#"<a href="https://example.com">https://example.com</a>"#)
-  );
+  for (markdown, expected, forbidden) in cases {
+    let html = processor.render(markdown).html;
+    for fragment in expected {
+      assert!(html.contains(fragment), "missing {fragment} in {html}");
+    }
+    for fragment in forbidden {
+      assert!(!html.contains(fragment), "unexpected {fragment} in {html}");
+    }
+  }
 }
 
 #[test]
 fn test_new_processor_error_handling() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   // Test with extremely malformed content that could cause issues
   let md = r"# Header with \x00 null bytes and \x{FFFF} invalid unicode
@@ -294,7 +263,7 @@ fn test_error_handling_utilities() {
 
 #[test]
 fn test_new_processor_html_post_processing() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   // Test comprehensive HTML post-processing with various patterns
   let md = "# Header with anchor {#my-header}
@@ -339,7 +308,7 @@ Text with <a href=\"#another-empty\"></a> empty HTML link.";
 
 #[test]
 fn test_html_post_processing_edge_cases() {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let processor = processor();
 
   // Test edge cases in HTML post-processing
   let md = "Text with multiple []{#anchor1} and []{#anchor2} anchors.

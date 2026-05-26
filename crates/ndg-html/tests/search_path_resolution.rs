@@ -7,9 +7,9 @@ use std::{
   path::PathBuf,
 };
 
-use common::files_to_processed_docs;
+use common::{files_to_processed_docs, test_config, test_input_config};
 use ndg_commonmark::collect_markdown_files;
-use ndg_config::{Config, search::SearchConfig};
+use ndg_config::Config;
 use ndg_html::{
   options::process_options,
   search::{SearchData, generate_search_index},
@@ -41,14 +41,8 @@ fn test_search_path_resolution_from_subdirectory() {
     .expect("Failed to write options.json");
 
   let config = Config {
-    output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
-    title: "Test".to_string(),
-    search: Some(SearchConfig {
-      enable: true,
-      ..Default::default()
-    }),
-    ..Default::default()
+    ..test_config(output_dir)
   };
 
   process_options(&config, &options_file).expect("Failed to process options");
@@ -99,14 +93,8 @@ fn test_search_path_resolution_from_root() {
     .expect("Failed to write options.json");
 
   let config = Config {
-    output_dir: output_dir.to_path_buf(),
     module_options: Some(options_file.clone()),
-    title: "Test".to_string(),
-    search: Some(SearchConfig {
-      enable: true,
-      ..Default::default()
-    }),
-    ..Default::default()
+    ..test_config(output_dir)
   };
 
   process_options(&config, &options_file).expect("Failed to process options");
@@ -187,15 +175,8 @@ This file should be transitively included in `main.html`
     .expect("Failed to write section_no_id.md");
 
   let mut config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
     module_options: None,
-    title: "Test".to_string(),
-    search: Some(SearchConfig {
-      enable: true,
-      ..Default::default()
-    }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let processor = Some(create_processor(&config, None));
@@ -325,15 +306,9 @@ This describes the Home Manager module installation.
     .expect("Failed to write installation/modules/home-manager.md");
 
   let mut config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
     module_options: None,
     title: "Test Documentation".to_string(),
-    search: Some(SearchConfig {
-      enable: true,
-      ..Default::default()
-    }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let processor = Some(create_processor(&config, None));

@@ -9,7 +9,7 @@ mod common;
 
 use std::fs;
 
-use common::files_to_processed_docs;
+use common::{files_to_processed_docs, test_input_config};
 use ndg_commonmark::collect_markdown_files;
 use ndg_config::{Config, search::SearchConfig};
 use ndg_html::search::{SearchData, generate_search_index};
@@ -61,15 +61,13 @@ Set up your config.
   fs::write(&md_file, md_content).expect("Failed to write markdown file");
 
   let config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
     title: "Test Docs".to_string(),
     search: Some(SearchConfig {
       enable: true,
       max_heading_level: 3, // index H1, H2, H3 (exclude H4)
       ..Default::default()
     }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
@@ -179,15 +177,12 @@ fn test_max_heading_level_filtering() {
 
   // Test with max_heading_level = 2 (only H1 and H2)
   let config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
-    title: "Test".to_string(),
     search: Some(SearchConfig {
       enable: true,
       max_heading_level: 2,
       ..Default::default()
     }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
@@ -248,15 +243,12 @@ fn test_anchor_tokenization() {
   fs::write(&md_file, md_content).expect("Failed to write markdown file");
 
   let config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
-    title: "Test".to_string(),
     search: Some(SearchConfig {
       enable: true,
       max_heading_level: 6,
       ..Default::default()
     }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
@@ -350,15 +342,12 @@ fn test_document_without_headings() {
   fs::write(&md_file, md_content).expect("Failed to write markdown file");
 
   let config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
-    title: "Test".to_string(),
     search: Some(SearchConfig {
       enable: true,
       max_heading_level: 6,
       ..Default::default()
     }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
@@ -518,15 +507,12 @@ fn test_anchor_id_generation() {
   fs::write(&md_file, md_content).expect("Failed to write markdown file");
 
   let config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
-    title: "Test".to_string(),
     search: Some(SearchConfig {
       enable: true,
       max_heading_level: 6,
       ..Default::default()
     }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
@@ -605,15 +591,12 @@ fn test_multiple_documents_with_anchors() {
   fs::write(&doc3_file, doc3_content).expect("Failed to write doc3");
 
   let config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
-    title: "Test".to_string(),
     search: Some(SearchConfig {
       enable: true,
       max_heading_level: 6,
       ..Default::default()
     }),
-    ..Default::default()
+    ..test_input_config(&input_dir, &output_dir)
   };
 
   let markdown_files = collect_markdown_files(&input_dir);

@@ -1,7 +1,36 @@
-use std::{fs, path::PathBuf};
+#![allow(
+  dead_code,
+  reason = "Shared helpers are used by separate test binaries"
+)]
+
+use std::{
+  fs,
+  path::{Path, PathBuf},
+};
 
 use ndg_commonmark::MarkdownProcessor;
+use ndg_config::{Config, search::SearchConfig};
 use ndg_html::search::ProcessedDocument;
+
+pub fn test_config(output_dir: &Path) -> Config {
+  Config {
+    output_dir: output_dir.to_path_buf(),
+    title: "Test".to_string(),
+    highlight_code: false,
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
+    ..Default::default()
+  }
+}
+
+pub fn test_input_config(input_dir: &Path, output_dir: &Path) -> Config {
+  Config {
+    input_dir: Some(input_dir.to_path_buf()),
+    ..test_config(output_dir)
+  }
+}
 
 /// Converts markdown files to `ProcessedDocuments` for
 /// testing

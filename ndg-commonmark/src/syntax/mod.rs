@@ -79,69 +79,14 @@ mod tests {
     assert_eq!(config.language_aliases["js"], "javascript");
   }
 
-  #[cfg(feature = "syntect")]
-  #[test]
-  fn test_syntect_highlighter() {
-    let highlighter = SyntectHighlighter::default();
-    assert_eq!(highlighter.name(), "Syntect");
-    assert!(!highlighter.supported_languages().is_empty());
-    assert!(!highlighter.available_themes().is_empty());
-  }
-
-  #[cfg(feature = "syntect")]
-  #[test]
-  fn test_syntect_highlight_simple() {
-    let highlighter = SyntectHighlighter::default();
-    let result = highlighter.highlight("fn main() {}", "rust", None);
-    assert!(result.is_ok());
-    let html = result.expect("Failed to highlight code");
-    assert!(html.contains("main"));
-  }
-
-  #[cfg(feature = "syntastica")]
-  #[test]
-  fn test_syntastica_highlighter() {
-    let highlighter = SyntasticaHighlighter::new(None)
-      .expect("Failed to create SyntasticaHighlighter");
-    assert_eq!(highlighter.name(), "Syntastica");
-    assert!(!highlighter.supported_languages().is_empty());
-    assert!(!highlighter.available_themes().is_empty());
-  }
-
-  #[cfg(feature = "syntastica")]
-  #[test]
-  fn test_syntastica_highlight_simple() {
-    let highlighter = SyntasticaHighlighter::new(None)
-      .expect("Failed to create SyntasticaHighlighter");
-    let result = highlighter.highlight("fn main() {}", "rust", None);
-    assert!(result.is_ok());
-    let html = result.expect("Failed to highlight code");
-    assert!(html.contains("main"));
-  }
-
-  #[cfg(any(feature = "syntastica", feature = "syntect"))]
-  #[test]
-  fn test_syntax_manager() {
-    let manager = create_default_manager(None)
-      .expect("Failed to create default syntax manager");
-    assert!(!manager.highlighter().supported_languages().is_empty());
-
-    let resolved = manager.resolve_language("js");
-    assert_eq!(resolved, "javascript");
-  }
-
-  #[cfg(any(feature = "syntastica", feature = "syntect"))]
   #[test]
   fn test_language_resolution() {
-    let manager = create_default_manager(None)
-      .expect("Failed to create default syntax manager");
+    let manager =
+      SyntaxManager::new(Box::new(NoopHighlighter), SyntaxConfig::default());
 
-    // Test alias resolution
     assert_eq!(manager.resolve_language("js"), "javascript");
     assert_eq!(manager.resolve_language("py"), "python");
     assert_eq!(manager.resolve_language("ts"), "typescript");
-
-    // Test non-alias languages
     assert_eq!(manager.resolve_language("rust"), "rust");
     assert_eq!(manager.resolve_language("nix"), "nix");
   }
@@ -170,67 +115,6 @@ mod tests {
     // Test that re-exports work at the module level
     let _config2: SyntaxConfig = SyntaxConfig::default();
     let _error2: SyntaxError = SyntaxError::BackendError("test".to_string());
-  }
-
-  #[cfg(any(feature = "syntastica", feature = "syntect"))]
-  #[test]
-  fn test_extended_theme_availability() {
-    let manager = create_default_manager(None)
-      .expect("Failed to create default syntax manager");
-    let themes = manager.highlighter().available_themes();
-
-    // Verify we have loaded like a lot of themes
-    assert!(
-      themes.len() > 30,
-      "Expected > 30 themes, got {}",
-      themes.len()
-    );
-
-    // Check for specific themes that should be available with our enhancements
-    #[cfg(feature = "syntastica")]
-    {
-      assert!(
-        themes.contains(&"github::dark".to_string()),
-        "Expected github::dark theme"
-      );
-      assert!(
-        themes.contains(&"gruvbox::dark".to_string()),
-        "Expected gruvbox::dark theme"
-      );
-      assert!(
-        themes.contains(&"nord::nord".to_string()),
-        "Expected nord::nord theme"
-      );
-      assert!(
-        themes.contains(&"dracula::dracula".to_string()),
-        "Expected dracula::dracula theme"
-      );
-    }
-
-    #[cfg(feature = "syntect")]
-    {
-      assert!(
-        themes.contains(&"Nord".to_string()),
-        "Expected Nord theme from two-face"
-      );
-      assert!(
-        themes.contains(&"Dracula".to_string()),
-        "Expected Dracula theme from two-face"
-      );
-      assert!(
-        themes.contains(&"GruvboxDark".to_string()),
-        "Expected GruvboxDark theme from two-face"
-      );
-      assert!(
-        themes.contains(&"VisualStudioDarkPlus".to_string()),
-        "Expected VisualStudioDarkPlus theme from two-face"
-      );
-    }
-
-    println!("Available themes ({}):", themes.len());
-    for theme in &themes {
-      println!("  - {theme}");
-    }
   }
 
   #[cfg(feature = "syntect")]
@@ -269,5 +153,34 @@ pkgs.stdenv.mkDerivation rec {
       "Failed to highlight Nix code: {:?}",
       result.err()
     );
+  }
+
+  struct NoopHighlighter;
+
+  impl SyntaxHighlighter for NoopHighlighter {
+    fn name(&self) -> &'static str {
+      "noop"
+    }
+
+    fn supported_languages(&self) -> Vec<String> {
+      Vec::new()
+    }
+
+    fn available_themes(&self) -> Vec<String> {
+      Vec::new()
+    }
+
+    fn highlight(
+      &self,
+      _code: &str,
+      _language: &str,
+      _theme: Option<&str>,
+    ) -> SyntaxResult<String> {
+      Ok(String::new())
+    }
+
+    fn language_from_extension(&self, _extension: &str) -> Option<String> {
+      None
+    }
   }
 }

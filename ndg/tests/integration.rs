@@ -5,7 +5,7 @@ use ndg::{
   config::{Config, postprocess::PostprocessConfig},
   utils::assets::copy_assets,
 };
-use ndg_commonmark::{ProcessorPreset, process_markdown_string};
+use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 use tempfile::tempdir;
 
 #[test]
@@ -92,7 +92,11 @@ Some text.
 End.
 ";
 
-  let result = process_markdown_string(malformed_md, ProcessorPreset::Basic);
+  let result = MarkdownProcessor::new(MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  })
+  .render(malformed_md);
   assert!(!result.html.is_empty());
 }
 
@@ -1110,6 +1114,7 @@ fn test_readme_as_homepage_enabled() {
   let mut config = Config {
     input_dir: Some(input_dir.clone()),
     output_dir: output_dir.clone(),
+    highlight_code: false,
     index: Some(ndg::config::index::IndexConfig {
       use_readme: true,
       ..Default::default()
@@ -1152,6 +1157,7 @@ fn test_readme_as_homepage_disabled() {
   let mut config = Config {
     input_dir: Some(input_dir.clone()),
     output_dir: output_dir.clone(),
+    highlight_code: false,
     index: Some(ndg::config::index::IndexConfig {
       use_readme: false,
       ..Default::default()

@@ -1,7 +1,9 @@
 #![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use std::fs;
 
-use ndg_config::{Config, search::SearchConfig};
+mod common;
+
+use common::test_config;
 use ndg_html::{
   options::process_options,
   search::{SearchData, generate_search_index},
@@ -38,15 +40,9 @@ fn test_search_html_escape() {
   fs::write(&options_file, option_data().to_string())
     .expect("Failed to write options.json in search_widget test");
 
-  let config = Config {
-    output_dir: output_dir.to_path_buf(),
+  let config = ndg_config::Config {
     module_options: Some(options_file.clone()),
-    title: "Test".to_string(),
-    search: Some(SearchConfig {
-      enable: true,
-      ..Default::default()
-    }),
-    ..Default::default()
+    ..test_config(output_dir)
   };
 
   process_options(&config, &options_file)

@@ -3,66 +3,41 @@ use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
 
 /// Extract headers from markdown using the actual code.
 fn extract_headers_from_markdown(md: &str) -> Vec<Header> {
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let mut options = MarkdownOptions::default();
+  options.highlight_code = false;
+  let processor = MarkdownProcessor::new(options);
   let (headers, _title) = processor.extract_headers(md);
   headers
 }
 
 #[test]
-fn test_plain_text_header() {
-  let md = "# Simple Header";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  assert_eq!(headers[0].text, "Simple Header");
-}
+fn test_header_text_extraction() {
+  let cases = [
+    ("# Simple Header", "Simple Header"),
+    ("# Install with `nix-env`", "Install with nix-env"),
+    ("# See [the docs](https://example.com)", "See the docs"),
+    (
+      "# This is *important* and **bold**",
+      "This is important and bold",
+    ),
+    (
+      "# Try [*nix-shell*](https://nixos.org) now",
+      "Try nix-shell now",
+    ),
+    ("# Use [`nix`](https://nixos.org)", "Use nix"),
+    ("# Hello <span>world</span>", "Hello world"),
+    (
+      "# This is ~obsolete~ and super^script^",
+      "This is obsolete and superscript",
+    ),
+    ("# Welcome ![logo](logo.png)", "Welcome "),
+  ];
 
-#[test]
-fn test_header_with_inline_code() {
-  let md = "# Install with `nix-env`";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  assert_eq!(headers[0].text, "Install with nix-env");
-}
-
-#[test]
-fn test_header_with_link() {
-  let md = "# See [the docs](https://example.com)";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  assert_eq!(headers[0].text, "See the docs");
-}
-
-#[test]
-fn test_header_with_emphasis_and_strong() {
-  let md = "# This is *important* and **bold**";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  assert_eq!(headers[0].text, "This is important and bold");
-}
-
-#[test]
-fn test_header_with_nested_inline_elements() {
-  let md = "# Try [*nix-shell*](https://nixos.org) now";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  assert_eq!(headers[0].text, "Try nix-shell now");
-}
-
-#[test]
-fn test_header_with_code_and_link() {
-  let md = "# Use [`nix`](https://nixos.org)";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  assert_eq!(headers[0].text, "Use nix");
-}
-
-#[test]
-fn test_header_with_html_inline() {
-  let md = "# Hello <span>world</span>";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  // HTML inline is now included as visible text
-  assert_eq!(headers[0].text, "Hello world");
+  for (markdown, expected) in cases {
+    let headers = extract_headers_from_markdown(markdown);
+    assert_eq!(headers.len(), 1, "unexpected header count for {markdown}");
+    assert_eq!(headers[0].text, expected);
+  }
 }
 
 #[test]
@@ -80,23 +55,6 @@ fn test_multiple_headers_various_types() {
 }
 
 #[test]
-fn test_header_with_strikethrough_and_superscript() {
-  let md = "# This is ~obsolete~ and super^script^";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  assert_eq!(headers[0].text, "This is obsolete and superscript");
-}
-
-#[test]
-fn test_header_with_image() {
-  let md = "# Welcome ![logo](logo.png)";
-  let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1);
-  // Image alt text is not included in header text extraction
-  assert_eq!(headers[0].text, "Welcome ");
-}
-
-#[test]
 fn test_no_headers_from_code_block() {
   let md = r#"- **Create memorable custom ID anchors** for important sections:
 
@@ -109,7 +67,11 @@ fn test_no_headers_from_code_block() {
 ## Building from Source
 "#;
   let headers = extract_headers_from_markdown(md);
-  assert_eq!(headers.len(), 1, "Should only extract actual headings, not code block content");
+  assert_eq!(
+    headers.len(),
+    1,
+    "Should only extract actual headings, not code block content"
+  );
   assert_eq!(headers[0].text, "Building from Source");
 }
 
@@ -125,7 +87,9 @@ fn test_code_block_preserved_in_output() {
 
 ## Building from Source
 "#;
-  let processor = MarkdownProcessor::new(MarkdownOptions::default());
+  let mut options = MarkdownOptions::default();
+  options.highlight_code = false;
+  let processor = MarkdownProcessor::new(options);
   let result = processor.render(md);
   let html = result.html;
 

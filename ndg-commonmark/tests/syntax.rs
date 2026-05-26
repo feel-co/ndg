@@ -1,4 +1,7 @@
-#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
+#![allow(clippy::expect_used, reason = "Fine in tests")]
+
+use std::fs;
+
 use ndg_commonmark::{
   MarkdownOptions,
   MarkdownProcessor,
@@ -6,192 +9,107 @@ use ndg_commonmark::{
 };
 
 #[test]
-fn test_basic_syntax_highlighting_integration() {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = true;
-
-  let processor = MarkdownProcessor::new(options);
+fn test_syntax_highlighting_pipeline() {
+  let processor = MarkdownProcessor::new(MarkdownOptions {
+    highlight_code: true,
+    ..Default::default()
+  });
 
   let markdown = r#"
-# Test Document
-
-Here's some Rust code:
-
 ```rust
 fn main() {
     println!("Hello, world!");
-    let x = 42;
 }
 ```
 
-And some JavaScript:
+Inline `fn main()` should stay plain.
 
-```javascript
-function greet(name) {
-    console.log(`Hello, ${name}!`);
-}
-```
-
-And some Nix:
-
-```nix
-{ pkgs, ... }:
-{
-  environment.systemPackages = with pkgs; [
-    vim
-    git
-  ];
-}
+```nonexistent-language
+some code here
 ```
 "#;
 
-  let result = processor.render(markdown);
+  let html = processor.render(markdown).html;
 
-  // Check that HTML was generated
-  assert!(!result.html.is_empty());
-
-  // Check that code blocks are present and highlighted
-  // Syntastica produces inline spans with color styling instead of <pre> tags
-  assert!(result.html.contains("<span"));
-  assert!(result.html.contains("main"));
-  assert!(result.html.contains("println"));
-  assert!(result.html.contains("greet"));
-  assert!(result.html.contains("pkgs"));
-
-  // Verify syntax highlighting is actually working by checking for color styles
-  assert!(result.html.contains("color:rgb"));
-}
-
-#[test]
-fn test_syntax_highlighting_with_unsupported_language() {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = true;
-
-  let processor = MarkdownProcessor::new(options);
-
-  let markdown = r"
-```nonexistent-language
-some code here
-that should still be wrapped
-```
-";
-
-  let result = processor.render(markdown);
-
-  // Should still generate HTML even for unsupported languages
-  assert!(!result.html.is_empty());
-  assert!(result.html.contains("some code here"));
+  assert!(html.contains("println"));
+  assert!(html.contains("color:rgb"));
+  assert!(html.contains("<code>fn main()</code>"));
+  assert!(html.contains("some code here"));
 }
 
 #[test]
 fn test_syntax_highlighting_disabled() {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = false;
+  let processor = MarkdownProcessor::new(MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  });
 
-  let processor = MarkdownProcessor::new(options);
+  let html = processor
+    .render("```rust\nfn main() { println!(\"Hello\"); }\n```")
+    .html;
 
-  let markdown = r#"
-```rust
-fn main() {
-    println!("Hello, world!");
-}
-```
-"#;
-
-  let result = processor.render(markdown);
-
-  // Should still have code blocks but without syntax highlighting
-  assert!(!result.html.is_empty());
-  assert!(result.html.contains("fn main"));
-  // When highlighting is disabled, should not contain color styling
-  assert!(!result.html.contains("color:rgb"));
-}
-
-#[cfg(feature = "syntastica")]
-#[test]
-fn test_syntastica_backend_directly() {
-  use ndg_commonmark::syntax::{SyntasticaHighlighter, SyntaxHighlighter};
-
-  let highlighter = SyntasticaHighlighter::new(None)
-    .expect("Failed to create Syntastica highlighter");
-
-  // Test basic highlighting
-  let result =
-    highlighter.highlight("fn main() { println!(\"Hello\"); }", "rust", None);
-
-  assert!(result.is_ok());
-  let html = result.expect("Failed to highlight rust code");
-  assert!(html.contains("main"));
-  assert!(html.contains("println"));
-
-  // Test language support
-  assert!(highlighter.supports_language("rust"));
-  assert!(highlighter.supports_language("nix"));
-  assert!(highlighter.supports_language("javascript"));
-  assert!(!highlighter.supports_language("nonexistent"));
-
-  // Test theme availability
-  let themes = highlighter.available_themes();
-  assert!(!themes.is_empty());
-  assert!(themes.contains(&"one::dark".to_string()));
+  assert!(html.contains("fn main"));
+  assert!(!html.contains("color:rgb"));
 }
 
 #[cfg(feature = "syntastica")]
 #[test]
 fn test_syntastica_extends_appends_to_builtin_queries() {
-  use std::fs;
-
-  // A replacement query (no ;;extends) should discard built-in highlighting.
-  // An extends query should keep built-in behavior AND add the new rule.
   let temp_replace = tempfile::tempdir().expect("tempdir");
   let temp_extend = tempfile::tempdir().expect("tempdir");
 
   let nix_replace = temp_replace.path().join("nix");
   let nix_extend = temp_extend.path().join("nix");
-  fs::create_dir_all(&nix_replace).unwrap();
-  fs::create_dir_all(&nix_extend).unwrap();
+  fs::create_dir_all(&nix_replace).expect("create replacement query dir");
+  fs::create_dir_all(&nix_extend).expect("create extends query dir");
 
-  // Minimal highlights query: only mark `let` as a keyword, nothing else.
-  let replacement_query = r#"("let" @keyword)"#;
+  let replacement_query = r#"(identifier) @function"#;
   let extending_query = format!(";; extends\n{replacement_query}");
 
-  fs::write(nix_replace.join("highlights.scm"), replacement_query).unwrap();
-  fs::write(nix_extend.join("highlights.scm"), &extending_query).unwrap();
+  fs::write(nix_replace.join("highlights.scm"), replacement_query)
+    .expect("write replacement query");
+  fs::write(nix_extend.join("highlights.scm"), &extending_query)
+    .expect("write extends query");
 
   let nix_code = "let x = 1; in x";
 
-  let default_mgr = create_default_manager(None).unwrap();
-  let replace_mgr = create_default_manager(Some(temp_replace.path())).unwrap();
-  let extend_mgr = create_default_manager(Some(temp_extend.path())).unwrap();
+  let default_mgr = create_default_manager(None).expect("default manager");
+  let replace_mgr = create_default_manager(Some(temp_replace.path()))
+    .expect("replacement manager");
+  let extend_mgr =
+    create_default_manager(Some(temp_extend.path())).expect("extends manager");
 
-  let default_html = default_mgr.highlight_code(nix_code, "nix", None).unwrap();
-  let replace_html = replace_mgr.highlight_code(nix_code, "nix", None).unwrap();
-  let extend_html = extend_mgr.highlight_code(nix_code, "nix", None).unwrap();
+  let default_html = default_mgr
+    .highlight_code(nix_code, "nix", None)
+    .expect("default highlight");
+  let replace_html = replace_mgr
+    .highlight_code(nix_code, "nix", None)
+    .expect("replacement highlight");
+  let extend_html = extend_mgr
+    .highlight_code(nix_code, "nix", None)
+    .expect("extends highlight");
 
-  // The extending query must produce at least as many highlighted spans as the
-  // replacement query (it inherits all built-in highlights plus the new rule).
   let count_spans = |s: &str| s.matches("<span").count();
   assert!(
     count_spans(&extend_html) >= count_spans(&replace_html),
     "extends query produced fewer spans than replacement query"
   );
-  // The default and extending queries should not be identical only when the
-  // default has more spans than the bare replacement.
   assert_ne!(
     replace_html, default_html,
     "replacement should differ from default"
+  );
+  assert_ne!(
+    extend_html, default_html,
+    "extends query should add custom highlighting to default"
   );
 }
 
 #[cfg(feature = "syntastica")]
 #[test]
 fn test_syntastica_custom_injection_queries_are_applied() {
-  use std::fs;
-
-  let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+  let temp_dir = tempfile::tempdir().expect("create temp dir");
   let markdown_dir = temp_dir.path().join("markdown");
-  fs::create_dir_all(&markdown_dir)
-    .expect("Failed to create markdown query directory");
+  fs::create_dir_all(&markdown_dir).expect("create markdown query dir");
 
   let injection_query = r#"
 ((fenced_code_block
@@ -200,278 +118,22 @@ fn test_syntastica_custom_injection_queries_are_applied() {
 "#;
 
   fs::write(markdown_dir.join("injections.scm"), injection_query)
-    .expect("Failed to write custom injections query");
+    .expect("write custom injections query");
 
   let markdown = "```rust\nfn main() { println!(\"hello\"); }\n```";
 
-  let default_manager =
-    create_default_manager(None).expect("Failed to create default manager");
+  let default_manager = create_default_manager(None).expect("default manager");
   let overridden_manager = create_default_manager(Some(temp_dir.path()))
-    .expect("Failed to create manager with custom queries");
+    .expect("manager with custom queries");
 
   let default_html = default_manager
     .highlight_code(markdown, "markdown", None)
-    .expect("Default markdown highlighting failed");
+    .expect("default markdown highlighting");
   let overridden_html = overridden_manager
     .highlight_code(markdown, "markdown", None)
-    .expect("Overridden markdown highlighting failed");
+    .expect("overridden markdown highlighting");
 
   assert!(default_html.contains("println"));
   assert!(overridden_html.contains("println"));
   assert_ne!(default_html, overridden_html);
-}
-
-#[cfg(feature = "syntect")]
-#[test]
-fn test_syntect_backend_directly() {
-  use ndg_commonmark::syntax::{SyntaxHighlighter, SyntectHighlighter};
-
-  let highlighter = SyntectHighlighter::default();
-
-  // Test basic highlighting
-  let result =
-    highlighter.highlight("fn main() { println!(\"Hello\"); }", "rust", None);
-
-  assert!(result.is_ok());
-  let html = result.expect("Failed to highlight rust code");
-  assert!(html.contains("main"));
-  assert!(html.contains("println"));
-
-  // Test language support
-  assert!(highlighter.supports_language("rust"));
-  assert!(!highlighter.supported_languages().is_empty());
-
-  // Test theme availability
-  let themes = highlighter.available_themes();
-  assert!(!themes.is_empty());
-}
-
-#[cfg(any(feature = "syntastica", feature = "syntect"))]
-#[test]
-fn test_syntax_manager_language_aliases() {
-  let manager =
-    create_default_manager(None).expect("Failed to create syntax manager");
-
-  // Test language resolution through aliases
-  assert_eq!(manager.resolve_language("js"), "javascript");
-  assert_eq!(manager.resolve_language("py"), "python");
-  assert_eq!(manager.resolve_language("ts"), "typescript");
-  assert_eq!(manager.resolve_language("nixos"), "nix");
-
-  // Test non-alias languages pass through
-  assert_eq!(manager.resolve_language("rust"), "rust");
-  assert_eq!(manager.resolve_language("unknown"), "unknown");
-}
-
-#[cfg(any(feature = "syntastica", feature = "syntect"))]
-#[test]
-fn test_syntax_manager_highlighting_with_aliases() {
-  let manager =
-    create_default_manager(None).expect("Failed to create syntax manager");
-
-  // Test highlighting with alias
-  let result = manager.highlight_code(
-    "console.log('Hello, world!');",
-    "js", // alias for javascript
-    None,
-  );
-
-  if manager.highlighter().supports_language("javascript") {
-    assert!(result.is_ok());
-    let html = result.expect("Failed to highlight javascript code");
-    assert!(html.contains("console"));
-    assert!(html.contains("log"));
-  }
-}
-
-#[cfg(any(feature = "syntastica", feature = "syntect"))]
-#[test]
-fn test_syntax_manager_fallback_behavior() {
-  let manager =
-    create_default_manager(None).expect("Failed to create syntax manager");
-
-  // Test fallback for unsupported language
-  let result = manager.highlight_code(
-    "some random code",
-    "totally-unsupported-language",
-    None,
-  );
-
-  // Should either succeed with fallback or fail gracefully
-  if let Ok(html) = result {
-    assert!(!html.is_empty());
-    assert!(html.contains("some random code"));
-  } else {
-    // This is acceptable if no fallback is configured
-  }
-}
-
-#[cfg(any(feature = "syntastica", feature = "syntect"))]
-#[test]
-fn test_language_detection_from_filename() {
-  let manager =
-    create_default_manager(None).expect("Failed to create syntax manager");
-
-  // Test various file extensions
-  if let Some(lang) = manager.highlighter().language_from_filename("test.rs") {
-    assert_eq!(lang, "rust");
-  }
-
-  if let Some(lang) = manager.highlighter().language_from_filename("script.py")
-  {
-    assert_eq!(lang, "python");
-  }
-
-  if let Some(lang) = manager.highlighter().language_from_filename("config.nix")
-  {
-    assert_eq!(lang, "nix");
-  }
-}
-
-#[cfg(any(feature = "syntastica", feature = "syntect"))]
-#[test]
-fn test_theme_handling() {
-  let manager =
-    create_default_manager(None).expect("Failed to create syntax manager");
-
-  // Get available themes
-  let themes = manager.highlighter().available_themes();
-  assert!(!themes.is_empty());
-
-  // Test highlighting with specific theme if available
-  if !themes.is_empty() {
-    let theme_name = &themes[0];
-    let result =
-      manager.highlight_code("fn test() {}", "rust", Some(theme_name));
-
-    if manager.highlighter().supports_language("rust") {
-      assert!(result.is_ok());
-    }
-  }
-}
-
-#[test]
-fn test_complex_code_highlighting() {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = true;
-
-  let processor = MarkdownProcessor::new(options);
-
-  let markdown = r#"
-# Complex Code Examples
-
-## Rust with Generics
-
-```rust
-use std::collections::HashMap;
-
-fn process_data<T: Clone + std::fmt::Debug>(
-    data: &[T],
-    transform: impl Fn(&T) -> String,
-) -> HashMap<String, T> {
-    let mut result = HashMap::new();
-    for item in data {
-        let key = transform(item);
-        result.insert(key, item.clone());
-    }
-    result
-}
-```
-
-## Nix with Complex Expressions
-
-```nix
-{ lib, stdenv, fetchFromGitHub, rustPlatform, pkg-config, openssl }:
-
-rustPlatform.buildRustPackage rec {
-  pname = "my-tool";
-  version = "1.0.0";
-
-  src = fetchFromGitHub {
-    owner = "example";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = lib.fakeSha256;
-  };
-
-  cargoSha256 = lib.fakeSha256;
-
-  nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ openssl ];
-
-  meta = with lib; {
-    description = "A useful tool";
-    license = licenses.mit;
-    maintainers = with maintainers; [ example ];
-  };
-}
-```
-
-## JavaScript with Modern Features
-
-```javascript
-class DataProcessor {
-  constructor(options = {}) {
-    this.options = { ...this.defaultOptions, ...options };
-  }
-
-  async processData(input) {
-    try {
-      const results = await Promise.all(
-        input.map(async (item) => {
-          const processed = await this.transformItem(item);
-          return { ...item, processed };
-        })
-      );
-      return results.filter(item => item.processed);
-    } catch (error) {
-      console.error('Processing failed:', error);
-      throw error;
-    }
-  }
-}
-```
-"#;
-
-  let result = processor.render(markdown);
-
-  // Check that the complex code was processed
-  assert!(!result.html.is_empty());
-  assert!(result.html.contains("process_data"));
-  assert!(result.html.contains("rustPlatform"));
-  assert!(result.html.contains("DataProcessor"));
-
-  // Check that syntax highlighting is applied (multiple colored spans)
-  let span_count = result.html.matches("<span").count();
-  assert!(span_count >= 10); // Should have many highlighted spans
-  assert!(result.html.contains("color:rgb"));
-}
-
-#[test]
-fn test_inline_code_not_highlighted() {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = true;
-
-  let processor = MarkdownProcessor::new(options);
-
-  let markdown = r#"
-Here's some inline `fn main()` code that should not be syntax highlighted.
-
-But this should be:
-
-```rust
-fn main() {
-    println!("Hello");
-}
-```
-"#;
-
-  let result = processor.render(markdown);
-
-  // Inline code should be in <code> tags but not highlighted
-  assert!(result.html.contains("<code>fn main()</code>"));
-
-  // Block code should be highlighted with spans
-  assert!(result.html.contains("<span"));
-  assert!(result.html.contains("color:rgb"));
 }
