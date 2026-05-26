@@ -14,6 +14,20 @@ rust-version = "1.94.0"
 version      = "2.8.0"
 
 [workspace.dependencies]
+# Workspace members
+ndg           = { path = "./ndg", version = "2.8.0" }
+ndg-config    = { path = "./crates/ndg-config", version = "2.8.0" }
+ndg-html      = { path = "./crates/ndg-html", version = "2.8.0" }
+ndg-macros    = { path = "./crates/ndg-macros", version = "2.8.0" }
+ndg-manpage   = { path = "./crates/ndg-manpage", version = "2.8.0" }
+ndg-nixdoc    = { path = "./crates/ndg-nixdoc", version = "2.8.0" }
+ndg-pdf       = { path = "./crates/ndg-pdf", version = "2.8.0" }
+ndg-templates = { path = "./crates/ndg-templates", version = "2.8.0" }
+ndg-utils     = { path = "./crates/ndg-utils", version = "2.8.0" }
+
+# Library, detached from the CLI tool
+ndg-commonmark = { path = "./ndg-commonmark", version = "2.7.2" }
+
 anyhow = "1.0.102"
 clap = { version = "4.6.1", default-features = false, features = [
   "std",
@@ -76,18 +90,6 @@ syn         = { version = "2.0.117", features = [ "full", "derive" ] }
 
 criterion = { version = "0.8.2", features = [ "html_reports" ] }
 tempfile  = "3.27.0"
-
-# Workspace members
-ndg            = { path = "./ndg", version = "2.7.0" }
-ndg-commonmark = { path = "./ndg-commonmark", version = "2.7.0" }
-ndg-config     = { path = "./crates/ndg-config", version = "2.7.0" }
-ndg-html       = { path = "./crates/ndg-html", version = "2.7.0" }
-ndg-macros     = { path = "./crates/ndg-macros", version = "2.7.0" }
-ndg-manpage    = { path = "./crates/ndg-manpage", version = "2.7.0" }
-ndg-nixdoc     = { path = "./crates/ndg-nixdoc", version = "2.7.0" }
-ndg-pdf        = { path = "./crates/ndg-pdf", version = "2.7.0" }
-ndg-templates  = { path = "./crates/ndg-templates", version = "2.7.0" }
-ndg-utils      = { path = "./crates/ndg-utils", version = "2.7.0" }
 
 # See:
 #  <https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html>
