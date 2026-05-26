@@ -18,9 +18,9 @@ functionality, under the "Removed" section.
 
 This is the NDG changelog, aiming to describe changes that occurred within the
 codebase to the extent that concerns _both users and contributors alike_. As
-`feel-co/ndg` is a repository containing more than one project--i.e., a
-monorepo--this document tracks all notable changes regardless of the affected
-project and the scope.
+`feel-co/ndg` is a repository containing more than one project (i.e., a
+monorepo) and this document tracks all notable changes regardless of the
+affected project and the scope.
 
 NDG strictly adheres to [Semantic Versioning], and the changelog format below is
 a streamlined variant of the [Keep a Changelog] spec. Notable changes are:
@@ -39,9 +39,9 @@ changes.
 
 - The postprocessing test for Javascript now correctly asserts the expected
   format after OXC minifier's codegen changes.
-- Syntastica syntax highlighting now builds language configurations lazily,
-  avoiding expensive all-language initialization when creating a Markdown
-  processor.
+- Syntastica syntax highlighting in ndg-commonmark now builds language
+  configurations lazily, avoiding expensive all-language initialization when
+  creating a Markdown processor.
 - Duplicate style element that caused inconsistencies in the sidebar has been
   removed, the table of contents section in the sidebar now looks more
   consistent in itself.
