@@ -126,28 +126,27 @@ in
       ))
       .optionsJSON;
 
-    ndgConfig =
-      writers.writeTOML "ndg.toml" (mergeAttrsList [
-        {
-          # Core Options
-          inherit title;
-          output_dir = placeholder "out";
-          search.enable = generateSearch;
-          highlight_code = highlightCode;
-          sidebar.options.depth = optionsDepth;
-          module_options = "${configJSON}/share/doc/nixos/options.json"; # TODO: check if there are options
-        }
-        (optionalAttrs (inputDir != null) { input_dir = inputDir; })
-        (optionalAttrs (manpageUrls != null) { manpage_urls_path = manpageUrls; })
-        (optionalAttrs (stylesheets != []) { stylesheet_paths = stylesheets; })
-        (optionalAttrs (scripts != []) { script_paths = scripts; })
-        (optionalAttrs (extraConfig != {}) extraConfig)
-      ]);
+    ndgConfig = writers.writeTOML "ndg.toml" (mergeAttrsList [
+      {
+        # Core Options
+        inherit title;
+        output_dir = placeholder "out";
+        search.enable = generateSearch;
+        highlight_code = highlightCode;
+        sidebar.options.depth = optionsDepth;
+        module_options = "${configJSON}/share/doc/nixos/options.json"; # TODO: check if there are options
+      }
+      (optionalAttrs (inputDir != null) {input_dir = inputDir;})
+      (optionalAttrs (manpageUrls != null) {manpage_urls_path = manpageUrls;})
+      (optionalAttrs (stylesheets != []) {stylesheet_paths = stylesheets;})
+      (optionalAttrs (scripts != []) {script_paths = scripts;})
+      (optionalAttrs (extraConfig != {}) extraConfig)
+    ]);
   in
     runCommandLocal "ndg-builder" {
       nativeBuildInputs = [ndg];
       meta = {inherit description;};
     } ''
-        ndg --config-file "${ndgConfig}" ${optionalString verbose "--verbose"} html \
-          --jobs $NIX_BUILD_CORES --output-dir "$out"
-      ''
+      ndg --config-file "${ndgConfig}" ${optionalString verbose "--verbose"} html \
+        --jobs $NIX_BUILD_CORES --output-dir "$out"
+    ''
