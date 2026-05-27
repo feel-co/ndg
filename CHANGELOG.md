@@ -33,6 +33,26 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
+## [2.8.2]
+
+### Fixed
+
+- Search web worker was dead code and never invoked; it is now properly wired
+  into the search path with an abort-safe fallback to main-thread search when
+  the worker is unavailable.
+- Search worker `postMessage` contract mismatch caused documents to not be
+  transmitted to the worker, silently falling back to an empty result set.
+- Search ranking: fuzzy content scoring on long option strings produced spurious
+  subsequence matches that pushed irrelevant option pages above title-matched
+  results. A `>= 0.8` score gate and a literal-token pre-filter now prevent
+  options without the search term from scoring at all.
+- Search input width now matches the results container (350 px; was 300 px),
+  eliminating the misaligned dropdown appearance on expand.
+- The "On this page" table of contents now correctly highlights the first
+  occurrence of a heading when multiple headings share the same text. Previously
+  a `Map` keyed on heading ID caused the second TOC entry to overwrite the
+  first, so the widget always tracked the wrong section.
+
 ## [2.8.1]
 
 ### Fixes
@@ -449,7 +469,8 @@ documentation using the old hyphen-based format will need to be updated**.
 - Prevented panic in theme name fallback logic in ndg-commonmark
 - Prevented panic on empty fence character extraction in ndg-commonmark
 
-[Unreleased]: https://github.com/feel-co/ndg/compare/v2.8.1...HEAD
+[Unreleased]: https://github.com/feel-co/ndg/compare/v2.8.2...HEAD
+[2.8.2]: https://github.com/feel-co/ndg/compare/v2.8.1...v2.8.2
 [2.8.1]: https://github.com/feel-co/ndg/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/feel-co/ndg/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/feel-co/ndg/compare/v2.6.0...v2.7.0
