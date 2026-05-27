@@ -72,11 +72,11 @@ kuchikikiki   = "0.12.0"
 lightningcss  = { version = "1.0.0-alpha.71", default-features = false }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.132.0"
-oxc_codegen   = "0.132.0"
-oxc_minifier  = "0.132.0"
-oxc_parser    = "0.132.0"
-oxc_span      = "0.132.0"
+oxc_allocator = "0.133.0"
+oxc_codegen   = "0.133.0"
+oxc_minifier  = "0.133.0"
+oxc_parser    = "0.133.0"
+oxc_span      = "0.133.0"
 printpdf      = "0.9.1"
 
 

@@ -211,6 +211,18 @@ unless you have a weird linter setup.
 > panic. `expect()` is somewhat decent at providing information, and should be
 > preferred over `unwrap()` or `panic!`.
 
+The test suite can be ran in full using the `cargo nt` alias:
+
+```bash
+# Run all tests, for all crates
+$ cargo nt
+
+# Alternatively, you can run tests for a specific crate
+$ cargo nextest run -p <crate>
+```
+
+New additions must have appropriate test cases.
+
 #### Usage without flakes
 
 You may interact with our Nix tooling even if you don't want to use Nix flakes.
