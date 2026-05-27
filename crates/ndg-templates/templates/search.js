@@ -46,14 +46,12 @@ class SearchEngine {
       ];
 
       let response = null;
-      let usedPath = "";
 
       for (const path of possiblePaths) {
         try {
           const testResponse = await fetch(path);
           if (testResponse.ok) {
             response = testResponse;
-            usedPath = path;
             break;
           }
         } catch {
@@ -383,6 +381,17 @@ class SearchEngine {
       return [];
     }
 
+    if (this.useWebWorker) {
+      if (options.signal?.aborted) return [];
+      try {
+        const results = await this.searchWithWorker(query, limit);
+        if (options.signal?.aborted) return [];
+        return results;
+      } catch {
+        // Worker failed; fall through to main-thread search
+      }
+    }
+
     const searchTerms = this.tokenize(query);
     const rawQuery = query.toLowerCase();
 
@@ -441,14 +450,16 @@ class SearchEngine {
 
       if (useFuzzySearch) {
         const fuzzyTitleScore = this.fuzzyMatch(rawQuery, lowerTitle);
-
         if (fuzzyTitleScore !== null) {
           match.pageScore += fuzzyTitleScore * this.config.boostTitle;
         }
 
         const fuzzyContentScore = this.fuzzyMatch(rawQuery, lowerContent);
-
-        if (fuzzyContentScore !== null) {
+        // Only apply fuzzy content scoring when the match is strong enough to
+        // indicate the term is actually present as a word, not just as scattered
+        // letters in a long description. The fuzzyMatch fast-path returns >= 0.8
+        // for substring matches, so this threshold filters out subsequence noise.
+        if (fuzzyContentScore !== null && fuzzyContentScore >= 0.8) {
           match.pageScore += fuzzyContentScore * this.config.boostContent;
         }
       }
@@ -461,7 +472,7 @@ class SearchEngine {
               : this.config.boostTitle / 10;
         }
         if (lowerContent.includes(term)) {
-          match.pageScore += this.config.boostContent / 15;
+          match.pageScore += this.config.boostContent / 5;
         }
       });
     }
@@ -718,8 +729,7 @@ class SearchEngine {
       worker.postMessage({
         messageId,
         type: "search",
-        data: { query, limit },
-        documents: this.documents,
+        data: { query, limit, documents: this.documents },
       });
     });
   }

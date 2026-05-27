@@ -22,7 +22,7 @@
 !/.gitignore
 !/.github
 !/.editorconfig
-!/deno.json
+!/deno.jsonc
 !/deno.lock
 
 # Nix
@@ -37,3 +37,4 @@
 !/README.md
 !/LICENSE
 !/CHANGELOG.md
+!/Justfile
