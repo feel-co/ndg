@@ -3,8 +3,9 @@ pkgs.mkShell {
   name = "ndg-devshell";
   packages = [
     pkgs.taplo # TOML formatter
+    pkgs.just # command runner
 
-    # Build tool
+    # Build tools
     pkgs.cargo
     pkgs.rustc
     pkgs.clang

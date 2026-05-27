@@ -216,8 +216,13 @@ self.onmessage = function (e) {
         };
       });
 
-      // First pass: Score pages with fuzzy matching
+      // First pass, only docs containing at least one search term
       processedDocs.forEach(({ docId, doc, lowerTitle, lowerContent }) => {
+        const hasRelevantToken = searchTerms.some(
+          (term) => lowerTitle.includes(term) || lowerContent.includes(term),
+        );
+        if (!hasRelevantToken) return;
+
         let match = pageMatches.get(docId);
         if (!match) {
           match = { doc, pageScore: 0, matchingAnchors: [] };
@@ -231,7 +236,7 @@ self.onmessage = function (e) {
           }
 
           const fuzzyContentScore = fuzzyMatch(rawQuery, lowerContent);
-          if (fuzzyContentScore !== null) {
+          if (fuzzyContentScore !== null && fuzzyContentScore >= 0.8) {
             match.pageScore += fuzzyContentScore * 30;
           }
         }
@@ -242,7 +247,7 @@ self.onmessage = function (e) {
             match.pageScore += lowerTitle === term ? 20 : 10;
           }
           if (lowerContent.includes(term)) {
-            match.pageScore += 2;
+            match.pageScore += 6;
           }
         });
       });

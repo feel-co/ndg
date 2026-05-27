@@ -786,7 +786,7 @@ img {
 .search-container.has-results #search-input {
   outline: none;
   background-color: rgba(255, 255, 255, 0.15);
-  width: 300px;
+  width: 350px;
 }
 
 .search-results {
