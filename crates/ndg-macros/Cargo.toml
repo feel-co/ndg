@@ -1,12 +1,15 @@
 [package]
 name                   = "ndg-macros"
-version.workspace      = true
-edition.workspace      = true
-rust-version.workspace = true
-authors.workspace      = true
-license.workspace      = true
 description            = "Proc-macros for NDG "
+categories.workspace   = true
+edition.workspace      = true
+keywords.workspace     = true
+license.workspace      = true
+readme.workspace       = true
 repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+publish                = false
 
 [lib]
 proc-macro = true

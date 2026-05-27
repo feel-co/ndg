@@ -1,8 +1,7 @@
 [package]
 name              = "xtask"
 description       = "Build and development tasks for ndg"
-authors.workspace = true
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 

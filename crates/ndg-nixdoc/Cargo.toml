@@ -1,11 +1,15 @@
 [package]
-authors.workspace      = true
-edition.workspace      = true
-license.workspace      = true
 name                   = "ndg-nixdoc"
-publish                = false
+description            = "RFC145 nixdoc parser component for NDG"
+categories.workspace   = true
+edition.workspace      = true
+keywords.workspace     = true
+license.workspace      = true
+readme.workspace       = true
+repository.workspace   = true
 rust-version.workspace = true
 version.workspace      = true
+publish                = false
 
 [dependencies]
 log.workspace       = true

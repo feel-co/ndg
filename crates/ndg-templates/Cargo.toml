@@ -1,9 +1,6 @@
 [package]
-name        = "ndg-templates"
-description = "Embedded templates for NDG"
-publish     = false
-
-authors.workspace      = true
+name                   = "ndg-templates"
+description            = "Embedded templates for NDG"
 categories.workspace   = true
 edition.workspace      = true
 keywords.workspace     = true
@@ -12,6 +9,7 @@ readme.workspace       = true
 repository.workspace   = true
 rust-version.workspace = true
 version.workspace      = true
+publish                = false
 
 [lints]
 workspace = true

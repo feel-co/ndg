@@ -1,9 +1,6 @@
 [package]
-name        = "ndg-html"
-description = "HTML output generation for NDG"
-publish     = false
-
-authors.workspace      = true
+name                   = "ndg-html"
+description            = "HTML output generation for NDG"
 categories.workspace   = true
 edition.workspace      = true
 keywords.workspace     = true
@@ -12,6 +9,7 @@ readme.workspace       = true
 repository.workspace   = true
 rust-version.workspace = true
 version.workspace      = true
+publish                = false
 
 [lints]
 workspace = true
@@ -25,9 +23,9 @@ ndg-templates.workspace  = true
 ndg-utils.workspace      = true
 
 color-eyre.workspace  = true
-indexmap.workspace    = true
 grass.workspace       = true
 html-escape.workspace = true
+indexmap.workspace    = true
 log.workspace         = true
 rayon.workspace       = true
 regex.workspace       = true

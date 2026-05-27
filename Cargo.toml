@@ -1,17 +1,17 @@
 [workspace]
-members  = [ "ndg", "ndg-commonmark", "crates/*" ]
-resolver = "3"
+default-members = [ "ndg" ]
+members         = [ "ndg", "ndg-commonmark", "crates/ndg-*", "crates/xtask" ]
+resolver        = "3"
 
 [workspace.package]
-authors      = [ "NotAShelf <raf@notashelf.dev>" ]
-categories   = [ "text-processing" ]
-edition      = "2024"
-keywords     = [ "markdown", "nix", "nixpkgs", "nixos", "documentation" ]
 license      = "MPL-2.0"
-readme       = true
-repository   = "https://github.com/feel-co/ndg"
 rust-version = "1.94.0"
 version      = "2.8.1"
+edition      = "2024"
+repository   = "https://github.com/feel-co/ndg"
+categories   = [ "text-processing" ]
+keywords     = [ "markdown", "nix", "nixpkgs", "nixos", "documentation" ]
+readme       = true
 
 [workspace.dependencies]
 # Workspace members
