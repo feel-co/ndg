@@ -1045,9 +1045,7 @@ function initializeSearchWorker() {
 
   try {
     const rootPath = window.searchNamespace?.rootPath || "";
-    const workerPath = rootPath
-      ? `${rootPath}assets/search-worker.js`
-      : "/assets/search-worker.js";
+    const workerPath = `${rootPath}assets/search-worker.js`;
     searchWorker = new Worker(workerPath);
     return searchWorker;
   } catch (error) {

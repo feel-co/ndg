@@ -1,7 +1,13 @@
 // Mock browser globals before loading search.js
 globalThis.window = globalThis;
 globalThis.window.searchNamespace = { rootPath: "" };
-globalThis.Worker = undefined; // force main-thread path in all tests
+let workerPath = null;
+globalThis.Worker = class {
+  constructor(path) {
+    workerPath = path;
+    throw new Error("stop after capturing worker path");
+  }
+};
 globalThis.document = {
   addEventListener: (_event, _handler) => {},
   getElementById: (_id) => null,
@@ -10,6 +16,20 @@ globalThis.document = {
 await import("./search.js");
 
 const engine = globalThis.window.searchNamespace.engine;
+
+Deno.test("worker path stays relative for root pages", () => {
+  globalThis.window.searchNamespace.rootPath = "";
+  workerPath = null;
+  const warn = console.warn;
+  console.warn = () => {};
+
+  try {
+    assertEquals(engine.useWebWorker, false);
+    assertEquals(workerPath, "assets/search-worker.js");
+  } finally {
+    console.warn = warn;
+  }
+});
 
 /**
  * Loads a fresh set of documents into the engine and marks it ready.
