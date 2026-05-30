@@ -858,6 +858,92 @@ This is a standalone page.
 }
 
 #[test]
+fn html_into_file_include_is_split_from_parent_and_added_to_sidebar() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let input_dir = temp_dir.path();
+  let output_dir = temp_dir.path().join("output");
+  let included_dir = input_dir.join("included");
+
+  fs::create_dir_all(&included_dir).expect("Failed to create included dir");
+  fs::create_dir_all(&output_dir).expect("Failed to create output dir");
+
+  let main_content = "# Main Document
+
+Before split include.
+
+```{=include=} appendix html:into-file=//split.html
+included/split.md
+```
+
+After split include.
+";
+  fs::write(input_dir.join("main.md"), main_content)
+    .expect("Failed to write main.md");
+
+  let split_content = "# Split Page
+
+This content should be rendered only in split.html.
+";
+  fs::write(included_dir.join("split.md"), split_content)
+    .expect("Failed to write included/split.md");
+
+  let mut config = Config {
+    title: "Test Site".to_string(),
+    footer_text: "Footer".to_string(),
+    input_dir: Some(input_dir.to_path_buf()),
+    output_dir: output_dir.clone(),
+    highlight_code: false,
+    search: Some(ndg_config::search::SearchConfig {
+      enable: false,
+      ..Default::default()
+    }),
+    ..Default::default()
+  };
+
+  let processor = ndg_utils::markdown::create_processor(&config, None);
+  let processed =
+    ndg_utils::process_markdown_files(&mut config, Some(&processor))
+      .expect("Failed to process markdown files");
+
+  let main = processed
+    .iter()
+    .find(|item| item.output_path == "main.html")
+    .expect("main.html should be generated");
+  assert!(
+    !main.html_content.contains("Split Page"),
+    "html:into-file content should not be appended to the parent page"
+  );
+
+  let split = processed
+    .iter()
+    .find(|item| item.output_path == "split.html")
+    .expect("split.html should be generated");
+  assert!(
+    !split.is_included,
+    "split output should be rendered as a page"
+  );
+  assert!(
+    split.html_content.contains("Split Page"),
+    "split output should contain the included document content"
+  );
+
+  let html = template::render(
+    &config,
+    &main.html_content,
+    main.title.as_deref().unwrap_or(&config.title),
+    &main.headers,
+    Path::new(&main.output_path),
+    main.frontmatter.as_ref(),
+  )
+  .expect("Failed to render main page");
+
+  assert!(
+    html.contains("split.html") && html.contains("Split Page"),
+    "html:into-file output should appear in sidebar navigation. Got:\n{html}"
+  );
+}
+
+#[test]
 fn render_page_exposes_user_defined_vars() {
   let mut config = minimal_config();
   config

@@ -168,12 +168,12 @@ mod tests {
   fn processed(output_path: &str) -> utils::markdown::ProcessedMarkdown {
     utils::markdown::ProcessedMarkdown {
       html_content: String::new(),
-      headers: Vec::new(),
-      title: None,
-      source_path: PathBuf::from("source.md"),
-      output_path: output_path.to_string(),
-      is_included: false,
-      frontmatter: None,
+      headers:      Vec::new(),
+      title:        None,
+      source_path:  PathBuf::from("source.md"),
+      output_path:  output_path.to_string(),
+      is_included:  false,
+      frontmatter:  None,
     }
   }
 

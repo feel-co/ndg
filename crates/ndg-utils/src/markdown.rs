@@ -164,6 +164,9 @@ pub fn process_markdown_files(
     let mut pending_custom_outputs: HashMap<PathBuf, Vec<String>> =
       HashMap::new();
 
+    // Track generated output paths for included files with html:into-file.
+    let mut included_output_files: HashMap<PathBuf, PathBuf> = HashMap::new();
+
     // Track all included files across all markdown files
     let mut all_included_files: HashMap<PathBuf, PathBuf> = HashMap::new();
 
@@ -222,10 +225,13 @@ pub fn process_markdown_files(
         if let Some(ref custom_output) = inc.custom_output {
           let inc_path = base_dir.join(&inc.path);
           if let Ok(inc_rel) = inc_path.strip_prefix(input_dir) {
+            let normalized_output = normalize_custom_output_path(custom_output);
             pending_custom_outputs
               .entry(inc_rel.to_path_buf())
               .or_default()
-              .push(custom_output.clone());
+              .push(normalized_output.to_string_lossy().to_string());
+            included_output_files
+              .insert(inc_rel.to_path_buf(), normalized_output);
           }
         }
       }
@@ -333,6 +339,9 @@ pub fn process_markdown_files(
 
     // Populate config.included_files so caller can use it
     config.included_files.clone_from(&all_included_files);
+    config
+      .included_output_files
+      .clone_from(&included_output_files);
 
     // Convert output_map to Vec<ProcessedMarkdown>
     let mut results: Vec<ProcessedMarkdown> = output_map
@@ -363,6 +372,10 @@ pub fn process_markdown_files(
     info!("No input directory provided, skipping markdown processing");
     Ok(Vec::new())
   }
+}
+
+fn normalize_custom_output_path(path: &str) -> PathBuf {
+  PathBuf::from(path.trim_start_matches('/'))
 }
 
 /// Creates a markdown processor from the NDG configuration.

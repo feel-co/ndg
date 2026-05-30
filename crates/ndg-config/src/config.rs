@@ -132,8 +132,12 @@ pub struct Config {
   /// Files that are included via {=include=}, mapped to their parent input
   /// files
   #[serde(skip)]
-  pub included_files:
-    std::collections::HashMap<std::path::PathBuf, std::path::PathBuf>,
+  pub included_files: HashMap<PathBuf, PathBuf>,
+
+  /// Included files rendered to explicit output files via `html:into-file`,
+  /// mapped from source path to generated output path.
+  #[serde(skip)]
+  pub included_output_files: HashMap<PathBuf, PathBuf>,
 
   /// How to handle hard tabs in code blocks.
   #[config(key = "tab_style")]
@@ -203,37 +207,38 @@ impl Default for Config {
   #[allow(deprecated)]
   fn default() -> Self {
     Self {
-      input_dir:           None,
-      output_dir:          PathBuf::from(DEFAULT_OUTPUT_DIR),
-      module_options:      None,
-      template_path:       None,
-      template_dir:        None,
-      stylesheet_paths:    Vec::new(),
-      script_paths:        Vec::new(),
-      assets_dir:          None,
-      assets:              None,
-      manpage_urls_path:   None,
-      syntax_queries_path: None,
-      title:               DEFAULT_TITLE.to_string(),
-      jobs:                None,
-      generate_anchors:    true,
-      generate_search:     true,
-      search:              None,
-      footer_text:         DEFAULT_FOOTER_TEXT.to_string(),
-      options_toc_depth:   2,
-      highlight_code:      true,
-      revision:            DEFAULT_REVISION.to_string(),
-      included_files:      std::collections::HashMap::new(),
-      tab_style:           DEFAULT_TAB_STYLE.to_string(),
-      meta:                None,
-      sidebar:             None,
-      postprocess:         None,
-      anchor:              None,
-      nixdoc_inputs:       Vec::new(),
-      index:               None,
-      vars:                HashMap::new(),
-      opengraph:           None,
-      meta_tags:           None,
+      input_dir:             None,
+      output_dir:            PathBuf::from(DEFAULT_OUTPUT_DIR),
+      module_options:        None,
+      template_path:         None,
+      template_dir:          None,
+      stylesheet_paths:      Vec::new(),
+      script_paths:          Vec::new(),
+      assets_dir:            None,
+      assets:                None,
+      manpage_urls_path:     None,
+      syntax_queries_path:   None,
+      title:                 DEFAULT_TITLE.to_string(),
+      jobs:                  None,
+      generate_anchors:      true,
+      generate_search:       true,
+      search:                None,
+      footer_text:           DEFAULT_FOOTER_TEXT.to_string(),
+      options_toc_depth:     2,
+      highlight_code:        true,
+      revision:              DEFAULT_REVISION.to_string(),
+      included_files:        HashMap::new(),
+      included_output_files: HashMap::new(),
+      tab_style:             DEFAULT_TAB_STYLE.to_string(),
+      meta:                  None,
+      sidebar:               None,
+      postprocess:           None,
+      anchor:                None,
+      nixdoc_inputs:         Vec::new(),
+      index:                 None,
+      vars:                  HashMap::new(),
+      opengraph:             None,
+      meta_tags:             None,
     }
   }
 }

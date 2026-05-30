@@ -1253,10 +1253,11 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           return false;
         }
 
-        // Filter out excluded files (included files)
-        e.path()
-          .strip_prefix(input_dir)
-          .is_ok_and(|rel_path| !config.included_files.contains_key(rel_path))
+        // Filter out included fragments unless they produce their own page.
+        e.path().strip_prefix(input_dir).is_ok_and(|rel_path| {
+          !config.included_files.contains_key(rel_path)
+            || config.included_output_files.contains_key(rel_path)
+        })
       })
       .collect();
 
@@ -1287,8 +1288,15 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         .filter_map(|entry| {
           let path = entry.path();
           let rel_doc_path = path.strip_prefix(input_dir).ok()?;
-          let mut html_path = rel_doc_path.to_path_buf();
-          html_path.set_extension("html");
+          let html_path = config
+            .included_output_files
+            .get(rel_doc_path)
+            .cloned()
+            .unwrap_or_else(|| {
+              let mut html_path = rel_doc_path.to_path_buf();
+              html_path.set_extension("html");
+              html_path
+            });
 
           let target_path =
             format!("{}{}", root_prefix, html_path.to_string_lossy());
@@ -1319,7 +1327,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           Some(NavItem {
             path: target_path,
             title: display_title,
-            rel_dir: rel_doc_path
+            rel_dir: html_path
               .parent()
               .and_then(|p| p.to_str())
               .unwrap_or("")
@@ -1370,8 +1378,15 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
         .filter_map(|entry| {
           let path = entry.path();
           let rel_doc_path = path.strip_prefix(input_dir).ok()?;
-          let mut html_path = rel_doc_path.to_path_buf();
-          html_path.set_extension("html");
+          let html_path = config
+            .included_output_files
+            .get(rel_doc_path)
+            .cloned()
+            .unwrap_or_else(|| {
+              let mut html_path = rel_doc_path.to_path_buf();
+              html_path.set_extension("html");
+              html_path
+            });
 
           let target_path =
             format!("{}{}", root_prefix, html_path.to_string_lossy());
@@ -1398,7 +1413,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
           Some(NavItem {
             path:     target_path,
             title:    display_title,
-            rel_dir:  rel_doc_path
+            rel_dir:  html_path
               .parent()
               .and_then(|p| p.to_str())
               .unwrap_or("")
