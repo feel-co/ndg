@@ -49,12 +49,11 @@ const MAX_INCLUDE_DEPTH: usize = 8;
 /// Internal sentinel inserted between included files before block processing.
 const INCLUDE_BOUNDARY_MARKER: &str = "<!-- ndg:include-boundary -->";
 
-/// Check if a path is safe for file inclusion (no absolute paths, no parent
-/// directory traversal).
+/// Check if a path is safe for file inclusion (no parent directory traversal).
 #[cfg(feature = "nixpkgs")]
 fn is_safe_path(path: &str, _base_dir: &Path) -> bool {
   let p = Path::new(path);
-  if p.is_absolute() || path.contains('\\') {
+  if path.contains('\\') {
     return false;
   }
 

@@ -1215,6 +1215,37 @@ path/to/file2.md
 }
 
 #[test]
+fn test_absolute_file_include_is_processed() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().expect("create temp dir");
+  let included = dir.path().join("generated.md");
+  fs::write(&included, "# Generated\n\nContent from generated file.")
+    .expect("write generated include");
+
+  let md = format!("```{{=include=}}\n{}\n```", included.display());
+  let options = ndg_commonmark::MarkdownOptions {
+    nixpkgs: true,
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor =
+    ndg_commonmark::MarkdownProcessor::new(options).with_base_dir(dir.path());
+  let html = processor.render(&md).html;
+
+  assert!(
+    html.contains("Generated") && html.contains("Content from generated file."),
+    "absolute include path should be rendered. Got:\n{html}"
+  );
+  assert!(
+    !html.contains("could not include file"),
+    "absolute include path should not be rejected. Got:\n{html}"
+  );
+}
+
+#[test]
 fn test_unclosed_admonition_in_include_stops_at_file_boundary() {
   use std::fs;
 
