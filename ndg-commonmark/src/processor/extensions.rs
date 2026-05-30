@@ -945,23 +945,36 @@ fn parse_fenced_admonition_start(
   }
 
   let after_colons = trimmed[3..].trim_start();
-  if !after_colons.starts_with("{.") {
+  if !after_colons.starts_with('{') {
     return None;
   }
 
   // Find the closing brace
   if let Some(close_brace) = after_colons.find('}') {
-    let content = &after_colons[2..close_brace]; // skip "{."
+    let content = &after_colons[1..close_brace]; // skip "{"
 
-    // Parse type and optional ID
-    let parts: Vec<&str> = content.split_whitespace().collect();
-    if let Some(&adm_type) = parts.first() {
-      let id = parts
-        .iter()
-        .find(|part| part.starts_with('#'))
-        .map(|id_part| id_part[1..].to_string()); // remove '#'
+    // Parse type and optional ID. Attribute lists allow either order:
+    // `{.warning #id}` and `{#id .warning}` are equivalent.
+    let mut first_class = None;
+    let mut adm_type = None;
+    let mut id = None;
+    for part in content.split_whitespace() {
+      if let Some(value) = part.strip_prefix('.') {
+        let value = value.to_ascii_lowercase();
+        first_class.get_or_insert_with(|| value.clone());
+        if matches!(
+          value.as_str(),
+          "note" | "tip" | "important" | "warning" | "caution" | "danger"
+        ) {
+          adm_type.get_or_insert(value);
+        }
+      } else if let Some(value) = part.strip_prefix('#') {
+        id.get_or_insert_with(|| value.to_string());
+      }
+    }
 
-      return Some((adm_type.to_string(), id));
+    if let Some(adm_type) = adm_type.or(first_class) {
+      return Some((adm_type, id));
     }
   }
 

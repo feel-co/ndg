@@ -58,6 +58,30 @@ fn test_admonition_note() {
 }
 
 #[test]
+fn test_admonition_attribute_order_id_before_class() {
+  let md = "::: {#important-warning .warning}\nWatch out.\n:::";
+  let html = ndg_html(md);
+
+  assert_html_contains(&html, &[
+    r#"<div class="admonition warning" id="important-warning">"#,
+    r#"<p class="admonition-title">Warning</p>"#,
+    "Watch out.",
+  ]);
+}
+
+#[test]
+fn test_admonition_prefers_known_type_in_multiple_classes() {
+  let md = "::: {.admonition .warning #important-warning}\nWatch out.\n:::";
+  let html = ndg_html(md);
+
+  assert_html_contains(&html, &[
+    r#"<div class="admonition warning" id="important-warning">"#,
+    r#"<p class="admonition-title">Warning</p>"#,
+    "Watch out.",
+  ]);
+}
+
+#[test]
 fn test_indented_admonition_stays_inside_list_item() {
   let md = "1. First item
 
