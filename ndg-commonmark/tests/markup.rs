@@ -1160,6 +1160,52 @@ path/to/file2.md
 }
 
 #[test]
+fn test_unclosed_admonition_in_include_stops_at_file_boundary() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().expect("create temp dir");
+  fs::write(
+    dir.path().join("first.md"),
+    "# First\n\n::: {.warning}\nThis warning is not closed.\n",
+  )
+  .expect("write first include");
+  fs::write(
+    dir.path().join("second.md"),
+    "# Second\n\nThis must not be inside the warning.\n",
+  )
+  .expect("write second include");
+
+  let md = "```{=include=}\nfirst.md\nsecond.md\n```";
+  let options = ndg_commonmark::MarkdownOptions {
+    nixpkgs: true,
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor =
+    ndg_commonmark::MarkdownProcessor::new(options).with_base_dir(dir.path());
+  let html = processor.render(md).html;
+
+  let second_heading = html
+    .find("<h1 id=\"second\">Second</h1>")
+    .expect("second include should render as a separate heading");
+  let warning_close = html
+    .find("</div>\n<h1 id=\"second\">Second</h1>")
+    .expect("admonition should close before the next included file");
+
+  assert!(
+    warning_close < second_heading,
+    "unclosed admonition should be limited to its include file. Got:\n{html}"
+  );
+  assert!(
+    !html.contains("ndg:include-boundary"),
+    "internal include boundary marker should not leak into output. \
+     Got:\n{html}"
+  );
+}
+
+#[test]
 fn test_simple_nested_file_includes() {
   // Test simple case with file includes inside code blocks
   let md = r"````

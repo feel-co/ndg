@@ -46,6 +46,9 @@ pub fn apply_gfm_extensions(markdown: &str) -> String {
 /// Maximum recursion depth for file includes to prevent infinite recursion.
 const MAX_INCLUDE_DEPTH: usize = 8;
 
+/// Internal sentinel inserted between included files before block processing.
+const INCLUDE_BOUNDARY_MARKER: &str = "<!-- ndg:include-boundary -->";
+
 /// Check if a path is safe for file inclusion (no absolute paths, no parent
 /// directory traversal).
 #[cfg(feature = "nixpkgs")]
@@ -113,8 +116,12 @@ fn read_includes(
         let (processed_content, nested_includes) =
           process_file_includes(&content, file_dir, depth + 1)?;
 
-        result.push_str(&processed_content);
-        if !processed_content.ends_with('\n') {
+        if custom_output.is_none() {
+          result.push_str(&processed_content);
+          if !processed_content.ends_with('\n') {
+            result.push('\n');
+          }
+          result.push_str(INCLUDE_BOUNDARY_MARKER);
           result.push('\n');
         }
 
@@ -196,6 +203,10 @@ pub fn process_file_includes(
   let mut all_included_files: Vec<crate::types::IncludedFile> = Vec::new();
 
   while let Some(line) = lines.next() {
+    if line.trim() == INCLUDE_BOUNDARY_MARKER {
+      continue;
+    }
+
     let trimmed = line.trim_start();
 
     if !fence_tracker.in_code_block() && trimmed.starts_with("```{=include=}") {
@@ -753,6 +764,10 @@ pub fn process_block_elements(content: &str) -> String {
   let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
 
   while let Some(line) = lines.next() {
+    if line.trim() == INCLUDE_BOUNDARY_MARKER {
+      continue;
+    }
+
     // Update fence tracking state
     fence_tracker = fence_tracker.process_line(line);
 
@@ -963,6 +978,10 @@ fn collect_fenced_content(
 
   for line in lines.by_ref() {
     let trimmed = line.trim();
+    if trimmed == INCLUDE_BOUNDARY_MARKER {
+      return (content.trim().to_string(), None);
+    }
+
     if trimmed.starts_with(":::") {
       // check if there's content after the closing :::
       let after_colons = trimmed.strip_prefix(":::").unwrap_or("");
@@ -1029,7 +1048,8 @@ fn parse_figure_block(
   // Collect figure content
   let mut content = String::new();
   for line in lines.by_ref() {
-    if line.trim().starts_with(":::") {
+    let trimmed = line.trim();
+    if trimmed == INCLUDE_BOUNDARY_MARKER || trimmed.starts_with(":::") {
       break;
     }
     content.push_str(line);
