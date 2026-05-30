@@ -483,9 +483,17 @@ pub fn process_myst_autolinks(content: &str) -> String {
 fn process_line_myst_autolinks(line: &str) -> String {
   let mut result = String::with_capacity(line.len());
   let mut chars = line.chars().peekable();
+  let mut tracker = crate::utils::codeblock::InlineTracker::new();
 
   while let Some(ch) = chars.next() {
-    if ch == '[' && chars.peek() == Some(&']') {
+    if ch == '`' {
+      let (new_tracker, tick_count) = tracker.process_backticks(&mut chars);
+      tracker = new_tracker;
+      result.push_str(&"`".repeat(tick_count));
+      continue;
+    }
+
+    if ch == '[' && chars.peek() == Some(&']') && !tracker.in_any_code() {
       chars.next(); // consume ']'
 
       // Check if this is []{#...} syntax (inline anchor, not autolink)
@@ -656,9 +664,17 @@ fn process_list_item_anchor(line: &str, anchor_start: usize) -> Option<String> {
 fn process_line_anchors(line: &str) -> String {
   let mut result = String::with_capacity(line.len());
   let mut chars = line.chars().peekable();
+  let mut tracker = crate::utils::codeblock::InlineTracker::new();
 
   while let Some(ch) = chars.next() {
-    if ch == '[' && chars.peek() == Some(&']') {
+    if ch == '`' {
+      let (new_tracker, tick_count) = tracker.process_backticks(&mut chars);
+      tracker = new_tracker;
+      result.push_str(&"`".repeat(tick_count));
+      continue;
+    }
+
+    if ch == '[' && chars.peek() == Some(&']') && !tracker.in_any_code() {
       chars.next(); // consume ']'
 
       // Check for {#id} pattern

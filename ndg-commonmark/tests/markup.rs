@@ -1206,6 +1206,21 @@ Also check https://example.com/test
 }
 
 #[test]
+fn test_myst_autolinks_not_processed_in_inline_code() {
+  let md = r"Use `[](#opt-services-nginx-enable)` literally.";
+  let html = ndg_html(md);
+
+  assert!(
+    html.contains(r"<code>[](#opt-services-nginx-enable)</code>"),
+    "MyST autolinks should be preserved inside inline code. Got:\n{html}"
+  );
+  assert!(
+    !html.contains(r#"<a href="options.html#opt-services-nginx-enable""#),
+    "Inline code should not be converted to an option link. Got:\n{html}"
+  );
+}
+
+#[test]
 #[should_panic(expected = "Maximum include recursion depth")]
 fn test_file_include_recursion_depth_limit() {
   use std::fs;
