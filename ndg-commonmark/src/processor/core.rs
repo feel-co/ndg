@@ -385,7 +385,8 @@ impl MarkdownProcessor {
         },
       };
     let with_blocks = super::extensions::process_block_elements(&with_includes);
-    let processed = super::extensions::process_inline_anchors(&with_blocks);
+    let with_spans = super::extensions::process_bracketed_spans(&with_blocks);
+    let processed = super::extensions::process_inline_anchors(&with_spans);
     (processed, included_files)
   }
 

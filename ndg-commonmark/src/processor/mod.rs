@@ -38,6 +38,7 @@ pub use extensions::process_wikilinks;
 #[cfg(feature = "nixpkgs")]
 pub use extensions::{
   process_block_elements,
+  process_bracketed_spans,
   process_file_includes,
   process_inline_anchors,
 };

@@ -100,6 +100,7 @@ pub use crate::processor::apply_gfm_extensions;
 #[cfg(feature = "nixpkgs")]
 pub use crate::processor::{
   process_block_elements,
+  process_bracketed_spans,
   process_file_includes,
   process_inline_anchors,
   process_myst_autolinks,

@@ -1215,6 +1215,69 @@ path/to/file2.md
 }
 
 #[test]
+fn test_bracketed_span_is_rendered() {
+  let md = "This has [marked text]{#target .first .second key=\"value\"}.";
+  let html = ndg_html(md);
+
+  assert!(
+    html.contains(
+      r#"This has <span id="target" class="first second" key="value">marked text</span>."#
+    ),
+    "bracketed span should render as a span with attributes. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_bracketed_span_not_processed_in_code() {
+  let md = "`[marked text]{.class}`";
+  let html = ndg_html(md);
+
+  assert!(
+    html.contains(r#"<code>[marked text]{.class}</code>"#),
+    "bracketed span syntax should be preserved in inline code. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_options_include_block_renders_json_options() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().expect("create temp dir");
+  fs::write(
+    dir.path().join("options.json"),
+    r#"{
+      "services.nginx.enable": {
+        "type": "boolean",
+        "description": "Whether to enable nginx."
+      }
+    }"#,
+  )
+  .expect("write options include");
+
+  let md = "```{=include=} options\noptions.json\n```";
+  let options = ndg_commonmark::MarkdownOptions {
+    nixpkgs: true,
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor =
+    ndg_commonmark::MarkdownProcessor::new(options).with_base_dir(dir.path());
+  let html = processor.render(md).html;
+
+  assert!(
+    html.contains(r#"<div class="option" id="option-services.nginx.enable">"#)
+      && html.contains("services.nginx.enable")
+      && html.contains(
+        r#"<div class="option-type">Type: <code>boolean</code></div>"#
+      )
+      && html.contains("Whether to enable nginx."),
+    "options include should render option documentation. Got:\n{html}"
+  );
+}
+
+#[test]
 fn test_absolute_file_include_is_processed() {
   use std::fs;
 

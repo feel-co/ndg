@@ -1,7 +1,7 @@
 //! Feature-specific Markdown processing extensions.
 use std::{fmt::Write, fs, path::Path};
 
-use html_escape::encode_text;
+use html_escape::{encode_double_quoted_attribute, encode_text};
 
 use super::{dom::safe_select, process::process_safe};
 
@@ -69,12 +69,20 @@ fn is_safe_path(path: &str, _base_dir: &Path) -> bool {
 
 /// Parse the custom output directive from an include block.
 #[cfg(feature = "nixpkgs")]
-#[allow(
-  clippy::option_if_let_else,
-  reason = "Nested options are clearer with if-let"
-)]
-fn parse_include_directive(line: &str) -> Option<String> {
-  if let Some(start) = line.find("html:into-file=") {
+struct IncludeDirective {
+  custom_output: Option<String>,
+  include_type:  Option<String>,
+}
+
+#[cfg(feature = "nixpkgs")]
+fn parse_include_directive(line: &str) -> IncludeDirective {
+  let after_marker = line.strip_prefix("```{=include=}").unwrap_or(line).trim();
+  let include_type = after_marker
+    .split_whitespace()
+    .find(|part| !part.starts_with("html:into-file="))
+    .map(str::to_string);
+
+  let custom_output = if let Some(start) = line.find("html:into-file=") {
     let start = start + "html:into-file=".len();
     if let Some(end) = line[start..].find(' ') {
       Some(line[start..start + end].to_string())
@@ -83,7 +91,113 @@ fn parse_include_directive(line: &str) -> Option<String> {
     }
   } else {
     None
+  };
+
+  IncludeDirective {
+    custom_output,
+    include_type,
   }
+}
+
+#[cfg(feature = "nixpkgs")]
+fn render_options_include(content: &str) -> Option<String> {
+  let data: serde_json::Value = serde_json::from_str(content).ok()?;
+  let options = data.as_object()?;
+  let mut result = String::new();
+
+  for (name, value) in options {
+    let option_data = value.as_object()?;
+    let option_id = sanitize_option_id(name);
+    let _ = writeln!(
+      result,
+      "<div class=\"option\" id=\"{}\">",
+      encode_double_quoted_attribute(&option_id)
+    );
+    let _ = writeln!(
+      result,
+      "  <h3 class=\"option-name\"><a href=\"#{}\" \
+       class=\"option-anchor\">{}</a></h3>",
+      encode_double_quoted_attribute(&option_id),
+      encode_text(name)
+    );
+
+    if let Some(type_name) = option_data.get("type").and_then(|v| v.as_str()) {
+      let _ = writeln!(
+        result,
+        "  <div class=\"option-type\">Type: <code>{}</code></div>",
+        encode_text(type_name)
+      );
+    }
+
+    if let Some(description) = option_data.get("description") {
+      let description = match description {
+        serde_json::Value::String(value) => value.as_str(),
+        serde_json::Value::Object(object)
+          if object.get("_type").and_then(|v| v.as_str())
+            == Some("literalMD") =>
+        {
+          object.get("text").and_then(|v| v.as_str()).unwrap_or("")
+        },
+        _ => "",
+      };
+
+      if !description.is_empty() {
+        let _ = writeln!(
+          result,
+          "  <div class=\"option-description\">{}</div>",
+          encode_text(description)
+        );
+      }
+    }
+
+    result.push_str("</div>\n");
+  }
+
+  Some(result)
+}
+
+#[cfg(feature = "nixpkgs")]
+fn read_options_includes(
+  listing: &str,
+  base_dir: &Path,
+  included_files: &mut Vec<crate::types::IncludedFile>,
+) -> String {
+  let mut result = String::new();
+
+  for line in listing.lines() {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || !is_safe_path(trimmed, base_dir) {
+      continue;
+    }
+
+    let full_path = base_dir.join(trimmed);
+    match fs::read_to_string(&full_path) {
+      Ok(content) => {
+        if let Some(rendered) = render_options_include(&content) {
+          result.push_str(&rendered);
+        } else {
+          let _ = writeln!(
+            result,
+            "<!-- ndg: could not parse options include: {} -->",
+            full_path.display()
+          );
+        }
+        included_files.push(crate::types::IncludedFile {
+          path:          trimmed.to_string(),
+          custom_output: None,
+        });
+      },
+      Err(_) => {
+        let _ = writeln!(
+          result,
+          "<!-- ndg: could not include file: {} -->",
+          full_path.display()
+        );
+      },
+    }
+  }
+
+  result
 }
 
 /// Read and process files listed in an include block.
@@ -209,7 +323,7 @@ pub fn process_file_includes(
     let trimmed = line.trim_start();
 
     if !fence_tracker.in_code_block() && trimmed.starts_with("```{=include=}") {
-      let custom_output = parse_include_directive(trimmed);
+      let directive = parse_include_directive(trimmed);
 
       let mut include_listing = String::new();
       for next_line in lines.by_ref() {
@@ -220,13 +334,21 @@ pub fn process_file_includes(
         include_listing.push('\n');
       }
 
-      let included = read_includes(
-        &include_listing,
-        base_dir,
-        custom_output,
-        &mut all_included_files,
-        depth,
-      )?;
+      let included = if directive.include_type.as_deref() == Some("options") {
+        read_options_includes(
+          &include_listing,
+          base_dir,
+          &mut all_included_files,
+        )
+      } else {
+        read_includes(
+          &include_listing,
+          base_dir,
+          directive.custom_output,
+          &mut all_included_files,
+          depth,
+        )?
+      };
       output.push_str(&included);
       continue;
     }
@@ -606,6 +728,129 @@ pub fn process_inline_anchors(content: &str) -> String {
   }
 
   result
+}
+
+/// Process Pandoc/CommonMark bracketed spans: `[text]{#id .class key=value}`.
+#[cfg(feature = "nixpkgs")]
+#[must_use]
+pub fn process_bracketed_spans(content: &str) -> String {
+  let mut result = String::with_capacity(content.len());
+  let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
+
+  for line in content.lines() {
+    fence_tracker = fence_tracker.process_line(line);
+    if fence_tracker.in_code_block() {
+      result.push_str(line);
+    } else {
+      result.push_str(&process_line_bracketed_spans(line));
+    }
+    result.push('\n');
+  }
+
+  result
+}
+
+#[cfg(feature = "nixpkgs")]
+fn process_line_bracketed_spans(line: &str) -> String {
+  let mut result = String::with_capacity(line.len());
+  let mut chars = line.chars().peekable();
+  let mut tracker = crate::utils::codeblock::InlineTracker::new();
+  let mut previous = None;
+
+  while let Some(ch) = chars.next() {
+    if ch == '`' {
+      let (new_tracker, tick_count) = tracker.process_backticks(&mut chars);
+      tracker = new_tracker;
+      result.push_str(&"`".repeat(tick_count));
+      previous = Some('`');
+      continue;
+    }
+
+    if ch == '[' && previous != Some('!') && !tracker.in_any_code() {
+      let remaining: String = chars.clone().collect();
+      if let Some((html, consumed)) = parse_bracketed_span(&remaining) {
+        for _ in 0..consumed {
+          chars.next();
+        }
+        result.push_str(&html);
+        previous = Some('>');
+        continue;
+      }
+    }
+
+    result.push(ch);
+    previous = Some(ch);
+  }
+
+  result
+}
+
+#[cfg(feature = "nixpkgs")]
+fn parse_bracketed_span(input: &str) -> Option<(String, usize)> {
+  let close_text = input.find(']')?;
+  if close_text == 0 {
+    return None;
+  }
+  let text = &input[..close_text];
+  let after_text = &input[close_text + 1..];
+  if !after_text.starts_with('{') {
+    return None;
+  }
+  let close_attrs = after_text.find('}')?;
+  let attrs = &after_text[1..close_attrs];
+  let html_attrs = render_span_attrs(attrs)?;
+  let html = format!("<span{html_attrs}>{}</span>", encode_text(text));
+  Some((html, close_text + 1 + close_attrs + 1))
+}
+
+#[cfg(feature = "nixpkgs")]
+fn render_span_attrs(attrs: &str) -> Option<String> {
+  let mut id = None;
+  let mut classes = Vec::new();
+  let mut pairs = Vec::new();
+
+  for attr in attrs.split_whitespace() {
+    if let Some(value) = attr.strip_prefix('#') {
+      if !value.is_empty() {
+        id = Some(value);
+      }
+    } else if let Some(value) = attr.strip_prefix('.') {
+      if !value.is_empty() {
+        classes.push(value);
+      }
+    } else if let Some((key, value)) = attr.split_once('=')
+      && key
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+    {
+      pairs.push((key, value.trim_matches('"')));
+    }
+  }
+
+  if id.is_none() && classes.is_empty() && pairs.is_empty() {
+    return None;
+  }
+
+  let mut rendered = String::new();
+  if let Some(id) = id {
+    let _ = write!(rendered, " id=\"{}\"", encode_double_quoted_attribute(id));
+  }
+  if !classes.is_empty() {
+    let _ = write!(
+      rendered,
+      " class=\"{}\"",
+      encode_double_quoted_attribute(&classes.join(" "))
+    );
+  }
+  for (key, value) in pairs {
+    let _ = write!(
+      rendered,
+      " {key}=\"{}\"",
+      encode_double_quoted_attribute(value)
+    );
+  }
+
+  Some(rendered)
 }
 
 /// Find if a line starts with a list marker followed by an anchor.
