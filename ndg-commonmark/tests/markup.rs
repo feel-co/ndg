@@ -1346,6 +1346,62 @@ fn test_file_include_recursion_depth_limit() {
 }
 
 #[test]
+fn test_nested_admonitions_with_longer_outer_fence() {
+  let md = r":::: {.warning}
+Outer warning.
+
+::: {.note}
+Inner note.
+:::
+
+Back to outer warning.
+::::";
+  let html = ndg_html(md);
+
+  assert!(
+    html.contains(r#"<div class="admonition warning">"#),
+    "outer admonition should render. Got:\n{html}"
+  );
+  assert!(
+    html.contains(r#"<div class="admonition note">"#),
+    "inner admonition should render. Got:\n{html}"
+  );
+  assert!(
+    html.contains("Outer warning.")
+      && html.contains("Inner note.")
+      && html.contains("Back to outer warning."),
+    "nested admonition content should be preserved. Got:\n{html}"
+  );
+}
+
+#[test]
+fn test_admonition_headings_are_not_extracted_for_toc() {
+  let md = r"# Parent
+
+::: {.example}
+## Example Heading {#example-heading}
+
+Example content.
+:::
+
+## Next Section {#next-section}";
+  let (_html, headers, _title) = ndg_full_result(md);
+
+  assert!(
+    headers.iter().any(|h| h.id == "parent"),
+    "parent heading should be extracted. Got: {headers:?}"
+  );
+  assert!(
+    headers.iter().any(|h| h.id == "next-section"),
+    "following section heading should be extracted. Got: {headers:?}"
+  );
+  assert!(
+    headers.iter().all(|h| h.id != "example-heading"),
+    "heading inside admonition should not be extracted. Got: {headers:?}"
+  );
+}
+
+#[test]
 fn test_github_callout_multiline_content() {
   // Regression test for lazy continuation syntax in GitHub callouts
   // We test with the initial README bit from NDG's documentation that actually

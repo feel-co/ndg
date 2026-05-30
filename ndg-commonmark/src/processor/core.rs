@@ -409,6 +409,8 @@ impl MarkdownProcessor {
     let arena = Arena::new();
     let options = self.comrak_options();
 
+    let content = remove_admonition_blocks_for_headers(content);
+
     // Normalize custom anchors with no heading level to h2
     let mut normalized = String::with_capacity(content.len());
     for line in content.lines() {
@@ -1206,6 +1208,33 @@ pub enum ProcessorFeature {
   SyntaxHighlighting,
   /// Manpage URL mapping support
   ManpageUrls,
+}
+
+fn remove_admonition_blocks_for_headers(content: &str) -> String {
+  let mut output = String::with_capacity(content.len());
+  let mut admonition_depth = 0usize;
+
+  for line in content.lines() {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("<div class=\"admonition ") {
+      admonition_depth += 1;
+      output.push('\n');
+      continue;
+    }
+
+    if admonition_depth > 0 {
+      if trimmed == "</div>" {
+        admonition_depth -= 1;
+      }
+      output.push('\n');
+      continue;
+    }
+
+    output.push_str(line);
+    output.push('\n');
+  }
+
+  output
 }
 
 /// Standalone HTML post-processing function to avoid borrowing issues.

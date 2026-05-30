@@ -784,11 +784,20 @@ pub fn process_block_elements(content: &str) -> String {
       }
 
       // Check for fenced admonitions: ::: {.type}
-      if let Some((adm_type, id)) = parse_fenced_admonition_start(line) {
+      if let Some(admonition_start) = parse_fenced_admonition_start(line) {
         let indent = leading_whitespace(line);
-        let (content, trailing) = collect_fenced_content(&mut lines, indent);
+        let (content, trailing) = collect_fenced_content(
+          &mut lines,
+          indent,
+          admonition_start.fence_len,
+        );
+        let content = process_block_elements(&content);
         let admonition = indent_block(
-          &render_admonition(&adm_type, id.as_deref(), &content),
+          &render_admonition(
+            &admonition_start.adm_type,
+            admonition_start.id.as_deref(),
+            &content,
+          ),
           indent,
         );
         result.push(admonition);
@@ -936,15 +945,24 @@ fn collect_github_callout_content(
 }
 
 /// Parse fenced admonition start: ::: {.type #id}
-fn parse_fenced_admonition_start(
-  line: &str,
-) -> Option<(String, Option<String>)> {
+struct AdmonitionStart {
+  adm_type:  String,
+  id:        Option<String>,
+  fence_len: usize,
+}
+
+fn parse_fenced_admonition_start(line: &str) -> Option<AdmonitionStart> {
   let trimmed = line.trim();
   if !trimmed.starts_with(":::") {
     return None;
   }
 
-  let after_colons = trimmed[3..].trim_start();
+  let fence_len = trimmed.chars().take_while(|&ch| ch == ':').count();
+  if fence_len < 3 {
+    return None;
+  }
+
+  let after_colons = trimmed[fence_len..].trim_start();
   if !after_colons.starts_with('{') {
     return None;
   }
@@ -974,7 +992,11 @@ fn parse_fenced_admonition_start(
     }
 
     if let Some(adm_type) = adm_type.or(first_class) {
-      return Some((adm_type, id));
+      return Some(AdmonitionStart {
+        adm_type,
+        id,
+        fence_len,
+      });
     }
   }
 
@@ -1015,6 +1037,7 @@ fn indent_block(block: &str, indent: &str) -> String {
 fn collect_fenced_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
   indent: &str,
+  fence_len: usize,
 ) -> (String, Option<String>) {
   let mut content = String::new();
 
@@ -1025,9 +1048,10 @@ fn collect_fenced_content(
       return (content.trim().to_string(), None);
     }
 
-    if trimmed.starts_with(":::") {
+    let closing_len = trimmed.chars().take_while(|&ch| ch == ':').count();
+    if closing_len >= fence_len {
       // check if there's content after the closing :::
-      let after_colons = trimmed.strip_prefix(":::").unwrap_or("");
+      let after_colons = &trimmed[closing_len..];
       if !after_colons.is_empty() {
         // there's trailing content on the same line as the closing delimiter
         return (content.trim().to_string(), Some(after_colons.to_string()));
