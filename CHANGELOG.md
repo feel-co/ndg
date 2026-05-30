@@ -33,6 +33,83 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
+## [2.9.0]
+
+### Added
+
+- ndg-commonmark now supports Pandoc/CommonMark bracketed spans:
+  `[text]{#id .class key="value"}` renders as `<span>` with attributes.
+- Include blocks now accept `options` as a type, rendering option documentation
+  from a JSON source file:
+
+  ````md
+  ```{=include=} options
+  id-prefix: opt-
+  list-id: variable-list
+  source: options.json
+  ```
+  ````
+
+- Include blocks now accept `auto-id-prefix=<prefix>` to automatically assign
+  numbered heading anchors to included Markdown headings that lack explicit
+  `{#id}` syntax.
+- Absolute paths (including `/nix/store/...`) are now accepted in include blocks
+  when they do not contain parent directory traversal.
+
+### Changed
+
+- Fenced admonition indentation is now preserved when rendering; admonition
+  content is de-indented by the opener's leading whitespace before being parsed
+  as Markdown, so indented admonitions inside list items no longer break
+  surrounding structure.
+- Admonition attribute parsing now accepts Pandoc-style attribute order and
+  multiple classes: `::: {.warning #id}`, `::: {#id .warning}`, and
+  `::: { .warning .custom }` all work. Known admonition class names (`note`,
+  `tip`, `important`, `warning`, `caution`, `danger`) are prioritized when
+  multiple classes are present.
+- Nested admonitions (`::::` outer fence with `:::` inner fences) are now
+  supported. Fenced collection closes only on a closing fence whose length is at
+  least as long as the opener.
+- Headings inside rendered admonition blocks are no longer extracted into the
+  document header table of contents.
+- Include blocks now emit an internal boundary marker between included files so
+  unclosed block-level elements (admonitions, figures) do not leak across file
+  boundaries.
+- Search now falls back to substring candidate discovery for exact queries when
+  tokenization treats Nix-style identifiers (e.g. `redis-test-hook`,
+  `services.nginx.enable`) as opaque tokens, so searching a substring of such
+  identifiers returns results.
+- Setext headings with explicit anchors (`Title\n=============\n{#id}`) now keep
+  their correct heading level during header extraction instead of being
+  normalized to `h2`.
+
+### Fixed
+
+- `search-worker.js` path is now resolved relative to the page URL, so the
+  search worker loads correctly when the generated documentation root is in a
+  nested directory.
+- MyST-style autolinks (`[](url)`) and inline anchors (`[]{#id}`) are no longer
+  processed when they appear inside inline code spans.
+- Fallback `index.html` is now generated even when a nested page (e.g.
+  `hooks/index.html`) exists. Only an exact root `index.html` suppresses
+  fallback generation.
+- `html:into-file` includes no longer duplicate content into the parent
+  document. Included content is split into the custom output file and the parent
+  document only contains non-`into-file` content.
+- `html:into-file=//split.html` is now normalized to `split.html` so the output
+  path is resolved correctly relative to the output root.
+- Sidebar generation now includes `html:into-file` files that produce their own
+  explicit pages, and groups them by their generated output path rather than
+  their source include directory.
+- Unclosed admonitions or figures inside an include file now terminate at the
+  include boundary instead of leaking into subsequent included files.
+- Search worker tokenization and candidate selection now use substring matching
+  as a fallback, so searching for a part of a hyphenated or dotted Nix
+  identifier (e.g. `redis` inside `redis-test-hook`) returns the expected
+  result.
+- Header extraction no longer normalizes setext headings with explicit anchors
+  to `h2`. The heading level from the `=`/`-` underline is now preserved.
+
 ## [2.8.2]
 
 ### Fixed
@@ -469,7 +546,8 @@ documentation using the old hyphen-based format will need to be updated**.
 - Prevented panic in theme name fallback logic in ndg-commonmark
 - Prevented panic on empty fence character extraction in ndg-commonmark
 
-[Unreleased]: https://github.com/feel-co/ndg/compare/v2.8.2...HEAD
+[Unreleased]: https://github.com/feel-co/ndg/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/feel-co/ndg/compare/v2.8.2...v2.9.0
 [2.8.2]: https://github.com/feel-co/ndg/compare/v2.8.1...v2.8.2
 [2.8.1]: https://github.com/feel-co/ndg/compare/v2.8.0...v2.8.1
 [2.8.0]: https://github.com/feel-co/ndg/compare/v2.7.0...v2.8.0
