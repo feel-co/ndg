@@ -785,8 +785,12 @@ pub fn process_block_elements(content: &str) -> String {
 
       // Check for fenced admonitions: ::: {.type}
       if let Some((adm_type, id)) = parse_fenced_admonition_start(line) {
-        let (content, trailing) = collect_fenced_content(&mut lines);
-        let admonition = render_admonition(&adm_type, id.as_deref(), &content);
+        let indent = leading_whitespace(line);
+        let (content, trailing) = collect_fenced_content(&mut lines, indent);
+        let admonition = indent_block(
+          &render_admonition(&adm_type, id.as_deref(), &content),
+          indent,
+        );
         result.push(admonition);
         // If there's trailing content after the closing :::, add it as a new
         // line
@@ -964,6 +968,30 @@ fn parse_fenced_admonition_start(
   None
 }
 
+fn leading_whitespace(line: &str) -> &str {
+  let end = line
+    .char_indices()
+    .find_map(|(idx, ch)| (!ch.is_whitespace()).then_some(idx))
+    .unwrap_or(line.len());
+  &line[..end]
+}
+
+fn strip_indent<'a>(line: &'a str, indent: &str) -> &'a str {
+  line.strip_prefix(indent).unwrap_or(line)
+}
+
+fn indent_block(block: &str, indent: &str) -> String {
+  if indent.is_empty() {
+    return block.to_string();
+  }
+
+  block
+    .lines()
+    .map(|line| format!("{indent}{line}"))
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
 /// Collect content until closing :::
 ///
 /// # Returns
@@ -973,10 +1001,12 @@ fn parse_fenced_admonition_start(
 /// `trailing_content`.
 fn collect_fenced_content(
   lines: &mut std::iter::Peekable<std::str::Lines>,
+  indent: &str,
 ) -> (String, Option<String>) {
   let mut content = String::new();
 
   for line in lines.by_ref() {
+    let line = strip_indent(line, indent);
     let trimmed = line.trim();
     if trimmed == INCLUDE_BOUNDARY_MARKER {
       return (content.trim().to_string(), None);

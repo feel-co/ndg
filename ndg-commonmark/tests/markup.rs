@@ -58,6 +58,37 @@ fn test_admonition_note() {
 }
 
 #[test]
+fn test_indented_admonition_stays_inside_list_item() {
+  let md = "1. First item
+
+   ::: {.note}
+   This note belongs to the first item.
+   :::
+
+2. Second item";
+  let html = ndg_html(md);
+
+  assert!(
+    html.contains(r#"<ol>"#) && html.contains("First item"),
+    "ordered list should render normally. Got:\n{html}"
+  );
+  assert!(
+    html.contains(r#"<div class="admonition note">"#),
+    "indented admonition should render. Got:\n{html}"
+  );
+  assert!(
+    !html.contains("<pre><code>This note belongs"),
+    "admonition content should not be treated as an indented code block. \
+     Got:\n{html}"
+  );
+  assert!(
+    html.contains("Second item"),
+    "following list item numbering should continue after admonition. \
+     Got:\n{html}"
+  );
+}
+
+#[test]
 fn test_role_command() {
   let md = "{command}`ls -l`";
   let html = ndg_html(md);
