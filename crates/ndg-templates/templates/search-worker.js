@@ -218,9 +218,12 @@ self.onmessage = function (e) {
 
       // First pass, only docs containing at least one search term
       processedDocs.forEach(({ docId, doc, lowerTitle, lowerContent }) => {
-        const hasRelevantToken = searchTerms.some(
-          (term) => lowerTitle.includes(term) || lowerContent.includes(term),
-        );
+        const hasRelevantToken =
+          lowerTitle.includes(rawQuery) ||
+          lowerContent.includes(rawQuery) ||
+          searchTerms.some(
+            (term) => lowerTitle.includes(term) || lowerContent.includes(term),
+          );
         if (!hasRelevantToken) return;
 
         let match = pageMatches.get(docId);

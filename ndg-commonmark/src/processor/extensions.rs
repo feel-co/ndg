@@ -123,12 +123,15 @@ fn apply_auto_id_prefix(content: &str, prefix: &str) -> String {
 
   let mut result = String::with_capacity(content.len());
   let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
+  let mut heading_numbers = Vec::new();
 
   for line in content.lines() {
     fence_tracker = fence_tracker.process_line(line);
     if fence_tracker.in_code_block() {
       result.push_str(line);
-    } else if let Some(line) = add_auto_id_to_heading(line, prefix) {
+    } else if let Some(line) =
+      add_auto_id_to_heading(line, prefix, &mut heading_numbers)
+    {
       result.push_str(&line);
     } else {
       result.push_str(line);
@@ -140,7 +143,11 @@ fn apply_auto_id_prefix(content: &str, prefix: &str) -> String {
 }
 
 #[cfg(feature = "nixpkgs")]
-fn add_auto_id_to_heading(line: &str, prefix: &str) -> Option<String> {
+fn add_auto_id_to_heading(
+  line: &str,
+  prefix: &str,
+  heading_numbers: &mut Vec<usize>,
+) -> Option<String> {
   let leading_len = line.len() - line.trim_start().len();
   if leading_len > 3 {
     return None;
@@ -159,18 +166,25 @@ fn add_auto_id_to_heading(line: &str, prefix: &str) -> Option<String> {
   }
 
   let heading = after_hashes.trim();
-  if heading.is_empty() || heading.contains("{#") {
+  if heading.is_empty() {
     return None;
   }
 
-  let heading = heading
-    .strip_suffix('#')
-    .map(str::trim_end)
-    .unwrap_or(heading);
-  let id = crate::utils::slugify(heading);
-  if id.is_empty() {
+  if level > heading_numbers.len() {
+    heading_numbers.resize(level, 0);
+  }
+  heading_numbers.truncate(level);
+  heading_numbers[level - 1] += 1;
+
+  if heading.contains("{#") {
     return None;
   }
+
+  let id = heading_numbers
+    .iter()
+    .map(usize::to_string)
+    .collect::<Vec<_>>()
+    .join(".");
 
   Some(format!(
     "{}{} {{#{}-{}}}",
@@ -244,6 +258,10 @@ fn read_options_includes(
   base_dir: &Path,
   included_files: &mut Vec<crate::types::IncludedFile>,
 ) -> String {
+  if let Some(source) = parse_options_source(listing) {
+    return read_options_file(&source, base_dir, included_files);
+  }
+
   let mut result = String::new();
 
   for line in listing.lines() {
@@ -282,6 +300,58 @@ fn read_options_includes(
   result
 }
 
+#[cfg(feature = "nixpkgs")]
+fn parse_options_source(listing: &str) -> Option<String> {
+  let mut source = None;
+  for line in listing.lines() {
+    let (key, value) = line.split_once(':')?;
+    if key.trim() == "source" {
+      source = Some(value.trim().to_string());
+    }
+  }
+  source
+}
+
+#[cfg(feature = "nixpkgs")]
+fn read_options_file(
+  source: &str,
+  base_dir: &Path,
+  included_files: &mut Vec<crate::types::IncludedFile>,
+) -> String {
+  let mut result = String::new();
+  if !is_safe_path(source, base_dir) {
+    return result;
+  }
+
+  let full_path = base_dir.join(source);
+  match fs::read_to_string(&full_path) {
+    Ok(content) => {
+      if let Some(rendered) = render_options_include(&content) {
+        result.push_str(&rendered);
+      } else {
+        let _ = writeln!(
+          result,
+          "<!-- ndg: could not parse options include: {} -->",
+          full_path.display()
+        );
+      }
+      included_files.push(crate::types::IncludedFile {
+        path:          source.to_string(),
+        custom_output: None,
+      });
+    },
+    Err(_) => {
+      let _ = writeln!(
+        result,
+        "<!-- ndg: could not include file: {} -->",
+        full_path.display()
+      );
+    },
+  }
+
+  result
+}
+
 /// Read and process files listed in an include block.
 #[cfg(feature = "nixpkgs")]
 #[allow(
@@ -298,7 +368,7 @@ fn read_includes(
 ) -> Result<String, String> {
   let mut result = String::new();
 
-  for line in listing.lines() {
+  for (line_index, line) in listing.lines().enumerate() {
     let trimmed = line.trim();
     if trimmed.is_empty() || !is_safe_path(trimmed, base_dir) {
       continue;
@@ -314,7 +384,10 @@ fn read_includes(
 
         let processed_content = if let Some(prefix) = auto_id_prefix.as_deref()
         {
-          apply_auto_id_prefix(&processed_content, prefix)
+          apply_auto_id_prefix(
+            &processed_content,
+            &format!("{}-{}", prefix, line_index + 1),
+          )
         } else {
           processed_content
         };

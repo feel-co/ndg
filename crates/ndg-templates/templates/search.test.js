@@ -152,6 +152,22 @@ Deno.test("content-only match returns results", async () => {
   assertEquals(results[0].doc.title, "Configuration");
 });
 
+Deno.test("substring search finds hyphenated identifiers", async () => {
+  await loadDocs([
+    {
+      id: "1",
+      title: "Hooks",
+      content: "The redis-test-hook validates Redis integration tests.",
+      path: "hooks.html",
+      anchors: [],
+    },
+  ]);
+
+  const results = await engine.search("redis");
+  assertEquals(results.length, 1, "partial identifier search should return result");
+  assertEquals(results[0].doc.title, "Hooks");
+});
+
 Deno.test("options with irrelevant content don't displace title matches", async () => {
   const optionDocs = Array.from({ length: 20 }, (_, i) => ({
     id: String(i),

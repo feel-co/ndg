@@ -410,6 +410,21 @@ class SearchEngine {
       }
     });
 
+    // Tokenization keeps some Nix-ish identifiers whole, such as
+    // redis-test-hook or services.nginx.enable. Fall back to substring
+    // candidate discovery so exact visible text still searches successfully.
+    this.lowercaseCache.forEach((cached, docId) => {
+      const title = cached?.title || "";
+      const content = cached?.content || "";
+      if (
+        title.includes(rawQuery) ||
+        content.includes(rawQuery) ||
+        searchTerms.some((term) => title.includes(term) || content.includes(term))
+      ) {
+        candidateDocIds.add(docId);
+      }
+    });
+
     if (candidateDocIds.size === 0) {
       return [];
     }

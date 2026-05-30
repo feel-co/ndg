@@ -233,6 +233,25 @@ fn test_auto_generated_header_id_with_inline_formatting() {
   );
 }
 
+#[test]
+fn test_setext_heading_with_explicit_anchor_keeps_level() {
+  let md = "Release Notes {#release-notes}\n=============";
+  let (html, headers, _) = ndg_full_result(md);
+
+  assert!(
+    html.contains(r#"<h1 id="release-notes">Release Notes</h1>"#),
+    "setext heading anchor should render on h1. Got:\n{}",
+    html
+  );
+  assert!(
+    headers
+      .iter()
+      .any(|header| header.level == 1 && header.id == "release-notes"),
+    "setext heading anchor should be extracted as h1. Got:\n{:?}",
+    headers
+  );
+}
+
 // Edge case: inline anchor at start of line
 #[test]
 fn test_inline_anchor_start_of_line() {
@@ -1256,7 +1275,8 @@ fn test_options_include_block_renders_json_options() {
   )
   .expect("write options include");
 
-  let md = "```{=include=} options\noptions.json\n```";
+  let md = "```{=include=} options\nid-prefix: opt-\nlist-id: \
+            configuration-variable-list\nsource: options.json\n```";
   let options = ndg_commonmark::MarkdownOptions {
     nixpkgs: true,
     highlight_code: false,
@@ -1304,7 +1324,7 @@ fn test_include_auto_id_prefix_adds_heading_ids() {
   assert!(
     result
       .html
-      .contains(r#"<h1 id="treefmt-generated-section">Generated Section</h1>"#),
+      .contains(r#"<h1 id="treefmt-1-1">Generated Section</h1>"#),
     "auto-id-prefix should add prefixed heading id. Got:\n{}",
     result.html
   );
@@ -1324,7 +1344,7 @@ fn test_include_auto_id_prefix_adds_heading_ids() {
     result
       .headers
       .iter()
-      .any(|header| header.id == "treefmt-generated-section"),
+      .any(|header| header.id == "treefmt-1-1"),
     "auto-id-prefix should be visible to extracted headers. Got:\n{:?}",
     result.headers
   );

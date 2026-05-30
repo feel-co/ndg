@@ -414,9 +414,13 @@ impl MarkdownProcessor {
 
     // Normalize custom anchors with no heading level to h2
     let mut normalized = String::with_capacity(content.len());
-    for line in content.lines() {
+    let mut lines = content.lines().peekable();
+    while let Some(line) = lines.next() {
       let trimmed = line.trim();
       if !trimmed.starts_with('#')
+        && !lines
+          .peek()
+          .is_some_and(|next| is_setext_heading_underline(next.trim()))
         && let Some(anchor_start) = trimmed.rfind("{#")
         && let Some(anchor_end) = trimmed[anchor_start..].find('}')
       {
@@ -1236,6 +1240,12 @@ fn remove_admonition_blocks_for_headers(content: &str) -> String {
   }
 
   output
+}
+
+fn is_setext_heading_underline(line: &str) -> bool {
+  !line.is_empty()
+    && (line.chars().all(|ch| ch == '=' || ch.is_whitespace())
+      || line.chars().all(|ch| ch == '-' || ch.is_whitespace()))
 }
 
 /// Standalone HTML post-processing function to avoid borrowing issues.
