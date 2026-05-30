@@ -161,6 +161,37 @@ fn main() -> Result<()> {
   Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn processed(output_path: &str) -> utils::markdown::ProcessedMarkdown {
+    utils::markdown::ProcessedMarkdown {
+      html_content: String::new(),
+      headers: Vec::new(),
+      title: None,
+      source_path: PathBuf::from("source.md"),
+      output_path: output_path.to_string(),
+      is_included: false,
+      frontmatter: None,
+    }
+  }
+
+  #[test]
+  fn nested_index_page_is_not_root_homepage() {
+    let processed_markdown = vec![processed("hooks/index.html")];
+
+    assert!(!has_root_homepage(&processed_markdown));
+  }
+
+  #[test]
+  fn root_index_page_is_homepage() {
+    let processed_markdown = vec![processed("index.html")];
+
+    assert!(has_root_homepage(&processed_markdown));
+  }
+}
+
 #[derive(Clone, Copy, Debug)]
 enum OutputMode {
   All,
@@ -318,6 +349,14 @@ fn generate_pdf_output(config: &Config) -> Result<()> {
   )
 }
 
+fn has_root_homepage(
+  processed_markdown: &[utils::markdown::ProcessedMarkdown],
+) -> bool {
+  processed_markdown
+    .iter()
+    .any(|item| Path::new(&item.output_path) == Path::new("index.html"))
+}
+
 /// Main documentation generation process
 fn generate_documentation(config: &mut Config) -> Result<()> {
   info!("Starting documentation generation...");
@@ -416,9 +455,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
 
   // Check if we need to create a fallback index.html
   let index_path = config.output_dir.join("index.html");
-  let has_homepage = processed_markdown
-    .iter()
-    .any(|item| item.output_path.ends_with("index.html"));
+  let has_homepage = has_root_homepage(&processed_markdown);
   if !index_path.exists()
     && !has_homepage
     && config.generate_fallback_index()
