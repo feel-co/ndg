@@ -168,6 +168,151 @@ Deno.test("substring search finds hyphenated identifiers", async () => {
   assertEquals(results[0].doc.title, "Hooks");
 });
 
+Deno.test("multi-word section heading outranks option matches", async () => {
+  const optionDocs = Array.from({ length: 12 }, (_, i) => ({
+    id: `option-${i}`,
+    title: `Option: nvf.example.option${i}`,
+    content: "This option explains what is used to configure nvf behavior.",
+    path: `options.html#nvf.example.option${i}`,
+    anchors: [],
+  }));
+
+  await loadDocs([
+    ...optionDocs,
+    {
+      id: "guide",
+      title: "Introduction",
+      content: "What is nvf\nAn overview of the project.",
+      path: "index.html",
+      anchors: [
+        { id: "what-is-nvf", text: "What is nvf", level: 2, tokens: [] },
+      ],
+    },
+  ]);
+
+  const results = await engine.search("what is", 8);
+  assertGreater(results.length, 0, "should return results");
+  assertEquals(results[0].doc.title, "Introduction");
+  assertEquals(results[0].matchingAnchors[0].text, "What is nvf");
+});
+
+Deno.test("exact section phrase outranks partial nvf page and anchor matches", async () => {
+  await loadDocs([
+    {
+      id: "configuring",
+      title: "Configuring nvf",
+      content: "DAG entries in nvf\nConfiguration details.",
+      path: "configuring.html",
+      anchors: [
+        { id: "dag-entries", text: "DAG entries in nvf", level: 3, tokens: [] },
+      ],
+    },
+    {
+      id: "hacking",
+      title: "Hacking nvf",
+      content: "Developer documentation for nvf.",
+      path: "hacking.html",
+      anchors: [],
+    },
+    {
+      id: "option",
+      title: "Option: vim.additionalRuntimePaths",
+      content: "What is used by nvf at runtime.",
+      path: "options.html#vim.additionalRuntimePaths",
+      anchors: [],
+    },
+    {
+      id: "intro",
+      title: "Introduction",
+      content: "What is nvf\nnvf is a highly modular configuration framework.",
+      path: "index.html",
+      anchors: [
+        { id: "what-is-nvf", text: "What is nvf", level: 3, tokens: [] },
+      ],
+    },
+  ]);
+
+  const results = await engine.search("What is nvf", 8);
+  assertGreater(results.length, 0, "should return results");
+  assertEquals(results[0].doc.title, "Introduction");
+  assertEquals(results[0].matchingAnchors[0].text, "What is nvf");
+});
+
+Deno.test("section anchor id can make a page a search candidate", async () => {
+  await loadDocs([
+    {
+      id: "other",
+      title: "Configuring nvf",
+      content: "Configuration details for nvf.",
+      path: "configuring.html",
+      anchors: [],
+    },
+    {
+      id: "intro",
+      title: "Introduction",
+      content: "nvf is a Neovim framework.",
+      path: "index.html",
+      anchors: [
+        { id: "sec-what-is-it", text: "What is nvf", level: 3, tokens: [] },
+      ],
+    },
+  ]);
+
+  const results = await engine.search("what is it", 8);
+  assertGreater(results.length, 0, "anchor id should produce a result");
+  assertEquals(results[0].doc.title, "Introduction");
+  assertEquals(results[0].matchingAnchors[0].id, "sec-what-is-it");
+});
+
+Deno.test("section title ranks above option title partial match", async () => {
+  await loadDocs([
+    {
+      id: "option",
+      title: "Option: vim.nvf.enable",
+      content: "Enable nvf integration.",
+      path: "options.html#vim.nvf.enable",
+      anchors: [],
+    },
+    {
+      id: "intro",
+      title: "Introduction",
+      content: "What is nvf\nnvf is a Neovim framework.",
+      path: "index.html",
+      anchors: [
+        { id: "sec-what-is-it", text: "What is nvf", level: 3, tokens: [] },
+      ],
+    },
+  ]);
+
+  const results = await engine.search("nvf", 8);
+  assertGreater(results.length, 0, "should return results");
+  assertEquals(results[0].doc.title, "Introduction");
+  assertEquals(results[0].matchingAnchors[0].text, "What is nvf");
+});
+
+Deno.test("multi-word page title is returned by widget-sized search", async () => {
+  await loadDocs([
+    {
+      id: "option",
+      title: "Option: nvf.enable",
+      content: "This option is used to enable nvf.",
+      path: "options.html#nvf.enable",
+      anchors: [],
+    },
+    {
+      id: "page",
+      title: "What is nvf",
+      content: "An overview of the project.",
+      path: "index.html",
+      anchors: [],
+    },
+  ]);
+
+  const results = await engine.search("what is", 8);
+  assertGreater(results.length, 0, "should return results");
+  assertEquals(results[0].doc.title, "What is nvf");
+});
+
 Deno.test("options with irrelevant content don't displace title matches", async () => {
   const optionDocs = Array.from({ length: 20 }, (_, i) => ({
     id: String(i),
