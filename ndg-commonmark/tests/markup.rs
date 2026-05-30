@@ -1278,6 +1278,59 @@ fn test_options_include_block_renders_json_options() {
 }
 
 #[test]
+fn test_include_auto_id_prefix_adds_heading_ids() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().expect("create temp dir");
+  fs::write(
+    dir.path().join("generated.md"),
+    "# Generated Section\n\n## Existing Anchor {#custom-id}\n\n```\n# Not a \
+     heading\n```",
+  )
+  .expect("write generated include");
+
+  let md = "```{=include=} auto-id-prefix=treefmt\ngenerated.md\n```";
+  let options = ndg_commonmark::MarkdownOptions {
+    nixpkgs: true,
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor =
+    ndg_commonmark::MarkdownProcessor::new(options).with_base_dir(dir.path());
+  let result = processor.render(md);
+
+  assert!(
+    result
+      .html
+      .contains(r#"<h1 id="treefmt-generated-section">Generated Section</h1>"#),
+    "auto-id-prefix should add prefixed heading id. Got:\n{}",
+    result.html
+  );
+  assert!(
+    result
+      .html
+      .contains(r#"<h2 id="custom-id">Existing Anchor</h2>"#),
+    "auto-id-prefix should not override explicit heading anchors. Got:\n{}",
+    result.html
+  );
+  assert!(
+    !result.html.contains("treefmt-not-a-heading"),
+    "auto-id-prefix should not process headings inside code blocks. Got:\n{}",
+    result.html
+  );
+  assert!(
+    result
+      .headers
+      .iter()
+      .any(|header| header.id == "treefmt-generated-section"),
+    "auto-id-prefix should be visible to extracted headers. Got:\n{:?}",
+    result.headers
+  );
+}
+
+#[test]
 fn test_absolute_file_include_is_processed() {
   use std::fs;
 

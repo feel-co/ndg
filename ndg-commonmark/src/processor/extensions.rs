@@ -70,8 +70,9 @@ fn is_safe_path(path: &str, _base_dir: &Path) -> bool {
 /// Parse the custom output directive from an include block.
 #[cfg(feature = "nixpkgs")]
 struct IncludeDirective {
-  custom_output: Option<String>,
-  include_type:  Option<String>,
+  custom_output:  Option<String>,
+  include_type:   Option<String>,
+  auto_id_prefix: Option<String>,
 }
 
 #[cfg(feature = "nixpkgs")]
@@ -79,7 +80,10 @@ fn parse_include_directive(line: &str) -> IncludeDirective {
   let after_marker = line.strip_prefix("```{=include=}").unwrap_or(line).trim();
   let include_type = after_marker
     .split_whitespace()
-    .find(|part| !part.starts_with("html:into-file="))
+    .find(|part| {
+      !part.starts_with("html:into-file=")
+        && !part.starts_with("auto-id-prefix=")
+    })
     .map(str::to_string);
 
   let custom_output = if let Some(start) = line.find("html:into-file=") {
@@ -93,10 +97,88 @@ fn parse_include_directive(line: &str) -> IncludeDirective {
     None
   };
 
+  let auto_id_prefix = if let Some(start) = line.find("auto-id-prefix=") {
+    let start = start + "auto-id-prefix=".len();
+    if let Some(end) = line[start..].find(' ') {
+      Some(line[start..start + end].to_string())
+    } else {
+      Some(line[start..].trim().to_string())
+    }
+  } else {
+    None
+  };
+
   IncludeDirective {
     custom_output,
     include_type,
+    auto_id_prefix,
   }
+}
+
+#[cfg(feature = "nixpkgs")]
+fn apply_auto_id_prefix(content: &str, prefix: &str) -> String {
+  if prefix.is_empty() {
+    return content.to_string();
+  }
+
+  let mut result = String::with_capacity(content.len());
+  let mut fence_tracker = crate::utils::codeblock::FenceTracker::new();
+
+  for line in content.lines() {
+    fence_tracker = fence_tracker.process_line(line);
+    if fence_tracker.in_code_block() {
+      result.push_str(line);
+    } else if let Some(line) = add_auto_id_to_heading(line, prefix) {
+      result.push_str(&line);
+    } else {
+      result.push_str(line);
+    }
+    result.push('\n');
+  }
+
+  result
+}
+
+#[cfg(feature = "nixpkgs")]
+fn add_auto_id_to_heading(line: &str, prefix: &str) -> Option<String> {
+  let leading_len = line.len() - line.trim_start().len();
+  if leading_len > 3 {
+    return None;
+  }
+
+  let trimmed = line.trim_start();
+  let level = trimmed.chars().take_while(|&ch| ch == '#').count();
+  if !(1..=6).contains(&level) {
+    return None;
+  }
+
+  let after_hashes = &trimmed[level..];
+  if !after_hashes.is_empty() && !after_hashes.starts_with(char::is_whitespace)
+  {
+    return None;
+  }
+
+  let heading = after_hashes.trim();
+  if heading.is_empty() || heading.contains("{#") {
+    return None;
+  }
+
+  let heading = heading
+    .strip_suffix('#')
+    .map(str::trim_end)
+    .unwrap_or(heading);
+  let id = crate::utils::slugify(heading);
+  if id.is_empty() {
+    return None;
+  }
+
+  Some(format!(
+    "{}{} {{#{}-{}}}",
+    &line[..leading_len],
+    trimmed,
+    prefix,
+    id
+  ))
 }
 
 #[cfg(feature = "nixpkgs")]
@@ -210,6 +292,7 @@ fn read_includes(
   listing: &str,
   base_dir: &Path,
   custom_output: Option<String>,
+  auto_id_prefix: Option<String>,
   included_files: &mut Vec<crate::types::IncludedFile>,
   depth: usize,
 ) -> Result<String, String> {
@@ -228,6 +311,13 @@ fn read_includes(
         let file_dir = full_path.parent().unwrap_or(base_dir);
         let (processed_content, nested_includes) =
           process_file_includes(&content, file_dir, depth + 1)?;
+
+        let processed_content = if let Some(prefix) = auto_id_prefix.as_deref()
+        {
+          apply_auto_id_prefix(&processed_content, prefix)
+        } else {
+          processed_content
+        };
 
         if custom_output.is_none() {
           result.push_str(&processed_content);
@@ -345,6 +435,7 @@ pub fn process_file_includes(
           &include_listing,
           base_dir,
           directive.custom_output,
+          directive.auto_id_prefix,
           &mut all_included_files,
           depth,
         )?
