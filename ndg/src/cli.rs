@@ -113,28 +113,28 @@ pub enum Commands {
     module_options: Option<PathBuf>,
 
     /// Include only module options whose names start with this prefix.
-    #[arg(long = "filter-option-prefix")]
+    #[arg(long = "options-filter-prefix")]
     option_filter_prefix: Option<String>,
 
     /// Include only module options whose type contains this text.
-    #[arg(long = "filter-option-type")]
+    #[arg(long = "options-filter-type")]
     option_filter_type: Option<String>,
 
     /// Include only module options whose name or description contains this
     /// text.
-    #[arg(long = "filter-option-search")]
+    #[arg(long = "options-filter-search")]
     option_filter_search: Option<String>,
 
     /// Include only module options that define a default value.
-    #[arg(long = "options-has-default", action = clap::ArgAction::SetTrue)]
+    #[arg(long = "options-filter-has-default", action = clap::ArgAction::SetTrue)]
     options_has_default: bool,
 
     /// Include only module options that have a non-empty description.
-    #[arg(long = "options-has-description", action = clap::ArgAction::SetTrue)]
+    #[arg(long = "options-filter-has-description", action = clap::ArgAction::SetTrue)]
     options_has_description: bool,
 
     /// Hide module options marked internal or invisible.
-    #[arg(long = "options-hide-internal", action = clap::ArgAction::SetTrue)]
+    #[arg(long = "options-filter-hide-internal", action = clap::ArgAction::SetTrue)]
     options_hide_internal: bool,
 
     /// Depth of parent categories in options section in the sidebar.

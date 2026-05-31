@@ -6,9 +6,18 @@ const fn default_true() -> bool {
 }
 
 /// Filters applied to module options before rendering options documentation.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Configurable)]
+#[serde(default)]
+pub struct OptionsConfig {
+  /// Optional filtering configuration for module options.
+  #[config(nested)]
+  pub filter: Option<FilterConfig>,
+}
+
+/// Filters applied to module options before rendering options documentation.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
 #[serde(default)]
-pub struct OptionsFilterConfig {
+pub struct FilterConfig {
   /// Include only options whose names start with this prefix.
   #[config(key = "prefix", allow_empty)]
   pub prefix: Option<String>,
@@ -36,7 +45,7 @@ pub struct OptionsFilterConfig {
   pub include_internal: bool,
 }
 
-impl Default for OptionsFilterConfig {
+impl Default for FilterConfig {
   fn default() -> Self {
     Self {
       prefix:           None,
@@ -49,7 +58,7 @@ impl Default for OptionsFilterConfig {
   }
 }
 
-impl OptionsFilterConfig {
+impl FilterConfig {
   /// Check whether an option should be included after applying all filters.
   #[must_use]
   pub fn matches(
@@ -111,7 +120,7 @@ mod tests {
 
   #[test]
   fn default_includes_internal_options() {
-    assert!(OptionsFilterConfig::default().matches(
+    assert!(FilterConfig::default().matches(
       "services.nginx.enable",
       "boolean",
       "Whether to enable nginx",
@@ -123,7 +132,7 @@ mod tests {
 
   #[test]
   fn combines_filters() {
-    let filter = OptionsFilterConfig {
+    let filter = FilterConfig {
       prefix:           Some("services.nginx".to_string()),
       type_name:        Some("bool".to_string()),
       search:           Some("enable".to_string()),

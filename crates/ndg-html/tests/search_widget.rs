@@ -4,7 +4,7 @@ use std::fs;
 mod common;
 
 use common::test_config;
-use ndg_config::options::OptionsFilterConfig;
+use ndg_config::options::{FilterConfig, OptionsConfig};
 use ndg_html::{
   options::process_options,
   search::{SearchData, generate_search_index},
@@ -32,7 +32,7 @@ fn option_data() -> serde_json::Value {
 }
 
 #[test]
-fn test_options_filter_applies_to_html_and_search() {
+fn test_options_dot_filter_applies_to_html_and_search() {
   let temp_dir =
     TempDir::new().expect("Failed to create temp dir in options filter test");
   let output_dir = temp_dir.path();
@@ -43,9 +43,11 @@ fn test_options_filter_applies_to_html_and_search() {
 
   let config = ndg_config::Config {
     module_options: Some(options_file.clone()),
-    options_filter: Some(OptionsFilterConfig {
-      prefix: Some("hjem.users".to_string()),
-      ..Default::default()
+    options: Some(OptionsConfig {
+      filter: Some(FilterConfig {
+        prefix: Some("hjem.users".to_string()),
+        ..Default::default()
+      }),
     }),
     ..test_config(output_dir)
   };

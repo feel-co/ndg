@@ -176,7 +176,10 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
         let has_default =
           option.default.is_some() || option.default_text.is_some();
         let has_description = !description_text.trim().is_empty();
-        if let Some(filter) = config.options_filter.as_ref()
+        if let Some(filter) = config
+          .options
+          .as_ref()
+          .and_then(|options| options.filter.as_ref())
           && !filter.matches(
             &option.name,
             &option.type_name,

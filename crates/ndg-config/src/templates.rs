@@ -107,6 +107,24 @@ enable = true
 # Maximum heading level to index
 max_heading_level = 3
 
+# Global module options configuration
+# [options.filter]
+# Include only option names under this prefix.
+# prefix = "services.nginx"
+
+# Include only options whose type contains this text.
+# type = "boolean"
+
+# Include only options whose name or description contains this text.
+# search = "enable"
+
+# Include only options with default values or descriptions.
+# has_default = false
+# has_description = false
+
+# Include options marked internal or invisible.
+# include_internal = true
+
 # Sidebar configuration
 # [sidebar]
 # Enable numbering for sidebar items
@@ -190,6 +208,13 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "search": {
     "enable": true,
     "max_heading_level": 3
+  },
+  "options": {
+    "filter": {
+      "has_default": false,
+      "has_description": false,
+      "include_internal": true
+    }
   },
   "options_toc_depth": 2,
   "highlight_code": true,

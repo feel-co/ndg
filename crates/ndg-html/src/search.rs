@@ -238,7 +238,10 @@ pub fn generate_search_index(
       let internal = option_value["internal"].as_bool().unwrap_or(false)
         || option_value["visible"].as_bool() == Some(false);
 
-      if let Some(filter) = config.options_filter.as_ref()
+      if let Some(filter) = config
+        .options
+        .as_ref()
+        .and_then(|options| options.filter.as_ref())
         && !filter.matches(
           key,
           type_name,

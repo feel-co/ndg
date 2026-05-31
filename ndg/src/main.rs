@@ -10,7 +10,10 @@ use rayon::prelude::*;
 
 mod cli;
 use cli::{Cli, Commands};
-use config::{Config, options::OptionsFilterConfig};
+use config::{
+  Config,
+  options::{FilterConfig, OptionsConfig},
+};
 
 #[cfg(feature = "serve")] mod serve;
 
@@ -305,8 +308,10 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
       || *options_hide_internal
     {
       let filter = config
-        .options_filter
-        .get_or_insert_with(OptionsFilterConfig::default);
+        .options
+        .get_or_insert_with(OptionsConfig::default)
+        .filter
+        .get_or_insert_with(FilterConfig::default);
 
       if let Some(prefix) = option_filter_prefix {
         filter.prefix = Some(prefix.clone());

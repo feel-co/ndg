@@ -160,9 +160,9 @@ pub struct Config {
   #[config(nested)]
   pub anchor: Option<anchor::AnchorConfig>,
 
-  /// Filters applied to module options before rendering.
+  /// Global module options configuration.
   #[config(nested)]
-  pub options_filter: Option<options::OptionsFilterConfig>,
+  pub options: Option<options::OptionsConfig>,
 
   /// Nix files or directories to extract nixdoc comments from.
   ///
@@ -239,7 +239,7 @@ impl Default for Config {
       sidebar:               None,
       postprocess:           None,
       anchor:                None,
-      options_filter:        None,
+      options:               None,
       nixdoc_inputs:         Vec::new(),
       index:                 None,
       vars:                  HashMap::new(),
