@@ -42,6 +42,10 @@ compile_error!(
 ///
 /// Returns an error if both syntastica and syntect features are enabled,
 /// or if neither feature is enabled, or if backend initialization fails.
+#[allow(
+  clippy::missing_const_for_fn,
+  reason = "backend-enabled builds call non-const syntax manager constructors"
+)]
 pub fn create_default_manager(
   syntax_queries_dir: Option<&std::path::Path>,
 ) -> SyntaxResult<SyntaxManager> {

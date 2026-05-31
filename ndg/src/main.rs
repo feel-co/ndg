@@ -15,10 +15,16 @@ use config::{
   options::{FilterConfig, OptionsConfig},
 };
 
+#[cfg(feature = "nrd")] mod nrd;
 #[cfg(feature = "serve")] mod serve;
 
 fn main() -> Result<()> {
   color_eyre::install()?;
+
+  #[cfg(feature = "nrd")]
+  if nrd::invoked_as_nrd() {
+    return nrd::run();
+  }
 
   let cli = Cli::parse_args();
 
