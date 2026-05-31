@@ -107,6 +107,15 @@
   generateSearch ? true,
   highlightCode ? true,
   extraConfig ? {},
+  # ZIM archive generation
+  buildZim ? false,
+  zimId ? null,
+  zimLanguage ? "eng",
+  zimIllustration ? null,
+  zimTags ? ["devdocs" "nix"],
+  creator ? null,
+  publisher ? null,
+  source ? null,
 } @ args: let
   inherit (builtins) isList;
   inherit (lib.attrsets) optionalAttrs mergeAttrsList;
@@ -115,7 +124,13 @@ in
   # TODO explain this one
   assert args ? specialArgs -> args ? rawModules;
   assert assertMsg (isList stylesheets) "The stylesheets option is now additive, and takes a list instead";
-  assert assertMsg (args ? evaluatedModules -> !(args ? rawModules)) "evaluatedModules and rawModules are mutually exclusive"; let
+  assert assertMsg (args ? evaluatedModules -> !(args ? rawModules)) "evaluatedModules and rawModules are mutually exclusive";
+  assert assertMsg (!buildZim || zimId != null) "When buildZim is true, `zimId` must be set.";
+  assert assertMsg (!buildZim || zimIllustration != null) "When buildZim is true, `zimIllustration` must be set.";
+  assert assertMsg (!buildZim || lib.strings.hasSuffix ".png" zimIllustration) "When buildZim is true, `zimIllustration` must end in .png.";
+  assert assertMsg (!buildZim || creator != null) "When buildZim is true, `creator` must be set.";
+  assert assertMsg (!buildZim || publisher != null) "When buildZim is true, `publisher` must be set.";
+  assert assertMsg (!buildZim || builtins.stringLength zimLanguage == 3) "When buildZim is true, `zimLanguage` must be a 3-character ISO639-3 language code."; let
     inherit (lib.strings) optionalString;
 
     configJSON =
@@ -149,4 +164,26 @@ in
     } ''
       ndg --config-file "${ndgConfig}" ${optionalString verbose "--verbose"} html \
         --jobs $NIX_BUILD_CORES --output-dir "$out"
+
+      ${optionalString buildZim ''
+        workDir=$(mktemp -d)
+        cp -r "$out"/* "$workDir/"
+        cp "${zimIllustration}" "$workDir/icon.png"
+
+        ${pkgs.zim-tools}/bin/zimwriterfs ${builtins.concatStringsSep " " [
+          "--welcome 'index.html'"
+          "--illustration 'icon.png'"
+          "--illustration 'icon.png'"
+          "--language '${zimLanguage}'"
+          "--name '${zimId}'"
+          "--title '${title}'"
+          "--description '${description}'"
+          "--creator '${creator}'"
+          "--publisher '${publisher}'"
+          "--tags '${builtins.concatStringsSep ";" zimTags}'"
+          (optionalString (source != null) "--source '${source}'")
+          "--scraper 'ndg'"
+          "\"$workDir\" \"$out/${zimId}.zim\""
+        ]}
+      ''}
     ''

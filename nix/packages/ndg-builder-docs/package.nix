@@ -16,6 +16,12 @@ in let
     optionsDepth = 2;
     generateSearch = true;
     highlightCode = true;
+    buildZim = true;
+    zimId = "ndg-builder";
+    creator = "feel-co.org";
+    publisher = "feel-co.org";
+    zimIllustration = ./logo.png;
+    source = "https://ndg.feel-co.org/";
   };
 in
   pkgs.runCommandLocal "ndg-builder-docs" {} ''
