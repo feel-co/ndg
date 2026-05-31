@@ -56,6 +56,7 @@ impl FaviconEntry {
   /// # Errors
   ///
   /// Returns an error if neither `dest` nor `href` yields a valid filename.
+  #[must_use]
   pub fn output_filename(&self) -> Option<&OsStr> {
     self
       .dest

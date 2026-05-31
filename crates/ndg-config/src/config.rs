@@ -272,7 +272,7 @@ impl Config {
     self
       .anchor
       .as_ref()
-      .map_or(false, |a| a.legacy_option_id_format)
+      .is_some_and(|a| a.legacy_option_id_format)
   }
 
   /// Returns whether to generate compatibility anchors for old option IDs.
@@ -281,21 +281,21 @@ impl Config {
     self
       .anchor
       .as_ref()
-      .map_or(false, |a| a.compatibility_anchors)
+      .is_some_and(|a| a.compatibility_anchors)
   }
 
   /// Returns whether to use README.md as the homepage when index.md is not
   /// present.
   #[must_use]
   pub fn use_readme_as_homepage(&self) -> bool {
-    self.index.as_ref().map_or(false, |i| i.use_readme)
+    self.index.as_ref().is_some_and(|i| i.use_readme)
   }
 
   /// Returns whether to generate a fallback index.html when no index file is
   /// provided.
   #[must_use]
   pub fn generate_fallback_index(&self) -> bool {
-    self.index.as_ref().map_or(true, |i| i.generate_fallback)
+    self.index.as_ref().is_none_or(|i| i.generate_fallback)
   }
 
   /// Load configuration from a file (TOML or JSON).

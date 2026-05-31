@@ -90,6 +90,11 @@ trait MatchField: Sized {
 
 /// Configuration for sidebar behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
+#[allow(
+  clippy::struct_excessive_bools,
+  reason = "Config mirrors TOML flags; replacing bools would be a breaking \
+            schema change"
+)]
 pub struct SidebarConfig {
   /// Whether to number sidebar items.
   #[serde(default)]
