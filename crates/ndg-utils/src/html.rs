@@ -22,7 +22,7 @@ pub fn generate_asset_paths(
 ) -> HashMap<&'static str, String> {
   let root_prefix = calculate_root_relative_path(file_rel_path);
 
-  let mut paths = HashMap::new();
+  let mut paths = HashMap::with_capacity(6);
   paths.insert("stylesheet_path", format!("{root_prefix}assets/style.css"));
   paths.insert("main_js_path", format!("{root_prefix}assets/main.js"));
   paths.insert("search_js_path", format!("{root_prefix}assets/search.js"));
@@ -47,34 +47,39 @@ pub fn generate_asset_paths(
 pub fn content_to_plaintext(content: &str) -> String {
   let plain_text = strip_markdown(content);
 
-  // Normalize whitespace: collapse multiple blank lines and trim lines
-  let lines: Vec<String> = plain_text
-    .lines()
-    .map(|line| {
-      // Remove anchor markers {#id} and collapse whitespace
-      line
-        .split_whitespace()
-        .filter(|word| !(word.starts_with("{#") && word.ends_with('}')))
-        .collect::<Vec<_>>()
-        .join(" ")
-    })
-    .collect();
-
-  // Remove consecutive empty lines
-  let mut result = Vec::new();
+  let mut result = String::with_capacity(plain_text.len());
+  let mut line = String::new();
   let mut prev_empty = false;
+  let mut has_output = false;
 
-  for line in lines {
+  for raw_line in plain_text.lines() {
+    line.clear();
+
+    // Remove anchor markers {#id} and collapse whitespace.
+    for word in raw_line
+      .split_whitespace()
+      .filter(|word| !(word.starts_with("{#") && word.ends_with('}')))
+    {
+      if !line.is_empty() {
+        line.push(' ');
+      }
+      line.push_str(word);
+    }
+
     if line.is_empty() {
-      if !prev_empty && !result.is_empty() {
-        result.push(line);
+      if !prev_empty && has_output {
+        result.push('\n');
       }
       prev_empty = true;
     } else {
-      result.push(line);
+      if has_output {
+        result.push('\n');
+      }
+      result.push_str(&line);
+      has_output = true;
       prev_empty = false;
     }
   }
 
-  result.join("\n").trim().to_string()
+  result.trim().to_string()
 }

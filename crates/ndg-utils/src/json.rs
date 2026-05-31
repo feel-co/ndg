@@ -32,15 +32,10 @@ pub fn extract_value(value: &Value, wrap_code: bool) -> Option<String> {
           return Some(text.clone());
         }
       },
-      "literalMD" => {
+      "literalMD" | "literalDocBook" => {
         if let Some(Value::String(text)) = obj.get("text") {
           // literalMD contains markdown that should be rendered, not wrapped in
-          // code
-          return Some(text.clone());
-        }
-      },
-      "literalDocBook" => {
-        if let Some(Value::String(text)) = obj.get("text") {
+          // code. literalDocBook is already presentation markup.
           return Some(text.clone());
         }
       },
