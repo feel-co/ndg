@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +7,8 @@
     {{ meta_tags_html | safe }} {{ opengraph_html | safe }}
     {{ favicon_links | safe }}
     <script>
+      document.documentElement.classList.remove("no-js");
+      document.documentElement.classList.add("js");
       // Apply sidebar state immediately to prevent flash
       (function () {
         try {
@@ -39,7 +41,7 @@
           </div>
         </div>
         {{ navbar_html|safe }} {% if generate_search %}
-        <div class="search-container">
+        <div class="search-container js-only">
           <input type="text" id="search-input" aria-label="Search" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
         </div>
@@ -49,7 +51,7 @@
       <div class="layout">
         <button
           type="button"
-          class="sidebar-toggle"
+          class="sidebar-toggle js-only"
           aria-label="Toggle sidebar"
           aria-expanded="true"
           aria-controls="sidebar"
@@ -89,7 +91,7 @@
           <h1>{{ heading }}</h1>
 
           {% if generate_search %}
-          <div class="search-form">
+          <div class="search-form js-only">
             <input
               type="text"
               id="lib-filter"
