@@ -4,6 +4,7 @@ use std::fs;
 mod common;
 
 use common::test_config;
+use ndg_config::options::OptionsFilterConfig;
 use ndg_html::{
   options::process_options,
   search::{SearchData, generate_search_index},
@@ -28,6 +29,50 @@ fn option_data() -> serde_json::Value {
           "default": "/etc/config"
       }
   })
+}
+
+#[test]
+fn test_options_filter_applies_to_html_and_search() {
+  let temp_dir =
+    TempDir::new().expect("Failed to create temp dir in options filter test");
+  let output_dir = temp_dir.path();
+
+  let options_file = output_dir.join("options.json");
+  fs::write(&options_file, option_data().to_string())
+    .expect("Failed to write options.json in options filter test");
+
+  let config = ndg_config::Config {
+    module_options: Some(options_file.clone()),
+    options_filter: Some(OptionsFilterConfig {
+      prefix: Some("hjem.users".to_string()),
+      ..Default::default()
+    }),
+    ..test_config(output_dir)
+  };
+
+  process_options(&config, &options_file)
+    .expect("Failed to process filtered options");
+  generate_search_index(&config, &[])
+    .expect("Failed to generate filtered search index");
+
+  let options_html = fs::read_to_string(output_dir.join("options.html"))
+    .expect("Failed to read filtered options.html");
+  assert!(options_html.contains("hjem.users.&lt;name&gt;.clobberFiles"));
+  assert!(!options_html.contains("system.&lt;config&gt;.path"));
+
+  let search_data =
+    fs::read_to_string(output_dir.join("assets").join("search-data.json"))
+      .expect("Failed to read filtered search-data.json");
+  let search_data: SearchData = serde_json::from_str(&search_data)
+    .expect("Failed to parse filtered search-data.json");
+  let titles: Vec<_> = search_data
+    .documents
+    .iter()
+    .map(|doc| doc.title.as_str())
+    .collect();
+
+  assert!(titles.iter().any(|title| title.contains("hjem.users")));
+  assert!(!titles.iter().any(|title| title.contains("system.")));
 }
 
 #[test]

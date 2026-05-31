@@ -229,8 +229,29 @@ pub fn generate_search_index(
     && let Some(options_obj) = options_data.as_object()
   {
     for (key, option_value) in options_obj {
-      let raw_description = option_value["description"].as_str().unwrap_or("");
-      let plain_description = html::content_to_plaintext(raw_description);
+      let raw_description =
+        option_description_text(option_value.get("description"));
+      let type_name = option_value["type"].as_str().unwrap_or("");
+      let has_default = option_value.get("default").is_some()
+        || option_value.get("defaultText").is_some();
+      let has_description = !raw_description.trim().is_empty();
+      let internal = option_value["internal"].as_bool().unwrap_or(false)
+        || option_value["visible"].as_bool() == Some(false);
+
+      if let Some(filter) = config.options_filter.as_ref()
+        && !filter.matches(
+          key,
+          type_name,
+          &raw_description,
+          has_default,
+          has_description,
+          internal,
+        )
+      {
+        continue;
+      }
+
+      let plain_description = html::content_to_plaintext(&raw_description);
 
       let title = format!("Option: {key}");
       let tokens = tokenize(&plain_description);
@@ -286,6 +307,23 @@ pub fn generate_search_index(
   );
 
   Ok(())
+}
+
+fn option_description_text(description: Option<&Value>) -> String {
+  match description {
+    Some(Value::String(text)) => text.clone(),
+    Some(Value::Object(object))
+      if object.get("_type").and_then(|value| value.as_str())
+        == Some("literalMD") =>
+    {
+      object
+        .get("text")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_string()
+    },
+    _ => String::new(),
+  }
 }
 
 /// Create the search page HTML and write it to the output directory.

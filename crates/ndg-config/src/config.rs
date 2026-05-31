@@ -13,6 +13,7 @@ use crate::{
   error::ConfigError,
   index,
   meta,
+  options,
   postprocess,
   search,
   sidebar,
@@ -159,6 +160,10 @@ pub struct Config {
   #[config(nested)]
   pub anchor: Option<anchor::AnchorConfig>,
 
+  /// Filters applied to module options before rendering.
+  #[config(nested)]
+  pub options_filter: Option<options::OptionsFilterConfig>,
+
   /// Nix files or directories to extract nixdoc comments from.
   ///
   /// Each entry may be a `.nix` file or a directory. Directories are scanned
@@ -234,6 +239,7 @@ impl Default for Config {
       sidebar:               None,
       postprocess:           None,
       anchor:                None,
+      options_filter:        None,
       nixdoc_inputs:         Vec::new(),
       index:                 None,
       vars:                  HashMap::new(),

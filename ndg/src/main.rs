@@ -10,7 +10,7 @@ use rayon::prelude::*;
 
 mod cli;
 use cli::{Cli, Commands};
-use config::Config;
+use config::{Config, options::OptionsFilterConfig};
 
 #[cfg(feature = "serve")] mod serve;
 
@@ -251,6 +251,12 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     title,
     footer,
     module_options,
+    option_filter_prefix,
+    option_filter_type,
+    option_filter_search,
+    options_has_default,
+    options_has_description,
+    options_hide_internal,
     options_toc_depth,
     manpage_urls,
     generate_search,
@@ -290,6 +296,36 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     }
     if let Some(module_options) = module_options {
       config.module_options = Some(module_options.clone());
+    }
+    if option_filter_prefix.is_some()
+      || option_filter_type.is_some()
+      || option_filter_search.is_some()
+      || *options_has_default
+      || *options_has_description
+      || *options_hide_internal
+    {
+      let filter = config
+        .options_filter
+        .get_or_insert_with(OptionsFilterConfig::default);
+
+      if let Some(prefix) = option_filter_prefix {
+        filter.prefix = Some(prefix.clone());
+      }
+      if let Some(type_name) = option_filter_type {
+        filter.type_name = Some(type_name.clone());
+      }
+      if let Some(search) = option_filter_search {
+        filter.search = Some(search.clone());
+      }
+      if *options_has_default {
+        filter.has_default = true;
+      }
+      if *options_has_description {
+        filter.has_description = true;
+      }
+      if *options_hide_internal {
+        filter.include_internal = false;
+      }
     }
     if let Some(depth) = options_toc_depth {
       config.options_toc_depth = *depth;

@@ -59,6 +59,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   if let Value::Object(map) = options_data {
     for (key, value) in map {
       if let Value::Object(option_data) = &value {
+        let mut description_text = String::new();
         let mut option = NixOption {
           name:            key.clone(),
           type_name:       String::new(),
@@ -94,6 +95,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
             },
             _ => String::new(),
           };
+          description_text.clone_from(&desc_text);
           // Only escape HTML for plain string descriptions, not literalMD
           let processed_desc = if let Value::Object(obj) = desc {
             if obj.get("_type").and_then(|t| t.as_str()) == Some("literalMD") {
@@ -169,6 +171,22 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
           && !visible
         {
           option.internal = true;
+        }
+
+        let has_default =
+          option.default.is_some() || option.default_text.is_some();
+        let has_description = !description_text.trim().is_empty();
+        if let Some(filter) = config.options_filter.as_ref()
+          && !filter.matches(
+            &option.name,
+            &option.type_name,
+            &description_text,
+            has_default,
+            has_description,
+            option.internal,
+          )
+        {
+          continue;
         }
 
         // Use loc as fallback if no declaration
