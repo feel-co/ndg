@@ -122,19 +122,6 @@ impl InlineTracker {
   where
     I: Iterator<Item = char> + Clone,
   {
-    let mut tick_count = 1; // we've already seen the first backtick
-    let mut temp_chars = chars.clone();
-
-    // Count consecutive backticks
-    while temp_chars.next() == Some('`') {
-      tick_count += 1;
-    }
-
-    // Actually consume the backticks from the iterator
-    for _ in 1..tick_count {
-      chars.next();
-    }
-
     fn inner(this: &InlineTracker, count: usize) -> (InlineTracker, usize) {
       if count >= 3 {
         // This is a code fence
@@ -179,6 +166,19 @@ impl InlineTracker {
       }
     }
 
+    let mut tick_count = 1; // we've already seen the first backtick
+    let mut temp_chars = chars.clone();
+
+    // Count consecutive backticks
+    while temp_chars.next() == Some('`') {
+      tick_count += 1;
+    }
+
+    // Actually consume the backticks from the iterator
+    for _ in 1..tick_count {
+      chars.next();
+    }
+
     inner(self, tick_count)
   }
 
@@ -190,19 +190,6 @@ impl InlineTracker {
   where
     I: Iterator<Item = char> + Clone,
   {
-    let mut tilde_count = 1; // we've already seen the first tilde
-    let mut temp_chars = chars.clone();
-
-    // Count consecutive tildes
-    while temp_chars.next() == Some('~') {
-      tilde_count += 1;
-    }
-
-    // Actually consume the tildes from the iterator
-    for _ in 1..tilde_count {
-      chars.next();
-    }
-
     fn inner(this: &InlineTracker, count: usize) -> (InlineTracker, usize) {
       if count >= 3 {
         if !this.in_code_block {
@@ -235,6 +222,19 @@ impl InlineTracker {
         // Less than 3 tildes, no state change
         (*this, count)
       }
+    }
+
+    let mut tilde_count = 1; // we've already seen the first tilde
+    let mut temp_chars = chars.clone();
+
+    // Count consecutive tildes
+    while temp_chars.next() == Some('~') {
+      tilde_count += 1;
+    }
+
+    // Actually consume the tildes from the iterator
+    for _ in 1..tilde_count {
+      chars.next();
     }
 
     inner(self, tilde_count)

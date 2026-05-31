@@ -86,33 +86,25 @@ fn parse_include_directive(line: &str) -> IncludeDirective {
     })
     .map(str::to_string);
 
-  let custom_output = if let Some(start) = line.find("html:into-file=") {
-    let start = start + "html:into-file=".len();
-    if let Some(end) = line[start..].find(' ') {
-      Some(line[start..start + end].to_string())
-    } else {
-      Some(line[start..].trim().to_string())
-    }
-  } else {
-    None
-  };
-
-  let auto_id_prefix = if let Some(start) = line.find("auto-id-prefix=") {
-    let start = start + "auto-id-prefix=".len();
-    if let Some(end) = line[start..].find(' ') {
-      Some(line[start..start + end].to_string())
-    } else {
-      Some(line[start..].trim().to_string())
-    }
-  } else {
-    None
-  };
+  let custom_output = directive_value(line, "html:into-file=");
+  let auto_id_prefix = directive_value(line, "auto-id-prefix=");
 
   IncludeDirective {
     custom_output,
     include_type,
     auto_id_prefix,
   }
+}
+
+#[cfg(feature = "nixpkgs")]
+fn directive_value(line: &str, marker: &str) -> Option<String> {
+  line.find(marker).map(|start| {
+    let start = start + marker.len();
+    line[start..].find(' ').map_or_else(
+      || line[start..].trim().to_string(),
+      |end| line[start..start + end].to_string(),
+    )
+  })
 }
 
 #[cfg(feature = "nixpkgs")]

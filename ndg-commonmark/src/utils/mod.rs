@@ -233,11 +233,6 @@ pub fn strip_markdown(content: &str) -> String {
     in_code_block: &mut bool,
   ) {
     match &node.data.borrow().value {
-      NodeValue::Document => {
-        for child in node.children() {
-          extract_text(child, plain_text, in_code_block);
-        }
-      },
       NodeValue::Paragraph => {
         for child in node.children() {
           extract_text(child, plain_text, in_code_block);
@@ -275,11 +270,6 @@ pub fn strip_markdown(content: &str) -> String {
           extract_text(child, plain_text, in_code_block);
         }
         plain_text.push('\n');
-      },
-      NodeValue::Item(_) => {
-        for child in node.children() {
-          extract_text(child, plain_text, in_code_block);
-        }
       },
       NodeValue::Code(c) => {
         if !*in_code_block {

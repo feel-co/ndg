@@ -66,18 +66,16 @@ impl UserQueryLanguageSet {
     &self,
     lang: Lang,
   ) -> syntastica::Result<&'static HighlightConfiguration> {
-    if let Some(config) = self
-      .configs
-      .lock()
-      .map_err(|e| {
+    {
+      let configs = self.configs.lock().map_err(|e| {
         syntastica::Error::UnsupportedLanguage(format!(
           "syntax language-set lock poisoned: {e}"
         ))
-      })?
-      .get(&lang)
-      .copied()
-    {
-      return Ok(config);
+      })?;
+
+      if let Some(config) = configs.get(&lang).copied() {
+        return Ok(config);
+      }
     }
 
     let config =
@@ -90,12 +88,12 @@ impl UserQueryLanguageSet {
       ))
     })?;
 
-    if let Some(config) = configs.get(&lang).copied() {
-      return Ok(config);
-    }
-
-    let config = Box::leak(Box::new(config));
-    configs.insert(lang, config);
+    let config = configs.get(&lang).copied().unwrap_or_else(|| {
+      let config: &'static HighlightConfiguration = Box::leak(Box::new(config));
+      configs.insert(lang, config);
+      config
+    });
+    drop(configs);
 
     Ok(config)
   }
@@ -161,7 +159,7 @@ fn build_highlight_config(
   Ok(config)
 }
 
-impl<'s> LanguageSet<'s> for UserQueryLanguageSet {
+impl LanguageSet<'_> for UserQueryLanguageSet {
   type Language = Lang;
 
   fn get_language(
@@ -176,8 +174,7 @@ fn is_extends_query(content: &str) -> bool {
   content
     .lines()
     .next()
-    .map(|l| matches!(l.trim(), ";; extends" | ";;extends"))
-    .unwrap_or(false)
+    .is_some_and(|l| matches!(l.trim(), ";; extends" | ";;extends"))
 }
 
 /// Rewrites `(#any-of? @cap "a" "b" ...)` into `(#match? @cap "^(a|b|...)$")`.
@@ -199,15 +196,12 @@ fn rewrite_any_of_predicates(query: &str) -> String {
       Some(pos) => {
         result.push_str(&remaining[..pos]);
         let from = &remaining[pos..];
-        match parse_any_of_predicate(from) {
-          Some((replacement, consumed)) => {
-            result.push_str(&replacement);
-            remaining = &from[consumed..];
-          },
-          None => {
-            result.push_str(NEEDLE);
-            remaining = &from[NEEDLE.len()..];
-          },
+        if let Some((replacement, consumed)) = parse_any_of_predicate(from) {
+          result.push_str(&replacement);
+          remaining = &from[consumed..];
+        } else {
+          result.push_str(NEEDLE);
+          remaining = &from[NEEDLE.len()..];
         }
       },
     }

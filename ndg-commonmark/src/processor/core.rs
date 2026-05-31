@@ -1106,7 +1106,7 @@ impl MarkdownProcessor {
           {
             // Split off fragment (#) and query (?) to check the path extension
             let (path_part, suffix) = href_value
-              .find(|c| c == '#' || c == '?')
+              .find(['#', '?'])
               .map_or((href_value.as_str(), ""), |idx| {
                 href_value.split_at(idx)
               });
