@@ -1,11 +1,32 @@
-use std::{cmp::Ordering, collections::HashMap, env, fs, path::PathBuf};
+use std::{
+  cmp::Ordering,
+  collections::HashMap,
+  env,
+  fs,
+  path::PathBuf,
+  sync::LazyLock,
+};
 
 use clap::{Args, Parser, Subcommand};
 use color_eyre::eyre::{Context, Result, bail};
 use comrak::{Arena, Options, nodes::NodeValue, parse_document};
+use regex::Regex;
 use serde_json::{Map, Value};
 
 const NRD_BIN_NAMES: &[&str] = &["nrd", "nixos-render-docs"];
+const ROLE_START: char = '\u{E000}';
+const ROLE_SEP: char = '\u{E001}';
+const ROLE_END: char = '\u{E002}';
+const PROTECTED_SPACE: &str = "\0p";
+
+static ROFF_UNICODE: LazyLock<Regex> = LazyLock::new(|| {
+  #[allow(
+    clippy::expect_used,
+    reason = "the roff Unicode character-class regex is static and tested"
+  )]
+  Regex::new(r"[^\n !#$%&()*+,\-./0-9:;<=>?@A-Z\[\\\]_a-z{|}]")
+    .expect("roff unicode regex should compile")
+});
 
 #[derive(Debug, Parser)]
 #[command(
@@ -160,6 +181,41 @@ struct CommonMarkRenderer {
   link_stack: Vec<String>,
 }
 
+#[derive(Debug)]
+struct ManpageConverter {
+  revision:      String,
+  header:        Option<Vec<String>>,
+  footer:        Option<Vec<String>>,
+  options_by_id: HashMap<String, String>,
+  options:       HashMap<String, RenderedManpageOption>,
+}
+
+#[derive(Debug)]
+struct RenderedManpageOption {
+  loc:   Vec<String>,
+  lines: Vec<String>,
+  links: Vec<String>,
+}
+
+#[derive(Debug)]
+struct ManpageRenderer {
+  inline_code_is_quoted: bool,
+  link_footnotes:        Option<Vec<String>>,
+  href_targets:          HashMap<String, String>,
+  link_stack:            Vec<String>,
+  do_parbreak_stack:     Vec<bool>,
+  list_stack:            Vec<ManpageListState>,
+  font_stack:            Vec<&'static str>,
+}
+
+#[derive(Clone, Debug)]
+struct ManpageListState {
+  width:           usize,
+  next_idx:        Option<usize>,
+  compact:         bool,
+  first_item_seen: bool,
+}
+
 #[derive(Clone, Debug)]
 struct ParagraphState {
   indent:     String,
@@ -205,19 +261,7 @@ pub fn run() -> Result<()> {
 fn run_options(command: OptionsCommand) -> Result<()> {
   match command.format {
     OptionsFormat::Commonmark(args) => run_options_commonmark(args),
-    OptionsFormat::Manpage(args) => {
-      let _ = args.revision;
-      let header = read_optional_text(args.header.as_ref())?;
-      let footer = read_optional_text(args.footer.as_ref())?;
-      ndg_manpage::generate_manpage(
-        &args.infile,
-        Some(&args.outfile),
-        Some("configuration.nix"),
-        header.as_deref(),
-        footer.as_deref(),
-        5,
-      )
-    },
+    OptionsFormat::Manpage(args) => run_options_manpage(args),
     OptionsFormat::Asciidoc(args) => {
       let _ = (args.manpage_urls, args.revision, args.infile, args.outfile);
       bail!("nixos-render-docs options asciidoc is not implemented yet")
@@ -267,6 +311,22 @@ fn run_options_commonmark(args: CommonMarkArgs) -> Result<()> {
   })
 }
 
+fn run_options_manpage(args: ManpageArgs) -> Result<()> {
+  let options = read_options(&args.infile)?;
+  let mut converter = ManpageConverter::new(
+    args.revision,
+    read_optional_lines(args.header.as_ref())?,
+    read_optional_lines(args.footer.as_ref())?,
+  );
+  converter.add_options(&options)?;
+  fs::write(&args.outfile, converter.finalize()?).wrap_err_with(|| {
+    format!(
+      "failed to write manpage output to {}",
+      args.outfile.display()
+    )
+  })
+}
+
 fn read_optional_text(path: Option<&PathBuf>) -> Result<Option<String>> {
   path
     .map(|path| {
@@ -274,6 +334,12 @@ fn read_optional_text(path: Option<&PathBuf>) -> Result<Option<String>> {
         .wrap_err_with(|| format!("failed to read {}", path.display()))
     })
     .transpose()
+}
+
+fn read_optional_lines(path: Option<&PathBuf>) -> Result<Option<Vec<String>>> {
+  read_optional_text(path).map(|content| {
+    content.map(|content| content.lines().map(str::to_string).collect())
+  })
 }
 
 fn read_options(path: &PathBuf) -> Result<Map<String, Value>> {
@@ -566,6 +632,282 @@ impl CommonMarkConverter {
   }
 }
 
+impl ManpageConverter {
+  fn new(
+    revision: String,
+    header: Option<Vec<String>>,
+    footer: Option<Vec<String>>,
+  ) -> Self {
+    Self {
+      revision,
+      header,
+      footer,
+      options_by_id: HashMap::new(),
+      options: HashMap::new(),
+    }
+  }
+
+  fn add_options(&mut self, options: &Map<String, Value>) -> Result<()> {
+    for name in options.keys() {
+      self.options_by_id.insert(
+        format!("#{}", make_xml_id(&format!("opt-{name}"))),
+        name.clone(),
+      );
+    }
+
+    for (name, option) in options {
+      let rendered = self
+        .render_option(name, option)
+        .wrap_err_with(|| format!("failed to render option {name}"))?;
+      self.options.insert(name.clone(), rendered);
+    }
+    Ok(())
+  }
+
+  fn render_option(
+    &self,
+    name: &str,
+    option: &Value,
+  ) -> Result<RenderedManpageOption> {
+    let Value::Object(option) = option else {
+      bail!("option value must be a JSON object")
+    };
+
+    let mut renderer = ManpageRenderer::new(self.options_by_id.clone());
+    renderer.link_footnotes = Some(Vec::new());
+    let lines = self.convert_one(option, &mut renderer)?;
+    Ok(RenderedManpageOption {
+      loc: option_loc(name, option),
+      lines,
+      links: renderer.link_footnotes.take().unwrap_or_default(),
+    })
+  }
+
+  fn convert_one(
+    &self,
+    option: &Map<String, Value>,
+    renderer: &mut ManpageRenderer,
+  ) -> Result<Vec<String>> {
+    let mut blocks = Vec::new();
+
+    if let Some(description) = option.get("description") {
+      let rendered = Self::render_description(description, renderer)?;
+      if !rendered.is_empty() {
+        blocks.push(vec![rendered]);
+      }
+    }
+
+    if let Some(Value::String(type_name)) = option.get("type") {
+      let read_only = if option
+        .get("readOnly")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+      {
+        " *(read only)*"
+      } else {
+        ""
+      };
+      blocks.push(vec![renderer.render_markdown(&format!(
+        "*Type:*\n{}{read_only}",
+        md_escape(type_name)
+      ))?]);
+    }
+
+    if option.get("default").is_some_and(json_truthy) {
+      blocks.push(Self::render_code(option, "default", renderer)?);
+    }
+    if option.get("example").is_some_and(json_truthy) {
+      blocks.push(Self::render_code(option, "example", renderer)?);
+    }
+
+    if let Some(Value::String(related)) = option.get("relatedPackages")
+      && !related.is_empty()
+    {
+      blocks.push(vec![
+        "\\fIRelated packages:\\fP".to_string(),
+        ".sp".to_string(),
+        renderer.render_markdown(related)?,
+      ]);
+    }
+    if let Some(Value::Array(declarations)) = option.get("declarations")
+      && !declarations.is_empty()
+    {
+      blocks.push(self.render_decl_def("Declared by", declarations));
+    }
+    if let Some(Value::Array(definitions)) = option.get("definitions")
+      && !definitions.is_empty()
+    {
+      blocks.push(self.render_decl_def("Defined by", definitions));
+    }
+
+    let last_non_empty = blocks.iter().rposition(|block| !block.is_empty());
+    if let Some(last) = last_non_empty {
+      for block in &mut blocks[..last] {
+        if !block.is_empty() {
+          block.push(".sp".to_string());
+        }
+      }
+    }
+
+    Ok(blocks.into_iter().flatten().collect())
+  }
+
+  fn render_description(
+    description: &Value,
+    renderer: &mut ManpageRenderer,
+  ) -> Result<String> {
+    match description {
+      Value::String(description) => renderer.render_markdown(description),
+      Value::Object(object)
+        if object.get("_type").and_then(Value::as_str) == Some("mdDoc") =>
+      {
+        object.get("text").and_then(Value::as_str).map_or_else(
+          || Ok(String::new()),
+          |text| renderer.render_markdown(text),
+        )
+      },
+      _ => bail!("description has unrecognized type"),
+    }
+  }
+
+  fn render_code(
+    option: &Map<String, Value>,
+    key: &str,
+    renderer: &mut ManpageRenderer,
+  ) -> Result<Vec<String>> {
+    let quoted = renderer.inline_code_is_quoted;
+    renderer.inline_code_is_quoted = false;
+    let result = match option.get(key) {
+      Some(Value::Object(object))
+        if object.get("_type").and_then(Value::as_str) == Some("literalMD") =>
+      {
+        let text = object.get("text").and_then(Value::as_str).unwrap_or("");
+        Ok(vec![renderer.render_markdown(&format!(
+          "*{}:*\n{text}",
+          capitalize(key)
+        ))?])
+      },
+      Some(Value::Object(object))
+        if object.get("_type").and_then(Value::as_str)
+          == Some("literalExpression") =>
+      {
+        let text = object.get("text").and_then(Value::as_str).unwrap_or("");
+        let code = md_make_code(text, "", None);
+        Ok(vec![renderer.render_markdown(&format!(
+          "*{}:*\n{code}",
+          capitalize(key)
+        ))?])
+      },
+      Some(_) => bail!("{key} has unrecognized type"),
+      None => Ok(Vec::new()),
+    };
+    renderer.inline_code_is_quoted = quoted;
+    result
+  }
+
+  fn render_decl_def(&self, header: &str, locations: &[Value]) -> Vec<String> {
+    let mut lines = vec![format!("\\fI{}:\\fP", man_escape(header))];
+    for location in locations {
+      let (_, name) = format_decl_def_loc(location, &self.revision);
+      lines.push(".RS 4".to_string());
+      lines.push(format!("\\fB{}\\fP", man_escape(&name)));
+      lines.push(".RE".to_string());
+    }
+    lines
+  }
+
+  fn sorted_options(&self) -> Vec<(&String, &RenderedManpageOption)> {
+    let mut options: Vec<_> = self.options.iter().collect();
+    options.sort_by(|(name_a, option_a), (name_b, option_b)| {
+      compare_locs(&option_a.loc, &option_b.loc)
+        .then_with(|| name_a.cmp(name_b))
+    });
+    options
+  }
+
+  fn finalize(&self) -> Result<String> {
+    let mut result = Vec::new();
+    let mut header_renderer = ManpageRenderer::new(self.options_by_id.clone());
+
+    if let Some(header) = &self.header {
+      result.extend(header.iter().cloned());
+    } else {
+      result.extend([
+        r#".TH "CONFIGURATION\&.NIX" "5" "01/01/1980" "NixOS" "NixOS Reference Pages""#.to_string(),
+        r#".\" disable hyphenation"#.to_string(),
+        ".nh".to_string(),
+        r#".\" disable justification (adjust text to left margin only)"#.to_string(),
+        ".ad l".to_string(),
+        r#".\" enable line breaks after slashes"#.to_string(),
+        ".cflags 4 /".to_string(),
+        r#".SH "NAME""#.to_string(),
+        header_renderer.render_markdown(
+          "{file}`configuration.nix` - NixOS system configuration specification",
+        )?,
+        r#".SH "DESCRIPTION""#.to_string(),
+        ".PP".to_string(),
+        header_renderer.render_markdown(
+          "The file {file}`/etc/nixos/configuration.nix` contains the declarative specification of your NixOS system configuration. The command {command}`nixos-rebuild` takes this file and realises the system configuration specified therein.",
+        )?,
+        r#".SH "OPTIONS""#.to_string(),
+        ".PP".to_string(),
+        header_renderer.render_markdown(
+          "You can use the following options in {file}`configuration.nix`.",
+        )?,
+      ]);
+    }
+
+    for (name, option) in self.sorted_options() {
+      result.extend([
+        ".PP".to_string(),
+        format!("\\fB{}\\fR", man_escape(name)),
+        ".RS 4".to_string(),
+      ]);
+      result.extend(option.lines.iter().cloned());
+      if !option.links.is_empty() {
+        result.push(".sp".to_string());
+        let mut links = String::new();
+        for (index, link) in option.links.iter().enumerate() {
+          if index > 0 {
+            links.push('\n');
+          }
+          if link.starts_with("#opt-") {
+            if let Some(option_name) = self.options_by_id.get(link) {
+              links.push_str(&(index + 1).to_string());
+              links.push_str(". see the ");
+              links.push('{');
+              links.push_str("option}`");
+              links.push_str(option_name);
+              links.push_str("` option");
+            }
+          } else {
+            links.push_str(&(index + 1).to_string());
+            links.push_str(". ");
+            links.push_str(&md_escape(link));
+          }
+        }
+        result.push(
+          ManpageRenderer::new(self.options_by_id.clone())
+            .render_markdown(&links)?,
+        );
+      }
+      result.push(".RE".to_string());
+    }
+
+    if let Some(footer) = &self.footer {
+      result.extend(footer.iter().cloned());
+    } else {
+      result.extend([
+        r#".SH "AUTHORS""#.to_string(),
+        ".PP".to_string(),
+        "Eelco Dolstra and the Nixpkgs/NixOS contributors".to_string(),
+      ]);
+    }
+
+    Ok(result.join("\n"))
+  }
+}
+
 impl CommonMarkRenderer {
   fn new() -> Self {
     Self {
@@ -754,6 +1096,460 @@ impl CommonMarkRenderer {
     let last_index = self.parstack.len() - 1;
     &mut self.parstack[last_index]
   }
+}
+
+impl ManpageRenderer {
+  const fn new(href_targets: HashMap<String, String>) -> Self {
+    Self {
+      inline_code_is_quoted: true,
+      link_footnotes: None,
+      href_targets,
+      link_stack: Vec::new(),
+      do_parbreak_stack: Vec::new(),
+      list_stack: Vec::new(),
+      font_stack: Vec::new(),
+    }
+  }
+
+  fn render_markdown(&mut self, markdown: &str) -> Result<String> {
+    let rewritten = rewrite_roles_as_markers(markdown);
+    let arena = Arena::new();
+    let mut options = Options::default();
+    options.parse.smart = true;
+    options.extension.table = true;
+    options.extension.footnotes = true;
+    options.extension.description_lists = true;
+    let root = parse_document(&arena, &rewritten, &options);
+    self.render(root)
+  }
+
+  fn render<'ast>(
+    &mut self,
+    node: &'ast comrak::nodes::AstNode<'ast>,
+  ) -> Result<String> {
+    self.do_parbreak_stack = vec![false];
+    self.font_stack = vec!["\\fR"];
+    self.render_node(node)
+  }
+
+  fn render_node<'ast>(
+    &mut self,
+    node: &'ast comrak::nodes::AstNode<'ast>,
+  ) -> Result<String> {
+    let value = node.data.borrow().value.clone();
+    match value {
+      NodeValue::Document | NodeValue::DescriptionItem(_) => {
+        self.render_block_children(node)
+      },
+      NodeValue::Paragraph => {
+        let paragraph_break = self.maybe_paragraph_break("");
+        Ok(format!(
+          "{paragraph_break}{}",
+          self.render_inline_children(node)?
+        ))
+      },
+      NodeValue::Text(text) => Self::render_text(&text),
+      NodeValue::SoftBreak => Ok(" ".to_string()),
+      NodeValue::LineBreak => Ok(".br".to_string()),
+      NodeValue::Code(code) => {
+        let escaped = protect_spaces(&man_escape(&code.literal));
+        if self.inline_code_is_quoted {
+          Ok(format!("\\fR\\(oq{escaped}\\(cq\\fP"))
+        } else {
+          Ok(escaped)
+        }
+      },
+      NodeValue::CodeBlock(code) => {
+        let literal = code.literal.trim_end_matches('\n');
+        Ok(format!(
+          ".sp\n.RS 4\n.nf\n{}\n.fi\n.RE",
+          man_escape(literal)
+        ))
+      },
+      NodeValue::Emph => {
+        self.font_stack.push("\\fI");
+        let rendered = self.render_inline_children(node)?;
+        self.font_stack.pop();
+        Ok(format!("\\fI{}{}", rendered, self.current_font()))
+      },
+      NodeValue::Strong => {
+        self.font_stack.push("\\fB");
+        let rendered = self.render_inline_children(node)?;
+        self.font_stack.pop();
+        Ok(format!("\\fB{}{}", rendered, self.current_font()))
+      },
+      NodeValue::Link(link) => {
+        let href = link.url;
+        let target_text = if node.first_child().is_none() {
+          self.href_targets.get(&href).cloned().unwrap_or_default()
+        } else {
+          String::new()
+        };
+        self.link_stack.push(href);
+        self.font_stack.push("\\fB");
+        let rendered = self.render_inline_children(node)?;
+        let href = self.link_stack.pop().unwrap_or_default();
+        let footnote = self.link_footnotes.as_mut().map(|link_footnotes| {
+          link_footnotes
+            .iter()
+            .position(|existing| existing == &href)
+            .map_or_else(
+              || {
+                link_footnotes.push(href);
+                link_footnotes.len()
+              },
+              |index| index + 1,
+            )
+        });
+        let footnote_text = footnote
+          .map(|footnote| {
+            format!("\\fR{}", man_escape(&format!("[{footnote}]")))
+          })
+          .unwrap_or_default();
+        self.font_stack.pop();
+        Ok(format!(
+          "\\fB{target_text}\0 <{rendered}>\0 {footnote_text}{}",
+          self.current_font()
+        ))
+      },
+      NodeValue::List(list) => {
+        let item_count = node
+          .children()
+          .filter(|child| {
+            matches!(child.data.borrow().value, NodeValue::Item(_))
+          })
+          .count();
+        let width = if list.list_type == comrak::nodes::ListType::Ordered {
+          3 + (list.start + item_count.saturating_sub(1))
+            .to_string()
+            .len()
+        } else {
+          4
+        };
+        self.list_stack.push(ManpageListState {
+          width,
+          next_idx: if list.list_type == comrak::nodes::ListType::Ordered {
+            Some(list.start)
+          } else {
+            None
+          },
+          compact: list.tight,
+          first_item_seen: false,
+        });
+        let paragraph_break = self.maybe_paragraph_break("");
+        let children = self.render_block_children(node)?;
+        self.list_stack.pop();
+        Ok(format!("{paragraph_break}{children}"))
+      },
+      NodeValue::Item(_) => {
+        self.enter_block();
+        let (maybe_space, width, head) = {
+          let list = self
+            .list_stack
+            .last_mut()
+            .ok_or_else(|| color_eyre::eyre::eyre!("list item outside list"))?;
+          let maybe_space = if list.compact || !list.first_item_seen {
+            String::new()
+          } else {
+            ".sp\n".to_string()
+          };
+          list.first_item_seen = true;
+          let head = list.next_idx.as_mut().map_or_else(
+            || "•".to_string(),
+            |next_idx| {
+              let head = format!("{next_idx}.");
+              *next_idx += 1;
+              head
+            },
+          );
+          (maybe_space, list.width, head)
+        };
+        let children = self.render_block_children(node)?;
+        self.leave_block();
+        Ok(format!(
+          "{maybe_space}.RS \
+           {width}\n\\h'-{}'\\fB{}\\fP\\h'1'\\c\n{children}\n.RE",
+          head.len() + 1,
+          man_escape(&head)
+        ))
+      },
+      NodeValue::BlockQuote => {
+        let maybe_paragraph = self.maybe_paragraph_break("\n");
+        self.enter_block();
+        let children = self.render_block_children(node)?;
+        self.leave_block();
+        Ok(format!(
+          "{maybe_paragraph}.RS \
+           4\n\\h'-3'\\fI\\(lq\\(rq\\fP\\h'1'\\c\n{children}\n.RE"
+        ))
+      },
+      NodeValue::DescriptionList => {
+        Ok(format!(".RS 4\n{}\n.RE", self.render_block_children(node)?))
+      },
+      NodeValue::DescriptionTerm => {
+        Ok(format!(".PP\n{}", self.render_inline_children(node)?))
+      },
+      NodeValue::DescriptionDetails => {
+        self.enter_block();
+        let children = self.render_block_children(node)?;
+        self.leave_block();
+        Ok(format!(".RS 4\n{children}\n.RE"))
+      },
+      NodeValue::Heading(_) => bail!("md token not supported in manpages"),
+      NodeValue::HtmlInline(html)
+      | NodeValue::HtmlBlock(comrak::nodes::NodeHtmlBlock {
+        literal: html,
+        ..
+      }) => Self::render_text(&html),
+      NodeValue::Raw(raw) => Ok(raw),
+      NodeValue::ThematicBreak => {
+        Ok(format!("{}\n---", self.maybe_paragraph_break("")))
+      },
+      unsupported => {
+        bail!("md node not supported in manpages: {unsupported:?}")
+      },
+    }
+  }
+
+  fn render_block_children<'ast>(
+    &mut self,
+    node: &'ast comrak::nodes::AstNode<'ast>,
+  ) -> Result<String> {
+    let mut rendered = Vec::new();
+    for child in node.children() {
+      let child = self.render_node(child)?;
+      if !child.is_empty() {
+        rendered.push(child);
+      }
+    }
+    Ok(rendered.join("\n"))
+  }
+
+  fn render_inline_children<'ast>(
+    &mut self,
+    node: &'ast comrak::nodes::AstNode<'ast>,
+  ) -> Result<String> {
+    let mut rendered = String::new();
+    for child in node.children() {
+      rendered.push_str(&self.render_node(child)?);
+    }
+    Ok(normalize_space(&rendered))
+  }
+
+  fn render_text(text: &str) -> Result<String> {
+    let mut rendered = String::with_capacity(text.len());
+    let mut rest = text;
+
+    while let Some(start) = rest.find(ROLE_START) {
+      rendered.push_str(&man_escape(&rest[..start]));
+      let after_start = &rest[start + ROLE_START.len_utf8()..];
+      let Some(sep) = after_start.find(ROLE_SEP) else {
+        rendered.push_str(&man_escape(after_start));
+        return Ok(rendered);
+      };
+      let role = &after_start[..sep];
+      let after_sep = &after_start[sep + ROLE_SEP.len_utf8()..];
+      let Some(end) = after_sep.find(ROLE_END) else {
+        rendered.push_str(&man_escape(after_sep));
+        return Ok(rendered);
+      };
+      let content = &after_sep[..end];
+      rendered.push_str(&render_manpage_role(role, content)?);
+      rest = &after_sep[end + ROLE_END.len_utf8()..];
+    }
+
+    rendered.push_str(&man_escape(rest));
+    Ok(rendered)
+  }
+
+  fn enter_block(&mut self) {
+    self.do_parbreak_stack.push(false);
+  }
+
+  fn leave_block(&mut self) {
+    self.do_parbreak_stack.pop();
+    if let Some(parent) = self.do_parbreak_stack.last_mut() {
+      *parent = true;
+    }
+  }
+
+  fn maybe_paragraph_break(&mut self, suffix: &str) -> String {
+    let do_break = self.do_parbreak_stack.last().copied().unwrap_or(false);
+    if let Some(current) = self.do_parbreak_stack.last_mut() {
+      *current = true;
+    }
+    if do_break {
+      format!(".sp{suffix}")
+    } else {
+      String::new()
+    }
+  }
+
+  fn current_font(&self) -> &'static str {
+    self.font_stack.last().copied().unwrap_or("\\fR")
+  }
+}
+
+fn format_decl_def_loc(
+  location: &Value,
+  revision: &str,
+) -> (Option<String>, String) {
+  match location {
+    Value::String(location) => {
+      if location.starts_with('/') {
+        let name = if location.contains("nixops") && location.contains("/nix/")
+        {
+          let suffix = location
+            .find("/nix/")
+            .map_or(location.as_str(), |index| &location[index + 5..]);
+          format!("<nixops/{suffix}>")
+        } else {
+          location.clone()
+        };
+        (Some(format!("file://{location}")), name)
+      } else {
+        let href = if revision == "local" {
+          format!("https://github.com/NixOS/nixpkgs/blob/master/{location}")
+        } else {
+          format!("https://github.com/NixOS/nixpkgs/blob/{revision}/{location}")
+        };
+        (Some(href), format!("<nixpkgs/{location}>"))
+      }
+    },
+    Value::Object(object) => {
+      let href = object
+        .get("url")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+      let name = object
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+      (href, name)
+    },
+    _ => (None, String::new()),
+  }
+}
+
+fn render_manpage_role(role: &str, content: &str) -> Result<String> {
+  match role {
+    "command" | "env" | "option" => {
+      Ok(format!("\\fB{}\\fP", man_escape(content)))
+    },
+    "file" | "var" => Ok(format!("\\fI{}\\fP", man_escape(content))),
+    "manpage" => {
+      let Some((page, section)) = content.rsplit_once('(') else {
+        bail!("manpage role must contain a section: {content}")
+      };
+      let section = section.trim_end_matches(')').trim();
+      Ok(format!(
+        "\\fB{}\\fP\\fR({})\\fP",
+        man_escape(page.trim()),
+        man_escape(section)
+      ))
+    },
+    _ => bail!("md node not supported in manpages: role {role}"),
+  }
+}
+
+fn rewrite_roles_as_markers(markdown: &str) -> String {
+  let mut rendered = String::with_capacity(markdown.len());
+  let mut rest = markdown;
+
+  while let Some(start) = rest.find('{') {
+    let (before, role_start) = rest.split_at(start);
+    rendered.push_str(before);
+
+    let Some(role_end) = role_start.find('}') else {
+      rendered.push_str(role_start);
+      return rendered;
+    };
+    let role = &role_start[1..role_end];
+    let after_role = &role_start[role_end + 1..];
+    let Some(after_tick) = after_role.strip_prefix('`') else {
+      rendered.push_str(&role_start[..=role_end]);
+      rest = after_role;
+      continue;
+    };
+    let Some(content_end) = after_tick.find('`') else {
+      rendered.push_str(role_start);
+      return rendered;
+    };
+
+    rendered.push(ROLE_START);
+    rendered.push_str(role);
+    rendered.push(ROLE_SEP);
+    rendered.push_str(&after_tick[..content_end]);
+    rendered.push(ROLE_END);
+    rest = &after_tick[content_end + 1..];
+  }
+
+  rendered.push_str(rest);
+  rendered
+}
+
+fn man_escape(value: &str) -> String {
+  let mut escaped = String::with_capacity(value.len());
+  for c in value.chars() {
+    match c {
+      '"' => escaped.push_str("\\(dq"),
+      '\'' => escaped.push_str("\\(aq"),
+      '-' => escaped.push_str("\\-"),
+      '.' => escaped.push_str("\\&."),
+      '\\' => escaped.push_str("\\e"),
+      '^' => escaped.push_str("\\(ha"),
+      '`' => escaped.push_str("\\(ga"),
+      '~' => escaped.push_str("\\(ti"),
+      _ => escaped.push(c),
+    }
+  }
+
+  ROFF_UNICODE
+    .replace_all(&escaped, |captures: &regex::Captures<'_>| {
+      captures[0]
+        .chars()
+        .next()
+        .map_or_else(String::new, |c| format!("\\[u{:04X}]", c as u32))
+    })
+    .into_owned()
+}
+
+fn protect_spaces(value: &str) -> String {
+  value.replace(' ', PROTECTED_SPACE)
+}
+
+fn normalize_space(value: &str) -> String {
+  let mut normalized = String::with_capacity(value.len());
+  let mut rest = value;
+
+  while !rest.is_empty() {
+    if rest.starts_with("\0 <") {
+      rest = &rest[3..];
+      while rest.starts_with(' ') {
+        rest = &rest[1..];
+      }
+      continue;
+    }
+
+    if rest.starts_with(">\0 ") {
+      while normalized.ends_with(' ') {
+        normalized.pop();
+      }
+      rest = &rest[3..];
+      continue;
+    }
+
+    let Some(c) = rest.chars().next() else {
+      break;
+    };
+    if c != ' ' || !normalized.ends_with(' ') {
+      normalized.push(c);
+    }
+    rest = &rest[c.len_utf8()..];
+  }
+
+  normalized.replace(PROTECTED_SPACE, " ")
 }
 
 fn option_loc(name: &str, option: &Map<String, Value>) -> Vec<String> {
@@ -958,6 +1754,133 @@ mod tests {
     "\n",
   );
 
+  const SIMPLE_MANPAGE_CUSTOM: &str = concat!(
+    ".TH TEST\n",
+    ".PP\n",
+    "\\fBservices\\&.frobnicator\\&.types\\&.<name>\\&.enable\\fR\n",
+    ".RS 4\n",
+    "Whether to enable the frobnication of this (\\fR\\(oq<name>\\(cq\\fP) \
+     type\\&.\n",
+    ".sp\n",
+    "\\fIType:\\fR boolean\n",
+    ".sp\n",
+    "\\fIDeclared by:\\fP\n",
+    ".RS 4\n",
+    "\\fB<nixpkgs/nixos/modules/services/frobnicator\\&.nix>\\fP\n",
+    ".RE\n",
+    ".RE\n",
+    ".SH END",
+  );
+
+  const COMPLEX_OPTIONS: &str = r#"{
+  "services.foo.enable": {
+    "declarations": [
+      "nixos/modules/services/foo.nix"
+    ],
+    "definitions": [
+      {
+        "name": "<foo/modules/default.nix>",
+        "url": "https://example.invalid/foo/modules/default.nix"
+      }
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Whether to enable {command}`fooctl`. See [the manual](https://example.invalid/manual) and [](#opt-services.foo.mode).",
+    "example": {
+      "_type": "literalMD",
+      "text": "`true`"
+    },
+    "loc": [
+      "services",
+      "foo",
+      "enable"
+    ],
+    "readOnly": false,
+    "relatedPackages": "{manpage}`foo(1)` and {file}`/nix/store/example`",
+    "type": "boolean"
+  },
+  "services.foo.mode": {
+    "declarations": [
+      "/nix/store/abc-source/nixos/modules/services/foo.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"auto\""
+    },
+    "description": {
+      "_type": "mdDoc",
+      "text": "Mode for {option}`services.foo.enable` using {env}`FOO_MODE`, {var}`mode`, and {file}`/etc/foo.conf`."
+    },
+    "loc": [
+      "services",
+      "foo",
+      "mode"
+    ],
+    "readOnly": true,
+    "type": "one of \"auto\", \"manual\""
+  }
+}"#;
+
+  const COMPLEX_MANPAGE_CUSTOM: &str = concat!(
+    ".TH TEST 5\n",
+    ".SH CUSTOM\n",
+    ".PP\n",
+    "\\fBservices\\&.foo\\&.enable\\fR\n",
+    ".RS 4\n",
+    "Whether to enable \\fBfooctl\\fP\\&. See \\fBthe manual\\fR[1]\\fR and \
+     \\fBservices.foo.mode\\fR[2]\\fR\\&.\n",
+    ".sp\n",
+    "\\fIType:\\fR boolean\n",
+    ".sp\n",
+    "\\fIDefault:\\fR false\n",
+    ".sp\n",
+    "\\fIExample:\\fR true\n",
+    ".sp\n",
+    "\\fIRelated packages:\\fP\n",
+    ".sp\n",
+    "\\fBfoo\\fP\\fR(1)\\fP and \\fI/nix/store/example\\fP\n",
+    ".sp\n",
+    "\\fIDeclared by:\\fP\n",
+    ".RS 4\n",
+    "\\fB<nixpkgs/nixos/modules/services/foo\\&.nix>\\fP\n",
+    ".RE\n",
+    ".sp\n",
+    "\\fIDefined by:\\fP\n",
+    ".RS 4\n",
+    "\\fB<foo/modules/default\\&.nix>\\fP\n",
+    ".RE\n",
+    ".sp\n",
+    ".RS 4\n",
+    "\\h'-3'\\fB1\\&.\\fP\\h'1'\\c\n",
+    "https://example\\&.invalid/manual\n",
+    ".RE\n",
+    ".RS 4\n",
+    "\\h'-3'\\fB2\\&.\\fP\\h'1'\\c\n",
+    "see the \\fBservices\\&.foo\\&.mode\\fP option\n",
+    ".RE\n",
+    ".RE\n",
+    ".PP\n",
+    "\\fBservices\\&.foo\\&.mode\\fR\n",
+    ".RS 4\n",
+    "Mode for \\fBservices\\&.foo\\&.enable\\fP using \\fBFOO_MODE\\fP, \
+     \\fImode\\fP, and \\fI/etc/foo\\&.conf\\fP\\&.\n",
+    ".sp\n",
+    "\\fIType:\\fR one of \\[u201C]auto\\[u201D], \\[u201C]manual\\[u201D] \
+     \\fI(read only)\\fR\n",
+    ".sp\n",
+    "\\fIDefault:\\fR \\(dqauto\\(dq\n",
+    ".sp\n",
+    "\\fIDeclared by:\\fP\n",
+    ".RS 4\n",
+    "\\fB/nix/store/abc\\-source/nixos/modules/services/foo\\&.nix\\fP\n",
+    ".RE\n",
+    ".RE\n",
+    ".SH END\n",
+    "custom footer",
+  );
+
   fn render_simple(anchor_style: AnchorStyle, anchor_prefix: &str) -> String {
     let options = serde_json::from_str(SIMPLE_OPTIONS).unwrap();
     let mut converter = CommonMarkConverter::new(
@@ -970,6 +1893,33 @@ mod tests {
     converter.finalize()
   }
 
+  fn render_simple_manpage() -> String {
+    let options = serde_json::from_str(SIMPLE_OPTIONS).unwrap();
+    let mut converter = ManpageConverter::new(
+      "local".to_string(),
+      Some(vec![".TH TEST".to_string()]),
+      Some(vec![".SH END".to_string()]),
+    );
+    converter.add_options(&options).unwrap();
+    converter.finalize().unwrap()
+  }
+
+  fn render_complex_manpage() -> String {
+    let options = serde_json::from_str(COMPLEX_OPTIONS).unwrap();
+    let mut converter = ManpageConverter::new(
+      "local".to_string(),
+      Some(vec![".TH TEST 5".to_string(), ".SH CUSTOM".to_string()]),
+      Some(vec![".SH END".to_string(), "custom footer".to_string()]),
+    );
+    converter.add_options(&options).unwrap();
+    converter.finalize().unwrap()
+  }
+
+  fn render_manpage(markdown: &str) -> String {
+    let mut renderer = ManpageRenderer::new(HashMap::new());
+    renderer.render_markdown(markdown).unwrap()
+  }
+
   #[test]
   fn options_commonmark_matches_simple_fixture() {
     assert_eq!(render_simple(AnchorStyle::None, ""), SIMPLE_DEFAULT);
@@ -978,5 +1928,74 @@ mod tests {
   #[test]
   fn options_commonmark_matches_legacy_anchor_fixture() {
     assert_eq!(render_simple(AnchorStyle::Legacy, "opt-"), SIMPLE_LEGACY);
+  }
+
+  #[test]
+  fn options_manpage_matches_simple_fixture() {
+    assert_eq!(render_simple_manpage(), SIMPLE_MANPAGE_CUSTOM);
+  }
+
+  #[test]
+  fn options_manpage_matches_complex_fixture() {
+    assert_eq!(render_complex_manpage(), COMPLEX_MANPAGE_CUSTOM);
+  }
+
+  #[test]
+  fn manpage_renderer_matches_inline_code_fixture() {
+    assert_eq!(
+      render_manpage("1  `x  a  x`  2"),
+      "1 \\fR\\(oqx  a  x\\(cq\\fP 2"
+    );
+  }
+
+  #[test]
+  fn manpage_renderer_matches_font_fixture() {
+    assert_eq!(render_manpage("*a **b** c*"), "\\fIa \\fBb\\fI c\\fR");
+    assert_eq!(
+      render_manpage("*a [1 `2`](3) c*"),
+      "\\fIa \\fB1 \\fR\\(oq2\\(cq\\fP\\fI c\\fR"
+    );
+  }
+
+  #[test]
+  fn manpage_renderer_expands_empty_link_targets() {
+    let mut renderer = ManpageRenderer::new(HashMap::from([
+      ("#foo1".to_string(), "bar".to_string()),
+      ("#foo2".to_string(), "bar".to_string()),
+    ]));
+
+    assert_eq!(
+      renderer
+        .render_markdown("[a](#foo1) [](#foo2) [b](#bar1) [](#bar2)")
+        .unwrap(),
+      "\\fBa\\fR \\fBbar\\fR \\fBb\\fR \\fB\\fR"
+    );
+  }
+
+  #[test]
+  fn manpage_renderer_collects_links() {
+    let mut renderer = ManpageRenderer::new(HashMap::new());
+    renderer.link_footnotes = Some(Vec::new());
+
+    assert_eq!(
+      renderer.render_markdown("[a](link1) [b](link2)").unwrap(),
+      "\\fBa\\fR[1]\\fR \\fBb\\fR[2]\\fR"
+    );
+    assert_eq!(renderer.link_footnotes.unwrap(), vec![
+      "link1".to_string(),
+      "link2".to_string()
+    ]);
+  }
+
+  #[test]
+  fn manpage_renderer_deduplicates_links() {
+    let mut renderer = ManpageRenderer::new(HashMap::new());
+    renderer.link_footnotes = Some(Vec::new());
+
+    assert_eq!(
+      renderer.render_markdown("[a](link) [b](link)").unwrap(),
+      "\\fBa\\fR[1]\\fR \\fBb\\fR[1]\\fR"
+    );
+    assert_eq!(renderer.link_footnotes.unwrap(), vec!["link".to_string()]);
   }
 }
