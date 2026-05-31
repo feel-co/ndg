@@ -41,6 +41,8 @@ several features such as:
 - **Nix module options support** to generate documentation from `options.json`
   - **Flexible options sidebar customization** to control visibility, naming,
     ordering, and depth of option categories
+- **`nixos-render-docs` compatibility mode** via the `nrd` feature and Nix
+  package aliases for projects that need drop-in option rendering commands
 - **Fully customizable templates** to match your project's style fully
 - **Per-page frontmatter** to override title, description, template, TOC, and
   pass arbitrary data to custom templates
@@ -110,6 +112,37 @@ ier ones
 
 You can review `ndg html`, `ndg man`, and `ndg pdf` commands' help texts by
 passing `--help` to get more insight.
+
+### `nixos-render-docs` Compatibility
+
+NDG can also be built as a lightweight `nixos-render-docs` compatibility binary.
+The Nix package set exposes this as `nrd` and `nixos-render-docs`; both names
+invoke the same binary and switch NDG into the compatibility CLI by argv0.
+
+Supported compatibility commands are currently option renderers:
+
+```bash
+nrd options commonmark \
+  --manpage-urls ./manpage-urls.json \
+  --revision local \
+  ./options.json \
+  ./options.md
+
+nrd options manpage \
+  --revision local \
+  --header ./header.roff \
+  --footer ./footer.roff \
+  ./options.json \
+  ./configuration.nix.5
+```
+
+Use the `nrd` Cargo feature for source builds:
+
+```bash
+cargo build -p ndg --no-default-features --features nrd --bin ndg
+```
+
+The normal `ndg` CLI is unchanged when the binary is invoked as `ndg`.
 
 ### Quickstart
 
@@ -327,6 +360,18 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 - `script_paths` - Array of custom JavaScript file paths
 - `assets_dir` - Directory containing additional assets to copy
 - `module_options` - Path to `options.json` for NixOS module documentation
+- `options.filter.prefix` - Include only options whose names start with this
+  prefix
+- `options.filter.type` - Include only options whose type contains this text,
+  case-insensitively
+- `options.filter.search` - Include only options whose names or descriptions
+  contain this text
+- `options.filter.has_default` - Include only options that define a default
+  value
+- `options.filter.has_description` - Include only options that have a non-empty
+  description
+- `options.filter.include_internal` - Include options marked internal or
+  invisible (default: `true`)
 - `options_toc_depth` - Depth of option categories in TOC (default: `2`)
 - `manpage_urls_path` - Path to manpage URL mappings JSON file
 - `syntax_queries_path` - Directory containing Tree-sitter query overrides for
@@ -511,6 +556,18 @@ Options:
           Footer text for the documentation
   -j, --module-options <MODULE_OPTIONS>
           Path to a JSON file containing module options in the same format expected by nixos-render-docs
+      --options-filter-prefix <OPTION_FILTER_PREFIX>
+          Include only module options whose names start with this prefix
+      --options-filter-type <OPTION_FILTER_TYPE>
+          Include only module options whose type contains this text
+      --options-filter-search <OPTION_FILTER_SEARCH>
+          Include only module options whose name or description contains this text
+      --options-filter-has-default
+          Include only module options that define a default value
+      --options-filter-has-description
+          Include only module options that have a non-empty description
+      --options-filter-hide-internal
+          Hide module options marked internal or invisible
       --manpage-urls <MANPAGE_URLS>
           Path to manpage URL mappings JSON file
   -S, --generate-search
@@ -894,6 +951,31 @@ CLI, module evaluation is done for you automatically.
 > }
 > ```
 
+You can filter rendered options when publishing only part of a larger option
+tree. Filters can be configured persistently in `ndg.toml`:
+
+```toml
+[options.filter]
+prefix = "services.nginx"
+type = "boolean"
+search = "enable"
+has_default = true
+has_description = true
+include_internal = false
+```
+
+The same filters are available as `ndg html` flags:
+
+```bash
+$ ndg html \
+  -i ./docs \
+  -o ./html \
+  -T "My Project" \
+  -j ./options.json \
+  --options-filter-prefix services.nginx \
+  --options-filter-hide-internal
+```
+
 #### Search Configuration
 
 Your documentation may get convoluted as it grows more comprehensive (because
@@ -906,6 +988,11 @@ to search across your pages and option references. This _used_ to be enabled by
 default prior to version v2.4 but it now defaults to false to avoid invasive
 behaviour and keep builds lightweight. You may re-enable the search page
 generating by passing the `--generate-search` flag to `ndg html`
+
+Search results prioritize exact text, exact phrase, and all-term matches before
+falling back to fuzzy matching. Heading anchor text and IDs are indexed as
+search candidates, which helps Nix-style dotted or hyphenated identifiers remain
+findable.
 
 ```bash
 $ ndg html -i ./docs -o ./html -T "My Project"
