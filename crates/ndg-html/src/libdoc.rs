@@ -47,7 +47,7 @@ pub fn generate_lib_entries_html(
           let name = html_escape::encode_text(&arg.name);
           let arg_desc = html_escape::encode_text(&arg.description);
           let _ =
-            write!(html, "<dt><code>{name}</code></dt><dd>{arg_desc}</dd>",);
+            write!(html, "<dt><code>{name}</code></dt><dd>{arg_desc}</dd>");
         }
         let _ = write!(html, "</dl></div>");
       }

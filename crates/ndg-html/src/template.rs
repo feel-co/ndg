@@ -33,10 +33,8 @@ const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
 const NDG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Compiled regex for matching `{{ key }}` variable placeholders in content.
-static VAR_PLACEHOLDER_RE: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}")
-    .expect("compile var placeholder regex")
-});
+static VAR_PLACEHOLDER_RE: LazyLock<Option<Regex>> =
+  LazyLock::new(|| Regex::new(r"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}").ok());
 
 /// Substitute `{{ key }}` placeholders in content with values from the config
 /// variables map.
@@ -49,12 +47,18 @@ fn substitute_content_vars(
   content: &str,
   vars: &HashMap<String, String>,
 ) -> String {
+  let Some(var_placeholder_re) = VAR_PLACEHOLDER_RE.as_ref() else {
+    return content.to_owned();
+  };
+
   let mut result = String::with_capacity(content.len());
   let mut last_match_end = 0;
 
-  for caps in VAR_PLACEHOLDER_RE.captures_iter(content) {
-    let full_match = caps.get(0).expect("match zero always present");
-    let key = &caps[1];
+  for caps in var_placeholder_re.captures_iter(content) {
+    let (Some(full_match), Some(key)) = (caps.get(0), caps.get(1)) else {
+      continue;
+    };
+    let key = key.as_str();
 
     // Append text before the match
     result.push_str(&content[last_match_end..full_match.start()]);
@@ -271,45 +275,44 @@ fn build_common_context(
   );
 
   // Build favicon HTML for the template head.
-  let favicon_links: Vec<String> = if let Some(ref meta) = config.meta {
-    meta
-      .favicon
-      .iter()
-      .filter_map(|entry| {
-        let name = entry
-          .dest
-          .as_ref()
-          .map(|p| p.as_os_str())
-          .or(entry.href.file_name())
-          .and_then(|n| n.to_str())?;
-        let href = format!(
-          "{root_prefix}{}",
-          html_escape::encode_double_quoted_attribute(name)
-        );
-        let rel = html_escape::encode_double_quoted_attribute(&entry.rel);
+  let favicon_links: Vec<String> =
+    config.meta.as_ref().map_or_else(Vec::new, |meta| {
+      meta
+        .favicon
+        .iter()
+        .filter_map(|entry| {
+          let name = entry
+            .dest
+            .as_ref()
+            .map(|p| p.as_os_str())
+            .or_else(|| entry.href.file_name())
+            .and_then(|n| n.to_str())?;
+          let href = format!(
+            "{root_prefix}{}",
+            html_escape::encode_double_quoted_attribute(name)
+          );
+          let rel = html_escape::encode_double_quoted_attribute(&entry.rel);
 
-        let mut tag = format!(r#"<link rel="{rel}" href="{href}""#);
-        if let Some(ref mime_type) = entry.mime_type {
-          let _ = write!(
-            tag,
-            r#" type="{}""#,
-            html_escape::encode_double_quoted_attribute(mime_type)
-          );
-        }
-        if let Some(ref sizes) = entry.sizes {
-          let _ = write!(
-            tag,
-            r#" sizes="{}""#,
-            html_escape::encode_double_quoted_attribute(sizes)
-          );
-        }
-        tag.push_str(" />");
-        Some(tag)
-      })
-      .collect()
-  } else {
-    Vec::new()
-  };
+          let mut tag = format!(r#"<link rel="{rel}" href="{href}""#);
+          if let Some(ref mime_type) = entry.mime_type {
+            let _ = write!(
+              tag,
+              r#" type="{}""#,
+              html_escape::encode_double_quoted_attribute(mime_type)
+            );
+          }
+          if let Some(ref sizes) = entry.sizes {
+            let _ = write!(
+              tag,
+              r#" sizes="{}""#,
+              html_escape::encode_double_quoted_attribute(sizes)
+            );
+          }
+          tag.push_str(" />");
+          Some(tag)
+        })
+        .collect()
+    });
 
   ctx.insert("favicon_links", &favicon_links.join("\n    "));
 
@@ -523,8 +526,10 @@ fn resolve_doc_template(
   if let Some(fm) = frontmatter
     && let Some(ref tmpl) = fm.template
   {
-    let lc = tmpl.to_ascii_lowercase();
-    let (file_name, tera_name) = if lc.ends_with(".html") {
+    let (file_name, tera_name) = if Path::new(tmpl)
+      .extension()
+      .is_some_and(|ext| ext.eq_ignore_ascii_case("html"))
+    {
       (tmpl.clone(), tmpl[..tmpl.len() - 5].to_owned())
     } else {
       (format!("{tmpl}.html"), tmpl.clone())
@@ -1208,12 +1213,10 @@ fn render_grouped(output: &mut String, items: Vec<NavItem>, show_counts: bool) {
     // Capitalise the first letter of the directory name for the label.
     let label = {
       let mut chars = dir_name.chars();
-      match chars.next() {
-        None => dir_name.clone(),
-        Some(first) => {
-          first.to_uppercase().collect::<String>() + chars.as_str()
-        },
-      }
+      chars.next().map_or_else(
+        || dir_name.clone(),
+        |first| first.to_uppercase().collect::<String>() + chars.as_str(),
+      )
     };
     let count = group_items.len();
     let count_badge = if show_counts {
@@ -1610,6 +1613,7 @@ fn generate_toc(headers: &[Header]) -> String {
 /// This function matches the XML ID sanitization used by nixos-render-docs:
 /// `*`, `<`, `>`, `[`, `]`, `:`, `"`, and space are translated to `_`.
 /// Dots are preserved as they are valid in option names.
+#[must_use]
 pub fn sanitize_option_id(name: &str) -> String {
   // Match nixos-render-docs XML ID sanitization:
   // translate *, <, >, [, ], :, ", space to _

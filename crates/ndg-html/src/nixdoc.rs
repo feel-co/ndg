@@ -12,6 +12,11 @@ use crate::{libdoc, search, template};
 /// Returns the rendered HTML as a [`search::ProcessedDocument`] so the caller
 /// can include the lib page in the search index, or `None` when there are no
 /// nixdoc inputs or no entries were found.
+///
+/// # Errors
+///
+/// Returns an error if all nixdoc inputs fail, lib page rendering fails, or the
+/// generated `lib.html` cannot be written.
 pub fn process_nixdoc(
   config: &Config,
 ) -> Result<Option<search::ProcessedDocument>> {
