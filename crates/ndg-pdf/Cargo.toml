@@ -11,6 +11,11 @@ rust-version.workspace = true
 version.workspace      = true
 publish                = false
 
+[features]
+default            = [ "commonmark-ndg" ]
+commonmark-ndg     = [ "ndg-commonmark/ndg-flavored", "ndg-commonmark/syntastica", "ndg-utils/commonmark-ndg" ]
+commonmark-nixpkgs = [ "ndg-commonmark/nixpkgs", "ndg-utils/commonmark-nixpkgs" ]
+
 [dependencies]
 color-eyre.workspace     = true
 html-escape.workspace    = true

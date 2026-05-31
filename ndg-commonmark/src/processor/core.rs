@@ -360,7 +360,8 @@ impl MarkdownProcessor {
       );
     }
 
-    if cfg!(feature = "wiki") {
+    #[cfg(feature = "wiki")]
+    {
       processed = super::extensions::process_wikilinks(&processed);
     }
 

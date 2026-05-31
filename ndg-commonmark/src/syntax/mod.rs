@@ -45,6 +45,9 @@ compile_error!(
 pub fn create_default_manager(
   syntax_queries_dir: Option<&std::path::Path>,
 ) -> SyntaxResult<SyntaxManager> {
+  #[cfg(not(feature = "syntastica"))]
+  let _ = syntax_queries_dir;
+
   // Runtime check for mutual exclusivity (backup to compile-time check)
   #[cfg(all(feature = "syntastica", feature = "syntect"))]
   {

@@ -97,6 +97,8 @@ pub mod utils;
 // Re-export main API
 #[cfg(feature = "gfm")]
 pub use crate::processor::apply_gfm_extensions;
+#[cfg(feature = "ndg-flavored")]
+pub use crate::processor::process_option_references;
 #[cfg(feature = "nixpkgs")]
 pub use crate::processor::{
   process_block_elements,
@@ -104,7 +106,6 @@ pub use crate::processor::{
   process_file_includes,
   process_inline_anchors,
   process_myst_autolinks,
-  process_option_references,
   process_role_markup,
 };
 // Those don't require any feature gates, unlike above APIs.
