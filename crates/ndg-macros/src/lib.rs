@@ -118,11 +118,20 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
     },
   };
 
-  let field_handlers = generate_field_handlers(fields);
-  let merge_handlers = generate_merge_handlers(fields);
+  let field_handlers = match generate_field_handlers(fields) {
+    Ok(handlers) => handlers,
+    Err(err) => return err.to_compile_error().into(),
+  };
+  let merge_handlers = match generate_merge_handlers(fields) {
+    Ok(handlers) => handlers,
+    Err(err) => return err.to_compile_error().into(),
+  };
 
   // Collect all valid config keys for "did you mean" suggestions
-  let valid_keys = collect_config_keys(fields);
+  let valid_keys = match collect_config_keys(fields) {
+    Ok(keys) => keys,
+    Err(err) => return err.to_compile_error().into(),
+  };
   let valid_keys_ref: Vec<&str> =
     valid_keys.iter().map(std::string::String::as_str).collect();
 
@@ -224,7 +233,9 @@ pub fn derive_configurable(input: TokenStream) -> TokenStream {
   TokenStream::from(expanded)
 }
 
-fn generate_field_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
+fn generate_field_handlers(
+  fields: &Fields,
+) -> syn::Result<Vec<proc_macro2::TokenStream>> {
   let mut handlers = Vec::new();
 
   for field in fields {
@@ -239,7 +250,12 @@ fn generate_field_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
       continue;
     }
 
-    let field_name = field.ident.as_ref().expect("Named field required");
+    let Some(field_name) = field.ident.as_ref() else {
+      return Err(syn::Error::new_spanned(
+        field,
+        "Configurable requires named struct fields",
+      ));
+    };
     let field_key = field_config
       .key
       .clone()
@@ -248,21 +264,21 @@ fn generate_field_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
 
     // Generate the match arm for this field
     let handler =
-      generate_field_handler(field_name, field_key, field_type, &field_config);
+      generate_field_handler(field_name, &field_key, field_type, &field_config);
     handlers.push(handler);
   }
 
-  handlers
+  Ok(handlers)
 }
 
 fn generate_field_handler(
   field_name: &syn::Ident,
-  field_key: String,
+  field_key: &str,
   field_type: &Type,
   config: &FieldConfig,
 ) -> proc_macro2::TokenStream {
   if config.nested {
-    return generate_nested_handler(field_name, &field_key, field_type, config);
+    return generate_nested_handler(field_name, field_key, field_type, config);
   }
 
   // Skip Vec and HashMap fields, they can't be directly overridden
@@ -504,12 +520,19 @@ fn generate_value_assignment(
   }
 }
 
-fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
+fn generate_merge_handlers(
+  fields: &Fields,
+) -> syn::Result<Vec<proc_macro2::TokenStream>> {
   let mut handlers = Vec::new();
 
   for field in fields {
     let field_config = FieldConfig::from_attrs(&field.attrs);
-    let field_name = field.ident.as_ref().expect("Named field required");
+    let Some(field_name) = field.ident.as_ref() else {
+      return Err(syn::Error::new_spanned(
+        field,
+        "Configurable requires named struct fields",
+      ));
+    };
     let field_type = &field.ty;
 
     let handler = if field_config.nested {
@@ -563,11 +586,11 @@ fn generate_merge_handlers(fields: &Fields) -> Vec<proc_macro2::TokenStream> {
     handlers.push(handler);
   }
 
-  handlers
+  Ok(handlers)
 }
 
 /// Collect all valid config keys from fields
-fn collect_config_keys(fields: &Fields) -> Vec<String> {
+fn collect_config_keys(fields: &Fields) -> syn::Result<Vec<String>> {
   let mut keys = Vec::new();
 
   for field in fields {
@@ -582,7 +605,12 @@ fn collect_config_keys(fields: &Fields) -> Vec<String> {
       continue;
     }
 
-    let field_name = field.ident.as_ref().expect("Named field required");
+    let Some(field_name) = field.ident.as_ref() else {
+      return Err(syn::Error::new_spanned(
+        field,
+        "Configurable requires named struct fields",
+      ));
+    };
     let field_key = field_config
       .key
       .clone()
@@ -597,5 +625,5 @@ fn collect_config_keys(fields: &Fields) -> Vec<String> {
     }
   }
 
-  keys
+  Ok(keys)
 }
