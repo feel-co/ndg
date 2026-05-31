@@ -21,8 +21,9 @@
 
     checks = forEachSystem (system:
       import ./nix/internal/checks.nix {
+        pkgs = pkgsFor system;
         inherit lib nixpkgs system;
-        inherit (self.packages.${system}) ndg-builder;
+        inherit (self.packages.${system}) ndg-builder nrd;
       });
 
     devShells = forEachSystem (system: {

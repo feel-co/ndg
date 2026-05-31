@@ -5,6 +5,7 @@
   versionCheckHook,
   stdenv,
   rustc,
+  nrdCompat ? false,
 }: let
   fs = lib.fileset;
   s = ../../..;
@@ -13,7 +14,10 @@
   inherit (rustc) llvmPackages;
 in
   rustPlatform.buildRustPackage (finalAttrs: {
-    pname = "ndg";
+    pname =
+      if nrdCompat
+      then "nrd"
+      else "ndg";
     version = cargoTOML.workspace.package.version;
 
     src = fs.toSource {
@@ -32,7 +36,10 @@ in
     };
 
     cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
-    cargoBuildFlags = ["-p" "ndg" "-p" "xtask"];
+    cargoBuildFlags =
+      ["-p" "ndg"]
+      ++ lib.optionals (!nrdCompat) ["-p" "xtask"]
+      ++ lib.optionals nrdCompat ["--no-default-features" "--features" "nrd"];
     enableParallelBuilding = true;
 
     nativeBuildInputs = [
@@ -73,26 +80,34 @@ in
 
     nativeInstallCheckInputs = [versionCheckHook];
     doInstallCheck = true;
-    versionCheckProgram = "${placeholder "out"}/bin/${finalAttrs.meta.mainProgram}";
+    versionCheckProgram = "${placeholder "out"}/bin/ndg";
     versionCheckProgramArg = "--version";
 
     # Besides the install check, we have a bunch of tests to run. Nextest is
     # the fastest way of running those since it's significantly faster than
     # `cargo test`, and has a nicer UI with CI-friendly characteristics.
     useNextest = true;
-    cargoTestFlags = ["--workspace" "--verbose"];
+    cargoTestFlags =
+      if nrdCompat
+      then ["-p" "ndg" "--no-default-features" "--features" "nrd" "--verbose"]
+      else ["--workspace" "--verbose"];
 
-    postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
-      # Install required files with the 'dist' task
-      $out/bin/xtask dist
+    postInstall =
+      lib.optionalString nrdCompat ''
+        ln -s ndg $out/bin/nrd
+        ln -s ndg $out/bin/nixos-render-docs
+      ''
+      + lib.optionalString (!nrdCompat && stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+        # Install required files with the 'dist' task
+        $out/bin/xtask dist
 
-      # Install the generated completions/ and man/ artifacts
-      installManPage ./man/*
-      installShellCompletion --cmd ${finalAttrs.meta.mainProgram} ./completions/*
+        # Install the generated completions/ and man/ artifacts
+        installManPage ./man/*
+        installShellCompletion --cmd ${finalAttrs.meta.mainProgram} ./completions/*
 
-      # Avoid populating PATH with an 'xtask' cmd
-      rm $out/bin/xtask
-    '';
+        # Avoid populating PATH with an 'xtask' cmd
+        rm $out/bin/xtask
+      '';
 
     meta = {
       description = "NDG: not a docs generator";
@@ -100,6 +115,9 @@ in
       homepage = "https://github.com/feel-co/ndg";
       license = lib.licenses.mpl20;
       maintainers = [lib.maintainers.NotAShelf];
-      mainProgram = "ndg";
+      mainProgram =
+        if nrdCompat
+        then "nrd"
+        else "ndg";
     };
   })

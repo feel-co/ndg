@@ -9,6 +9,8 @@ pkgs: let
     }
     // {
       default = packages.ndg;
+      nrd = packages.ndg.override {nrdCompat = true;};
+      nixos-render-docs = packages.nrd;
     };
 in
   packages
