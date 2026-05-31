@@ -1043,6 +1043,23 @@ Builder options worth knowing:
 If you only want module option docs (no Markdown input), omit `inputDir` and
 provide `rawModules` or `evaluatedModules` instead.
 
+##### Building a ZIM Archive
+
+`ndg-builder` provides the option to build a [ZIM](<https://en.wikipedia.org/wiki/ZIM_(file_format)>)
+archive via the option `buildZim`.
+This uses `zimwriterfs`, and thus requires some extra options to be set.
+
+- `zimId`: Used for the file name and by tools like kiwix, for web paths.
+- `zimIllustration`: A PNG used as the logo for the ZIM.
+- `creator`: The person who created the docs themselves.
+- `publisher` The person that created the ZIM archive.
+
+Notable are also the following other options:
+
+- `zimLanguage` (default `"eng"`): An ISO639-3 language code.
+- `zimTags` (default `["devdocs" "nix"]`): Tagging information for the ZIM.
+- `source`: Original published website location of the archive.
+
 #### Manual Approach Using `runCommandLocal`
 
 If you need more control, you can use `runCommandLocal` directly:
