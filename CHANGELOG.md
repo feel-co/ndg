@@ -37,6 +37,10 @@ changes.
 
 ### Added
 
+- Added `nrd`/`nixos-render-docs` compatibility packaging and argv0 dispatch.
+  Invoking NDG through either compatibility name now exposes a
+  `nixos-render-docs`-compatible CLI for `options commonmark` and
+  `options manpage`.
 - ndg-commonmark now supports Pandoc/CommonMark bracketed spans:
   `[text]{#id .class key="value"}` renders as `<span>` with attributes.
 - Include blocks now accept `options` as a type, rendering option documentation
@@ -55,9 +59,16 @@ changes.
   `{#id}` syntax.
 - Absolute paths (including `/nix/store/...`) are now accepted in include blocks
   when they do not contain parent directory traversal.
+- Module option rendering can now be filtered with `[options.filter]` or the
+  `ndg html --options-filter-*` flags. Filters support option prefixes, type
+  text, name/description search, default/description presence, and hiding
+  internal options.
 
 ### Changed
 
+- Search ranking now prioritizes exact text, exact phrase, and all-term matches
+  over fuzzy matches. Anchor text and IDs are included in candidate discovery,
+  and option documents without strong title matches are ranked lower.
 - Fenced admonition indentation is now preserved when rendering; admonition
   content is de-indented by the opener's leading whitespace before being parsed
   as Markdown, so indented admonitions inside list items no longer break
@@ -109,6 +120,9 @@ changes.
   result.
 - Header extraction no longer normalizes setext headings with explicit anchors
   to `h2`. The heading level from the `=`/`-` underline is now preserved.
+- Generated pages now remain readable with JavaScript disabled. JS-only controls
+  are hidden, sidebar navigation stays in document flow, fixed page TOCs are
+  disabled without scripts, and mobile overflow handling has been improved.
 
 ## [2.8.2]
 
