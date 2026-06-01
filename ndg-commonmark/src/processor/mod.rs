@@ -103,6 +103,36 @@ mod tests {
   }
 
   #[test]
+  fn test_toc_anchor_matches_heading_id_for_angle_brackets() {
+    // Regression: a heading whose text contains markup characters such as
+    // `<name>` must have its table-of-contents anchor (`Header.id`) match the
+    // auto-generated `id` attribute on the rendered heading, otherwise
+    // "jump to header" links point at a non-existent anchor. The heading `id`
+    // slugifies the escaped HTML (`&lt;name&gt;`), so the TOC must too.
+    let processor = MarkdownProcessor::new(MarkdownOptions::default());
+    // The Nix options renderer emits the angle brackets backslash-escaped so
+    // comrak treats them as literal text rather than an inline HTML tag,
+    // yielding `environments.&lt;name&gt;.deployment` in the rendered heading.
+    let result = processor.render("## environments.\\<name\\>.deployment\n");
+
+    let header = result
+      .headers
+      .iter()
+      .find(|h| h.level == 2)
+      .expect("expected an h2 header");
+
+    // The heading id is the slug of the escaped HTML, not the raw `<name>`.
+    assert_eq!(header.id, "environments--lt-name-gt--deployment");
+    // The rendered HTML must carry the same id so the TOC anchor resolves.
+    assert!(
+      result.html.contains(&format!("id=\"{}\"", header.id)),
+      "rendered HTML {:?} is missing id={:?}",
+      result.html,
+      header.id
+    );
+  }
+
+  #[test]
   fn test_various_role_types_with_html_characters() {
     #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
     {
