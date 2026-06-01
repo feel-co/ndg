@@ -484,16 +484,10 @@ impl MarkdownProcessor {
             let anchor = &trimmed[start + 2..start + end];
             (trimmed[..start].trim_end().to_string(), anchor.to_string())
           } else {
-            (
-              text.clone(),
-              explicit_id.unwrap_or_else(|| utils::slugify(&text)),
-            )
+            (text.clone(), explicit_id.unwrap_or_else(|| slugify_heading(&text)))
           }
         } else {
-          (
-            text.clone(),
-            explicit_id.unwrap_or_else(|| utils::slugify(&text)),
-          )
+          (text.clone(), explicit_id.unwrap_or_else(|| slugify_heading(&text)))
         };
         if *level == 1 && found_title.is_none() {
           found_title = Some(final_text.clone());
@@ -1182,6 +1176,24 @@ pub fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
     text
   }
   inner(node)
+}
+
+/// Slugify heading text for use as a table-of-contents anchor.
+///
+/// The auto-generated heading `id` is produced by slugifying the *rendered*
+/// HTML (see `process_header_anchors_html`), in which comrak has escaped any
+/// markup characters: an option heading like `environments.<name>.deployment`
+/// becomes `environments.&lt;name&gt;.deployment` before slugifying. The
+/// table-of-contents, by contrast, slugifies the raw inline text (`<name>`),
+/// which would yield a different slug and break "jump to header" for every
+/// heading containing such characters.
+///
+/// To keep both in sync, escape the text the same way comrak does before
+/// slugifying, so the TOC href matches the on-page heading `id`. The heading
+/// `id` itself is intentionally left unchanged to preserve existing deep links.
+#[must_use]
+pub(crate) fn slugify_heading(text: &str) -> String {
+  utils::slugify(&html_escape::encode_text(text))
 }
 
 /// Collect all markdown files from the input directory

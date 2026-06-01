@@ -123,6 +123,7 @@ changes.
 - Generated pages now remain readable with JavaScript disabled. JS-only controls
   are hidden, sidebar navigation stays in document flow, fixed page TOCs are
   disabled without scripts, and mobile overflow handling has been improved.
+- TOC anchors now match heading IDs even if the headings contained HTML entities.
 
 ## [2.8.2]
 
