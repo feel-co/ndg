@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +7,8 @@
      
     
     <script>
+      document.documentElement.classList.remove("no-js");
+      document.documentElement.classList.add("js");
       // Apply sidebar state immediately to prevent flash
       (function () {
         try {
@@ -50,7 +52,7 @@
 
         </div>
         
-        <div class="search-container">
+        <div class="search-container js-only">
           <input type="text" id="search-input" placeholder="Search..." />
           <div id="search-results" class="search-results"></div>
         </div>
@@ -58,7 +60,7 @@
       </header>
 
       <div class="layout">
-        <div class="sidebar-toggle" aria-label="Toggle sidebar">
+        <div class="sidebar-toggle js-only" aria-label="Toggle sidebar">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -93,7 +95,8 @@
 <ul><li><a href="#features">Features</a>
 <li><a href="#motivation">Motivation</a>
 </ul><li><a href="#usage">Usage</a>
-<ul><li><a href="#quickstart">Quickstart</a>
+<ul><li><a href="#nixos-render-docs-compatibility">nixos-render-docs Compatibility</a>
+<li><a href="#quickstart">Quickstart</a>
 <li><a href="#generating-your-first-documents">Generating Your First Documents</a>
 </ul><li><a href="#detailed-usage">Detailed Usage</a>
 <ul><li><a href="#cli-flags-and-configuration-options">CLI Flags and Configuration Options</a>
@@ -167,6 +170,8 @@ Nixpkgs-flavored CommonMark features<sup class="footnote-ref"><a href="#fn-1" id
 ordering, and depth of option categories</li>
 </ul>
 </li>
+<li><strong><code>nixos-render-docs</code> compatibility mode</strong> via the <code>nrd</code> feature and Nix
+package aliases for projects that need drop-in option rendering commands</li>
 <li><strong>Fully customizable templates</strong> to match your project's style fully</li>
 <li><strong>Per-page frontmatter</strong> to override title, description, template, TOC, and
 pass arbitrary data to custom templates</li>
@@ -223,6 +228,15 @@ ier ones
 </code></pre>
 <p>You can review <code>ndg html</code>, <code>ndg man</code>, and <code>ndg pdf</code> commands' help texts by
 passing <code>--help</code> to get more insight.</p>
+<h3 id="nixos-render-docs-compatibility"><code>nixos-render-docs</code> Compatibility</h3>
+<p>NDG can also be built as a lightweight <code>nixos-render-docs</code> compatibility binary.
+The Nix package set exposes this as <code>nrd</code> and <code>nixos-render-docs</code>; both names
+invoke the same binary and switch NDG into the compatibility CLI by argv0.</p>
+<p>Supported compatibility commands are currently option renderers:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">nrd</span>&nbsp;<span style="color:rgb(232,102,113);">options</span>&nbsp;<span style="color:rgb(232,102,113);">commonmark</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--manpage-urls</span>&nbsp;<span style="color:rgb(232,102,113);">./manpage-urls.json</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--revision</span>&nbsp;<span style="color:rgb(232,102,113);">local</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">./options.md</span><br><br><span style="color:rgb(97,175,239);">nrd</span>&nbsp;<span style="color:rgb(232,102,113);">options</span>&nbsp;<span style="color:rgb(232,102,113);">manpage</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--revision</span>&nbsp;<span style="color:rgb(232,102,113);">local</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--header</span>&nbsp;<span style="color:rgb(232,102,113);">./header.roff</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--footer</span>&nbsp;<span style="color:rgb(232,102,113);">./footer.roff</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">./configuration.nix.5</span><br></code></pre>
+<p>Use the <code>nrd</code> Cargo feature for source builds:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">cargo</span>&nbsp;<span style="color:rgb(232,102,113);">build</span>&nbsp;<span style="color:rgb(232,102,113);">-p</span>&nbsp;<span style="color:rgb(232,102,113);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">--no-default-features</span>&nbsp;<span style="color:rgb(232,102,113);">--features</span>&nbsp;<span style="color:rgb(232,102,113);">nrd</span>&nbsp;<span style="color:rgb(232,102,113);">--bin</span>&nbsp;<span style="color:rgb(232,102,113);">ndg</span><br></code></pre>
+<p>The normal <code>ndg</code> CLI is unchanged when the binary is invoked as <code>ndg</code>.</p>
 <h3 id="quickstart">Quickstart</h3>
 <p>The easiest and fastest way to get started with NDG is using the <code>init</code>
 subcommand to generate a configuration file, and tweak it per your needs.</p>
@@ -377,6 +391,18 @@ config when present). For a full list of CLI options, see the help output with
 <li><code>script_paths</code> - Array of custom JavaScript file paths</li>
 <li><code>assets_dir</code> - Directory containing additional assets to copy</li>
 <li><code>module_options</code> - Path to <code>options.json</code> for NixOS module documentation</li>
+<li><code>options.filter.prefix</code> - Include only options whose names start with this
+prefix</li>
+<li><code>options.filter.type</code> - Include only options whose type contains this text,
+case-insensitively</li>
+<li><code>options.filter.search</code> - Include only options whose names or descriptions
+contain this text</li>
+<li><code>options.filter.has_default</code> - Include only options that define a default
+value</li>
+<li><code>options.filter.has_description</code> - Include only options that have a non-empty
+description</li>
+<li><code>options.filter.include_internal</code> - Include options marked internal or
+invisible (default: <code>true</code>)</li>
 <li><code>options_toc_depth</code> - Depth of option categories in TOC (default: <code>2</code>)</li>
 <li><code>manpage_urls_path</code> - Path to manpage URL mappings JSON file</li>
 <li><code>syntax_queries_path</code> - Directory containing Tree-sitter query overrides for
@@ -523,6 +549,18 @@ Options:
           Footer text for the documentation
   -j, --module-options &lt;MODULE_OPTIONS&gt;
           Path to a JSON file containing module options in the same format expected by nixos-render-docs
+      --options-filter-prefix &lt;OPTION_FILTER_PREFIX&gt;
+          Include only module options whose names start with this prefix
+      --options-filter-type &lt;OPTION_FILTER_TYPE&gt;
+          Include only module options whose type contains this text
+      --options-filter-search &lt;OPTION_FILTER_SEARCH&gt;
+          Include only module options whose name or description contains this text
+      --options-filter-has-default
+          Include only module options that define a default value
+      --options-filter-has-description
+          Include only module options that have a non-empty description
+      --options-filter-hide-internal
+          Hide module options marked internal or invisible
       --manpage-urls &lt;MANPAGE_URLS&gt;
           Path to manpage URL mappings JSON file
   -S, --generate-search
@@ -757,6 +795,18 @@ CLI, module evaluation is done for you automatically.</p>
 <p>An example from <a href="https://github.com/notashelf/nvf">nvf</a>, created via <code>pkgs.nixosOptionsDoc</code>.</p>
 <pre class="highlight"><code class="language-json"><span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"vim.withRuby"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"declarations"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">[</span><br><span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"name"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"&lt;nvf/modules/wrapper/environment/options.nix&gt;"</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"url"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"</span><br><span style="color:rgb(132,139,152);">}</span><br><span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"default"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"_type"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"literalExpression"</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"text"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"true"</span><br><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"description"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"Whether&nbsp;to&nbsp;enable&nbsp;Ruby&nbsp;support&nbsp;in&nbsp;the&nbsp;Neovim&nbsp;wrapper.</span><span style="color:rgb(232,102,113);">\n</span><span style="color:rgb(152,195,121);">."</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"example"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br><span style="color:rgb(86,182,194);">"_type"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"literalExpression"</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"text"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"true"</span><br><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"loc"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(132,139,152);">[</span><span style="color:rgb(152,195,121);">"vim"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(152,195,121);">"withRuby"</span><span style="color:rgb(132,139,152);">]</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"readOnly"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(209,154,102);">false</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(86,182,194);">"type"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"boolean"</span><br><span style="color:rgb(132,139,152);">}</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
 </div>
+<p>You can filter rendered options when publishing only part of a larger option
+tree. Filters can be configured persistently in <code>ndg.toml</code>:</p>
+<pre><code class="language-toml">[options.filter]
+prefix = "services.nginx"
+type = "boolean"
+search = "enable"
+has_default = true
+has_description = true
+include_internal = false
+</code></pre>
+<p>The same filters are available as <code>ndg html</code> flags:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">-j</span>&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--options-filter-prefix</span>&nbsp;<span style="color:rgb(232,102,113);">services.nginx</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--options-filter-hide-internal</span><br></code></pre>
 <h4 id="search-configuration">Search Configuration</h4>
 <p>Your documentation may get convoluted as it grows more comprehensive (because
 you write such good docs!) so NDG includes the option to generate</p>
@@ -768,6 +818,10 @@ you write such good docs!) so NDG includes the option to generate</p>
 default prior to version v2.4 but it now defaults to false to avoid invasive
 behaviour and keep builds lightweight. You may re-enable the search page
 generating by passing the <code>--generate-search</code> flag to <code>ndg html</code></p>
+<p>Search results prioritize exact text, exact phrase, and all-term matches before
+falling back to fuzzy matching. Heading anchor text and IDs are indexed as
+search candidates, which helps Nix-style dotted or hyphenated identifiers remain
+findable.</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;not&nbsp;be&nbsp;generated</span><br><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--generate-search</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;be&nbsp;generated</span><br></code></pre>
 <p>While the search is disabled, all search-related functionality will be skipped
 during runtime.</p>
@@ -1056,7 +1110,8 @@ if this is the case! <a href="#fnref-1" class="footnote-backref" data-footnote-b
 <ul><li><a href="#features">Features</a>
 <li><a href="#motivation">Motivation</a>
 </ul><li><a href="#usage">Usage</a>
-<ul><li><a href="#quickstart">Quickstart</a>
+<ul><li><a href="#nixos-render-docs-compatibility">nixos-render-docs Compatibility</a>
+<li><a href="#quickstart">Quickstart</a>
 <li><a href="#generating-your-first-documents">Generating Your First Documents</a>
 </ul><li><a href="#detailed-usage">Detailed Usage</a>
 <ul><li><a href="#cli-flags-and-configuration-options">CLI Flags and Configuration Options</a>
