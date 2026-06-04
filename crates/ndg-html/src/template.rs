@@ -1,7 +1,7 @@
 use std::{
   fmt::Write,
   fs,
-  path::Path,
+  path::{Path, PathBuf},
   sync::{Arc, LazyLock, RwLock},
 };
 
@@ -9,7 +9,11 @@ use color_eyre::eyre::{Context, Result, bail};
 use html_escape::encode_text;
 use indexmap::IndexMap;
 use ndg_commonmark::Header;
-use ndg_config::{Config, sidebar::SidebarOrdering};
+use ndg_config::{
+  Config,
+  options::ModuleOptionsPage,
+  sidebar::SidebarOrdering,
+};
 use ndg_manpage::types::NixOption;
 use ndg_templates as templates;
 use ndg_utils::{
@@ -35,6 +39,60 @@ const NDG_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Compiled regex for matching `{{ key }}` variable placeholders in content.
 static VAR_PLACEHOLDER_RE: LazyLock<Option<Regex>> =
   LazyLock::new(|| Regex::new(r"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}").ok());
+
+/// Convert an options page slug to a root-relative HTML output path.
+///
+/// # Errors
+///
+/// Returns an error if the slug is empty, absolute, or contains `..`.
+pub fn options_output_path(slug: &str) -> Result<PathBuf> {
+  if slug.is_empty() {
+    bail!("Options page slug must not be empty");
+  }
+
+  let path = Path::new(slug);
+  if path.is_absolute()
+    || path.components().any(|component| {
+      matches!(
+        component,
+        std::path::Component::ParentDir
+          | std::path::Component::RootDir
+          | std::path::Component::Prefix(_)
+      )
+    })
+  {
+    bail!("Options page slug must be a relative path without '..': {slug}");
+  }
+
+  let mut output = PathBuf::from(slug);
+  let file_name = output
+    .file_name()
+    .and_then(|name| name.to_str())
+    .ok_or_else(|| {
+      color_eyre::eyre::eyre!("Invalid options page slug: {slug}")
+    })?;
+  output.set_file_name(format!("{file_name}.html"));
+  Ok(output)
+}
+
+fn first_options_path(config: &Config, root_prefix: &str) -> String {
+  config
+    .effective_module_options_pages()
+    .first()
+    .and_then(|page| options_output_path(&page.slug).ok())
+    .map_or_else(
+      || format!("{root_prefix}options.html"),
+      |path| format!("{root_prefix}{}", path.to_string_lossy()),
+    )
+}
+
+fn options_nav_state(config: &Config) -> &'static str {
+  if config.has_module_options() {
+    ""
+  } else {
+    "style=\"display:none;\""
+  }
+}
 
 /// Substitute `{{ key }}` placeholders in content with values from the config
 /// variables map.
@@ -266,12 +324,8 @@ fn build_common_context(
       .get("index_path")
       .map_or("index.html", String::as_str),
   );
-  ctx.insert(
-    "options_path",
-    asset_paths
-      .get("options_path")
-      .map_or("options.html", String::as_str),
-  );
+  let options_path = first_options_path(config, root_prefix);
+  ctx.insert("options_path", &options_path);
   ctx.insert(
     "search_path",
     asset_paths
@@ -352,12 +406,12 @@ fn render_navbar_footer(
     .unwrap_or_else(|_| tera::Context::new());
   navbar_ctx.insert("has_options", has_options);
   navbar_ctx.insert("generate_search", &config.is_search_enabled());
-  navbar_ctx.insert(
-    "options_path",
-    asset_paths
-      .get("options_path")
-      .map_or("options.html", String::as_str),
-  );
+  let root_prefix = asset_paths
+    .get("index_path")
+    .and_then(|path| path.strip_suffix("index.html"))
+    .unwrap_or("");
+  let options_path = first_options_path(config, root_prefix);
+  navbar_ctx.insert("options_path", &options_path);
   navbar_ctx.insert(
     "search_path",
     asset_paths
@@ -483,11 +537,7 @@ pub fn render(
   let doc_nav = generate_doc_nav(config, rel_path);
 
   // Check if options are available
-  let has_options = if config.module_options.is_some() {
-    ""
-  } else {
-    "style=\"display:none;\""
-  };
+  let has_options = options_nav_state(config);
 
   let custom_scripts = generate_custom_scripts(config, rel_path)?;
   let asset_paths = generate_asset_paths(rel_path);
@@ -593,6 +643,28 @@ pub fn render_options(
   config: &Config,
   options: &IndexMap<String, NixOption>,
 ) -> Result<String> {
+  render_options_page(config, options, &ModuleOptionsPage::default())
+}
+
+/// Render a configured module options page.
+///
+/// # Errors
+///
+/// Returns an error if the options template or any required template cannot be
+/// rendered.
+#[allow(
+  clippy::implicit_hasher,
+  reason = "Standard HashMap sufficient for this use case"
+)]
+#[allow(
+  clippy::expect_used,
+  reason = "RwLock poisoning is unrecoverable; panic is the correct response"
+)]
+pub fn render_options_page(
+  config: &Config,
+  options: &IndexMap<String, NixOption>,
+  page: &ModuleOptionsPage,
+) -> Result<String> {
   // Load templates with caching
   let options_template =
     get_template_content(config, "options.html", OPTIONS_TEMPLATE)?;
@@ -622,11 +694,11 @@ pub fn render_options(
   let options_toc = generate_options_toc(options, config, &tera)?;
 
   // Generate document navigation and paths
-  let root_path = Path::new("options.html");
-  let doc_nav = generate_doc_nav(config, root_path);
-  let custom_scripts = generate_custom_scripts(config, root_path)?;
-  let asset_paths = generate_asset_paths(root_path);
-  let root_prefix = calculate_root_relative_path(root_path);
+  let root_path = options_output_path(&page.slug)?;
+  let doc_nav = generate_doc_nav(config, &root_path);
+  let custom_scripts = generate_custom_scripts(config, &root_path)?;
+  let asset_paths = generate_asset_paths(&root_path);
+  let root_prefix = calculate_root_relative_path(&root_path);
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -639,8 +711,9 @@ pub fn render_options(
     &root_prefix,
     "class=\"active\"",
   );
-  tera_context.insert("title", &format!("{} - Options", config.title));
-  tera_context.insert("heading", &format!("{} Options", config.title));
+  let heading = page.display_title();
+  tera_context.insert("title", &format!("{} - {}", config.title, heading));
+  tera_context.insert("heading", &heading);
   tera_context.insert("options", &options_html);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
@@ -687,11 +760,7 @@ pub fn render_lib(
   let root_prefix = calculate_root_relative_path(root_path);
 
   // Determine has_options value
-  let has_options = if config.module_options.is_some() {
-    ""
-  } else {
-    "style=\"display:none;\""
-  };
+  let has_options = options_nav_state(config);
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -1054,11 +1123,7 @@ pub fn render_search(
   let custom_scripts = generate_custom_scripts(config, root_path)?;
 
   // Check if options are available
-  let has_options = if config.module_options.is_some() {
-    ""
-  } else {
-    "style=\"display:none;\""
-  };
+  let has_options = options_nav_state(config);
 
   // Generate asset and navigation paths
   let asset_paths = ndg_utils::html::generate_asset_paths(root_path);
@@ -1539,12 +1604,23 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     }
   }
 
-  // Add link to options page if module_options is configured
-  if doc_nav.is_empty() && config.module_options.is_some() {
-    let _ = writeln!(
-      doc_nav,
-      "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>"
-    );
+  // Add links to options pages. Preserve the historical single-page behavior
+  // by only forcing a lone options link into the sidebar when there are no
+  // docs; multiple options pages need explicit navigation even when docs
+  // exist.
+  let option_pages = config.effective_module_options_pages();
+  if !option_pages.is_empty() && (doc_nav.is_empty() || option_pages.len() > 1)
+  {
+    for page in option_pages {
+      if let Ok(path) = options_output_path(&page.slug) {
+        let _ = writeln!(
+          doc_nav,
+          "<li><a href=\"{root_prefix}{}\">{}</a></li>",
+          path.to_string_lossy(),
+          encode_text(&page.display_title())
+        );
+      }
+    }
   }
 
   // Add link to lib page if nixdoc_inputs is configured

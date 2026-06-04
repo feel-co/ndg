@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use ndg_macros::Configurable;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +14,54 @@ pub struct OptionsConfig {
   /// Optional filtering configuration for module options.
   #[config(nested)]
   pub filter: Option<FilterConfig>,
+}
+
+/// A generated module options page.
+///
+/// Each page points at one `options.json` file and controls where the rendered
+/// HTML page is written. `slug` is a root-relative output path without the
+/// `.html` extension, such as `options`, `projects/hjem/stable`, or
+/// `projects/nvf/v0.8`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ModuleOptionsPage {
+  /// Path to an `options.json` file in nixos-render-docs format.
+  pub path: PathBuf,
+
+  /// Root-relative output slug without `.html`.
+  pub slug: String,
+
+  /// Display title for this options page.
+  pub title: Option<String>,
+
+  /// Optional project version label shown in headings and search results.
+  pub version: Option<String>,
+}
+
+impl Default for ModuleOptionsPage {
+  fn default() -> Self {
+    Self {
+      path:    PathBuf::new(),
+      slug:    "options".to_string(),
+      title:   None,
+      version: None,
+    }
+  }
+}
+
+impl ModuleOptionsPage {
+  /// Title used in navigation and document headings.
+  #[must_use]
+  pub fn display_title(&self) -> String {
+    let title = self.title.as_deref().unwrap_or("Module Options");
+    if let Some(version) = self.version.as_deref()
+      && !version.is_empty()
+    {
+      format!("{title} ({version})")
+    } else {
+      title.to_string()
+    }
+  }
 }
 
 /// Filters applied to module options before rendering options documentation.

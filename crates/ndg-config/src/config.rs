@@ -19,6 +19,30 @@ use crate::{
   sidebar,
 };
 
+fn validate_options_slug(slug: &str) -> Result<(), &'static str> {
+  if slug.is_empty() {
+    return Err("slug must not be empty");
+  }
+
+  let path = Path::new(slug);
+  if path.is_absolute() {
+    return Err("slug must be relative");
+  }
+
+  if path.components().any(|component| {
+    matches!(
+      component,
+      std::path::Component::ParentDir
+        | std::path::Component::RootDir
+        | std::path::Component::Prefix(_)
+    )
+  }) {
+    return Err("slug must not contain absolute or parent components");
+  }
+
+  Ok(())
+}
+
 /// Default output directory for generated documentation.
 pub const DEFAULT_OUTPUT_DIR: &str = "build";
 
@@ -54,6 +78,10 @@ pub struct Config {
   /// Path to options.json file (optional).
   #[config(key = "module_options", allow_empty)]
   pub module_options: Option<PathBuf>,
+
+  /// Additional options pages to render.
+  #[serde(default)]
+  pub module_options_pages: Vec<options::ModuleOptionsPage>,
 
   /// Path to custom template file.
   #[config(key = "template_path", allow_empty)]
@@ -189,6 +217,7 @@ impl Default for Config {
       input_dir:             None,
       output_dir:            PathBuf::from(DEFAULT_OUTPUT_DIR),
       module_options:        None,
+      module_options_pages:  Vec::new(),
       template_path:         None,
       template_dir:          None,
       stylesheet_paths:      Vec::new(),
@@ -226,6 +255,34 @@ impl Config {
   #[must_use]
   pub fn is_search_enabled(&self) -> bool {
     self.search.as_ref().is_none_or(|s| s.enable)
+  }
+
+  /// Returns whether at least one module options source is configured.
+  #[must_use]
+  pub fn has_module_options(&self) -> bool {
+    self.module_options.is_some() || !self.module_options_pages.is_empty()
+  }
+
+  /// Returns the configured module options pages, including the legacy
+  /// `module_options` field as `options.html` when it is set.
+  #[must_use]
+  pub fn effective_module_options_pages(
+    &self,
+  ) -> Vec<options::ModuleOptionsPage> {
+    let mut pages = Vec::with_capacity(
+      usize::from(self.module_options.is_some())
+        + self.module_options_pages.len(),
+    );
+
+    if let Some(path) = &self.module_options {
+      pages.push(options::ModuleOptionsPage {
+        path: path.clone(),
+        ..Default::default()
+      });
+    }
+
+    pages.extend(self.module_options_pages.iter().cloned());
+    pages
   }
 
   /// Returns the maximum heading level to index for search.
@@ -606,6 +663,31 @@ impl Config {
         errors.push(format!(
           "Module options path is not a file: {}",
           module_options.display()
+        ));
+      }
+    }
+
+    for (index, page) in self.module_options_pages.iter().enumerate() {
+      if !page.path.exists() {
+        errors.push(format!(
+          "Module options page {} file does not exist: {}",
+          index + 1,
+          page.path.display()
+        ));
+      } else if !page.path.is_file() {
+        errors.push(format!(
+          "Module options page {} path is not a file: {}",
+          index + 1,
+          page.path.display()
+        ));
+      }
+
+      if let Err(error) = validate_options_slug(&page.slug) {
+        errors.push(format!(
+          "Module options page {} has invalid slug '{}': {}",
+          index + 1,
+          page.slug,
+          error
         ));
       }
     }
