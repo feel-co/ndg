@@ -83,7 +83,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2.81.3
+        uses: taiki-e/install-action@v2.81.4
         with:
           tool: cargo-nextest
 
