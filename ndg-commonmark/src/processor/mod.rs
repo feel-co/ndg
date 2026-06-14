@@ -21,7 +21,12 @@ pub mod process;
 pub mod types;
 
 // Re-export commonly used types from submodules
-pub use core::{ProcessorFeature, collect_markdown_files, extract_inline_text};
+pub use core::{
+  ProcessorFeature,
+  collect_markdown_files,
+  extract_inline_text,
+  rewrite_cross_page_anchor_links,
+};
 
 // Re-export extension functions for third-party use
 #[cfg(feature = "gfm")]

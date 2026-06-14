@@ -443,9 +443,18 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   // As a side effect, this populates config.included_files so that the
   // sidebar navigation can correctly filter out included files.
   info!("Processing markdown files...");
-  let processed_markdown =
+  let mut processed_markdown =
     utils::process_markdown_files(config, processor.as_ref())?;
   info!("Processed {} markdown files", processed_markdown.len());
+
+  // Build a global anchor registry from all pages and rewrite cross-page
+  // anchor links (e.g. [](#sec-foo) on page A -> install.html#sec-foo when
+  // sec-foo lives on page B).
+  let xref_registry = utils::build_anchor_registry(&processed_markdown);
+  utils::apply_cross_page_link_rewrites(
+    &mut processed_markdown,
+    &xref_registry,
+  );
 
   // Collect all output directories upfront (sequential, then parallelize
   // writes)

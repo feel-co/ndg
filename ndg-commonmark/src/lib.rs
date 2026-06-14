@@ -127,6 +127,7 @@ pub use crate::{
     process_markdown_string,
     process_safe,
     process_with_recovery,
+    rewrite_cross_page_anchor_links,
   },
   syntax::{
     SyntaxConfig,

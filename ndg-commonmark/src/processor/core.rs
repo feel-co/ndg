@@ -4,7 +4,7 @@
 //! core rendering pipeline and configuration management.
 use std::{
   collections::HashMap,
-  path::{Path, PathBuf},
+  path::{Component, Path, PathBuf},
   sync::LazyLock,
 };
 
@@ -484,10 +484,16 @@ impl MarkdownProcessor {
             let anchor = &trimmed[start + 2..start + end];
             (trimmed[..start].trim_end().to_string(), anchor.to_string())
           } else {
-            (text.clone(), explicit_id.unwrap_or_else(|| slugify_heading(&text)))
+            (
+              text.clone(),
+              explicit_id.unwrap_or_else(|| slugify_heading(&text)),
+            )
           }
         } else {
-          (text.clone(), explicit_id.unwrap_or_else(|| slugify_heading(&text)))
+          (
+            text.clone(),
+            explicit_id.unwrap_or_else(|| slugify_heading(&text)),
+          )
         };
         if *level == 1 && found_title.is_none() {
           found_title = Some(final_text.clone());
@@ -617,7 +623,6 @@ impl MarkdownProcessor {
     Self::process_markdown_links(document);
     Self::process_option_anchor_links(document);
     Self::process_empty_auto_links(document);
-    Self::process_empty_html_links(document);
   }
 
   /// Process list item ID markers: <li><!-- nixos-anchor-id:ID -->
@@ -738,7 +743,7 @@ impl MarkdownProcessor {
         if !id.is_empty()
           && id
             .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
         {
           let remaining_content =
             &text_content[anchor_start + anchor_end + 1..];
@@ -801,7 +806,7 @@ impl MarkdownProcessor {
         if !id.is_empty()
           && id
             .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
         {
           let remaining_content =
             &text_content[anchor_start + anchor_end + 1..];
@@ -893,7 +898,10 @@ impl MarkdownProcessor {
 
           let mut id = String::new();
           while i < chars.len() && chars[i] != '}' {
-            if chars[i].is_alphanumeric() || chars[i] == '-' || chars[i] == '_'
+            if chars[i].is_alphanumeric()
+              || chars[i] == '-'
+              || chars[i] == '_'
+              || chars[i] == '.'
             {
               id.push(chars[i]);
               i += 1;
@@ -993,31 +1001,7 @@ impl MarkdownProcessor {
             }
           }
           // Empty link with anchor - add humanized text
-          let display_text = Self::humanize_anchor_id(&href_value);
-          link_element.append(kuchikikiki::NodeRef::new_text(display_text));
-        }
-      }
-    }
-  }
-
-  /// Process empty HTML links that have no content
-  fn process_empty_html_links(document: &kuchikikiki::NodeRef) {
-    for link_node in safe_select(document, "a[href^='#']") {
-      let link_element = link_node;
-      let text_content = link_element.text_contents();
-
-      if text_content.trim().is_empty() || text_content.trim() == "{{ANCHOR}}" {
-        // Clear placeholder text if present
-        if text_content.trim() == "{{ANCHOR}}" {
-          for child in link_element.children() {
-            child.detach();
-          }
-        }
-        if let Some(element) = link_element.as_element()
-          && let Some(href) =
-            element.attributes.borrow().get(local_name!("href"))
-        {
-          let display_text = Self::humanize_anchor_id(href);
+          let display_text = humanize_anchor(&href_value);
           link_element.append(kuchikikiki::NodeRef::new_text(display_text));
         }
       }
@@ -1122,33 +1106,148 @@ impl MarkdownProcessor {
       }
     }
   }
+}
 
-  /// Convert an anchor ID to human-readable text
-  fn humanize_anchor_id(anchor: &str) -> String {
-    // Strip the leading #
-    let cleaned = anchor.trim_start_matches('#');
-
-    // Remove common prefixes
-    let without_prefix = cleaned
-      .trim_start_matches("sec-")
-      .trim_start_matches("ssec-")
-      .trim_start_matches("opt-");
-
-    // Replace separators with spaces
-    let spaced = without_prefix.replace(['-', '_'], " ");
-
-    // Capitalize each word
-    spaced
-      .split_whitespace()
-      .map(|word| {
-        let mut chars = word.chars();
-        chars.next().map_or_else(String::new, |c| {
-          c.to_uppercase().collect::<String>() + chars.as_str()
-        })
+/// Convert an anchor ID to human-readable text.
+fn humanize_anchor(anchor: &str) -> String {
+  let cleaned = anchor.trim_start_matches('#');
+  let without_prefix = cleaned
+    .trim_start_matches("sec-")
+    .trim_start_matches("ssec-")
+    .trim_start_matches("opt-");
+  let spaced = without_prefix.replace(['-', '_'], " ");
+  spaced
+    .split_whitespace()
+    .map(|word| {
+      let mut chars = word.chars();
+      chars.next().map_or_else(String::new, |c| {
+        c.to_uppercase().collect::<String>() + chars.as_str()
       })
-      .collect::<Vec<String>>()
-      .join(" ")
+    })
+    .collect::<Vec<String>>()
+    .join(" ")
+}
+
+/// Compute the relative URL from one output page to another.
+///
+/// E.g. `relative_page_path("guide/intro.html", "install.html")` →
+/// `"../install.html"`.
+fn relative_page_path(from_page: &str, to_page: &str) -> String {
+  let from_dir = Path::new(from_page)
+    .parent()
+    .unwrap_or_else(|| Path::new(""));
+  let to_path = Path::new(to_page);
+
+  let from_parts: Vec<_> = from_dir
+    .components()
+    .filter(|c| !matches!(c, Component::CurDir))
+    .collect();
+  let to_parts: Vec<_> = to_path
+    .components()
+    .filter(|c| !matches!(c, Component::CurDir))
+    .collect();
+
+  let common = from_parts
+    .iter()
+    .zip(to_parts.iter())
+    .take_while(|(a, b)| a == b)
+    .count();
+
+  let ups = from_parts.len() - common;
+  let remainder = &to_parts[common..];
+
+  let mut result = std::path::PathBuf::new();
+  for _ in 0..ups {
+    result.push("..");
   }
+  for part in remainder {
+    result.push(part);
+  }
+
+  let s = result.to_string_lossy().to_string();
+  if s.is_empty() { to_page.to_string() } else { s }
+}
+
+/// Rewrite cross-page anchor links in rendered HTML.
+///
+/// For every `<a href="#anchor">` element:
+/// - If `anchor` is found in `registry` and its owning page differs from
+///   `current_page`, rewrites the `href` to the relative path to that page plus
+///   the fragment (`other.html#anchor`).
+/// - If the link text is empty, the `{{ANCHOR}}` placeholder, or the
+///   auto-generated humanized slug, replaces it with the registry title.
+/// - Same-page anchors and anchors absent from the registry are left as-is.
+///
+/// The `registry` maps anchor ID → `(owning_output_page, heading_title)`.
+#[must_use]
+pub fn rewrite_cross_page_anchor_links(
+  html: &str,
+  current_page: &str,
+  registry: &HashMap<String, (String, String)>,
+) -> String {
+  if registry.is_empty() {
+    return html.to_string();
+  }
+
+  kuchiki_postprocess_html(html, |document| {
+    // Collect modifications first to avoid borrow conflicts.
+    let mut modifications: Vec<(kuchikikiki::NodeRef, String, Option<String>)> =
+      Vec::new();
+
+    for link_node in safe_select(document, "a[href^='#']") {
+      let Some(element) = link_node.as_element() else {
+        continue;
+      };
+
+      let href = element
+        .attributes
+        .borrow()
+        .get(local_name!("href"))
+        .map(std::string::ToString::to_string);
+      let Some(href_val) = href else { continue };
+
+      let anchor_id = href_val.trim_start_matches('#');
+      let Some((target_page, target_title)) = registry.get(anchor_id) else {
+        continue;
+      };
+
+      if target_page == current_page {
+        continue;
+      }
+
+      let rel = relative_page_path(current_page, target_page);
+      let new_href = format!("{rel}#{anchor_id}");
+
+      let current_text = link_node.text_contents();
+      let humanized = humanize_anchor(&href_val);
+      let replace_text = current_text.trim().is_empty()
+        || current_text.trim() == "{{ANCHOR}}"
+        || current_text.trim() == humanized.trim();
+
+      let new_text = if replace_text {
+        Some(target_title.clone())
+      } else {
+        None
+      };
+
+      modifications.push((link_node, new_href, new_text));
+    }
+
+    for (link_node, new_href, new_text) in modifications {
+      if let Some(element) = link_node.as_element() {
+        element
+          .attributes
+          .borrow_mut()
+          .insert(local_name!("href"), new_href);
+      }
+      if let Some(text) = new_text {
+        for child in link_node.children() {
+          child.detach();
+        }
+        link_node.append(kuchikikiki::NodeRef::new_text(text));
+      }
+    }
+  })
 }
 
 /// Extract all inline text from a heading node.
