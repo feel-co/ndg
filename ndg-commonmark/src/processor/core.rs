@@ -36,7 +36,7 @@ use crate::{
 };
 
 static HEADER_ANCHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
-  Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_-]+)\}(.*?)</h[1-6]>")
+  Regex::new(r"<h([1-6])>(.*?)\s*\{#([a-zA-Z0-9_.-]+)\}(.*?)</h[1-6]>")
     .unwrap_or_else(|e| {
       log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
       utils::never_matching_regex().unwrap_or_else(|_| {

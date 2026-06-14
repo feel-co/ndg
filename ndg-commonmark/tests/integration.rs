@@ -280,6 +280,35 @@ Valid option: {option}`boot.loader.grub.enable`
   assert!(result.html.contains(r#"<span class="prompt">$</span>"#));
 }
 
+/// Heading IDs containing dots (e.g. sec-release-26.11) must
+/// not be left as literal text in the rendered HTML.
+#[test]
+fn test_heading_anchor_with_dots() {
+  let processor = processor();
+  let markdown = r#"# Release 26.11 ("Zokor", 2026.11/??) {#sec-release-26.11}
+
+## Highlights {#sec-release-26.11-highlights}
+
+- Create the first release note entry in this section!
+"#;
+
+  let result = processor.render(markdown);
+
+  assert!(
+    result.html.contains(r#"id="sec-release-26.11""#),
+    "heading id with dot not set; got: {}",
+    &result.html[..result.html.find("</h").unwrap_or(result.html.len())]
+  );
+  assert!(
+    result.html.contains(r#"id="sec-release-26.11-highlights""#),
+    "subheading id with dot not set"
+  );
+  assert!(
+    !result.html.contains("{#sec-release-26.11}"),
+    "literal {{#...}} leaked into output"
+  );
+}
+
 /// Test that options processing works correctly
 #[test]
 fn test_options_integration() {
