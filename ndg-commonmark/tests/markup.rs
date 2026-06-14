@@ -17,18 +17,6 @@ fn assert_html_contains(html: &str, expected: &[&str]) {
   }
 }
 
-/// Like `assert_html_contains`, but requires the fragment to appear exactly
-/// as-is (not just as a substring).
-fn assert_html_exact(html: &str, expected: &[&str]) {
-  for &fragment in expected {
-    assert!(
-      html.contains(fragment),
-      "Expected HTML to contain exact fragment '{fragment}', but it did \
-       not.\nFull HTML:\n{html}"
-    );
-  }
-}
-
 fn ndg_html(md: &str) -> String {
   let mut options = ndg_commonmark::MarkdownOptions::default();
   options.highlight_code = false;
@@ -123,7 +111,7 @@ fn test_role_command() {
 fn test_role_option() {
   let md = "{option}`services.nginx.enable`";
   let html = ndg_html(md);
-  assert_html_exact(&html, &[
+  assert_html_contains(&html, &[
     r#"<a class="option-reference" href="options.html#option-services.nginx.enable"><code class="nixos-option">services.nginx.enable</code></a>"#,
   ]);
 }
@@ -150,7 +138,7 @@ fn test_repl_prompt() {
 fn test_inline_anchor() {
   let md = "Go here []{#target}.";
   let html = ndg_html(md);
-  assert_html_exact(&html, &[
+  assert_html_contains(&html, &[
     r#"Go here <span id="target" class="nixos-anchor"></span>."#,
   ]);
 }
@@ -159,7 +147,7 @@ fn test_inline_anchor() {
 fn test_list_item_with_anchor() {
   let md = "- []{#item1} Item 1";
   let html = ndg_html(md);
-  assert_html_exact(&html, &[
+  assert_html_contains(&html, &[
     r#"<span id="item1" class="nixos-anchor"></span> Item 1"#,
   ]);
 }
@@ -257,7 +245,7 @@ fn test_setext_heading_with_explicit_anchor_keeps_level() {
 fn test_inline_anchor_start_of_line() {
   let md = "[]{#start-anchor}This line starts with an anchor.";
   let html = ndg_html(md);
-  assert_html_exact(&html, &[
+  assert_html_contains(&html, &[
     r#"<span id="start-anchor" class="nixos-anchor"></span>This line starts with an anchor."#,
   ]);
 }
@@ -267,7 +255,7 @@ fn test_inline_anchor_start_of_line() {
 fn test_inline_anchor_end_of_line() {
   let md = "This line ends with an anchor.[]{#end-anchor}";
   let html = ndg_html(md);
-  assert_html_exact(&html, &[
+  assert_html_contains(&html, &[
     r#"This line ends with an anchor.<span id="end-anchor" class="nixos-anchor"></span>"#,
   ]);
 }
@@ -1810,4 +1798,112 @@ fn test_admonition_eof_followed_by_header() {
     html.contains("<h1"),
     "Header should be rendered as h1. Got:\n{html}"
   );
+}
+
+mod cross_page_links {
+  use std::collections::HashMap;
+
+  use ndg_commonmark::rewrite_cross_page_anchor_links;
+
+  fn registry() -> HashMap<String, (String, String)> {
+    let mut m = HashMap::new();
+    m.insert(
+      "sec-install".to_string(),
+      ("install.html".to_string(), "Installation".to_string()),
+    );
+    m.insert(
+      "sec-deps".to_string(),
+      ("install.html".to_string(), "Dependencies".to_string()),
+    );
+    m.insert(
+      "sec-intro".to_string(),
+      ("guide/intro.html".to_string(), "Introduction".to_string()),
+    );
+    m
+  }
+
+  #[test]
+  fn rewrites_href_to_other_page() {
+    let html = r##"<p><a href="#sec-install">Installation</a></p>"##;
+    let result =
+      rewrite_cross_page_anchor_links(html, "index.html", &registry());
+    assert!(
+      result.contains("href=\"install.html#sec-install\""),
+      "expected cross-page href, got: {result}"
+    );
+    assert!(
+      result.contains(">Installation<"),
+      "text preserved: {result}"
+    );
+  }
+
+  #[test]
+  fn does_not_rewrite_same_page_anchor() {
+    let html = r##"<p><a href="#sec-intro">Introduction</a></p>"##;
+    let result =
+      rewrite_cross_page_anchor_links(html, "guide/intro.html", &registry());
+    assert!(
+      result.contains("href=\"#sec-intro\""),
+      "same-page href must stay bare: {result}"
+    );
+  }
+
+  #[test]
+  fn fills_title_when_text_is_humanized_slug() {
+    // "Install" is what humanize_anchor produces for "#sec-install"
+    // (the sec- prefix is stripped before title-casing)
+    let html = r##"<p><a href="#sec-install">Install</a></p>"##;
+    let result =
+      rewrite_cross_page_anchor_links(html, "index.html", &registry());
+    assert!(
+      result.contains(">Installation<"),
+      "humanized slug should be replaced with real title: {result}"
+    );
+  }
+
+  #[test]
+  fn preserves_user_written_text_on_cross_page() {
+    let html = r##"<p><a href="#sec-install">see here</a></p>"##;
+    let result =
+      rewrite_cross_page_anchor_links(html, "index.html", &registry());
+    assert!(
+      result.contains(">see here<"),
+      "user text must be preserved: {result}"
+    );
+    assert!(
+      result.contains("install.html#sec-install"),
+      "href must still be rewritten: {result}"
+    );
+  }
+
+  #[test]
+  fn unknown_anchor_left_unchanged() {
+    let html = r##"<p><a href="#unknown-id">Unknown</a></p>"##;
+    let result =
+      rewrite_cross_page_anchor_links(html, "index.html", &registry());
+    assert!(
+      result.contains("href=\"#unknown-id\""),
+      "unknown anchor href must be unchanged: {result}"
+    );
+  }
+
+  #[test]
+  fn computes_relative_path_across_directories() {
+    // current page is in a subdirectory; target is at root
+    let html = r##"<p><a href="#sec-install">Install</a></p>"##;
+    let result =
+      rewrite_cross_page_anchor_links(html, "guide/intro.html", &registry());
+    assert!(
+      result.contains("href=\"../install.html#sec-install\""),
+      "needs ../ to navigate up to root: {result}"
+    );
+  }
+
+  #[test]
+  fn empty_registry_returns_html_unchanged() {
+    let html = r##"<p><a href="#sec-install">text</a></p>"##;
+    let result =
+      rewrite_cross_page_anchor_links(html, "index.html", &HashMap::new());
+    assert_eq!(result, html);
+  }
 }
