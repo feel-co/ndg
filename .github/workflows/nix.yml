@@ -16,7 +16,7 @@ jobs:
       files_changed: ${{ steps.changed-files.outputs.files }}
     steps:
       - name: "Checkout Repository"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
 
       - name: "Get changed files"
         id: changed-files
@@ -77,7 +77,7 @@ jobs:
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
       - name: "Checkout Repository"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
 
       - name: "Build packages"
         run: nix build -L .#packages.${{ matrix.system }}.${{ matrix.package }} -v
