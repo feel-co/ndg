@@ -73,7 +73,7 @@ lightningcss  = { version = "1.0.0-alpha.71", default-features = false }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
 oxc_allocator = "0.134.0"
-oxc_codegen   = "0.134.0"
+oxc_codegen   = "0.135.0"
 oxc_minifier  = "0.134.0"
 oxc_parser    = "0.134.0"
 oxc_span      = "0.134.0"
