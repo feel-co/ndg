@@ -76,7 +76,7 @@ oxc_allocator = "0.134.0"
 oxc_codegen   = "0.134.0"
 oxc_minifier  = "0.134.0"
 oxc_parser    = "0.134.0"
-oxc_span      = "0.134.0"
+oxc_span      = "0.135.0"
 printpdf      = "0.9.1"
 
 
