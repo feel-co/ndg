@@ -69,20 +69,20 @@ html-escape   = "0.2.13"
 html5ever     = "0.39.0"
 indexmap      = "2.14.0"
 kuchikikiki   = "0.12.0"
-lightningcss  = { version = "1.0.0-alpha.71", default-features = false }
+lightningcss  = { version = "=1.0.0-alpha.71", default-features = false }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.134.0"
-oxc_codegen   = "0.134.0"
-oxc_minifier  = "0.134.0"
-oxc_parser    = "0.134.0"
-oxc_span      = "0.134.0"
+oxc_allocator = "0.137.0"
+oxc_codegen   = { version = "0.137.0", default-features = false }
+oxc_minifier  = "0.137.0"
+oxc_parser    = "0.137.0"
+oxc_span      = "0.137.0"
 printpdf      = "0.9.1"
 
 
 axum       = { version = "0.8.9", default-features = false }
 tokio      = { version = "1.52.3", default-features = false }
-tower-http = { version = "0.6.11", default-features = false }
+tower-http = { version = "0.7.0", default-features = false }
 
 proc-macro2 = "1.0.106"
 quote       = "1.0.45"
@@ -104,34 +104,45 @@ style      = { level = "warn", priority = -1 }
 # The lint groups above enable some less-than-desirable rules, we should manually
 # enable those to keep our sanity.
 absolute_paths                       = "allow"
+allow_attributes_without_reason      = "warn"
 arbitrary_source_item_ordering       = "allow"
 clone_on_ref_ptr                     = "warn"
 dbg_macro                            = "warn"
 empty_drop                           = "warn"
 empty_structs_with_brackets          = "warn"
+excessive_nesting                    = "warn"
 exit                                 = "warn"
 filetype_is_file                     = "warn"
 get_unwrap                           = "warn"
 implicit_return                      = "allow"
 infinite_loop                        = "warn"
+iter_on_single_items                 = "warn"
 map_with_unused_argument_over_ranges = "warn"
 missing_docs_in_private_items        = "allow"
 multiple_crate_versions              = "allow" # :(
 non_ascii_literal                    = "allow"
 non_std_lazy_statics                 = "warn"
+non_zero_suggestions                 = "warn"
 pathbuf_init_then_push               = "warn"
 pattern_type_mismatch                = "allow"
+precedence_bits                      = "warn"
+pub_underscore_fields                = "warn"
 question_mark_used                   = "allow"
 rc_buffer                            = "warn"
 rc_mutex                             = "warn"
+redundant_clone                      = "warn"
 rest_pat_in_fully_bound_structs      = "warn"
+self_named_module_files              = "warn"
+significant_drop_in_scrutinee        = "warn"
 similar_names                        = "allow"
 single_call_fn                       = "allow"
 std_instead_of_core                  = "allow"
+suspicious_operation_groupings       = "warn"
 too_long_first_doc_paragraph         = "allow"
 too_many_lines                       = "allow"
 undocumented_unsafe_blocks           = "warn"
 unnecessary_safety_comment           = "warn"
+unused_peekable                      = "warn"
 unused_result_ok                     = "warn"
 unused_trait_names                   = "allow"
 
@@ -154,6 +165,14 @@ todo          = "warn"
 unimplemented = "warn"
 unreachable   = "warn"
 
+[workspace.lints.rust]
+non_ascii_idents       = "warn" # prevent non-ASCII identifiers
+tail_expr_drop_order   = "warn" # catch temporaries dropped in surprising order
+unit_bindings          = "warn" # catch useless `let _ = expr` bindings
+unsafe_code            = "warn" # guess
+unsafe_op_in_unsafe_fn = "warn" # require unsafe blocks even inside unsafe fn
+unused_unsafe          = "warn" # catch unnecessary unsafe blocks
+
 [profile.dev]
 debug     = true
 opt-level = 0
@@ -165,5 +184,44 @@ opt-level     = "z"
 panic         = "abort"
 strip         = "symbols"
 
+# Optimize proc-macro crates in dev for faster compilation
+[profile.dev.package.serde_derive]
+opt-level = 1
+[profile.dev.package.clap_derive]
+opt-level = 1
+
 [profile.dev.package.backtrace]
 opt-level = 3
+[profile.dev.package.oxc_allocator]
+opt-level = 3
+[profile.dev.package.oxc_ast]
+opt-level = 3
+[profile.dev.package.oxc_codegen]
+opt-level = 3
+[profile.dev.package.oxc_diagnostics]
+opt-level = 3
+[profile.dev.package.oxc_parser]
+opt-level = 3
+[profile.dev.package.oxc_semantic]
+opt-level = 3
+[profile.dev.package.oxc_span]
+opt-level = 3
+
+# Do the same for tests
+[profile.test.package.oxc_allocator]
+opt-level = 3
+[profile.test.package.oxc_ast]
+opt-level = 3
+[profile.test.package.oxc_codegen]
+opt-level = 3
+[profile.test.package.oxc_diagnostics]
+opt-level = 3
+[profile.test.package.oxc_parser]
+opt-level = 3
+[profile.test.package.oxc_semantic]
+opt-level = 3
+[profile.test.package.oxc_span]
+opt-level = 3
+
+[profile.release.package.clap_builder]
+opt-level = "z"

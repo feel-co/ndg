@@ -124,11 +124,11 @@ pub fn process_js(content: &str, config: &PostprocessConfig) -> Result<String> {
 
   let ret = Parser::new(&allocator, content, source_type).parse();
 
-  if !ret.errors.is_empty() {
+  if !ret.diagnostics.is_empty() {
     return Err(eyre!(
       "Failed to parse JavaScript: {}",
       ret
-        .errors
+        .diagnostics
         .iter()
         .map(std::string::ToString::to_string)
         .collect::<Vec<_>>()
