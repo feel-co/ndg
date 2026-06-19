@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["assets","html","json","markdown","output","postprocess"]};
+window.SIDEBAR_ITEMS = {"mod":["assets","html","json","markdown","output","postprocess","xref"]};

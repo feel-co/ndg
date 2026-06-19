@@ -4,9 +4,16 @@
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">pub mod </span>markdown;
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">pub mod </span>output;
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">pub mod </span>postprocess;
-<a href=#7 id=7 data-nosnippet>7</a>
-<a href=#8 id=8 data-nosnippet>8</a><span class="comment">// Re-export commonly used utilities
-<a href=#9 id=9 data-nosnippet>9</a></span><span class="kw">pub use </span>assets::copy_assets;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub use </span>markdown::{create_processor, process_markdown_files};
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">pub use </span>output::create_fallback_index;
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">pub mod </span>xref;
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a><span class="comment">// Re-export commonly used utilities
+<a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">pub use </span>assets::copy_assets;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">pub use </span>markdown::{create_processor, process_markdown_files};
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">pub use </span>output::create_fallback_index;
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">pub use </span>xref::{
+<a href=#14 id=14 data-nosnippet>14</a>  AnchorEntry,
+<a href=#15 id=15 data-nosnippet>15</a>  AnchorRegistry,
+<a href=#16 id=16 data-nosnippet>16</a>  apply_cross_page_link_rewrites,
+<a href=#17 id=17 data-nosnippet>17</a>  build_anchor_registry,
+<a href=#18 id=18 data-nosnippet>18</a>};
 </code></pre></div></section></main></body></html>

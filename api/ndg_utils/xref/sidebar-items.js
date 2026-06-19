@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["apply_cross_page_link_rewrites","build_anchor_registry"],"struct":["AnchorEntry"],"type":["AnchorRegistry"]};
