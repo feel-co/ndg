@@ -552,7 +552,10 @@ fn test_anchor_id_generation() {
     .find(|a| a["text"].as_str().unwrap() == "Installation & Setup")
     .expect("Should have 'Installation & Setup' anchor");
   // Ampersand and spaces are converted: " & " becomes "--amp--"
-  assert_eq!(installation["id"].as_str().unwrap(), "installation--amp--setup");
+  assert_eq!(
+    installation["id"].as_str().unwrap(),
+    "installation--amp--setup"
+  );
 
   // Find "User's Guide" anchor
   let users_guide = anchors

@@ -11,8 +11,7 @@ rust-version.workspace = true
 version.workspace      = true
 
 [features]
-default            = [ "commonmark-ndg" ]
-commonmark-ndg     = [
+commonmark-ndg = [
   "ndg-commonmark/ndg-flavored",
   "ndg-commonmark/syntastica",
   "ndg-config/commonmark-ndg",
@@ -29,8 +28,9 @@ commonmark-nixpkgs = [
   "ndg-pdf/commonmark-nixpkgs",
   "ndg-utils/commonmark-nixpkgs",
 ]
-nrd                = [ "commonmark-nixpkgs" ]
-serve              = [ "dep:axum", "dep:tokio", "dep:tower-http" ]
+default = [ "commonmark-ndg" ]
+nrd = [ "commonmark-nixpkgs" ]
+serve = [ "dep:axum", "dep:tokio", "dep:tower-http" ]
 
 [dependencies]
 ndg-commonmark.workspace = true

@@ -12,9 +12,9 @@ version.workspace      = true
 publish                = false
 
 [features]
-default            = [ "commonmark-ndg" ]
 commonmark-ndg     = [ "ndg-commonmark/ndg-flavored", "ndg-commonmark/syntastica" ]
 commonmark-nixpkgs = [ "ndg-commonmark/nixpkgs" ]
+default            = [ "commonmark-ndg" ]
 
 [dependencies]
 ndg-commonmark.workspace = true
