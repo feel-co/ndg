@@ -181,7 +181,6 @@ pub struct Config {
   /// In templates: `{{ project_version }}`, `{{ repo_url }}`
   #[serde(default)]
   pub vars: FxHashMap<String, String>,
-
 }
 
 impl Default for Config {
@@ -974,9 +973,7 @@ mod tests {
   fn test_apply_overrides_numeric() {
     let mut config = Config::default();
 
-    config
-      .apply_overrides(&vec!["jobs=8".to_string()])
-      .unwrap();
+    config.apply_overrides(&vec!["jobs=8".to_string()]).unwrap();
 
     assert_eq!(config.jobs, Some(8));
   }
@@ -1059,7 +1056,9 @@ mod tests {
   #[test]
   fn test_apply_override_usize_field() {
     let mut config = Config::default();
-    config.apply_override("search.max_heading_level", "5").unwrap();
+    config
+      .apply_override("search.max_heading_level", "5")
+      .unwrap();
     assert_eq!(config.search.as_ref().unwrap().max_heading_level, 5);
   }
 

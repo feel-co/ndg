@@ -387,13 +387,12 @@ fn generate_meta_tags_html(
   config: &Config,
   frontmatter: Option<&PageFrontmatter>,
 ) -> String {
-  let mut merged: FxHashMap<String, String> =
-    config
-      .meta
-      .as_ref()
-      .and_then(|m| m.tags.as_ref())
-      .cloned()
-      .unwrap_or_default();
+  let mut merged: FxHashMap<String, String> = config
+    .meta
+    .as_ref()
+    .and_then(|m| m.tags.as_ref())
+    .cloned()
+    .unwrap_or_default();
 
   if let Some(fm) = frontmatter {
     if let Some(ref desc) = fm.description {
@@ -1871,48 +1870,48 @@ fn build_opengraph_html(config: &Config) -> String {
     .as_ref()
     .and_then(|m| m.opengraph.as_ref())
     .map_or_else(String::new, |opengraph| {
-    opengraph
-      .iter()
-      .map(|(k, v)| {
-        if k == "og:image"
-          && !v.starts_with("http://")
-          && !v.starts_with("https://")
-        {
-          // Local file path: copy to assets/ and use relative path
-          let image_path = std::path::Path::new(v.as_str());
-          let assets_dir = config.output_dir.join("assets");
-          let file_name = image_path
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or(v.as_str());
-          let dest_path = assets_dir.join(file_name);
-          if let Err(e) = std::fs::create_dir_all(&assets_dir) {
-            log::error!("Failed to create assets dir for og:image: {e}");
+      opengraph
+        .iter()
+        .map(|(k, v)| {
+          if k == "og:image"
+            && !v.starts_with("http://")
+            && !v.starts_with("https://")
+          {
+            // Local file path: copy to assets/ and use relative path
+            let image_path = std::path::Path::new(v.as_str());
+            let assets_dir = config.output_dir.join("assets");
+            let file_name = image_path
+              .file_name()
+              .and_then(|f| f.to_str())
+              .unwrap_or(v.as_str());
+            let dest_path = assets_dir.join(file_name);
+            if let Err(e) = std::fs::create_dir_all(&assets_dir) {
+              log::error!("Failed to create assets dir for og:image: {e}");
+            }
+            if let Err(e) = std::fs::copy(image_path, &dest_path) {
+              log::error!(
+                "Failed to copy og:image from {} to {}: {e}",
+                v,
+                dest_path.display()
+              );
+            }
+            let rel_path = format!("assets/{file_name}");
+            format!(
+              "<meta property=\"{}\" content=\"{}\" />",
+              encode_text(k),
+              encode_text(&rel_path)
+            )
+          } else {
+            format!(
+              "<meta property=\"{}\" content=\"{}\" />",
+              encode_text(k),
+              encode_text(v)
+            )
           }
-          if let Err(e) = std::fs::copy(image_path, &dest_path) {
-            log::error!(
-              "Failed to copy og:image from {} to {}: {e}",
-              v,
-              dest_path.display()
-            );
-          }
-          let rel_path = format!("assets/{file_name}");
-          format!(
-            "<meta property=\"{}\" content=\"{}\" />",
-            encode_text(k),
-            encode_text(&rel_path)
-          )
-        } else {
-          format!(
-            "<meta property=\"{}\" content=\"{}\" />",
-            encode_text(k),
-            encode_text(v)
-          )
-        }
-      })
-      .collect::<Vec<_>>()
-      .join("\n    ")
-  })
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ")
+    })
 }
 
 /// Render a single processed markdown item to HTML and write to disk.
