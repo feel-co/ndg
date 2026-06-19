@@ -443,54 +443,6 @@ fn test_search_config_partial_merge_enable() {
   );
 }
 
-/// Test backward compatibility with deprecated `generate_search` field
-#[test]
-fn test_deprecated_generate_search_compatibility() {
-  #[expect(
-    deprecated,
-    reason = "Fine in tests; deprecated field used for backward compat testing"
-  )]
-  let config = Config {
-    generate_search: true,
-    search: None,
-    ..Default::default()
-  };
-
-  assert!(
-    config.is_search_enabled(),
-    "Should respect deprecated generate_search field"
-  );
-  assert_eq!(
-    config.search_max_heading_level(),
-    3,
-    "Should use default max_heading_level when search config is None"
-  );
-}
-
-/// Test that new search.enable takes priority over deprecated `generate_search`
-#[test]
-fn test_search_config_priority_over_deprecated() {
-  #[expect(
-    deprecated,
-    reason = "Fine in tests; deprecated field used for backward compat testing"
-  )]
-  let config = Config {
-    generate_search: true, // deprecated, should be ignored
-    search: Some(SearchConfig {
-      enable: false, // new config takes priority
-      max_heading_level: 5,
-      ..Default::default()
-    }),
-    ..Default::default()
-  };
-
-  assert!(
-    !config.is_search_enabled(),
-    "New search.enable should override deprecated generate_search"
-  );
-  assert_eq!(config.search_max_heading_level(), 5);
-}
-
 /// Test that anchor IDs are properly generated
 #[test]
 fn test_anchor_id_generation() {

@@ -35,6 +35,19 @@ changes.
 
 ## [2.9.0]
 
+### Breaking Changes
+
+This release deprecates some old configuration options that have been on life
+support since 2.5.0:
+
+- `generate_search` -> use `search.enable`
+- `options_toc_depth` -> use `sidebar.options.depth`
+- `opengraph` -> use `meta.opengraph`
+- `meta_tags` -> use `meta.tags`
+
+CLI flags `--generate-search` and `--options-depth` removed. Use
+`--config search.enable=true` and `--config sidebar.options.depth=N` instead.
+
 ### Added
 
 - Added `nrd`/`nixos-render-docs` compatibility packaging and argv0 dispatch.
@@ -63,6 +76,11 @@ changes.
   `ndg html --options-filter-*` flags. Filters support option prefixes, type
   text, name/description search, default/description presence, and hiding
   internal options.
+- ndg-commonmark now supports cross-page anchor link rewriting:
+  `[label](other-page.md#section)` links are resolved against heading IDs in the
+  target document and rewritten to the correct generated HTML path.
+- Dots (`.`) in heading anchor IDs (e.g. `{#some.id}`) are now preserved as-is
+  instead of being stripped.
 
 ### Changed
 
@@ -123,7 +141,13 @@ changes.
 - Generated pages now remain readable with JavaScript disabled. JS-only controls
   are hidden, sidebar navigation stays in document flow, fixed page TOCs are
   disabled without scripts, and mobile overflow handling has been improved.
-- TOC anchors now match heading IDs even if the headings contained HTML entities.
+- TOC anchors now match heading IDs even if the headings contained HTML
+  entities.
+
+### Removed
+
+- Configuration options marked deprecated in 2.5.0 will no longer route to the
+  new variants; users must manually update configurations.
 
 ## [2.8.2]
 

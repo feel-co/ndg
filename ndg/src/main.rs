@@ -267,9 +267,7 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
     options_has_default,
     options_has_description,
     options_hide_internal,
-    options_toc_depth,
     manpage_urls,
-    generate_search,
     highlight_code,
     revision,
     #[cfg(feature = "serve")]
@@ -339,21 +337,8 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
         filter.include_internal = false;
       }
     }
-    if let Some(depth) = options_toc_depth {
-      config.options_toc_depth = *depth;
-    }
     if let Some(manpage_urls) = manpage_urls {
       config.manpage_urls_path = Some(manpage_urls.clone());
-    }
-    if *generate_search {
-      #[expect(
-        deprecated,
-        reason = "compat: CLI flag sets deprecated field for backward \
-                  compatibility"
-      )]
-      {
-        config.generate_search = true;
-      }
     }
     if *highlight_code {
       config.highlight_code = true;

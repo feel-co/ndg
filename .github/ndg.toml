@@ -37,9 +37,8 @@ enable = true
 
 # Maximum heading level to index
 max_heading_level = 3
-
-# Depth of parent categories in options TOC
-options_toc_depth = 2
+# Depth of parent categories in options TOC (configured in [sidebar.options])
+# depth = 2
 
 # Whether to enable syntax highlighting for code blocks
 highlight_code = true
@@ -50,11 +49,13 @@ tab_style = "normalize"
 # GitHub revision for linking to source files (defaults to 'local')
 revision = "main"
 
-# OpenGraph tags to inject into the HTML head (example: { og:title = "My Project", og:image = "..." })
+# OpenGraph and meta tags configuration
+# [meta]
+# OpenGraph tags to inject into the HTML head
 # opengraph = { og:title = "My Project", og:image = "https://example.com/image.png" }
-
-# Additional meta tags to inject into the HTML head (example: { description = "Docs", keywords = "nix,docs" })
-# meta_tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
+#
+# Additional meta tags to inject into the HTML head (description, keywords, etc.)
+# tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
 
 # Sidebar configuration
 [sidebar]

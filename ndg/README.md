@@ -186,7 +186,7 @@ $ ndg html --config-file nested/path/to/ndg.toml
 $ ndg html --config-file base.toml --config-file overrides.toml
 
 # Override specific config values without editing files
-$ ndg html --config generate_search=false --config sidebar.options.depth=3
+$ ndg html --config search.enable=false --config sidebar.options.depth=3
 ```
 
 Upon running `ndg init`, you will receive a configuration file in one of JSON or
@@ -271,8 +271,6 @@ be used to provide ad-hoc overrides of specific NDG behaviour provided by the
 configuration file, or the default configuration, such as page indexing for
 search and code highlighting. Two example flags accepted by `ndg html` are:
 
-- `--generate-search`: Enables search functionality (disabled by default if
-  omitted).
 - `--highlight-code`: Enables syntax highlighting for code blocks (disabled by
   default if omitted).
 - `--serve`: _(requires the `serve` feature at compile time)_ Starts a local
@@ -282,14 +280,13 @@ search and code highlighting. Two example flags accepted by `ndg html` are:
 Example usage:
 
 ```bash
-ndg html --input-dir ./docs --output-dir ./html --title "My Project" --generate-search
+ndg html --input-dir ./docs --output-dir ./html --title "My Project"
 ```
 
 In this example we're telling NDG to look for Markdown sources in the `docs/`
 directory using the `--input-dir` flag and to dump the result in `html/` using
-the `--output-dir` flag. Additionally, the `--title` and `--generate-search`
-flags ensure that we use the correct title in the site's navbar, and to generate
-search data.
+the `--output-dir` flag. Additionally, the `--title` flag ensures that we use
+the correct title in the site's navbar.
 
 Those flags will **override** the relevant values in the ndg configuration,
 e.g., `ndg.toml` if provided. If you do not need a full configuration, you may
@@ -324,8 +321,8 @@ max_heading_level = 3
 
 > [!NOTE]
 > CLI flags always take precedence over config file settings. For instance, if
-> your config file has `search.enable = false`, but you run
-> `ndg html --generate-search`, search will be enabled.
+> your config file has `search.enable = false`, you can override it on the CLI
+> with `--config search.enable=true`.
 
 If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
 `search.enable` defaults to `true` if omitted from both; CLI flags override
@@ -372,7 +369,7 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
   description
 - `options.filter.include_internal` - Include options marked internal or
   invisible (default: `true`)
-- `options_toc_depth` - Depth of option categories in TOC (default: `2`)
+- `sidebar.options.depth` - Depth of option categories in TOC (default: `2`)
 - `manpage_urls_path` - Path to manpage URL mappings JSON file
 - `syntax_queries_path` - Directory containing Tree-sitter query overrides for
   Syntastica
@@ -382,9 +379,9 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 
 **Metadata Options:**
 
-- `opengraph` - Table of OpenGraph meta tags (e.g.,
+- `meta.opengraph` - Table of OpenGraph meta tags (e.g.,
   `{ "og:title" = "My Docs", "og:image" = "..." }`)
-- `meta_tags` - Table of additional HTML meta tags (e.g.,
+- `meta.tags` - Table of additional HTML meta tags (e.g.,
   `{ description = "...", keywords = "..." }`)
 
 Example configuration:
@@ -418,12 +415,12 @@ assets_dir = "static"
 revision = "main"
 
 # SEO metadata
-[opengraph]
+[meta.opengraph]
 "og:title" = "My Project Docs"
 "og:description" = "Comprehensive documentation"
 "og:image" = "https://example.com/og-image.png"
 
-[meta_tags]
+[meta.tags]
 description = "Complete guide to My Project"
 keywords = "documentation,nix,tutorial"
 author = "My Name"
@@ -502,20 +499,20 @@ stylesheet_paths = ["theme.css", "custom.css"]
 script_paths = ["analytics.js", "search-enhance.js"]
 ```
 
-**SEO and Social Media (`opengraph`, `meta_tags`):**
+**SEO and Social Media (`meta.opengraph`, `meta.tags`):**
 
 These options inject metadata into the HTML `<head>` for better SEO and social
 media sharing:
 
 ```toml
-[opengraph]
+[meta.opengraph]
 "og:title" = "My Documentation"
 "og:type" = "website"
 "og:url" = "https://docs.example.com"
 "og:image" = "https://docs.example.com/preview.png"
 "og:description" = "Comprehensive documentation for My Project"
 
-[meta_tags]
+[meta.tags]
 description = "Learn everything about My Project"
 keywords = "documentation,tutorial,guide,nix"
 author = "Jane Developer"
@@ -570,8 +567,6 @@ Options:
           Hide module options marked internal or invisible
       --manpage-urls <MANPAGE_URLS>
           Path to manpage URL mappings JSON file
-  -S, --generate-search
-          Whether to generate search data and render relevant components
       --highlight-code
           Whether to enable syntax highlighting for code blocks
       --revision <REVISION>
@@ -984,10 +979,9 @@ you write such good docs!) so NDG includes the option to generate
 1. A search page with full indexing
 2. A search widget with limited functionality
 
-to search across your pages and option references. This _used_ to be enabled by
-default prior to version v2.4 but it now defaults to false to avoid invasive
-behaviour and keep builds lightweight. You may re-enable the search page
-generating by passing the `--generate-search` flag to `ndg html`
+to search across your pages and option references. Search is enabled by default
+when a search page is configured. You may disable it via `search.enable = false`
+in `ndg.toml` or `--config search.enable=false` on the CLI.
 
 Search results prioritize exact text, exact phrase, and all-term matches before
 falling back to fuzzy matching. Heading anchor text and IDs are indexed as
@@ -995,10 +989,10 @@ search candidates, which helps Nix-style dotted or hyphenated identifiers remain
 findable.
 
 ```bash
-$ ndg html -i ./docs -o ./html -T "My Project"
+$ ndg html -i ./docs -o ./html -T "My Project" --config search.enable=false
 #=> Search page will not be generated
 
-$ ndg html -i ./docs -o ./html -T "My Project" --generate-search
+$ ndg html -i ./docs -o ./html -T "My Project" --config search.enable=true
 #=> Search page will be generated
 ```
 
@@ -1073,7 +1067,7 @@ Builder options worth knowing:
   `options.json` and always passes `--module-options` to NDG.
 - `generateSearch = true` and `highlightCode = true` are **builder defaults**
   even if NDG defaults differ.
-- `optionsDepth` maps to `--options-depth` (default `2`).
+- `optionsDepth` controls option TOC nesting depth (default `2`).
 - `scripts`, `stylesheet`, and `manpageUrls` are forwarded as CLI flags.
 - `verbose = true` passes `--verbose` to NDG by default.
 
@@ -1132,9 +1126,10 @@ provide `rawModules` or `evaluatedModules` instead.
 
 ##### Building a ZIM Archive
 
-`ndg-builder` provides the option to build a [ZIM](<https://en.wikipedia.org/wiki/ZIM_(file_format)>)
-archive via the option `buildZim`.
-This uses `zimwriterfs`, and thus requires some extra options to be set.
+`ndg-builder` provides the option to build a
+[ZIM](https://en.wikipedia.org/wiki/ZIM_(file_format)) archive via the option
+`buildZim`. This uses `zimwriterfs`, and thus requires some extra options to be
+set.
 
 - `zimId`: Used for the file name and by tools like kiwix, for web paths.
 - `zimIllustration`: A PNG used as the logo for the ZIM.
@@ -1194,15 +1189,13 @@ This approach correctly handles the generation of options documentation using
 - **Selectively disable features** that you don't need:
 
   ```bash
-  # Omit flags to disable features (disabled by default if not provided)
-  ndg html -i ./docs -o ./html -T "My Project"  # Search and highlighting disabled
+  # Disable search via --config override
+  ndg html -i ./docs -o ./html -T "My Project" --config search.enable=false
 
-  # Enable via CLI flags
-  ndg html -i ./docs -o ./html -T "My Project" --generate-search --highlight-code
-
-  # Or enable in config file (CLI flags override config)
+  # Or enable in config file (CLI --config overrides config)
   # ndg.toml:
-  # generate_search = true
+  # [search]
+  # enable = true
   # highlight_code = true
   ```
 
@@ -1235,9 +1228,9 @@ templates/
   heading levels. Start with `h1` (`#`) for the title, then use `h2` (`##`) for
   major sections.
 
-- **Structure your options with depth in mind**: The `--options-depth` parameter
-  controls how the options TOC is generated. Organize your options to create a
-  logical hierarchy.
+- **Structure your options with depth in mind**: The `sidebar.options.depth`
+  config key controls how the options TOC is generated. Organize your options to
+  create a logical hierarchy.
 
 - **Create an index.md file**: Place an `index.md` file in your input directory
   to serve as the landing page.
@@ -1336,9 +1329,14 @@ With `number_special_files = true`:
   title = "Project Documentation"
   footer = "© 2025 My Organization"
   jobs = 8
-  generate_search = true
   highlight_code = true
-  options_toc_depth = 2
+
+  [search]
+  enable = true
+
+  [sidebar.options]
+  depth = 2
+
   stylesheet = "assets/custom.scss"
   script = ["assets/main.js", "assets/search-enhancer.js", "assets/web-analytics.js"]
   module_options = "generated/options.json"

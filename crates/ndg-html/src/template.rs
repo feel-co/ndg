@@ -388,7 +388,12 @@ fn generate_meta_tags_html(
   frontmatter: Option<&PageFrontmatter>,
 ) -> String {
   let mut merged: FxHashMap<String, String> =
-    get_meta_tags(config).cloned().unwrap_or_default();
+    config
+      .meta
+      .as_ref()
+      .and_then(|m| m.tags.as_ref())
+      .cloned()
+      .unwrap_or_default();
 
   if let Some(fm) = frontmatter {
     if let Some(ref desc) = fm.description {
@@ -712,13 +717,12 @@ fn generate_options_toc(
   config: &Config,
   tera: &Tera,
 ) -> Result<String> {
-  // Get depth from sidebar.options config or fallback to legacy
-  // options_toc_depth
+  // Get depth from sidebar.options config or fallback to default
   let default_depth = config
     .sidebar
     .as_ref()
     .and_then(|s| s.options.as_ref())
-    .map_or(config.options_toc_depth, |o| o.depth);
+    .map_or(2, |o| o.depth);
 
   let mut grouped_options: FxHashMap<String, Vec<&NixOption>> =
     FxHashMap::default();
@@ -1862,7 +1866,11 @@ fn add_example_value(html: &mut String, option: &NixOption) {
 /// Build the `OpenGraph` HTML string, handling `og:image` local paths by
 /// copying the file into `output_dir/assets/` and rewriting to a relative URL.
 fn build_opengraph_html(config: &Config) -> String {
-  get_opengraph(config).map_or_else(String::new, |opengraph| {
+  config
+    .meta
+    .as_ref()
+    .and_then(|m| m.opengraph.as_ref())
+    .map_or_else(String::new, |opengraph| {
     opengraph
       .iter()
       .map(|(k, v)| {
@@ -1905,42 +1913,6 @@ fn build_opengraph_html(config: &Config) -> String {
       .collect::<Vec<_>>()
       .join("\n    ")
   })
-}
-
-/// Get `OpenGraph` tags with backward compatibility
-///
-/// Checks the new `meta.opengraph` field first, then falls back to deprecated
-/// `opengraph` field
-#[expect(
-  deprecated,
-  reason = "compat: deprecated opengraph field still supported for backward \
-            compatibility"
-)]
-const fn get_opengraph(config: &Config) -> Option<&FxHashMap<String, String>> {
-  if let Some(ref meta) = config.meta
-    && let Some(ref og) = meta.opengraph
-  {
-    return Some(og);
-  }
-  config.opengraph.as_ref()
-}
-
-/// Get meta tags with backward compatibility
-///
-/// Checks the new `meta.tags` field first, then falls back to deprecated
-/// `meta_tags` field
-#[expect(
-  deprecated,
-  reason = "compat: deprecated meta_tags field still supported for backward \
-            compatibility"
-)]
-const fn get_meta_tags(config: &Config) -> Option<&FxHashMap<String, String>> {
-  if let Some(ref meta) = config.meta
-    && let Some(ref tags) = meta.tags
-  {
-    return Some(tags);
-  }
-  config.meta_tags.as_ref()
 }
 
 /// Render a single processed markdown item to HTML and write to disk.

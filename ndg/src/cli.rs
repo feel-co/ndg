@@ -137,17 +137,9 @@ pub enum Commands {
     #[arg(long = "options-filter-hide-internal", action = clap::ArgAction::SetTrue)]
     options_hide_internal: bool,
 
-    /// Depth of parent categories in options section in the sidebar.
-    #[arg(long = "options-depth", value_parser = clap::value_parser!(usize), hide = true)]
-    options_toc_depth: Option<usize>,
-
     /// Path to manpage URL mappings JSON file.
     #[arg(long = "manpage-urls")]
     manpage_urls: Option<PathBuf>,
-
-    /// Whether to generate search data and render relevant components.
-    #[arg(short = 'S', long = "generate-search", action = clap::ArgAction::SetTrue)]
-    generate_search: bool,
 
     /// Whether to enable syntax highlighting for code blocks.
     #[arg(long = "highlight-code", action = clap::ArgAction::SetTrue)]

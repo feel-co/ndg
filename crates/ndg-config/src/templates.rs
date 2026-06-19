@@ -68,9 +68,6 @@ footer_text = "Generated with ndg"
 # Whether to generate anchors for headings
 generate_anchors = true
 
-# Depth of parent categories in options TOC
-options_toc_depth = 2
-
 # Whether to enable syntax highlighting for code blocks
 highlight_code = true
 
@@ -165,7 +162,7 @@ max_heading_level = 3
 
 # Options sidebar configuration
 # [sidebar.options]
-# Depth of parent categories in options TOC (defaults to root options_toc_depth)
+# Depth of parent categories in options TOC (defaults to 2)
 # depth = 2
 
 # Ordering algorithm for options: "alphabetical", "custom", or "filesystem"
@@ -216,7 +213,6 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
       "include_internal": true
     }
   },
-  "options_toc_depth": 2,
   "highlight_code": true,
   "syntax_queries_path": "queries",
   "tab_style": "none",
@@ -224,13 +220,6 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "index": {
     "use_readme": false,
     "generate_fallback": true
-  },
-  "opengraph": {
-    "og:title": "My Project"
-  },
-  "meta_tags": {
-    "description": "Documentation for My Project",
-    "keywords": "nix,docs,ndg,nixos"
   },
   "sidebar": {
     "numbered": true,

@@ -278,7 +278,8 @@ $ ndg html --module-options ./options.json ...
 ```
 
 Options are presented in a hierarchical structure for easier navigation, with
-the depth of parent categories controlled by the `--options-depth` parameter.
+the depth of parent categories controlled by the `sidebar.options.depth` config
+key.
 
 ## Manpage Formatting
 

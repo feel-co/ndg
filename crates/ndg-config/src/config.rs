@@ -97,15 +97,6 @@ pub struct Config {
   #[config(key = "generate_anchors")]
   pub generate_anchors: bool,
 
-  /// Whether to generate a search index.
-  #[deprecated(since = "2.5.0", note = "Use `search.enable` instead")]
-  #[config(
-    key = "generate_search",
-    deprecated = "2.5.0",
-    replacement = "search.enable"
-  )]
-  pub generate_search: bool,
-
   /// Search configuration
   #[config(nested)]
   pub search: Option<search::SearchConfig>,
@@ -113,14 +104,6 @@ pub struct Config {
   /// Text to be inserted in the footer.
   #[config(key = "footer_text")]
   pub footer_text: String,
-
-  /// Depth of parent categories in options TOC.
-  #[config(
-    key = "options_toc_depth",
-    deprecated = "2.5.0",
-    replacement = "sidebar.options.depth"
-  )]
-  pub options_toc_depth: usize,
 
   /// Whether to enable syntax highlighting for code blocks.
   #[config(key = "highlight_code")]
@@ -199,20 +182,9 @@ pub struct Config {
   #[serde(default)]
   pub vars: FxHashMap<String, String>,
 
-  #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub opengraph: Option<FxHashMap<String, String>>,
-
-  #[deprecated(since = "2.5.0", note = "Use `meta.tags` instead")]
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub meta_tags: Option<FxHashMap<String, String>>,
 }
 
 impl Default for Config {
-  #[expect(
-    deprecated,
-    reason = "compat: deprecated fields still used in config files"
-  )]
   fn default() -> Self {
     Self {
       input_dir:             None,
@@ -229,10 +201,8 @@ impl Default for Config {
       title:                 DEFAULT_TITLE.to_string(),
       jobs:                  None,
       generate_anchors:      true,
-      generate_search:       true,
       search:                None,
       footer_text:           DEFAULT_FOOTER_TEXT.to_string(),
-      options_toc_depth:     2,
       highlight_code:        true,
       revision:              DEFAULT_REVISION.to_string(),
       included_files:        FxHashMap::default(),
@@ -246,29 +216,17 @@ impl Default for Config {
       nixdoc_inputs:         Vec::new(),
       index:                 None,
       vars:                  FxHashMap::default(),
-      opengraph:             None,
-      meta_tags:             None,
     }
   }
 }
 
 impl Config {
-  /// Returns whether search is enabled, checking both new and deprecated
-  /// configs.
+  /// Returns whether search is enabled.
+  ///
+  /// Defaults to `true` when no `search` configuration is present.
   #[must_use]
-  pub const fn is_search_enabled(&self) -> bool {
-    // Priority: search.enable > deprecated generate_search > default true
-    if let Some(ref search) = self.search {
-      search.enable
-    } else {
-      #[expect(
-        deprecated,
-        reason = "compat: support deprecated generate_search field"
-      )]
-      {
-        self.generate_search
-      }
-    }
+  pub fn is_search_enabled(&self) -> bool {
+    self.search.as_ref().is_none_or(|s| s.enable)
   }
 
   /// Returns the maximum heading level to index for search.
@@ -520,33 +478,7 @@ impl Config {
   /// # Arguments
   ///
   /// * `other` - The config to merge in (takes precedence)
-  pub fn merge(&mut self, mut other: Self) {
-    // Handle deprecated fields first before merge_fields consumes other
-    #[expect(
-      deprecated,
-      reason = "compat: merge deprecated opengraph/meta_tags fields"
-    )]
-    {
-      if let Some(other_og) = other.opengraph.take() {
-        log::warn!(
-          "The 'opengraph' config field is deprecated. Use 'meta.opengraph' \
-           instead."
-        );
-
-        // Later value wins
-        self.opengraph = Some(other_og);
-      }
-      if let Some(other_meta) = other.meta_tags.take() {
-        log::warn!(
-          "The 'meta_tags' config field is deprecated. Use 'meta.tags' \
-           instead."
-        );
-
-        // Later value wins
-        self.meta_tags = Some(other_meta);
-      }
-    }
-
+  pub fn merge(&mut self, other: Self) {
     // Use the generated merge method for most fields
     self.merge_fields(other);
 
@@ -1043,14 +975,10 @@ mod tests {
     let mut config = Config::default();
 
     config
-      .apply_overrides(&vec![
-        "jobs=8".to_string(),
-        "options_toc_depth=5".to_string(),
-      ])
+      .apply_overrides(&vec!["jobs=8".to_string()])
       .unwrap();
 
     assert_eq!(config.jobs, Some(8));
-    assert_eq!(config.options_toc_depth, 5);
   }
 
   #[test]
@@ -1088,7 +1016,7 @@ mod tests {
     let mut config = Config::default();
 
     let result =
-      config.apply_overrides(&vec!["generate_search=maybe".to_string()]);
+      config.apply_overrides(&vec!["search.enable=maybe".to_string()]);
 
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("Invalid boolean"));
@@ -1131,8 +1059,8 @@ mod tests {
   #[test]
   fn test_apply_override_usize_field() {
     let mut config = Config::default();
-    config.apply_override("options_toc_depth", "5").unwrap();
-    assert_eq!(config.options_toc_depth, 5);
+    config.apply_override("search.max_heading_level", "5").unwrap();
+    assert_eq!(config.search.as_ref().unwrap().max_heading_level, 5);
   }
 
   #[test]
@@ -1257,22 +1185,6 @@ mod tests {
         .stylesheet_paths
         .contains(&PathBuf::from("style2.css"))
     );
-  }
-
-  #[test]
-  fn test_deprecated_field_still_works() {
-    let mut config = Config::default();
-
-    // This should work but log a deprecation warning
-    config.apply_override("generate_search", "false").unwrap();
-
-    #[expect(
-      deprecated,
-      reason = "compat: test exercises deprecated generate_search field"
-    )]
-    {
-      assert!(!config.generate_search);
-    }
   }
 
   #[test]

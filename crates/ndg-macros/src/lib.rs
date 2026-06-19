@@ -14,9 +14,6 @@ struct FieldConfig {
   /// Whether this field is nested.
   nested: bool,
 
-  /// Deprecation info: (version, replacement).
-  deprecated: Option<(String, Option<String>)>,
-
   /// Allow empty values (set to None).
   allow_empty: bool,
 }
@@ -30,26 +27,11 @@ impl FieldConfig {
         continue;
       }
 
-      // Collect deprecated_version and replacement independently so
-      // that `#[config(deprecated = "v", replacement = "k")]` and
-      // `#[config(replacement = "k", deprecated = "v")]` produce identical
-      // results regardless of attribute order.
-      let mut deprecated_version: Option<String> = None;
-      let mut pending_replacement: Option<String> = None;
-
       let _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("key") {
           let value = meta.value()?;
           let lit: syn::LitStr = value.parse()?;
           config.key = Some(lit.value());
-        } else if meta.path.is_ident("deprecated") {
-          let value = meta.value()?;
-          let lit: syn::LitStr = value.parse()?;
-          deprecated_version = Some(lit.value());
-        } else if meta.path.is_ident("replacement") {
-          let value = meta.value()?;
-          let lit: syn::LitStr = value.parse()?;
-          pending_replacement = Some(lit.value());
         } else if meta.path.is_ident("allow_empty") {
           config.allow_empty = true;
         } else if meta.path.is_ident("nested") {
@@ -57,10 +39,6 @@ impl FieldConfig {
         }
         Ok(())
       });
-
-      if let Some(version) = deprecated_version {
-        config.deprecated = Some((version, pending_replacement));
-      }
     }
 
     config
@@ -286,43 +264,13 @@ fn generate_field_handler(
     return quote! {};
   }
 
-  // Handle deprecation
-  let deprecation_check = if let Some((version, replacement)) =
-    &config.deprecated
-  {
-    let msg = replacement.as_ref().map_or_else(
-      || format!("The '{field_key}' config key is deprecated since {version}."),
-      |replacement| {
-        format!(
-          "The '{field_key}' config key is deprecated since {version}. Use \
-           '{replacement}' instead."
-        )
-      },
-    );
-    quote! {
-      log::warn!(#msg);
-    }
-  } else {
-    quote! {}
-  };
-
   // Generate type-specific parsing
   let value_assignment =
     generate_value_assignment(field_name, field_type, config);
 
-  let assignment_expr = if config.deprecated.is_some() {
-    quote! {
-      #[expect(deprecated)]
-      { #value_assignment }
-    }
-  } else {
-    value_assignment
-  };
-
   quote! {
-    #deprecation_check
     if key == #field_key {
-      #assignment_expr
+      #value_assignment
       return Ok(());
     }
   }

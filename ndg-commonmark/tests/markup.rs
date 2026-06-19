@@ -1577,7 +1577,7 @@ fn test_github_callout_multiline_content() {
   let md = r"> [!NOTE]
 > CLI flags always take precedence over config file settings. For instance, if
 > your config file has `search.enable = false`, but you run
-> `ndg html --generate-search`, search will be enabled.";
+> `ndg html --config search.enable=true`, search will be enabled.";
 
   let html = ndg_html(md);
 
@@ -1597,7 +1597,7 @@ fn test_github_callout_multiline_content() {
     "your config file has",
     "<code>search.enable = false</code>",
     "but you run",
-    "<code>ndg html --generate-search</code>",
+    "<code>ndg html --config search.enable=true</code>",
     "search will be enabled",
   ];
 
