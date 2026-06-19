@@ -255,7 +255,7 @@ documentation.</p>
 the same directory. Though if you want to move the configuration file to a
 nonstandard location, you may specify a path to the configuration file using the
 <code>--config-file</code> option.</p>
-<pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;automatically&nbsp;detected&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;explicitly&nbsp;specified&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">nested/path/to/ndg.toml</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;multiple&nbsp;config&nbsp;files&nbsp;(merged&nbsp;in&nbsp;order)</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">base.toml</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">overrides.toml</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Override&nbsp;specific&nbsp;config&nbsp;values&nbsp;without&nbsp;editing&nbsp;files</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">generate_search=false</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">sidebar.options.depth=3</span><br></code></pre>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;automatically&nbsp;detected&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;explicitly&nbsp;specified&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">nested/path/to/ndg.toml</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;multiple&nbsp;config&nbsp;files&nbsp;(merged&nbsp;in&nbsp;order)</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">base.toml</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">overrides.toml</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Override&nbsp;specific&nbsp;config&nbsp;values&nbsp;without&nbsp;editing&nbsp;files</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.enable=false</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">sidebar.options.depth=3</span><br></code></pre>
 <p>Upon running <code>ndg init</code>, you will receive a configuration file in one of JSON or
 TOML formats depending on the format specified, with all available options and
 their default values as well as explanatory comments. You can then edit this
@@ -317,8 +317,6 @@ be used to provide ad-hoc overrides of specific NDG behaviour provided by the
 configuration file, or the default configuration, such as page indexing for
 search and code highlighting. Two example flags accepted by <code>ndg html</code> are:</p>
 <ul>
-<li><code>--generate-search</code>: Enables search functionality (disabled by default if
-omitted).</li>
 <li><code>--highlight-code</code>: Enables syntax highlighting for code blocks (disabled by
 default if omitted).</li>
 <li><code>--serve</code>: <em>(requires the <code>serve</code> feature at compile time)</em> Starts a local
@@ -326,12 +324,11 @@ HTTP server after generation to preview the output in your browser. Defaults
 to port <code>3000</code>; override with <code>--serve-port &lt;PORT&gt;</code>.</li>
 </ul>
 <p>Example usage:</p>
-<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--input-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">--output-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">--title</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--generate-search</span><br></code></pre>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--input-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">--output-dir</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">--title</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span><br></code></pre>
 <p>In this example we're telling NDG to look for Markdown sources in the <code>docs/</code>
 directory using the <code>--input-dir</code> flag and to dump the result in <code>html/</code> using
-the <code>--output-dir</code> flag. Additionally, the <code>--title</code> and <code>--generate-search</code>
-flags ensure that we use the correct title in the site's navbar, and to generate
-search data.</p>
+the <code>--output-dir</code> flag. Additionally, the <code>--title</code> flag ensures that we use
+the correct title in the site's navbar.</p>
 <p>Those flags will <strong>override</strong> the relevant values in the ndg configuration,
 e.g., <code>ndg.toml</code> if provided. If you do not need a full configuration, you may
 simply use the flags above to generate a complete documentation site without
@@ -358,8 +355,8 @@ max_heading_level = 3
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>CLI flags always take precedence over config file settings. For instance, if
-your config file has <code>search.enable = false</code>, but you run
-<code>ndg html --generate-search</code>, search will be enabled.</p>
+your config file has <code>search.enable = false</code>, you can override it on the CLI
+with <code>--config search.enable=true</code>.</p>
 </div>
 <p>If neither CLI nor config specifies an option, ndg uses sensible defaults (e.g.,
 <code>search.enable</code> defaults to <code>true</code> if omitted from both; CLI flags override
@@ -403,7 +400,7 @@ value</li>
 description</li>
 <li><code>options.filter.include_internal</code> - Include options marked internal or
 invisible (default: <code>true</code>)</li>
-<li><code>options_toc_depth</code> - Depth of option categories in TOC (default: <code>2</code>)</li>
+<li><code>sidebar.options.depth</code> - Depth of option categories in TOC (default: <code>2</code>)</li>
 <li><code>manpage_urls_path</code> - Path to manpage URL mappings JSON file</li>
 <li><code>syntax_queries_path</code> - Directory containing Tree-sitter query overrides for
 Syntastica</li>
@@ -413,9 +410,9 @@ Syntastica</li>
 </ul>
 <p><strong>Metadata Options:</strong></p>
 <ul>
-<li><code>opengraph</code> - Table of OpenGraph meta tags (e.g.,
+<li><code>meta.opengraph</code> - Table of OpenGraph meta tags (e.g.,
 <code>{ "og:title" = "My Docs", "og:image" = "..." }</code>)</li>
-<li><code>meta_tags</code> - Table of additional HTML meta tags (e.g.,
+<li><code>meta.tags</code> - Table of additional HTML meta tags (e.g.,
 <code>{ description = "...", keywords = "..." }</code>)</li>
 </ul>
 <p>Example configuration:</p>
@@ -447,12 +444,12 @@ assets_dir = "static"
 revision = "main"
 
 # SEO metadata
-[opengraph]
+[meta.opengraph]
 "og:title" = "My Project Docs"
 "og:description" = "Comprehensive documentation"
 "og:image" = "https://example.com/og-image.png"
 
-[meta_tags]
+[meta.tags]
 description = "Complete guide to My Project"
 keywords = "documentation,nix,tutorial"
 author = "My Name"
@@ -503,17 +500,17 @@ etc.)</li>
 stylesheet_paths = ["theme.css", "custom.css"]
 script_paths = ["analytics.js", "search-enhance.js"]
 </code></pre>
-<p><strong>SEO and Social Media (<code>opengraph</code>, <code>meta_tags</code>):</strong></p>
+<p><strong>SEO and Social Media (<code>meta.opengraph</code>, <code>meta.tags</code>):</strong></p>
 <p>These options inject metadata into the HTML <code>&lt;head&gt;</code> for better SEO and social
 media sharing:</p>
-<pre><code class="language-toml">[opengraph]
+<pre><code class="language-toml">[meta.opengraph]
 "og:title" = "My Documentation"
 "og:type" = "website"
 "og:url" = "https://docs.example.com"
 "og:image" = "https://docs.example.com/preview.png"
 "og:description" = "Comprehensive documentation for My Project"
 
-[meta_tags]
+[meta.tags]
 description = "Learn everything about My Project"
 keywords = "documentation,tutorial,guide,nix"
 author = "Jane Developer"
@@ -563,8 +560,6 @@ Options:
           Hide module options marked internal or invisible
       --manpage-urls &lt;MANPAGE_URLS&gt;
           Path to manpage URL mappings JSON file
-  -S, --generate-search
-          Whether to generate search data and render relevant components
       --highlight-code
           Whether to enable syntax highlighting for code blocks
       --revision &lt;REVISION&gt;
@@ -814,15 +809,14 @@ you write such good docs!) so NDG includes the option to generate</p>
 <li>A search page with full indexing</li>
 <li>A search widget with limited functionality</li>
 </ol>
-<p>to search across your pages and option references. This <em>used</em> to be enabled by
-default prior to version v2.4 but it now defaults to false to avoid invasive
-behaviour and keep builds lightweight. You may re-enable the search page
-generating by passing the <code>--generate-search</code> flag to <code>ndg html</code></p>
+<p>to search across your pages and option references. Search is enabled by default
+when a search page is configured. You may disable it via <code>search.enable = false</code>
+in <code>ndg.toml</code> or <code>--config search.enable=false</code> on the CLI.</p>
 <p>Search results prioritize exact text, exact phrase, and all-term matches before
 falling back to fuzzy matching. Heading anchor text and IDs are indexed as
 search candidates, which helps Nix-style dotted or hyphenated identifiers remain
 findable.</p>
-<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;not&nbsp;be&nbsp;generated</span><br><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--generate-search</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;be&nbsp;generated</span><br></code></pre>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.enable=false</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;not&nbsp;be&nbsp;generated</span><br><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.enable=true</span><br><span style="color:rgb(92,99,112);font-style: italic;">#=&gt;&nbsp;Search&nbsp;page&nbsp;will&nbsp;be&nbsp;generated</span><br></code></pre>
 <p>While the search is disabled, all search-related functionality will be skipped
 during runtime.</p>
 <h2 id="using--amp--integrating-with-nix">Using &amp; Integrating with Nix</h2>
@@ -875,7 +869,7 @@ using <code>basePath</code>, <code>repoPath</code>, and <code>moduleName</code>.
 <code>options.json</code> and always passes <code>--module-options</code> to NDG.</li>
 <li><code>generateSearch = true</code> and <code>highlightCode = true</code> are <strong>builder defaults</strong>
 even if NDG defaults differ.</li>
-<li><code>optionsDepth</code> maps to <code>--options-depth</code> (default <code>2</code>).</li>
+<li><code>optionsDepth</code> controls option TOC nesting depth (default <code>2</code>).</li>
 <li><code>scripts</code>, <code>stylesheet</code>, and <code>manpageUrls</code> are forwarded as CLI flags.</li>
 <li><code>verbose = true</code> passes <code>--verbose</code> to NDG by default.</li>
 </ul>
@@ -883,9 +877,10 @@ even if NDG defaults differ.</li>
 <p>If you only want module option docs (no Markdown input), omit <code>inputDir</code> and
 provide <code>rawModules</code> or <code>evaluatedModules</code> instead.</p>
 <h5 id="building-a-zim-archive">Building a ZIM Archive</h5>
-<p><code>ndg-builder</code> provides the option to build a <a href="https://en.wikipedia.org/wiki/ZIM_(file_format)">ZIM</a>
-archive via the option <code>buildZim</code>.
-This uses <code>zimwriterfs</code>, and thus requires some extra options to be set.</p>
+<p><code>ndg-builder</code> provides the option to build a
+<a href="https://en.wikipedia.org/wiki/ZIM_(file_format)">ZIM</a> archive via the option
+<code>buildZim</code>. This uses <code>zimwriterfs</code>, and thus requires some extra options to be
+set.</p>
 <ul>
 <li><code>zimId</code>: Used for the file name and by tools like kiwix, for web paths.</li>
 <li><code>zimIllustration</code>: A PNG used as the logo for the ZIM.</li>
@@ -912,7 +907,7 @@ This uses <code>zimwriterfs</code>, and thus requires some extra options to be s
 </li>
 <li>
 <p><strong>Selectively disable features</strong> that you don't need:</p>
-<pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Omit&nbsp;flags&nbsp;to&nbsp;disable&nbsp;features&nbsp;(disabled&nbsp;by&nbsp;default&nbsp;if&nbsp;not&nbsp;provided)</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Search&nbsp;and&nbsp;highlighting&nbsp;disabled</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Enable&nbsp;via&nbsp;CLI&nbsp;flags</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--generate-search</span>&nbsp;<span style="color:rgb(232,102,113);">--highlight-code</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Or&nbsp;enable&nbsp;in&nbsp;config&nbsp;file&nbsp;(CLI&nbsp;flags&nbsp;override&nbsp;config)</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;ndg.toml:</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;generate_search&nbsp;=&nbsp;true</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;highlight_code&nbsp;=&nbsp;true</span><br></code></pre>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Disable&nbsp;search&nbsp;via&nbsp;--config&nbsp;override</span><br><span style="color:rgb(97,175,239);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">-i</span>&nbsp;<span style="color:rgb(232,102,113);">./docs</span>&nbsp;<span style="color:rgb(232,102,113);">-o</span>&nbsp;<span style="color:rgb(232,102,113);">./html</span>&nbsp;<span style="color:rgb(232,102,113);">-T</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.enable=false</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Or&nbsp;enable&nbsp;in&nbsp;config&nbsp;file&nbsp;(CLI&nbsp;--config&nbsp;overrides&nbsp;config)</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;ndg.toml:</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;[search]</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;enable&nbsp;=&nbsp;true</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;highlight_code&nbsp;=&nbsp;true</span><br></code></pre>
 </li>
 </ul>
 <h3 id="styling-tips">Styling Tips</h3>
@@ -944,9 +939,9 @@ heading levels. Start with <code>h1</code> (<code>#</code>) for the title, then 
 major sections.</p>
 </li>
 <li>
-<p><strong>Structure your options with depth in mind</strong>: The <code>--options-depth</code> parameter
-controls how the options TOC is generated. Organize your options to create a
-logical hierarchy.</p>
+<p><strong>Structure your options with depth in mind</strong>: The <code>sidebar.options.depth</code>
+config key controls how the options TOC is generated. Organize your options to
+create a logical hierarchy.</p>
 </li>
 <li>
 <p><strong>Create an index.md file</strong>: Place an <code>index.md</code> file in your input directory
@@ -1043,9 +1038,14 @@ output_dir = "site"
 title = "Project Documentation"
 footer = "© 2025 My Organization"
 jobs = 8
-generate_search = true
 highlight_code = true
-options_toc_depth = 2
+
+[search]
+enable = true
+
+[sidebar.options]
+depth = 2
+
 stylesheet = "assets/custom.scss"
 script = ["assets/main.js", "assets/search-enhancer.js", "assets/web-analytics.js"]
 module_options = "generated/options.json"

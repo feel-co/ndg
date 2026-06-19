@@ -38,7 +38,7 @@
 <a href=#38 id=38 data-nosnippet>38</a>  Regex::new(<span class="string">r"&lt;/?[a-zA-Z][^&gt;]*&gt;"</span>).unwrap_or_else(|e| {
 <a href=#39 id=39 data-nosnippet>39</a>    <span class="macro">error!</span>(<span class="string">"Failed to compile HTML_TAGS regex: {e}"</span>);
 <a href=#40 id=40 data-nosnippet>40</a>    never_matching_regex().unwrap_or_else(|<span class="kw">_</span>| {
-<a href=#41 id=41 data-nosnippet>41</a>      <span class="attr">#[allow(
+<a href=#41 id=41 data-nosnippet>41</a>      <span class="attr">#[expect(
 <a href=#42 id=42 data-nosnippet>42</a>        clippy::expect_used,
 <a href=#43 id=43 data-nosnippet>43</a>        reason = <span class="string">"This pattern is guaranteed to be valid"
 <a href=#44 id=44 data-nosnippet>44</a>      </span>)]
@@ -53,7 +53,7 @@
 <a href=#53 id=53 data-nosnippet>53</a>  Regex::new(<span class="string">r"\.ADMONITION_START\s+(\w+)(.*)"</span>).unwrap_or_else(|e| {
 <a href=#54 id=54 data-nosnippet>54</a>    <span class="macro">error!</span>(<span class="string">"Failed to compile ADMONITION_START regex: {e}"</span>);
 <a href=#55 id=55 data-nosnippet>55</a>    never_matching_regex().unwrap_or_else(|<span class="kw">_</span>| {
-<a href=#56 id=56 data-nosnippet>56</a>      <span class="attr">#[allow(
+<a href=#56 id=56 data-nosnippet>56</a>      <span class="attr">#[expect(
 <a href=#57 id=57 data-nosnippet>57</a>        clippy::expect_used,
 <a href=#58 id=58 data-nosnippet>58</a>        reason = <span class="string">"This pattern is guaranteed to be valid"
 <a href=#59 id=59 data-nosnippet>59</a>      </span>)]
@@ -69,7 +69,7 @@
 <a href=#69 id=69 data-nosnippet>69</a>  Regex::new(<span class="string">r"^\s*[-*+]\s+(.+)$"</span>).unwrap_or_else(|e| {
 <a href=#70 id=70 data-nosnippet>70</a>    <span class="macro">error!</span>(<span class="string">"Failed to compile LIST_ITEM regex: {e}"</span>);
 <a href=#71 id=71 data-nosnippet>71</a>    never_matching_regex().unwrap_or_else(|<span class="kw">_</span>| {
-<a href=#72 id=72 data-nosnippet>72</a>      <span class="attr">#[allow(
+<a href=#72 id=72 data-nosnippet>72</a>      <span class="attr">#[expect(
 <a href=#73 id=73 data-nosnippet>73</a>        clippy::expect_used,
 <a href=#74 id=74 data-nosnippet>74</a>        reason = <span class="string">"This pattern is guaranteed to be valid"
 <a href=#75 id=75 data-nosnippet>75</a>      </span>)]
@@ -83,7 +83,7 @@
 <a href=#83 id=83 data-nosnippet>83</a>  Regex::new(<span class="string">r"^\s*(\d+)\.\s+(.+)$"</span>).unwrap_or_else(|e| {
 <a href=#84 id=84 data-nosnippet>84</a>    <span class="macro">error!</span>(<span class="string">"Failed to compile NUMBERED_LIST_ITEM regex: {e}"</span>);
 <a href=#85 id=85 data-nosnippet>85</a>    never_matching_regex().unwrap_or_else(|<span class="kw">_</span>| {
-<a href=#86 id=86 data-nosnippet>86</a>      <span class="attr">#[allow(
+<a href=#86 id=86 data-nosnippet>86</a>      <span class="attr">#[expect(
 <a href=#87 id=87 data-nosnippet>87</a>        clippy::expect_used,
 <a href=#88 id=88 data-nosnippet>88</a>        reason = <span class="string">"This pattern is guaranteed to be valid"
 <a href=#89 id=89 data-nosnippet>89</a>      </span>)]
@@ -98,7 +98,7 @@
 <a href=#98 id=98 data-nosnippet>98</a>  Regex::new(<span class="string">r"\[([^\]]+)\]\(([^)]+)\)"</span>).unwrap_or_else(|e| {
 <a href=#99 id=99 data-nosnippet>99</a>    <span class="macro">error!</span>(<span class="string">"Failed to compile MARKDOWN_LINK regex: {e}"</span>);
 <a href=#100 id=100 data-nosnippet>100</a>    never_matching_regex().unwrap_or_else(|<span class="kw">_</span>| {
-<a href=#101 id=101 data-nosnippet>101</a>      <span class="attr">#[allow(
+<a href=#101 id=101 data-nosnippet>101</a>      <span class="attr">#[expect(
 <a href=#102 id=102 data-nosnippet>102</a>        clippy::expect_used,
 <a href=#103 id=103 data-nosnippet>103</a>        reason = <span class="string">"This pattern is guaranteed to be valid"
 <a href=#104 id=104 data-nosnippet>104</a>      </span>)]

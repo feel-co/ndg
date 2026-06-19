@@ -124,11 +124,11 @@
 <a href=#124 id=124 data-nosnippet>124</a>
 <a href=#125 id=125 data-nosnippet>125</a>  <span class="kw">let </span>ret = Parser::new(<span class="kw-2">&amp;</span>allocator, content, source_type).parse();
 <a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a>  <span class="kw">if </span>!ret.errors.is_empty() {
+<a href=#127 id=127 data-nosnippet>127</a>  <span class="kw">if </span>!ret.diagnostics.is_empty() {
 <a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">eyre!</span>(
 <a href=#129 id=129 data-nosnippet>129</a>      <span class="string">"Failed to parse JavaScript: {}"</span>,
 <a href=#130 id=130 data-nosnippet>130</a>      ret
-<a href=#131 id=131 data-nosnippet>131</a>        .errors
+<a href=#131 id=131 data-nosnippet>131</a>        .diagnostics
 <a href=#132 id=132 data-nosnippet>132</a>        .iter()
 <a href=#133 id=133 data-nosnippet>133</a>        .map(std::string::ToString::to_string)
 <a href=#134 id=134 data-nosnippet>134</a>        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
@@ -253,7 +253,7 @@
 <a href=#253 id=253 data-nosnippet>253</a>  }
 <a href=#254 id=254 data-nosnippet>254</a>
 <a href=#255 id=255 data-nosnippet>255</a>  <span class="attr">#[test]
-<a href=#256 id=256 data-nosnippet>256</a>  #[allow(
+<a href=#256 id=256 data-nosnippet>256</a>  #[expect(
 <a href=#257 id=257 data-nosnippet>257</a>    clippy::literal_string_with_formatting_args,
 <a href=#258 id=258 data-nosnippet>258</a>    reason = <span class="string">"CSS minified output contains braces that trigger false positive"
 <a href=#259 id=259 data-nosnippet>259</a>  </span>)]
@@ -461,7 +461,7 @@
 <a href=#461 id=461 data-nosnippet>461</a>    <span class="kw">let </span>result = process_js(js, <span class="kw-2">&amp;</span>config).unwrap();
 <a href=#462 id=462 data-nosnippet>462</a>    <span class="kw">let </span>expected = <span class="string">"import{readFile}from\"fs\";export function \
 <a href=#463 id=463 data-nosnippet>463</a>                    processFile(filename){return \
-<a href=#464 id=464 data-nosnippet>464</a>                    readFile(filename).trim()}export default {processFile};"</span>;
+<a href=#464 id=464 data-nosnippet>464</a>                    readFile(filename).trim()}export default{processFile};"</span>;
 <a href=#465 id=465 data-nosnippet>465</a>    <span class="macro">assert_eq!</span>(result, expected);
 <a href=#466 id=466 data-nosnippet>466</a>  }
 <a href=#467 id=467 data-nosnippet>467</a>
