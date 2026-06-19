@@ -1,0 +1,12 @@
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "Use rustc_hash::FxHashMap for better performance" },
+  { path = "std::collections::HashSet", reason = "Use rustc_hash::FxHashSet for better performance" },
+]
+
+# Process spawning is banned by default.
+disallowed-methods = [ { path = "std::process::Command::new", reason = "Don't" } ]
+
+cognitive-complexity-threshold = 25
+excessive-nesting-threshold    = 7
+too-many-arguments-threshold   = 7
+too-many-lines-threshold       = 150

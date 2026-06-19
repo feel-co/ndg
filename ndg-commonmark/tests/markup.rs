@@ -18,8 +18,10 @@ fn assert_html_contains(html: &str, expected: &[&str]) {
 }
 
 fn ndg_html(md: &str) -> String {
-  let mut options = ndg_commonmark::MarkdownOptions::default();
-  options.highlight_code = false;
+  let options = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
   let processor = ndg_commonmark::MarkdownProcessor::new(options);
   processor.render(md).html
 }
@@ -27,8 +29,10 @@ fn ndg_html(md: &str) -> String {
 fn ndg_full_result(
   md: &str,
 ) -> (String, Vec<ndg_commonmark::Header>, Option<String>) {
-  let mut options = ndg_commonmark::MarkdownOptions::default();
-  options.highlight_code = false;
+  let options = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
   let processor = ndg_commonmark::MarkdownProcessor::new(options);
   let result = processor.render(md);
   (result.html, result.headers, result.title)
@@ -81,7 +85,7 @@ fn test_indented_admonition_stays_inside_list_item() {
   let html = ndg_html(md);
 
   assert!(
-    html.contains(r#"<ol>"#) && html.contains("First item"),
+    html.contains(r"<ol>") && html.contains("First item"),
     "ordered list should render normally. Got:\n{html}"
   );
   assert!(
@@ -228,15 +232,13 @@ fn test_setext_heading_with_explicit_anchor_keeps_level() {
 
   assert!(
     html.contains(r#"<h1 id="release-notes">Release Notes</h1>"#),
-    "setext heading anchor should render on h1. Got:\n{}",
-    html
+    "setext heading anchor should render on h1. Got:\n{html}"
   );
   assert!(
     headers
       .iter()
       .any(|header| header.level == 1 && header.id == "release-notes"),
-    "setext heading anchor should be extracted as h1. Got:\n{:?}",
-    headers
+    "setext heading anchor should be extracted as h1. Got:\n{headers:?}"
   );
 }
 
@@ -322,9 +324,11 @@ fn test_manpage_role_with_url() {
     )
     .unwrap();
 
-  let mut opts = ndg_commonmark::MarkdownOptions::default();
-  opts.highlight_code = false;
-  opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
+  let opts = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    manpage_urls_path: Some(json_path.to_str().unwrap().to_string()),
+    ..Default::default()
+  };
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
   let html = ndg_commonmark::process_role_markup(
@@ -354,9 +358,11 @@ fn test_manpage_role_without_url() {
     )
     .unwrap();
 
-  let mut opts = ndg_commonmark::MarkdownOptions::default();
-  opts.highlight_code = false;
-  opts.manpage_urls_path = Some(json_path.to_str().unwrap().to_string());
+  let opts = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    manpage_urls_path: Some(json_path.to_str().unwrap().to_string()),
+    ..Default::default()
+  };
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
 
   let html = ndg_commonmark::process_role_markup(
@@ -485,9 +491,11 @@ fn test_auto_link_options_enabled() {
   // Test that {option} roles are converted to links when auto_link_options is
   // true
   let md = r"Use {option}`services.nginx.enable` to configure nginx.";
-  let mut opts = ndg_commonmark::MarkdownOptions::default();
-  opts.highlight_code = false;
-  opts.auto_link_options = true;
+  let opts = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    auto_link_options: true,
+    ..Default::default()
+  };
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
   let html = processor.render(md).html;
 
@@ -501,9 +509,11 @@ fn test_auto_link_options_disabled() {
   // Test that {option} roles are NOT converted to links when auto_link_options
   // is false
   let md = r"Use {option}`services.nginx.enable` to configure nginx.";
-  let mut opts = ndg_commonmark::MarkdownOptions::default();
-  opts.highlight_code = false;
-  opts.auto_link_options = false;
+  let opts = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    auto_link_options: false,
+    ..Default::default()
+  };
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
   let html = processor.render(md).html;
 
@@ -1183,9 +1193,11 @@ some/file.md
   // Test with the main processor to verify integration
   #[cfg(feature = "nixpkgs")]
   {
-    let mut options = ndg_commonmark::MarkdownOptions::default();
-    options.nixpkgs = true;
-    options.highlight_code = false;
+    let options = ndg_commonmark::MarkdownOptions {
+      nixpkgs: true,
+      highlight_code: false,
+      ..Default::default()
+    };
     let processor = ndg_commonmark::MarkdownProcessor::new(options);
 
     let simple_md = r"```{=include=}
@@ -1240,7 +1252,7 @@ fn test_bracketed_span_not_processed_in_code() {
   let html = ndg_html(md);
 
   assert!(
-    html.contains(r#"<code>[marked text]{.class}</code>"#),
+    html.contains(r"<code>[marked text]{.class}</code>"),
     "bracketed span syntax should be preserved in inline code. Got:\n{html}"
   );
 }
@@ -1801,12 +1813,11 @@ fn test_admonition_eof_followed_by_header() {
 }
 
 mod cross_page_links {
-  use std::collections::HashMap;
-
   use ndg_commonmark::rewrite_cross_page_anchor_links;
+  use rustc_hash::FxHashMap;
 
-  fn registry() -> HashMap<String, (String, String)> {
-    let mut m = HashMap::new();
+  fn registry() -> FxHashMap<String, (String, String)> {
+    let mut m = FxHashMap::default();
     m.insert(
       "sec-install".to_string(),
       ("install.html".to_string(), "Installation".to_string()),
@@ -1902,8 +1913,11 @@ mod cross_page_links {
   #[test]
   fn empty_registry_returns_html_unchanged() {
     let html = r##"<p><a href="#sec-install">text</a></p>"##;
-    let result =
-      rewrite_cross_page_anchor_links(html, "index.html", &HashMap::new());
+    let result = rewrite_cross_page_anchor_links(
+      html,
+      "index.html",
+      &FxHashMap::default(),
+    );
     assert_eq!(result, html);
   }
 }

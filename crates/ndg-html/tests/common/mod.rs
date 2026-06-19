@@ -1,8 +1,3 @@
-#![allow(
-  dead_code,
-  reason = "Shared helpers are used by separate test binaries"
-)]
-
 use std::{
   fs,
   path::{Path, PathBuf},

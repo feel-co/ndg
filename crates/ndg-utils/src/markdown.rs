@@ -1,5 +1,4 @@
 use std::{
-  collections::{HashMap, HashSet},
   fs,
   path::{Path, PathBuf},
 };
@@ -15,6 +14,7 @@ use ndg_commonmark::{
   processor::types::TabStyle,
 };
 use ndg_config::Config;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::Deserialize;
 
 /// TOML frontmatter parsed from the `+++` delimited block at the start of a
@@ -149,7 +149,7 @@ pub fn process_markdown_files(
     info!("Found {} markdown files", files.len());
 
     // Map: output html path -> output entry
-    #[allow(clippy::items_after_statements, reason = "Local type alias")]
+    #[expect(clippy::items_after_statements, reason = "Local type alias")]
     type OutputEntry = (
       String,
       Vec<Header>,
@@ -158,34 +158,36 @@ pub fn process_markdown_files(
       bool,
       Option<PageFrontmatter>,
     );
-    let mut output_map: HashMap<String, OutputEntry> = HashMap::new();
+    let mut output_map: FxHashMap<String, OutputEntry> = FxHashMap::default();
 
     // Track custom outputs keyed by included file path
-    let mut pending_custom_outputs: HashMap<PathBuf, Vec<String>> =
-      HashMap::new();
+    let mut pending_custom_outputs: FxHashMap<PathBuf, Vec<String>> =
+      FxHashMap::default();
 
     // Track generated output paths for included files with html:into-file.
-    let mut included_output_files: HashMap<PathBuf, PathBuf> = HashMap::new();
+    let mut included_output_files: FxHashMap<PathBuf, PathBuf> =
+      FxHashMap::default();
 
     // Track all included files across all markdown files
-    let mut all_included_files: HashMap<PathBuf, PathBuf> = HashMap::new();
+    let mut all_included_files: FxHashMap<PathBuf, PathBuf> =
+      FxHashMap::default();
 
     // Use provided processor or create a new one
     let base_processor = processor
       .map_or_else(|| create_processor(config, None), std::clone::Clone::clone);
 
     // Store render results to avoid rendering twice
-    #[allow(clippy::items_after_statements, reason = "Local type alias")]
-    type RenderCache = HashMap<PathBuf, ndg_commonmark::MarkdownResult>;
-    let mut render_cache: RenderCache = HashMap::new();
+    #[expect(clippy::items_after_statements, reason = "Local type alias")]
+    type RenderCache = FxHashMap<PathBuf, ndg_commonmark::MarkdownResult>;
+    let mut render_cache: RenderCache = FxHashMap::default();
 
     // Store parsed frontmatter per source file
-    let mut frontmatter_cache: HashMap<PathBuf, Option<PageFrontmatter>> =
-      HashMap::new();
+    let mut frontmatter_cache: FxHashMap<PathBuf, Option<PageFrontmatter>> =
+      FxHashMap::default();
 
     // First pass: render all files once and collect metadata
     let progress = ProgressBar::new(files.len() as u64);
-    #[allow(
+    #[expect(
       clippy::expect_used,
       reason = "template string is a compile-time constant; failure is \
                 impossible"
@@ -249,10 +251,7 @@ pub fn process_markdown_files(
             .and_modify(|old| {
               // For deterministic output
               if includer_rel < old.as_path() {
-                *old = {
-                  let this = &includer_rel;
-                  this.to_path_buf()
-                };
+                *old = includer_rel.to_path_buf();
               }
             })
             .or_insert_with(|| includer_rel.to_owned());
@@ -268,7 +267,7 @@ pub fn process_markdown_files(
     // Second pass: use cached results to build output map
     for file_path in &files {
       // Retrieve cached result instead of rendering again
-      #[allow(clippy::expect_used, reason = "File is guaranteed to be cached")]
+      #[expect(clippy::expect_used, reason = "File is guaranteed to be cached")]
       let result = render_cache
         .get(file_path)
         .expect("File should have cached result");
@@ -384,13 +383,13 @@ fn normalize_custom_output_path(path: &str) -> PathBuf {
 /// * `config` - The loaded configuration for documentation generation.
 /// * `valid_options` - Optional set of valid option names for validation.
 #[must_use]
-#[allow(
+#[expect(
   clippy::implicit_hasher,
-  reason = "Standard HashSet sufficient for this use case"
+  reason = "Standard FxHashSet sufficient for this use case"
 )]
 pub fn create_processor(
   config: &Config,
-  valid_options: Option<HashSet<String>>,
+  valid_options: Option<FxHashSet<String>>,
 ) -> MarkdownProcessor {
   let tab_style = match config.tab_style.as_str() {
     "warn" => TabStyle::Warn,

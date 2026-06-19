@@ -96,6 +96,7 @@ impl SearchConfig {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used, reason = "Fine in tests")]
 mod tests {
   use super::*;
 
@@ -155,9 +156,11 @@ mod tests {
 
   #[test]
   fn test_search_config_merge_fields() {
-    let mut config = SearchConfig::default();
-    config.enable = false;
-    config.max_heading_level = 2;
+    let mut config = SearchConfig {
+      enable: false,
+      max_heading_level: 2,
+      ..Default::default()
+    };
 
     let other = SearchConfig {
       enable: true,

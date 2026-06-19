@@ -1,9 +1,11 @@
-#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
+#![expect(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 fn processor() -> MarkdownProcessor {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = false;
+  let options = MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
   MarkdownProcessor::new(options)
 }
 

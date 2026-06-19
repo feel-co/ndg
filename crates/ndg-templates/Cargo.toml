@@ -11,5 +11,8 @@ rust-version.workspace = true
 version.workspace      = true
 publish                = false
 
+[dependencies]
+rustc-hash = "2.1.2"
+
 [lints]
 workspace = true

@@ -1,5 +1,3 @@
-#![allow(clippy::expect_used, reason = "Fine in tests")]
-
 use ndg_commonmark::utils::strip_markdown;
 
 #[test]

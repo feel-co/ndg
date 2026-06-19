@@ -20,13 +20,11 @@
 //! let processor = MarkdownProcessor::new(options);
 //! ```
 
-use std::{
-  collections::{HashMap, HashSet},
-  sync::LazyLock,
-};
+use std::sync::LazyLock;
 
 use comrak::nodes::AstNode;
 use regex::Regex;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 static COMMAND_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^\s*\$\s+(.+)$").unwrap_or_else(|e| {
@@ -35,7 +33,7 @@ static COMMAND_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
        matching regex."
     );
     crate::utils::never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -52,7 +50,7 @@ static REPL_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
        matching regex."
     );
     crate::utils::never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -64,7 +62,7 @@ static REPL_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Options for configuring the Markdown processor.
 #[derive(Debug, Clone)]
-#[allow(
+#[expect(
   clippy::struct_excessive_bools,
   reason = "Config struct with related boolean flags"
 )]
@@ -98,7 +96,7 @@ pub struct MarkdownOptions {
   /// Optional: Set of valid option names for validation.
   /// When provided, only options in this set will be auto-linked.
   /// When `None`, all options will be linked (no validation).
-  pub valid_options: Option<HashSet<String>>,
+  pub valid_options: Option<FxHashSet<String>>,
 
   /// How to handle hard tabs in code blocks.
   pub tab_style: TabStyle,
@@ -178,7 +176,7 @@ impl Default for MarkdownOptions {
 #[derive(Clone)]
 pub struct MarkdownProcessor {
   pub(crate) options:        MarkdownOptions,
-  pub(crate) manpage_urls:   Option<HashMap<String, String>>,
+  pub(crate) manpage_urls:   Option<FxHashMap<String, String>>,
   pub(crate) syntax_manager: Option<crate::syntax::SyntaxManager>,
   pub(crate) base_dir:       std::path::PathBuf,
 }
@@ -315,7 +313,7 @@ impl MarkdownOptionsBuilder {
 
   /// Set the valid options for validation.
   #[must_use]
-  pub fn valid_options(mut self, options: Option<HashSet<String>>) -> Self {
+  pub fn valid_options(mut self, options: Option<FxHashSet<String>>) -> Self {
     self.options.valid_options = options;
     self
   }

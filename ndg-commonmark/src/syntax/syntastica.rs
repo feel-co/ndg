@@ -16,12 +16,12 @@
 //! - And many more...
 
 use std::{
-  collections::HashMap,
   fs,
   path::{Path, PathBuf},
   sync::Mutex,
 };
 
+use rustc_hash::FxHashMap;
 use syntastica::{
   Processor,
   language_set::{HighlightConfiguration, LanguageSet},
@@ -43,21 +43,21 @@ use super::{
 
 /// Syntastica-based syntax highlighter.
 pub struct SyntasticaHighlighter {
-  themes:        HashMap<String, ResolvedTheme>,
+  themes:        FxHashMap<String, ResolvedTheme>,
   default_theme: ResolvedTheme,
   processor:     Mutex<Processor<'static, UserQueryLanguageSet>>,
   renderer:      Mutex<HtmlRenderer>,
 }
 
 struct UserQueryLanguageSet {
-  configs:            Mutex<HashMap<Lang, &'static HighlightConfiguration>>,
+  configs:            Mutex<FxHashMap<Lang, &'static HighlightConfiguration>>,
   syntax_queries_dir: Option<PathBuf>,
 }
 
 impl UserQueryLanguageSet {
   fn new(syntax_queries_dir: Option<&Path>) -> Self {
     Self {
-      configs:            Mutex::new(HashMap::new()),
+      configs:            Mutex::new(FxHashMap::default()),
       syntax_queries_dir: syntax_queries_dir.map(Path::to_path_buf),
     }
   }
@@ -329,7 +329,7 @@ impl SyntasticaHighlighter {
   /// Currently never returns an error, but returns a Result for API
   /// consistency.
   pub fn new(syntax_queries_dir: Option<&Path>) -> SyntaxResult<Self> {
-    let mut themes = HashMap::new();
+    let mut themes = FxHashMap::default();
 
     // Load all available themes
     for theme_name in syntastica_themes::THEMES {
@@ -405,7 +405,7 @@ impl SyntasticaHighlighter {
       "printf" => Some(Lang::Printf),
       "regex" | "regexp" => Some(Lang::Regex),
       "zig" => Some(Lang::Zig),
-      #[allow(clippy::match_same_arms, reason = "Explicit for documentation")]
+      #[expect(clippy::match_same_arms, reason = "Explicit for documentation")]
       "text" | "txt" | "plain" => None, // use fallback for plain text
       _ => None,
     }

@@ -1,7 +1,6 @@
 //! Cross-page anchor registry and link-rewrite utilities.
-use std::collections::HashMap;
-
 use ndg_commonmark::rewrite_cross_page_anchor_links;
+use rustc_hash::FxHashMap;
 
 use crate::markdown::ProcessedMarkdown;
 
@@ -14,7 +13,7 @@ pub struct AnchorEntry {
 }
 
 /// Registry mapping anchor IDs to their owning output page and heading title.
-pub type AnchorRegistry = HashMap<String, AnchorEntry>;
+pub type AnchorRegistry = FxHashMap<String, AnchorEntry>;
 
 /// Build an anchor registry from all rendered pages.
 ///
@@ -23,7 +22,7 @@ pub type AnchorRegistry = HashMap<String, AnchorEntry>;
 /// registered with the first occurrence winning.
 #[must_use]
 pub fn build_anchor_registry(pages: &[ProcessedMarkdown]) -> AnchorRegistry {
-  let mut registry = AnchorRegistry::new();
+  let mut registry = AnchorRegistry::default();
   for page in pages {
     for header in &page.headers {
       if header.id.is_empty() {
@@ -61,7 +60,7 @@ pub fn apply_cross_page_link_rewrites(
     return;
   }
 
-  let flat: HashMap<String, (String, String)> = registry
+  let flat: FxHashMap<String, (String, String)> = registry
     .iter()
     .map(|(id, entry)| (id.clone(), (entry.page.clone(), entry.title.clone())))
     .collect();

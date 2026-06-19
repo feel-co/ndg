@@ -1,6 +1,7 @@
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use ndg_commonmark::utils::strip_markdown;
+use rustc_hash::FxHashMap;
 
 /// Calculate the relative path prefix needed to reach the root from a given
 /// file path For example: "docs/subdir/file.html" would return "../"
@@ -19,10 +20,11 @@ pub fn calculate_root_relative_path(file_rel_path: &Path) -> String {
 #[must_use]
 pub fn generate_asset_paths(
   file_rel_path: &Path,
-) -> HashMap<&'static str, String> {
+) -> FxHashMap<&'static str, String> {
   let root_prefix = calculate_root_relative_path(file_rel_path);
 
-  let mut paths = HashMap::with_capacity(6);
+  let mut paths = FxHashMap::default();
+  paths.reserve(6);
   paths.insert("stylesheet_path", format!("{root_prefix}assets/style.css"));
   paths.insert("main_js_path", format!("{root_prefix}assets/main.js"));
   paths.insert("search_js_path", format!("{root_prefix}assets/search.js"));

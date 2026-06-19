@@ -66,6 +66,7 @@ pub use types::{
 };
 
 #[cfg(test)]
+#[expect(clippy::expect_used, reason = "Fine in tests")]
 mod tests {
   use html_escape;
 

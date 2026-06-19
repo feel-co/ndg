@@ -1,6 +1,7 @@
-use std::{collections::HashMap, ffi::OsStr, path::PathBuf};
+use std::{ffi::OsStr, path::PathBuf};
 
 use ndg_macros::Configurable;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
 fn default_rel() -> String {
@@ -74,10 +75,10 @@ impl FaviconEntry {
 #[serde(default)]
 pub struct MetaConfig {
   /// `OpenGraph` tags (e.g., `{"og:title": "...", "og:image": "..."}`)
-  pub opengraph: Option<HashMap<String, String>>,
+  pub opengraph: Option<FxHashMap<String, String>>,
 
   /// Additional meta tags (e.g., `{"description": "...", "keywords": "..."}`)
-  pub tags: Option<HashMap<String, String>>,
+  pub tags: Option<FxHashMap<String, String>>,
 
   /// Favicon entries. Each entry produces one `<link>` tag in the HTML head.
   #[serde(default)]

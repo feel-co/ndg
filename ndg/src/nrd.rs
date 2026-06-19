@@ -20,7 +20,7 @@ const ROLE_END: char = '\u{E002}';
 const PROTECTED_SPACE: &str = "\0p";
 
 static ROFF_UNICODE: LazyLock<Regex> = LazyLock::new(|| {
-  #[allow(
+  #[expect(
     clippy::expect_used,
     reason = "the roff Unicode character-class regex is static and tested"
   )]

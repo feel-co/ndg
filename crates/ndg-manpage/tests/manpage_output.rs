@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, reason = "Expect is acceptable in tests")]
+#![expect(clippy::expect_used, reason = "Expect is acceptable in tests")]
 
 use std::fs;
 

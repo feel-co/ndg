@@ -2,8 +2,12 @@
 //!
 //! Main implementation of `MarkdownProcessor` and its methods focused on the
 //! core rendering pipeline and configuration management.
+#[expect(
+  clippy::disallowed_types,
+  reason = "Required for generic hasher abstraction"
+)]
+use std::collections::HashMap;
 use std::{
-  collections::HashMap,
   path::{Component, Path, PathBuf},
   sync::LazyLock,
 };
@@ -17,6 +21,7 @@ use comrak::{
 use log::trace;
 use markup5ever::local_name;
 use regex::Regex;
+use rustc_hash::FxHashMap;
 use walkdir::WalkDir;
 
 use super::{
@@ -40,7 +45,7 @@ static HEADER_ANCHOR_RE: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap_or_else(|e| {
       log::error!("Failed to compile HEADER_ANCHOR_RE regex: {e}");
       utils::never_matching_regex().unwrap_or_else(|_| {
-        #[allow(
+        #[expect(
           clippy::expect_used,
           reason = "This pattern is guaranteed to be valid"
         )]
@@ -54,7 +59,7 @@ static HEADER_NO_ID_RE: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"<h([1-6])>(.*?)</h[1-6]>").unwrap_or_else(|e| {
     log::error!("Failed to compile HEADER_NO_ID_RE regex: {e}");
     utils::never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -68,7 +73,7 @@ static HTML_TAG_RE: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"<[^>]+>").unwrap_or_else(|e| {
     log::error!("Failed to compile HTML_TAG_RE regex: {e}");
     utils::never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -145,7 +150,7 @@ impl MarkdownProcessor {
 
   /// Get the manpage URLs mapping for use with standalone functions.
   #[must_use]
-  pub const fn manpage_urls(&self) -> Option<&HashMap<String, String>> {
+  pub const fn manpage_urls(&self) -> Option<&FxHashMap<String, String>> {
     self.manpage_urls.as_ref()
   }
 
@@ -469,7 +474,7 @@ impl MarkdownProcessor {
                 explicit_id = Some(anchor.to_string());
               }
             },
-            #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
+            #[expect(clippy::match_same_arms, reason = "Explicit for clarity")]
             NodeValue::Image(..) => {},
             _ => {},
           }
@@ -477,8 +482,10 @@ impl MarkdownProcessor {
 
         // Check for trailing {#id} in heading text
         let trimmed = text.trim_end();
-        #[allow(clippy::option_if_let_else)]
-        // Nested options clearer with if-let
+        #[expect(
+          clippy::option_if_let_else,
+          reason = "nested options clearer with if-let"
+        )]
         let (final_text, id) = if let Some(start) = trimmed.rfind("{#") {
           if let Some(end) = trimmed[start..].find('}') {
             let anchor = &trimmed[start + 2..start + end];
@@ -602,7 +609,7 @@ impl MarkdownProcessor {
   }
 
   /// HTML post-processing using kuchiki DOM manipulation.
-  #[allow(
+  #[expect(
     clippy::unused_self,
     reason = "Method signature matches processor pattern"
   )]
@@ -697,15 +704,12 @@ impl MarkdownProcessor {
             // Check if this comment is inside a header element
             if let Some(parent) = comment.parent()
               && let Some(element) = parent.as_element()
+              && matches!(
+                element.name.local.as_ref(),
+                "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+              )
             {
-              let tag_name = element.name.local.as_ref();
-              if matches!(tag_name, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
-                to_modify.push((
-                  parent.clone(),
-                  comment.clone(),
-                  id.to_string(),
-                ));
-              }
+              to_modify.push((parent.clone(), comment.clone(), id.to_string()));
             }
           }
         }
@@ -916,11 +920,9 @@ impl MarkdownProcessor {
 
             // Add text before anchor
             if anchor_start > last_end {
-              let before_text: String =
-                chars[last_end..anchor_start].iter().collect();
-              if !before_text.is_empty() {
-                new_children.push(kuchikikiki::NodeRef::new_text(before_text));
-              }
+              new_children.push(kuchikikiki::NodeRef::new_text(
+                chars[last_end..anchor_start].iter().collect::<String>(),
+              ));
             }
 
             // Add span element
@@ -1180,10 +1182,14 @@ fn relative_page_path(from_page: &str, to_page: &str) -> String {
 ///
 /// The `registry` maps anchor ID → `(owning_output_page, heading_title)`.
 #[must_use]
-pub fn rewrite_cross_page_anchor_links(
+#[expect(
+  clippy::disallowed_types,
+  reason = "Uses generic HashMap for hasher flexibility"
+)]
+pub fn rewrite_cross_page_anchor_links<S: std::hash::BuildHasher>(
   html: &str,
   current_page: &str,
-  registry: &HashMap<String, (String, String)>,
+  registry: &HashMap<String, (String, String), S>,
 ) -> String {
   if registry.is_empty() {
     return html.to_string();
@@ -1267,7 +1273,7 @@ pub fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
         | NodeValue::FootnoteReference(..) => {
           text.push_str(&inner(child));
         },
-        #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
+        #[expect(clippy::match_same_arms, reason = "Explicit for clarity")]
         NodeValue::HtmlInline(_) | NodeValue::Image(..) => {},
         _ => {},
       }

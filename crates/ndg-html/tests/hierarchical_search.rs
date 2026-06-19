@@ -146,16 +146,14 @@ Set up your config.
   assert!(h3_texts.contains(&"Configure"));
 
   // Verify no H4 anchors (should be filtered out by max_heading_level=3)
-  let h4_anchors: Vec<&Value> =
-    anchors.iter().filter(|a| a["level"] == 4).collect();
+  let h4_count = anchors.iter().filter(|a| a["level"] == 4).count();
   assert_eq!(
-    h4_anchors.len(),
-    0,
+    h4_count, 0,
     "Should have no H4 anchors due to max_heading_level=3"
   );
 }
 
-/// Test that max_heading_level filtering works correctly
+/// Test that `max_heading_level` filtering works correctly
 #[test]
 fn test_max_heading_level_filtering() {
   let temp_dir = TempDir::new().expect("Failed to create temp dir");
@@ -164,13 +162,13 @@ fn test_max_heading_level_filtering() {
   fs::create_dir_all(&input_dir).expect("Failed to create input dir");
   fs::create_dir_all(&output_dir).expect("Failed to create output dir");
 
-  let md_content = r#"# Title
+  let md_content = r"# Title
 ## Section
 ### Subsection
 #### Detail
 ##### Note
 ###### Fine Print
-"#;
+";
 
   let md_file = input_dir.join("test.md");
   fs::write(&md_file, md_content).expect("Failed to write markdown file");
@@ -448,7 +446,10 @@ fn test_search_config_partial_merge_enable() {
 /// Test backward compatibility with deprecated `generate_search` field
 #[test]
 fn test_deprecated_generate_search_compatibility() {
-  #[allow(deprecated)]
+  #[expect(
+    deprecated,
+    reason = "Fine in tests; deprecated field used for backward compat testing"
+  )]
   let config = Config {
     generate_search: true,
     search: None,
@@ -469,7 +470,10 @@ fn test_deprecated_generate_search_compatibility() {
 /// Test that new search.enable takes priority over deprecated `generate_search`
 #[test]
 fn test_search_config_priority_over_deprecated() {
-  #[allow(deprecated)]
+  #[expect(
+    deprecated,
+    reason = "Fine in tests; deprecated field used for backward compat testing"
+  )]
   let config = Config {
     generate_search: true, // deprecated, should be ignored
     search: Some(SearchConfig {

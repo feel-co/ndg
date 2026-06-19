@@ -90,7 +90,7 @@ trait MatchField: Sized {
 
 /// Configuration for sidebar behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
-#[allow(
+#[expect(
   clippy::struct_excessive_bools,
   reason = "Config mirrors TOML flags; replacing bools would be a breaking \
             schema change"
@@ -423,7 +423,10 @@ impl SidebarMatch {
 
       // Check regex path match
       if let Some(ref _pattern) = path_match.regex {
-        #[allow(clippy::expect_used)]
+        #[expect(
+          clippy::expect_used,
+          reason = "invariant guaranteed during SidebarEntry construction"
+        )]
         let re = path_match
           .compiled_regex
           .as_ref()
@@ -445,7 +448,10 @@ impl SidebarMatch {
 
       // Check regex title match
       if let Some(ref _pattern) = title_match.regex {
-        #[allow(clippy::expect_used)]
+        #[expect(
+          clippy::expect_used,
+          reason = "invariant guaranteed during SidebarEntry construction"
+        )]
         let re = title_match
           .compiled_regex
           .as_ref()
@@ -671,7 +677,10 @@ impl OptionsMatch {
 
       // Check regex name match
       if let Some(ref _pattern) = name_match.regex {
-        #[allow(clippy::expect_used)]
+        #[expect(
+          clippy::expect_used,
+          reason = "invariant guaranteed during SidebarEntry construction"
+        )]
         let re = name_match
           .compiled_regex
           .as_ref()
@@ -712,7 +721,7 @@ impl OptionsMatch {
 
 #[cfg(test)]
 mod tests {
-  #![allow(clippy::expect_used, reason = "Fine in tests")]
+  #![allow(clippy::unwrap_used, clippy::expect_used, reason = "Fine in tests")]
 
   use super::*;
 
@@ -1437,9 +1446,11 @@ position = 50
 
   #[test]
   fn test_options_config_merge_fields() {
-    let mut config = OptionsConfig::default();
-    config.depth = 2;
-    config.ordering = SidebarOrdering::Alphabetical;
+    let mut config = OptionsConfig {
+      depth: 2,
+      ordering: SidebarOrdering::Alphabetical,
+      ..Default::default()
+    };
 
     let other = OptionsConfig {
       depth:    4,

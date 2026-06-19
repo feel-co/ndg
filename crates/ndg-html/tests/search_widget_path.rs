@@ -29,7 +29,7 @@ fn test_search_widget_path_resolution() {
       }
   });
 
-  #[allow(clippy::expect_used, reason = "Fine in tests")]
+  #[expect(clippy::expect_used, reason = "Fine in tests")]
   fs::write(&options_file, options_data.to_string())
     .expect("Failed to write options.json");
 

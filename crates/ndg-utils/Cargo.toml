@@ -42,4 +42,5 @@ regex.workspace         = true
 serde.workspace         = true
 serde_json.workspace    = true
 toml.workspace          = true
+rustc-hash.workspace = true
 walkdir.workspace       = true

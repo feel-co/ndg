@@ -1,9 +1,4 @@
-use std::{
-  collections::{HashMap, HashSet},
-  fs,
-  path::PathBuf,
-  sync::OnceLock,
-};
+use std::{fs, path::PathBuf, sync::OnceLock};
 
 use color_eyre::eyre::{Context, Result};
 use log::info;
@@ -11,6 +6,7 @@ use ndg_config::Config;
 use ndg_utils::{html, postprocess};
 use rayon::prelude::*;
 use regex::Regex;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -79,14 +75,14 @@ impl SearchIndex {
 fn tokenize(text: &str) -> Vec<String> {
   static WORD_REGEX: OnceLock<Regex> = OnceLock::new();
   let word_regex = WORD_REGEX.get_or_init(|| {
-    #[allow(
+    #[expect(
       clippy::unwrap_used,
       reason = "regex pattern is statically known to be valid"
     )]
     Regex::new(r"\b[a-zA-Z0-9_-]+\b").unwrap()
   });
 
-  let mut tokens = HashSet::new();
+  let mut tokens = FxHashSet::default();
 
   for capture in word_regex.find_iter(text) {
     let token = capture.as_str().to_lowercase();
@@ -341,7 +337,7 @@ pub fn create_search_page(config: &Config) -> Result<()> {
 
   info!("Creating search page...");
 
-  let mut context = HashMap::new();
+  let mut context = FxHashMap::default();
   context.insert("title", format!("{} - Search", config.title));
 
   let html = template::render_search(config, &context)?;

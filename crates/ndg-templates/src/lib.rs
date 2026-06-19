@@ -1,4 +1,6 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::sync::OnceLock;
+
+use rustc_hash::FxHashMap as HashMap;
 
 pub const DEFAULT_TEMPLATE: &str = include_str!("../templates/default.html");
 pub const OPTIONS_TEMPLATE: &str = include_str!("../templates/options.html");
@@ -20,7 +22,7 @@ pub fn all_templates() -> HashMap<&'static str, &'static str> {
   static CACHE: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
   CACHE
     .get_or_init(|| {
-      let mut templates = HashMap::new();
+      let mut templates = HashMap::default();
       templates.insert("default.html", DEFAULT_TEMPLATE);
       templates.insert("options.html", OPTIONS_TEMPLATE);
       templates.insert("search.html", SEARCH_TEMPLATE);

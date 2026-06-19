@@ -346,7 +346,7 @@ fn read_options_file(
 
 /// Read and process files listed in an include block.
 #[cfg(feature = "nixpkgs")]
-#[allow(
+#[expect(
   clippy::needless_pass_by_value,
   reason = "Owned value needed for cloning in loop"
 )]
@@ -535,15 +535,15 @@ pub fn process_file_includes(
 /// The processed markdown with role markup converted to HTML
 #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
 #[must_use]
-#[allow(
+#[expect(
   clippy::implicit_hasher,
   reason = "Standard HashMap/HashSet sufficient for this use case"
 )]
 pub fn process_role_markup(
   content: &str,
-  manpage_urls: Option<&std::collections::HashMap<String, String>>,
+  manpage_urls: Option<&rustc_hash::FxHashMap<String, String>>,
   auto_link_options: bool,
-  valid_options: Option<&std::collections::HashSet<String>>,
+  valid_options: Option<&rustc_hash::FxHashSet<String>>,
 ) -> String {
   let mut result = String::new();
   let mut chars = content.chars().peekable();
@@ -615,9 +615,9 @@ pub fn process_role_markup(
 /// `Some(html)` if a valid role markup is found, `None` otherwise.
 fn parse_role_markup(
   chars: &mut std::iter::Peekable<std::str::Chars>,
-  manpage_urls: Option<&std::collections::HashMap<String, String>>,
+  manpage_urls: Option<&rustc_hash::FxHashMap<String, String>>,
   auto_link_options: bool,
-  valid_options: Option<&std::collections::HashSet<String>>,
+  valid_options: Option<&rustc_hash::FxHashSet<String>>,
 ) -> Option<String> {
   let mut role_name = String::new();
 
@@ -674,20 +674,20 @@ fn parse_role_markup(
 
 /// Format the role markup as HTML based on the role type and content.
 #[must_use]
-#[allow(
+#[expect(
   clippy::option_if_let_else,
   reason = "Nested options clearer with if-let"
 )]
-#[allow(
+#[expect(
   clippy::implicit_hasher,
   reason = "Standard HashMap/HashSet sufficient for this use case"
 )]
 pub fn format_role_markup(
   role_type: &str,
   content: &str,
-  manpage_urls: Option<&std::collections::HashMap<String, String>>,
+  manpage_urls: Option<&rustc_hash::FxHashMap<String, String>>,
   auto_link_options: bool,
-  valid_options: Option<&std::collections::HashSet<String>>,
+  valid_options: Option<&rustc_hash::FxHashSet<String>>,
 ) -> String {
   let escaped_content = encode_text(content);
   match role_type {
@@ -1072,6 +1072,11 @@ fn process_list_item_anchor(line: &str, anchor_start: usize) -> Option<String> {
 }
 
 /// Process inline anchors in a single line.
+#[expect(
+  clippy::excessive_nesting,
+  reason = "complex character parsing algorithm, refactoring would reduce \
+            readability"
+)]
 fn process_line_anchors(line: &str) -> String {
   let mut result = String::with_capacity(line.len());
   let mut chars = line.chars().peekable();
@@ -1466,7 +1471,7 @@ fn collect_fenced_content(
 }
 
 /// Parse figure block: ::: {.figure #id}
-#[allow(
+#[expect(
   clippy::option_if_let_else,
   reason = "Nested options clearer with if-let"
 )]
@@ -1565,13 +1570,13 @@ fn render_figure(id: Option<&str>, title: &str, content: &str) -> String {
 /// The processed HTML with manpage references converted to links
 #[cfg(feature = "nixpkgs")]
 #[must_use]
-#[allow(
+#[expect(
   clippy::implicit_hasher,
   reason = "Standard HashMap sufficient for this use case"
 )]
 pub fn process_manpage_references(
   html: &str,
-  manpage_urls: Option<&std::collections::HashMap<String, String>>,
+  manpage_urls: Option<&rustc_hash::FxHashMap<String, String>>,
 ) -> String {
   process_safe(
     html,
@@ -1651,13 +1656,13 @@ pub fn process_manpage_references(
 /// The HTML string with option references rewritten as links.
 #[cfg(feature = "ndg-flavored")]
 #[must_use]
-#[allow(
+#[expect(
   clippy::implicit_hasher,
   reason = "Standard HashSet sufficient for this use case"
 )]
 pub fn process_option_references(
   html: &str,
-  valid_options: Option<&std::collections::HashSet<String>>,
+  valid_options: Option<&rustc_hash::FxHashSet<String>>,
 ) -> String {
   use kuchikikiki::{Attribute, ExpandedName, NodeRef};
   use markup5ever::{QualName, local_name, ns};

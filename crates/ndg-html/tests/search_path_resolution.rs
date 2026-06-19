@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, clippy::unwrap_used, reason = "Fine in tests")]
+#![expect(clippy::expect_used, clippy::unwrap_used, reason = "Fine in tests")]
 
 mod common;
 

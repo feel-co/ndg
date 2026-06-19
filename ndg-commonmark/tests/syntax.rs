@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, reason = "Fine in tests")]
+#![expect(clippy::expect_used, reason = "Fine in tests")]
 
 use std::fs;
 
@@ -63,7 +63,7 @@ fn test_syntastica_extends_appends_to_builtin_queries() {
   fs::create_dir_all(&nix_replace).expect("create replacement query dir");
   fs::create_dir_all(&nix_extend).expect("create extends query dir");
 
-  let replacement_query = r#"(identifier) @function"#;
+  let replacement_query = r"(identifier) @function";
   let extending_query = format!(";; extends\n{replacement_query}");
 
   fs::write(nix_replace.join("highlights.scm"), replacement_query)

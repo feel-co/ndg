@@ -1,7 +1,8 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::sync::LazyLock;
 
 use ndg_commonmark::utils::never_matching_regex;
 use regex::Regex;
+use rustc_hash::FxHashMap;
 
 // These patterns need to be applied sequentially to preserve troff formatting
 // codes
@@ -9,7 +10,7 @@ pub static TROFF_FORMATTING: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\\f[PBIR]").unwrap_or_else(|e| {
     log::error!("Failed to compile TROFF_FORMATTING regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -23,7 +24,7 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\\[\(\[\\\.]").unwrap_or_else(|e| {
     log::error!("Failed to compile TROFF_ESCAPE regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -34,9 +35,9 @@ pub static TROFF_ESCAPE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Map of characters that need to be escaped in manpages
-pub static ROFF_ESCAPES: LazyLock<HashMap<char, &'static str>> =
+pub static ROFF_ESCAPES: LazyLock<FxHashMap<char, &'static str>> =
   LazyLock::new(|| {
-    let mut map = HashMap::with_capacity(8);
+    let mut map = FxHashMap::default();
     map.insert('"', "\\(dq");
     map.insert('\'', "\\(aq");
     map.insert('-', "\\-");

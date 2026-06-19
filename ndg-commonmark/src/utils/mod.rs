@@ -1,7 +1,6 @@
-use std::{
-  collections::HashMap,
-  sync::{LazyLock, OnceLock, RwLock},
-};
+use std::sync::{LazyLock, OnceLock, RwLock};
+
+use rustc_hash::FxHashMap;
 pub mod codeblock;
 
 use comrak::{
@@ -26,8 +25,8 @@ pub type UtilResult<T> = Result<T, UtilError>;
 /// non-alphanumeric characters with dashes, and trims leading/trailing dashes.
 #[must_use]
 pub fn slugify(text: &str) -> String {
-  static CACHE: LazyLock<RwLock<HashMap<String, String>>> =
-    LazyLock::new(|| RwLock::new(HashMap::new()));
+  static CACHE: LazyLock<RwLock<FxHashMap<String, String>>> =
+    LazyLock::new(|| RwLock::new(FxHashMap::default()));
 
   {
     let cache = CACHE
@@ -99,7 +98,7 @@ fn extract_inline_text_from_node<'a>(node: &'a AstNode<'a>) -> String {
       | NodeValue::FootnoteReference(..) => {
         text.push_str(&extract_inline_text_from_node(child));
       },
-      #[allow(clippy::match_same_arms, reason = "Explicit for clarity")]
+      #[expect(clippy::match_same_arms, reason = "Explicit for clarity")]
       NodeValue::HtmlInline(_) | NodeValue::Image(..) => {},
       _ => {},
     }
@@ -136,7 +135,7 @@ pub fn extract_markdown_title_and_id(
   let root = parse_document(&arena, content, &options);
 
   // Use a static regex to avoid compilation failures at runtime
-  #[allow(
+  #[expect(
     clippy::items_after_statements,
     reason = "Static is Scoped to function for clarity"
   )]
@@ -149,7 +148,7 @@ pub fn extract_markdown_title_and_id(
       );
       never_matching_regex().unwrap_or_else(|_| {
         // As a last resort, create a regex that matches nothing
-        #[allow(
+        #[expect(
           clippy::expect_used,
           reason = "This pattern is guaranteed to be valid"
         )]
@@ -196,7 +195,7 @@ pub fn clean_anchor_patterns(text: &str) -> String {
       );
       never_matching_regex().unwrap_or_else(|_| {
         // As a last resort, create a regex that matches nothing
-        #[allow(
+        #[expect(
           clippy::expect_used,
           reason = "This pattern is guaranteed to be valid"
         )]
@@ -226,7 +225,10 @@ pub fn strip_markdown(content: &str) -> String {
 
   let mut plain_text = String::new();
 
-  #[allow(clippy::items_after_statements, reason = "Helper scoped for clarity")]
+  #[expect(
+    clippy::items_after_statements,
+    reason = "Helper scoped for clarity"
+  )]
   fn extract_text<'a>(
     node: &'a AstNode<'a>,
     plain_text: &mut String,
@@ -310,9 +312,9 @@ pub fn is_markdown_header(line: &str) -> bool {
 /// Returns an error if the file cannot be read or if the JSON is invalid.
 pub fn load_manpage_urls(
   path: &str,
-) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+) -> Result<FxHashMap<String, String>, Box<dyn std::error::Error>> {
   let content = std::fs::read_to_string(path)?;
-  let mappings: HashMap<String, String> = serde_json::from_str(&content)?;
+  let mappings: FxHashMap<String, String> = serde_json::from_str(&content)?;
   Ok(mappings)
 }
 

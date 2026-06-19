@@ -1,10 +1,10 @@
 use std::{
-  collections::HashMap,
   fs,
   path::{Path, PathBuf},
 };
 
 use ndg_macros::Configurable;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -133,12 +133,12 @@ pub struct Config {
   /// Files that are included via {=include=}, mapped to their parent input
   /// files
   #[serde(skip)]
-  pub included_files: HashMap<PathBuf, PathBuf>,
+  pub included_files: FxHashMap<PathBuf, PathBuf>,
 
   /// Included files rendered to explicit output files via `html:into-file`,
   /// mapped from source path to generated output path.
   #[serde(skip)]
-  pub included_output_files: HashMap<PathBuf, PathBuf>,
+  pub included_output_files: FxHashMap<PathBuf, PathBuf>,
 
   /// How to handle hard tabs in code blocks.
   #[config(key = "tab_style")]
@@ -197,19 +197,22 @@ pub struct Config {
   ///
   /// In templates: `{{ project_version }}`, `{{ repo_url }}`
   #[serde(default)]
-  pub vars: HashMap<String, String>,
+  pub vars: FxHashMap<String, String>,
 
   #[deprecated(since = "2.5.0", note = "Use `meta.opengraph` instead")]
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub opengraph: Option<HashMap<String, String>>,
+  pub opengraph: Option<FxHashMap<String, String>>,
 
   #[deprecated(since = "2.5.0", note = "Use `meta.tags` instead")]
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub meta_tags: Option<HashMap<String, String>>,
+  pub meta_tags: Option<FxHashMap<String, String>>,
 }
 
 impl Default for Config {
-  #[allow(deprecated)]
+  #[expect(
+    deprecated,
+    reason = "compat: deprecated fields still used in config files"
+  )]
   fn default() -> Self {
     Self {
       input_dir:             None,
@@ -232,8 +235,8 @@ impl Default for Config {
       options_toc_depth:     2,
       highlight_code:        true,
       revision:              DEFAULT_REVISION.to_string(),
-      included_files:        HashMap::new(),
-      included_output_files: HashMap::new(),
+      included_files:        FxHashMap::default(),
+      included_output_files: FxHashMap::default(),
       tab_style:             DEFAULT_TAB_STYLE.to_string(),
       meta:                  None,
       sidebar:               None,
@@ -242,7 +245,7 @@ impl Default for Config {
       options:               None,
       nixdoc_inputs:         Vec::new(),
       index:                 None,
-      vars:                  HashMap::new(),
+      vars:                  FxHashMap::default(),
       opengraph:             None,
       meta_tags:             None,
     }
@@ -258,7 +261,10 @@ impl Config {
     if let Some(ref search) = self.search {
       search.enable
     } else {
-      #[allow(deprecated)]
+      #[expect(
+        deprecated,
+        reason = "compat: support deprecated generate_search field"
+      )]
       {
         self.generate_search
       }
@@ -314,7 +320,7 @@ impl Config {
   ///
   /// Returns an error if the file cannot be read or parsed, or if the format is
   /// unsupported.
-  #[allow(
+  #[expect(
     clippy::option_if_let_else,
     reason = "Clearer with explicit match on extension"
   )]
@@ -516,7 +522,10 @@ impl Config {
   /// * `other` - The config to merge in (takes precedence)
   pub fn merge(&mut self, mut other: Self) {
     // Handle deprecated fields first before merge_fields consumes other
-    #[allow(deprecated)]
+    #[expect(
+      deprecated,
+      reason = "compat: merge deprecated opengraph/meta_tags fields"
+    )]
     {
       if let Some(other_og) = other.opengraph.take() {
         log::warn!(
@@ -905,8 +914,7 @@ impl Config {
   }
 
   /// Get mapping of template filenames to their embedded content
-  fn get_template_sources()
-  -> std::collections::HashMap<&'static str, &'static str> {
+  fn get_template_sources() -> FxHashMap<&'static str, &'static str> {
     ndg_templates::all_templates()
   }
 }
@@ -1258,7 +1266,10 @@ mod tests {
     // This should work but log a deprecation warning
     config.apply_override("generate_search", "false").unwrap();
 
-    #[allow(deprecated)]
+    #[expect(
+      deprecated,
+      reason = "compat: test exercises deprecated generate_search field"
+    )]
     {
       assert!(!config.generate_search);
     }

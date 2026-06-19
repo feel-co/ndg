@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, reason = "Fine in tests")]
+#![expect(clippy::expect_used, clippy::unwrap_used, reason = "Fine in tests")]
 use std::fs;
 
 use ndg::{
@@ -1002,7 +1002,7 @@ fn test_custom_assets_mixed_hidden_and_visible() {
   );
 }
 
-/// Verifies that Config::load does NOT fail when no content sources
+/// Verifies that `Config::load` does NOT fail when no content sources
 /// are provided via config files, allowing CLI arguments to provide them later.
 #[test]
 fn test_config_load_no_content_sources_succeeds() {
@@ -1049,8 +1049,8 @@ fn test_config_with_cli_content_sources_succeeds() {
     .expect("Config::load should succeed even without content sources");
 
   // Simulate CLI providing input_dir after Config::load
-  config.input_dir = Some(input_dir.clone());
-  config.output_dir = output_dir.clone();
+  config.input_dir = Some(input_dir);
+  config.output_dir = output_dir;
 
   // Now validation would pass (if we called it here)
   assert!(
@@ -1063,7 +1063,7 @@ fn test_config_with_cli_content_sources_succeeds() {
   );
 }
 
-/// Test that module_options can be provided via CLI without config file
+/// Test that `module_options` can be provided via CLI without config file
 #[test]
 fn test_config_with_cli_module_options_succeeds() {
   let temp_dir = tempdir().expect("Failed to create temp dir in test");
@@ -1080,8 +1080,8 @@ fn test_config_with_cli_module_options_succeeds() {
     .expect("Config::load should succeed even without content sources");
 
   // Simulate CLI providing module_options after Config::load
-  config.module_options = Some(options_file.clone());
-  config.output_dir = output_dir.clone();
+  config.module_options = Some(options_file);
+  config.output_dir = output_dir;
 
   // Validation would now pass
   assert!(
@@ -1094,7 +1094,8 @@ fn test_config_with_cli_module_options_succeeds() {
   );
 }
 
-/// Test that README.md is used as index.html when readme_as_homepage is enabled
+/// Test that README.md is used as index.html when `readme_as_homepage` is
+/// enabled
 #[test]
 fn test_readme_as_homepage_enabled() {
   let temp_dir = tempdir().expect("Failed to create temp dir in test");
@@ -1112,8 +1113,8 @@ fn test_readme_as_homepage_enabled() {
 
   // Create config with index.use_readme enabled
   let mut config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
+    input_dir: Some(input_dir),
+    output_dir,
     highlight_code: false,
     index: Some(ndg::config::index::IndexConfig {
       use_readme: true,
@@ -1136,7 +1137,7 @@ fn test_readme_as_homepage_enabled() {
   );
 }
 
-/// Test that README.md is NOT used as index.html when readme_as_homepage is
+/// Test that README.md is NOT used as index.html when `readme_as_homepage` is
 /// disabled
 #[test]
 fn test_readme_as_homepage_disabled() {
@@ -1155,8 +1156,8 @@ fn test_readme_as_homepage_disabled() {
 
   // Create config with index.use_readme disabled (default)
   let mut config = Config {
-    input_dir: Some(input_dir.clone()),
-    output_dir: output_dir.clone(),
+    input_dir: Some(input_dir),
+    output_dir,
     highlight_code: false,
     index: Some(ndg::config::index::IndexConfig {
       use_readme: false,

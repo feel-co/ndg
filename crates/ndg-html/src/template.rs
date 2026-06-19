@@ -1,5 +1,4 @@
 use std::{
-  collections::HashMap,
   fmt::Write,
   fs,
   path::Path,
@@ -18,6 +17,7 @@ use ndg_utils::{
   markdown::PageFrontmatter,
 };
 use regex::Regex;
+use rustc_hash::FxHashMap;
 use serde_json::Value;
 use tera::Tera;
 
@@ -45,7 +45,7 @@ static VAR_PLACEHOLDER_RE: LazyLock<Option<Regex>> =
 /// This enables variable replacement in markdown source text rendered to HTML.
 fn substitute_content_vars(
   content: &str,
-  vars: &HashMap<String, String>,
+  vars: &FxHashMap<String, String>,
 ) -> String {
   let Some(var_placeholder_re) = VAR_PLACEHOLDER_RE.as_ref() else {
     return content.to_owned();
@@ -124,13 +124,13 @@ impl PageContext {
 }
 
 /// Cache for template content strings to avoid repeated disk I/O
-static TEMPLATE_CONTENT_CACHE: LazyLock<RwLock<HashMap<String, Arc<str>>>> =
-  LazyLock::new(|| RwLock::new(HashMap::new()));
+static TEMPLATE_CONTENT_CACHE: LazyLock<RwLock<FxHashMap<String, Arc<str>>>> =
+  LazyLock::new(|| RwLock::new(FxHashMap::default()));
 
 /// Cache for compiled Tera instances keyed by template configuration
 /// This eliminates the overhead of re-parsing templates on every render
-static TERA_CACHE: LazyLock<RwLock<HashMap<String, Tera>>> =
-  LazyLock::new(|| RwLock::new(HashMap::new()));
+static TERA_CACHE: LazyLock<RwLock<FxHashMap<String, Tera>>> =
+  LazyLock::new(|| RwLock::new(FxHashMap::default()));
 
 /// Setup Tera templates for a specific page type, using caching for
 /// performance.
@@ -149,7 +149,7 @@ static TERA_CACHE: LazyLock<RwLock<HashMap<String, Tera>>> =
 /// # Panics
 ///
 /// Panics if the internal template cache `RwLock` is poisoned.
-#[allow(
+#[expect(
   clippy::expect_used,
   reason = "RwLock poisoning is unrecoverable; panic is the correct response"
 )]
@@ -213,7 +213,7 @@ fn setup_tera_templates(
 /// A Tera context populated with common fields
 fn build_common_context(
   config: &Config,
-  asset_paths: &HashMap<&'static str, String>,
+  asset_paths: &FxHashMap<&'static str, String>,
   root_prefix: &str,
   has_options: &str,
 ) -> tera::Context {
@@ -334,7 +334,7 @@ fn build_common_context(
 fn render_navbar_footer(
   tera: &Tera,
   config: &Config,
-  asset_paths: &HashMap<&'static str, String>,
+  asset_paths: &FxHashMap<&'static str, String>,
   has_options: &str,
 ) -> Result<(String, String)> {
   // Render navbar
@@ -387,7 +387,7 @@ fn generate_meta_tags_html(
   config: &Config,
   frontmatter: Option<&PageFrontmatter>,
 ) -> String {
-  let mut merged: std::collections::HashMap<String, String> =
+  let mut merged: FxHashMap<String, String> =
     get_meta_tags(config).cloned().unwrap_or_default();
 
   if let Some(fm) = frontmatter {
@@ -570,11 +570,7 @@ fn resolve_doc_template(
 /// # Panics
 ///
 /// Panics if an internal template or content cache `RwLock` is poisoned.
-#[allow(
-  clippy::implicit_hasher,
-  reason = "Standard HashMap sufficient for this use case"
-)]
-#[allow(
+#[expect(
   clippy::expect_used,
   reason = "RwLock poisoning is unrecoverable; panic is the correct response"
 )]
@@ -724,10 +720,12 @@ fn generate_options_toc(
     .and_then(|s| s.options.as_ref())
     .map_or(config.options_toc_depth, |o| o.depth);
 
-  let mut grouped_options: HashMap<String, Vec<&NixOption>> = HashMap::new();
-  let mut direct_parent_options: HashMap<String, &NixOption> = HashMap::new();
-  let mut option_custom_names: HashMap<String, String> = HashMap::new();
-  let mut option_positions: HashMap<String, usize> = HashMap::new();
+  let mut grouped_options: FxHashMap<String, Vec<&NixOption>> =
+    FxHashMap::default();
+  let mut direct_parent_options: FxHashMap<String, &NixOption> =
+    FxHashMap::default();
+  let mut option_custom_names: FxHashMap<String, String> = FxHashMap::default();
+  let mut option_positions: FxHashMap<String, usize> = FxHashMap::default();
 
   for option in options.values() {
     // Check if this option has a matching rule in sidebar.options config
@@ -785,7 +783,11 @@ fn generate_options_toc(
       let option = opts[0];
 
       // Use custom name if available, otherwise use option name
-      #[allow(clippy::map_unwrap_or)]
+      #[expect(
+        clippy::map_unwrap_or,
+        reason = "map().unwrap_or() expresses fallback intent more clearly \
+                  than map_or()"
+      )]
       let display_name = option_custom_names
         .get(&option.name)
         .map(String::as_str)
@@ -822,7 +824,11 @@ fn generate_options_toc(
       let mut category = tera::Map::new();
 
       // Use custom name for category if the parent option has one
-      #[allow(clippy::map_unwrap_or)]
+      #[expect(
+        clippy::map_unwrap_or,
+        reason = "map().unwrap_or() expresses fallback intent more clearly \
+                  than map_or()"
+      )]
       let category_display_name = option_custom_names
         .get(parent)
         .map(String::as_str)
@@ -985,13 +991,13 @@ fn get_option_parent(option_name: &str, depth: usize) -> String {
 ///
 /// Returns an error if the search template or any required template cannot be
 /// rendered or written.
-#[allow(
+#[expect(
   clippy::implicit_hasher,
-  reason = "Standard HashMap sufficient for this use case"
+  reason = "Standard FxHashMap sufficient for this use case"
 )]
 pub fn render_search(
   config: &Config,
-  context: &HashMap<&str, String>,
+  context: &FxHashMap<&str, String>,
 ) -> Result<String> {
   // Skip rendering if search is disabled
   if !config.is_search_enabled() {
@@ -1053,7 +1059,7 @@ pub fn render_search(
 
 /// Get the template content from file in template directory or use default.
 /// Results are cached to avoid repeated disk I/O on every render.
-#[allow(
+#[expect(
   clippy::expect_used,
   reason = "RwLock poisoning is unrecoverable; panic is the correct response"
 )]
@@ -1905,8 +1911,12 @@ fn build_opengraph_html(config: &Config) -> String {
 ///
 /// Checks the new `meta.opengraph` field first, then falls back to deprecated
 /// `opengraph` field
-#[allow(deprecated)]
-const fn get_opengraph(config: &Config) -> Option<&HashMap<String, String>> {
+#[expect(
+  deprecated,
+  reason = "compat: deprecated opengraph field still supported for backward \
+            compatibility"
+)]
+const fn get_opengraph(config: &Config) -> Option<&FxHashMap<String, String>> {
   if let Some(ref meta) = config.meta
     && let Some(ref og) = meta.opengraph
   {
@@ -1919,8 +1929,12 @@ const fn get_opengraph(config: &Config) -> Option<&HashMap<String, String>> {
 ///
 /// Checks the new `meta.tags` field first, then falls back to deprecated
 /// `meta_tags` field
-#[allow(deprecated)]
-const fn get_meta_tags(config: &Config) -> Option<&HashMap<String, String>> {
+#[expect(
+  deprecated,
+  reason = "compat: deprecated meta_tags field still supported for backward \
+            compatibility"
+)]
+const fn get_meta_tags(config: &Config) -> Option<&FxHashMap<String, String>> {
   if let Some(ref meta) = config.meta
     && let Some(ref tags) = meta.tags
   {

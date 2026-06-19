@@ -30,7 +30,7 @@ pub struct Cli {
 
 /// All supported subcommands for the ndg CLI.
 #[derive(Subcommand, Debug)]
-#[allow(
+#[expect(
   clippy::large_enum_variant,
   reason = "Clap subcommands keep their parsed fields inline for \
             straightforward access"

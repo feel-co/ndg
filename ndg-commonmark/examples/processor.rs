@@ -1,3 +1,5 @@
+#![expect(clippy::print_stdout, reason = "This is an example file")]
+
 use ndg_commonmark::{
   MarkdownOptionsBuilder,
   MarkdownProcessor,
@@ -8,22 +10,20 @@ use ndg_commonmark::{
   process_with_recovery,
 };
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
   println!("NDG Commonmark Processor Examples\n");
 
   // 1. Using preset configurations
   example_presets();
 
   // 2. Using the builder pattern
-  example_builder_pattern()?;
+  example_builder_pattern();
 
   // 3. Using processor methods
   example_processor_methods();
 
   // 4. Batch processing
   example_batch_processing();
-
-  Ok(())
 }
 
 /// Demonstrate different processor presets
@@ -61,7 +61,7 @@ fn hello() {
 }
 
 /// Demonstrate the builder pattern for configuration
-fn example_builder_pattern() -> Result<(), Box<dyn std::error::Error>> {
+fn example_builder_pattern() {
   println!("=== Builder Pattern Example ===");
 
   // Build custom options using the builder pattern
@@ -92,8 +92,6 @@ def greet(name):
   println!("Processed {} headers", result.headers.len());
   println!("Title: {:?}", result.title);
   println!();
-
-  Ok(())
 }
 
 /// Demonstrate object-oriented processor methods

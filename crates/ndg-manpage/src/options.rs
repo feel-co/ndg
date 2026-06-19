@@ -38,7 +38,7 @@ static HTML_TAGS: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"</?[a-zA-Z][^>]*>").unwrap_or_else(|e| {
     error!("Failed to compile HTML_TAGS regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -53,7 +53,7 @@ static ADMONITION_START: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\.ADMONITION_START\s+(\w+)(.*)").unwrap_or_else(|e| {
     error!("Failed to compile ADMONITION_START regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -69,7 +69,7 @@ static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^\s*[-*+]\s+(.+)$").unwrap_or_else(|e| {
     error!("Failed to compile LIST_ITEM regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -83,7 +83,7 @@ static NUMBERED_LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^\s*(\d+)\.\s+(.+)$").unwrap_or_else(|e| {
     error!("Failed to compile NUMBERED_LIST_ITEM regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]
@@ -98,7 +98,7 @@ static MARKDOWN_LINK: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap_or_else(|e| {
     error!("Failed to compile MARKDOWN_LINK regex: {e}");
     never_matching_regex().unwrap_or_else(|_| {
-      #[allow(
+      #[expect(
         clippy::expect_used,
         reason = "This pattern is guaranteed to be valid"
       )]

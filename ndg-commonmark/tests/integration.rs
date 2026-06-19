@@ -1,9 +1,10 @@
-#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 fn processor() -> MarkdownProcessor {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = false;
+  let options = MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
   MarkdownProcessor::new(options)
 }
 
@@ -312,10 +313,12 @@ fn test_heading_anchor_with_dots() {
 /// Test that options processing works correctly
 #[test]
 fn test_options_integration() {
-  let mut options = MarkdownOptions::default();
-  options.gfm = true;
-  options.nixpkgs = true;
-  options.highlight_code = false;
+  let options = MarkdownOptions {
+    gfm: true,
+    nixpkgs: true,
+    highlight_code: false,
+    ..Default::default()
+  };
 
   let processor = MarkdownProcessor::new(options);
 

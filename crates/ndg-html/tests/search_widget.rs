@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
+#![expect(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use std::fs;
 
 mod common;

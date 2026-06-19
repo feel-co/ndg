@@ -57,6 +57,7 @@ syntect                       = { version = "5.3.0", optional = true }
 tendril.workspace             = true
 thiserror.workspace           = true
 two-face                      = { version = "0.5.1", optional = true, features = [ "syntect-default-onig" ] }
+rustc-hash.workspace = true
 walkdir.workspace             = true
 
 [dev-dependencies]

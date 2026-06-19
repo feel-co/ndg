@@ -300,7 +300,7 @@ mod tests {
   }
 
   #[test]
-  #[allow(clippy::panic)]
+  #[expect(clippy::panic, reason = "deliberate panic to test fallback path")]
   fn test_safely_process_markup_fallback() {
     let content = "test content";
     let result = process_safe(content, |_| panic!("test panic"), "fallback");
@@ -326,7 +326,10 @@ mod tests {
   }
 
   #[test]
-  #[allow(clippy::panic)]
+  #[expect(
+    clippy::panic,
+    reason = "deliberate panic to test error propagation"
+  )]
   fn test_process_batch() {
     let processor = MarkdownProcessor::new(MarkdownOptions {
       highlight_code: false,

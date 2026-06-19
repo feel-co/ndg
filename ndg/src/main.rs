@@ -7,6 +7,7 @@ use color_eyre::eyre::{Context, Result, bail};
 use log::info;
 use ndg::{config, html, manpage, pdf, utils};
 use rayon::prelude::*;
+use rustc_hash::FxHashSet;
 
 mod cli;
 use cli::{Cli, Commands};
@@ -345,7 +346,11 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
       config.manpage_urls_path = Some(manpage_urls.clone());
     }
     if *generate_search {
-      #[allow(deprecated)]
+      #[expect(
+        deprecated,
+        reason = "compat: CLI flag sets deprecated field for backward \
+                  compatibility"
+      )]
       {
         config.generate_search = true;
       }
@@ -458,7 +463,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
 
   // Collect all output directories upfront (sequential, then parallelize
   // writes)
-  let output_dirs: std::collections::HashSet<PathBuf> = processed_markdown
+  let output_dirs: FxHashSet<PathBuf> = processed_markdown
     .iter()
     .filter(|item| !item.is_included)
     .filter_map(|item| {

@@ -1,16 +1,17 @@
-#![allow(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
-use std::collections::HashSet;
-
+#![expect(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
 use ndg_commonmark::{
   MarkdownOptions,
   MarkdownOptionsBuilder,
   MarkdownProcessor,
   processor,
 };
+use rustc_hash::FxHashSet;
 
 fn markdown_processor() -> MarkdownProcessor {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = false;
+  let options = MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
   MarkdownProcessor::new(options)
 }
 
@@ -204,7 +205,7 @@ fn test_html_entities() {
 
 #[test]
 fn test_option_validation_with_valid_options() {
-  let mut valid_options = HashSet::new();
+  let mut valid_options = FxHashSet::default();
   valid_options.insert("services.nginx.enable".to_string());
   valid_options.insert("services.nginx.package".to_string());
 
@@ -233,7 +234,7 @@ fn test_option_validation_with_valid_options() {
 
 #[test]
 fn test_option_validation_with_invalid_options() {
-  let mut valid_options = HashSet::new();
+  let mut valid_options = FxHashSet::default();
   valid_options.insert("services.nginx.enable".to_string());
 
   let options = MarkdownOptionsBuilder::new()

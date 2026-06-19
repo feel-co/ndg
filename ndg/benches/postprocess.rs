@@ -1,8 +1,4 @@
-#![allow(
-  clippy::expect_used,
-  clippy::unwrap_used,
-  reason = "Fine in benchmarks"
-)]
+#![expect(clippy::unwrap_used, reason = "Fine in benchmarks")]
 use std::hint::black_box;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};

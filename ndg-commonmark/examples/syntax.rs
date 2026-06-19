@@ -1,3 +1,5 @@
+#![expect(clippy::print_stdout, reason = "This is an example file")]
+
 use ndg_commonmark::{
   MarkdownOptions,
   MarkdownProcessor,
@@ -8,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   println!("=== NDG CommonMark Syntax Highlighting ===\n");
 
   // 1. Basic usage with MarkdownProcessor
-  demo_markdown_processor()?;
+  demo_markdown_processor();
 
   // 2. Direct syntax manager usage
   demo_syntax_manager()?;
@@ -25,12 +27,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-fn demo_markdown_processor() -> Result<(), Box<dyn std::error::Error>> {
+fn demo_markdown_processor() {
   println!("1. Markdown Processor with Syntax Highlighting\n");
 
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = true;
-  options.highlight_theme = Some("one-dark".to_string());
+  let options = MarkdownOptions {
+    highlight_code: true,
+    highlight_theme: Some("one-dark".to_string()),
+    ..Default::default()
+  };
 
   let processor = MarkdownProcessor::new(options);
 
@@ -103,8 +107,6 @@ with lib;
 
   println!("Title: {:?}", result.title);
   println!("Headers: {:?}\n", result.headers);
-
-  Ok(())
 }
 
 fn demo_syntax_manager() -> Result<(), Box<dyn std::error::Error>> {

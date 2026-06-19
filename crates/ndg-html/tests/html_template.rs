@@ -1,6 +1,5 @@
-#![allow(clippy::expect_used, reason = "Fine in tests")]
+#![expect(clippy::expect_used, reason = "Fine in tests")]
 use std::{
-  collections::HashMap,
   fs,
   path::{Path, PathBuf},
 };
@@ -15,6 +14,7 @@ use ndg_config::{
 };
 use ndg_html::template;
 use ndg_manpage::types::NixOption;
+use rustc_hash::FxHashMap;
 use tempfile::TempDir;
 
 /// Checks for highlighted code HTML
@@ -208,7 +208,7 @@ fn render_search_page_respects_flag() {
     enable: true,
     ..Default::default()
   });
-  let mut context = HashMap::new();
+  let mut context = FxHashMap::default();
   context.insert("title", "Search Test".to_string());
   let html =
     template::render_search(&config, &context).expect("Should render search");
@@ -219,7 +219,7 @@ fn render_search_page_respects_flag() {
 #[test]
 fn render_search_page_disabled_returns_err() {
   let config = minimal_config();
-  let context = HashMap::new();
+  let context = FxHashMap::default();
   let result = template::render_search(&config, &context);
   assert!(result.is_err());
 }
@@ -298,7 +298,7 @@ fn render_search_page_contains_navbar() {
     enable: true,
     ..Default::default()
   });
-  let mut context = HashMap::new();
+  let mut context = FxHashMap::default();
   context.insert("title", "Search Test".to_string());
   let html =
     template::render_search(&config, &context).expect("Should render search");
@@ -316,7 +316,7 @@ fn render_search_page_contains_footer() {
     ..Default::default()
   });
   config.footer_text = "Search Page Footer".to_string();
-  let mut context = HashMap::new();
+  let mut context = FxHashMap::default();
   context.insert("title", "Search Test".to_string());
   let html =
     template::render_search(&config, &context).expect("Should render search");
@@ -891,7 +891,7 @@ This content should be rendered only in split.html.
     title: "Test Site".to_string(),
     footer_text: "Footer".to_string(),
     input_dir: Some(input_dir.to_path_buf()),
-    output_dir: output_dir.clone(),
+    output_dir,
     highlight_code: false,
     search: Some(ndg_config::search::SearchConfig {
       enable: false,

@@ -210,7 +210,7 @@ fn copy_custom_assets(config: &Config, assets_dir: &Path) -> eyre::Result<()> {
         format!("Failed to create directory {}", dest_path.display())
       })?;
     } else {
-      #[allow(
+      #[expect(
         clippy::filetype_is_file,
         reason = "Explicitly checking for regular files to skip symlinks and \
                   special files"

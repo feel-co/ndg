@@ -1,5 +1,4 @@
 use std::{
-  collections::HashMap,
   fs,
   path::{Path, PathBuf},
   sync::OnceLock,
@@ -28,6 +27,7 @@ use printpdf::{
   TextItem,
   WindingOrder,
 };
+use rustc_hash::FxHashMap;
 use serde_json::Value;
 
 /// Generate a PDF document from Nix module options JSON.
@@ -382,7 +382,7 @@ fn parse_admonition_start(line: &str) -> Option<String> {
 #[derive(Clone, Debug, Default)]
 struct HtmlNode {
   tag:      Option<String>,
-  attrs:    HashMap<String, String>,
+  attrs:    FxHashMap<String, String>,
   children: Vec<Self>,
   text:     String,
 }
@@ -446,7 +446,7 @@ fn parse_html_nodes(html: &str) -> Vec<HtmlNode> {
       if !text.is_empty() {
         let node = HtmlNode {
           tag: None,
-          attrs: HashMap::new(),
+          attrs: FxHashMap::default(),
           children: Vec::new(),
           text,
         };
@@ -462,7 +462,7 @@ fn parse_html_nodes(html: &str) -> Vec<HtmlNode> {
       if !text.is_empty() {
         let node = HtmlNode {
           tag: None,
-          attrs: HashMap::new(),
+          attrs: FxHashMap::default(),
           children: Vec::new(),
           text,
         };
@@ -487,15 +487,15 @@ fn parse_html_nodes(html: &str) -> Vec<HtmlNode> {
   roots
 }
 
-fn parse_tag_open(tag: &str) -> (String, HashMap<String, String>) {
+fn parse_tag_open(tag: &str) -> (String, FxHashMap<String, String>) {
   let mut parts = tag.splitn(2, char::is_whitespace);
   let name = parts.next().unwrap_or_default().to_ascii_lowercase();
-  let attrs = parts.next().map_or_else(HashMap::new, parse_attrs);
+  let attrs = parts.next().map_or_else(FxHashMap::default, parse_attrs);
   (name, attrs)
 }
 
-fn parse_attrs(input: &str) -> HashMap<String, String> {
-  let mut attrs = HashMap::new();
+fn parse_attrs(input: &str) -> FxHashMap<String, String> {
+  let mut attrs = FxHashMap::default();
   let mut i = 0usize;
   let bytes = input.as_bytes();
 
@@ -911,7 +911,11 @@ const fn char_width_factor(kind: FontKind) -> f32 {
   }
 }
 
-#[allow(clippy::cast_precision_loss)]
+#[expect(
+  clippy::cast_precision_loss,
+  reason = "char count to f32 for text width estimation is approximate by \
+            design"
+)]
 fn text_width_pt(text: &str, kind: FontKind, size: f32) -> f32 {
   text.chars().count() as f32 * size * char_width_factor(kind)
 }
@@ -1210,7 +1214,11 @@ impl PdfBuilder {
       let content_lines = wrap_words(&content_words, max_w, Self::BS);
       let lines_count = content_lines.len().max(1);
 
-      #[allow(clippy::cast_precision_loss)]
+      #[expect(
+        clippy::cast_precision_loss,
+        reason = "line count to f32 for layout spacing is approximate by \
+                  design"
+      )]
       self.check_space(Self::BH * lines_count as f32);
 
       let mword = vec![Word {
@@ -1266,7 +1274,12 @@ impl PdfBuilder {
     }
   }
 
-  #[allow(clippy::suboptimal_flops, clippy::cast_precision_loss)]
+  #[expect(
+    clippy::suboptimal_flops,
+    clippy::cast_precision_loss,
+    reason = "layout arithmetic using f32 approximations; precision not \
+              critical for PDF rendering"
+  )]
   fn render_code(&mut self, code: &str) {
     let size = 9.4_f32;
     let line_h = size * 1.32;

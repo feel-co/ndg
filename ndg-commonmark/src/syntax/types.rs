@@ -1,6 +1,8 @@
 //! Core types and traits for syntax highlighting.
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
+
+use rustc_hash::FxHashMap;
 
 use super::error::{SyntaxError, SyntaxResult};
 
@@ -76,7 +78,7 @@ pub struct SyntaxConfig {
   pub default_theme: Option<String>,
 
   /// Language aliases for mapping common names to supported languages
-  pub language_aliases: HashMap<String, String>,
+  pub language_aliases: FxHashMap<String, String>,
 
   /// Whether to fall back to plain text for unsupported languages
   pub fallback_to_plain: bool,
@@ -84,7 +86,7 @@ pub struct SyntaxConfig {
 
 impl Default for SyntaxConfig {
   fn default() -> Self {
-    let mut language_aliases = HashMap::new();
+    let mut language_aliases = FxHashMap::default();
 
     // Common aliases
     language_aliases.insert("js".to_string(), "javascript".to_string());
@@ -203,7 +205,7 @@ impl SyntaxManager {
   ///
   /// Returns an error if the language cannot be determined from the filename
   /// and fallback is disabled.
-  #[allow(
+  #[expect(
     clippy::option_if_let_else,
     reason = "Clearer with explicit fallback logic"
   )]

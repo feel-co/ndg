@@ -1,10 +1,11 @@
-#![allow(clippy::expect_used, reason = "Fine in tests")]
 use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
 
 /// Extract headers from markdown using the actual code.
 fn extract_headers_from_markdown(md: &str) -> Vec<Header> {
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = false;
+  let options = MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
   let processor = MarkdownProcessor::new(options);
   let (headers, _title) = processor.extract_headers(md);
   headers
@@ -56,7 +57,7 @@ fn test_multiple_headers_various_types() {
 
 #[test]
 fn test_no_headers_from_code_block() {
-  let md = r#"- **Create memorable custom ID anchors** for important sections:
+  let md = r"- **Create memorable custom ID anchors** for important sections:
 
   ```markdown
   ## Installation {#my-epic-installation}
@@ -65,7 +66,7 @@ fn test_no_headers_from_code_block() {
   ```
 
 ## Building from Source
-"#;
+";
   let headers = extract_headers_from_markdown(md);
   assert_eq!(
     headers.len(),
@@ -77,7 +78,7 @@ fn test_no_headers_from_code_block() {
 
 #[test]
 fn test_code_block_preserved_in_output() {
-  let md = r#"- **Create memorable custom ID anchors** for important sections:
+  let md = r"- **Create memorable custom ID anchors** for important sections:
 
   ```markdown
   ## Installation {#my-epic-installation}
@@ -86,9 +87,11 @@ fn test_code_block_preserved_in_output() {
   ```
 
 ## Building from Source
-"#;
-  let mut options = MarkdownOptions::default();
-  options.highlight_code = false;
+";
+  let options = MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
   let processor = MarkdownProcessor::new(options);
   let result = processor.render(md);
   let html = result.html;

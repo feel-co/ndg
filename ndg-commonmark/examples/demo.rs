@@ -1,3 +1,9 @@
+#![expect(
+  clippy::print_stdout,
+  clippy::expect_used,
+  reason = "This is an example file"
+)]
+
 use std::fs;
 
 use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
@@ -14,9 +20,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   println!("Processing demo markdown file...\n");
 
   // Create processor with all features enabled
-  let mut options: MarkdownOptions = MarkdownOptions::default();
-  options.gfm = true;
-  options.nixpkgs = true;
+  let options = MarkdownOptions {
+    gfm: true,
+    nixpkgs: true,
+    ..Default::default()
+  };
 
   let processor = MarkdownProcessor::new(options);
 

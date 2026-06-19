@@ -45,6 +45,7 @@ indexmap.workspace    = true
 log.workspace         = true
 rayon.workspace       = true
 regex.workspace       = true
+rustc-hash.workspace = true
 serde.workspace       = true
 serde_json.workspace  = true
 tera.workspace        = true

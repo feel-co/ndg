@@ -253,7 +253,7 @@ body {
   }
 
   #[test]
-  #[allow(
+  #[expect(
     clippy::literal_string_with_formatting_args,
     reason = "CSS minified output contains braces that trigger false positive"
   )]
@@ -461,7 +461,7 @@ export default { processFile };
     let result = process_js(js, &config).unwrap();
     let expected = "import{readFile}from\"fs\";export function \
                     processFile(filename){return \
-                    readFile(filename).trim()}export default {processFile};";
+                    readFile(filename).trim()}export default{processFile};";
     assert_eq!(result, expected);
   }
 

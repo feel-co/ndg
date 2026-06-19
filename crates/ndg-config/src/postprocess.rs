@@ -139,6 +139,7 @@ impl PostprocessConfig {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used, reason = "Fine in tests")]
 mod tests {
   use super::*;
 
@@ -199,8 +200,10 @@ mod tests {
 
   #[test]
   fn test_postprocess_config_merge_fields() {
-    let mut config = PostprocessConfig::default();
-    config.minify_html = true;
+    let mut config = PostprocessConfig {
+      minify_html: true,
+      ..Default::default()
+    };
 
     let other = PostprocessConfig {
       minify_html: false,
@@ -218,10 +221,12 @@ mod tests {
 
   #[test]
   fn test_postprocess_config_nested_merge() {
-    let mut config = PostprocessConfig::default();
-    config.html = Some(HtmlMinifyOptions {
-      remove_comments: true,
-    });
+    let mut config = PostprocessConfig {
+      html: Some(HtmlMinifyOptions {
+        remove_comments: true,
+      }),
+      ..Default::default()
+    };
 
     let other = PostprocessConfig {
       html: Some(HtmlMinifyOptions {

@@ -58,6 +58,7 @@ serde.workspace               = true
 serde_json.workspace          = true
 tera.workspace                = true
 thiserror.workspace           = true
+rustc-hash = "2.1.2"
 toml.workspace                = true
 
 axum       = { workspace = true, optional = true, features = [ "tokio", "http1" ] }

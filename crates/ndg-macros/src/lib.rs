@@ -312,7 +312,7 @@ fn generate_field_handler(
 
   let assignment_expr = if config.deprecated.is_some() {
     quote! {
-      #[allow(deprecated)]
+      #[expect(deprecated)]
       { #value_assignment }
     }
   } else {

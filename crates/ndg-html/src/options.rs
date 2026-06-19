@@ -1,8 +1,4 @@
-use std::{
-  collections::{HashMap, HashSet},
-  fs,
-  path::Path,
-};
+use std::{fs, path::Path};
 
 use color_eyre::eyre::{Context, Result};
 use indexmap::IndexMap;
@@ -10,6 +6,7 @@ use log::debug;
 use ndg_config::Config;
 use ndg_manpage::types::NixOption;
 use ndg_utils::{json::extract_value, markdown::create_processor, postprocess};
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::{self, Value};
 
 use crate::template;
@@ -29,7 +26,7 @@ use crate::template;
 /// # Errors
 ///
 /// Returns an error if the file cannot be read, parsed, or written.
-#[allow(
+#[expect(
   clippy::cognitive_complexity,
   reason = "Main processing logic with multiple steps"
 )]
@@ -43,7 +40,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     .wrap_err("Failed to parse options JSON")?;
 
   // First pass: collect all option names for validation
-  let mut valid_options = HashSet::new();
+  let mut valid_options = FxHashSet::default();
   if let Value::Object(ref map) = options_data {
     for key in map.keys() {
       valid_options.insert(key.clone());
@@ -54,7 +51,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   let processor = create_processor(config, Some(valid_options));
 
   // Extract options
-  let mut options = HashMap::new();
+  let mut options = FxHashMap::default();
 
   if let Value::Object(map) = options_data {
     for (key, value) in map {
