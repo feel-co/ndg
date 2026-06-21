@@ -1,7 +1,7 @@
 [package]
 name                   = "ndg-commonmark"
 description            = "Flavored CommonMark processor for Nix-related projects, with support for CommonMark, GFM, and Nixpkgs extensions."
-version                = "2.8.1"                                                                                                             # should not track workspace
+version                = "2.9.0"                                                                                                             # should not track workspace
 edition.workspace      = true
 rust-version.workspace = true
 readme                 = true
@@ -46,6 +46,7 @@ kuchikikiki.workspace         = true
 log.workspace                 = true
 markup5ever.workspace         = true
 regex.workspace               = true
+rustc-hash.workspace          = true
 serde.workspace               = true
 serde_json.workspace          = true
 syntastica                    = { version = "0.6.1", optional = true }
@@ -57,7 +58,6 @@ syntect                       = { version = "5.3.0", optional = true }
 tendril.workspace             = true
 thiserror.workspace           = true
 two-face                      = { version = "0.5.1", optional = true, features = [ "syntect-default-onig" ] }
-rustc-hash.workspace = true
 walkdir.workspace             = true
 
 [dev-dependencies]
