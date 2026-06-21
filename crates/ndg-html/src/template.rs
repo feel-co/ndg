@@ -217,16 +217,21 @@ fn build_common_context(
   root_prefix: &str,
   has_options: &str,
 ) -> tera::Context {
-  let mut ctx = tera::Context::new();
-
-  // Insert overridable built-in defaults BEFORE user vars so that entries in
-  // ndg.toml's [vars] section take precedence.
-  ctx.insert("ndg_version", NDG_VERSION);
-
-  // Insert user-defined variables (from ndg.toml [vars]).
+  // Tera v2's Context::insert requires &'static str keys. User vars come from
+  // ndg.toml [vars] and have dynamic String keys, so we build them via
+  // from_serialize instead. ndg_version is inserted first (overridable by
+  // user vars); user vars overwrite it if they define the same key.
+  let mut vars_map: serde_json::Map<String, serde_json::Value> =
+    serde_json::Map::new();
+  vars_map.insert(
+    "ndg_version".to_string(),
+    serde_json::Value::String(NDG_VERSION.to_string()),
+  );
   for (key, value) in &config.vars {
-    ctx.insert(key.as_str(), value);
+    vars_map.insert(key.clone(), serde_json::Value::String(value.clone()));
   }
+  let mut ctx = tera::Context::from_serialize(&vars_map)
+    .unwrap_or_else(|_| tera::Context::new());
 
   // Insert non-overridable built-in variables AFTER user vars so they cannot
   // be shadowed by entries in [vars].
@@ -338,10 +343,13 @@ fn render_navbar_footer(
   has_options: &str,
 ) -> Result<(String, String)> {
   // Render navbar
-  let mut navbar_ctx = tera::Context::new();
+  let mut navbar_vars: serde_json::Map<String, serde_json::Value> =
+    serde_json::Map::new();
   for (key, value) in &config.vars {
-    navbar_ctx.insert(key.as_str(), value);
+    navbar_vars.insert(key.clone(), serde_json::Value::String(value.clone()));
   }
+  let mut navbar_ctx = tera::Context::from_serialize(&navbar_vars)
+    .unwrap_or_else(|_| tera::Context::new());
   navbar_ctx.insert("has_options", has_options);
   navbar_ctx.insert("generate_search", &config.is_search_enabled());
   navbar_ctx.insert(
@@ -359,10 +367,13 @@ fn render_navbar_footer(
   let navbar_html = tera.render("navbar", &navbar_ctx)?;
 
   // Render footer
-  let mut footer_ctx = tera::Context::new();
+  let mut footer_vars: serde_json::Map<String, serde_json::Value> =
+    serde_json::Map::new();
   for (key, value) in &config.vars {
-    footer_ctx.insert(key.as_str(), value);
+    footer_vars.insert(key.clone(), serde_json::Value::String(value.clone()));
   }
+  let mut footer_ctx = tera::Context::from_serialize(&footer_vars)
+    .unwrap_or_else(|_| tera::Context::new());
   footer_ctx.insert("footer_text", &config.footer_text);
   let footer_html = tera.render("footer", &footer_ctx)?;
 
@@ -773,8 +784,8 @@ fn generate_options_toc(
   }
 
   // Separate categories into single options and dropdown categories
-  let mut single_options: Vec<tera::Value> = Vec::new();
-  let mut dropdown_categories: Vec<tera::Value> = Vec::new();
+  let mut single_options: Vec<Value> = Vec::new();
+  let mut dropdown_categories: Vec<Value> = Vec::new();
 
   for (parent, opts) in &grouped_options {
     let has_multiple_options = opts.len() > 1;
@@ -796,27 +807,33 @@ fn generate_options_toc(
         .map(String::as_str)
         .unwrap_or(&option.name);
 
-      let option_value = tera::to_value({
-        let mut map = tera::Map::new();
+      let option_value = serde_json::to_value({
+        let mut map = serde_json::Map::new();
         // HTML-escape display strings: Tera::default() has no auto-escaping.
         map.insert(
           "name".to_string(),
-          tera::to_value(encode_text(&option.name).as_ref())?,
+          serde_json::to_value(encode_text(&option.name).as_ref())?,
         );
         map.insert(
           "id".to_string(),
-          tera::to_value(sanitize_option_id(&option.name))?,
+          serde_json::to_value(sanitize_option_id(&option.name))?,
         );
         map.insert(
           "display_name".to_string(),
-          tera::to_value(encode_text(display_name).as_ref())?,
+          serde_json::to_value(encode_text(display_name).as_ref())?,
         );
-        map.insert("internal".to_string(), tera::to_value(option.internal)?);
-        map.insert("read_only".to_string(), tera::to_value(option.read_only)?);
+        map.insert(
+          "internal".to_string(),
+          serde_json::to_value(option.internal)?,
+        );
+        map.insert(
+          "read_only".to_string(),
+          serde_json::to_value(option.read_only)?,
+        );
 
         // Add position if custom position is set
         if let Some(position) = option_positions.get(&option.name) {
-          map.insert("position".to_string(), tera::to_value(position)?);
+          map.insert("position".to_string(), serde_json::to_value(position)?);
         }
 
         map
@@ -824,7 +841,7 @@ fn generate_options_toc(
       single_options.push(option_value);
     } else {
       // Category with multiple options or child options
-      let mut category = tera::Map::new();
+      let mut category = serde_json::Map::new();
 
       // Use custom name for category if the parent option has one
       #[expect(
@@ -839,33 +856,36 @@ fn generate_options_toc(
 
       category.insert(
         "name".to_string(),
-        tera::to_value(encode_text(parent).as_ref())?,
+        serde_json::to_value(encode_text(parent).as_ref())?,
       );
       category.insert(
         "display_name".to_string(),
-        tera::to_value(encode_text(category_display_name).as_ref())?,
+        serde_json::to_value(encode_text(category_display_name).as_ref())?,
       );
-      category.insert("count".to_string(), tera::to_value(opts.len())?);
+      category.insert(
+        "count".to_string(),
+        serde_json::to_value(opts.len())?,
+      );
 
       // Add parent option if it exists
       if let Some(parent_option) = direct_parent_options.get(parent) {
-        let parent_option_value = tera::to_value({
-          let mut map = tera::Map::new();
+        let parent_option_value = serde_json::to_value({
+          let mut map = serde_json::Map::new();
           map.insert(
             "name".to_string(),
-            tera::to_value(encode_text(&parent_option.name).as_ref())?,
+            serde_json::to_value(encode_text(&parent_option.name).as_ref())?,
           );
           map.insert(
             "id".to_string(),
-            tera::to_value(sanitize_option_id(&parent_option.name))?,
+            serde_json::to_value(sanitize_option_id(&parent_option.name))?,
           );
           map.insert(
             "internal".to_string(),
-            tera::to_value(parent_option.internal)?,
+            serde_json::to_value(parent_option.internal)?,
           );
           map.insert(
             "read_only".to_string(),
-            tera::to_value(parent_option.read_only)?,
+            serde_json::to_value(parent_option.read_only)?,
           );
           map
         })?;
@@ -895,36 +915,47 @@ fn generate_options_toc(
           .strip_prefix(&parent_prefix)
           .unwrap_or(&option.name);
 
-        let child_value = tera::to_value({
-          let mut map = tera::Map::new();
+        let child_value = serde_json::to_value({
+          let mut map = serde_json::Map::new();
           map.insert(
             "name".to_string(),
-            tera::to_value(encode_text(&option.name).as_ref())?,
+            serde_json::to_value(encode_text(&option.name).as_ref())?,
           );
           map.insert(
             "id".to_string(),
-            tera::to_value(sanitize_option_id(&option.name))?,
+            serde_json::to_value(sanitize_option_id(&option.name))?,
           );
           map.insert(
             "display_name".to_string(),
-            tera::to_value(encode_text(display_name).as_ref())?,
+            serde_json::to_value(encode_text(display_name).as_ref())?,
           );
-          map.insert("internal".to_string(), tera::to_value(option.internal)?);
-          map
-            .insert("read_only".to_string(), tera::to_value(option.read_only)?);
+          map.insert(
+            "internal".to_string(),
+            serde_json::to_value(option.internal)?,
+          );
+          map.insert(
+            "read_only".to_string(),
+            serde_json::to_value(option.read_only)?,
+          );
           map
         })?;
         children.push(child_value);
       }
 
-      category.insert("children".to_string(), tera::to_value(children)?);
+      category.insert(
+        "children".to_string(),
+        serde_json::to_value(children)?,
+      );
 
       // Add position if custom position is set for parent
       if let Some(position) = option_positions.get(parent) {
-        category.insert("position".to_string(), tera::to_value(position)?);
+        category.insert(
+          "position".to_string(),
+          serde_json::to_value(position)?,
+        );
       }
 
-      dropdown_categories.push(tera::to_value(category)?);
+      dropdown_categories.push(serde_json::to_value(category)?);
     }
   }
 
