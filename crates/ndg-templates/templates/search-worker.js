@@ -184,11 +184,213 @@ const updateBestRank = (match, rank) => {
   match.bestRank = Math.min(match.bestRank, rank);
 };
 
+// Search configuration and the pre-processed document set are cached between
+// messages so the index is only transferred and lower-cased once, not on every
+// keystroke. These defaults mirror search.js so worker and main-thread results
+// stay identical even before an `init` message arrives.
+let searchConfig = {
+  minWordLength: 2,
+  stopwords: [],
+  boostTitle: 100.0,
+  boostContent: 30.0,
+  boostAnchor: 10.0,
+};
+let cachedDocuments = null;
+let processedDocs = null;
+
+const tokenizeQuery = (text) => {
+  const words =
+    (typeof text === "string" ? text : "")
+      .toLowerCase()
+      .match(/\b[a-zA-Z0-9_-]+\b/g) || [];
+  const stopwords = new Set(searchConfig.stopwords.map((w) => w.toLowerCase()));
+  return Array.from(
+    new Set(
+      words.filter(
+        (word) =>
+          word.length >= searchConfig.minWordLength && !stopwords.has(word),
+      ),
+    ),
+  );
+};
+
+const setDocuments = (documents, config) => {
+  if (config && typeof config === "object") {
+    searchConfig = {
+      minWordLength: config.minWordLength ?? searchConfig.minWordLength,
+      stopwords: Array.isArray(config.stopwords)
+        ? config.stopwords
+        : searchConfig.stopwords,
+      boostTitle: config.boostTitle ?? searchConfig.boostTitle,
+      boostContent: config.boostContent ?? searchConfig.boostContent,
+      boostAnchor: config.boostAnchor ?? searchConfig.boostAnchor,
+    };
+  }
+
+  cachedDocuments = Array.isArray(documents) ? documents : [];
+  processedDocs = cachedDocuments.map((doc, docId) => {
+    const title = typeof doc.title === "string" ? doc.title : "";
+    const content = typeof doc.content === "string" ? doc.content : "";
+    return {
+      docId,
+      doc,
+      lowerTitle: title.toLowerCase(),
+      lowerContent: content.toLowerCase(),
+      lowerAnchors: Array.isArray(doc.anchors)
+        ? doc.anchors
+            .map((anchor) => normalizeSearchText(anchorSearchText(anchor)))
+            .join(" ")
+        : "",
+    };
+  });
+};
+
+const runSearch = (query, limit) => {
+  const rawQuery = query.toLowerCase();
+  const searchTerms = tokenizeQuery(query);
+  const useFuzzySearch = rawQuery.length >= 3;
+
+  if (searchTerms.length === 0 && rawQuery.length < searchConfig.minWordLength) {
+    return [];
+  }
+  if (!processedDocs || processedDocs.length === 0) {
+    return [];
+  }
+
+  const { boostTitle, boostContent, boostAnchor } = searchConfig;
+  const normalizedQuery = normalizeSearchText(rawQuery);
+  const pageMatches = new Map();
+
+  // First pass: only docs containing at least one search term
+  processedDocs.forEach(
+    ({ docId, doc, lowerTitle, lowerContent, lowerAnchors }) => {
+      const hasRelevantToken =
+        lowerTitle.includes(rawQuery) ||
+        lowerContent.includes(rawQuery) ||
+        lowerAnchors.includes(normalizedQuery) ||
+        searchTerms.some(
+          (term) =>
+            lowerTitle.includes(term) ||
+            lowerContent.includes(term) ||
+            lowerAnchors.includes(term),
+        );
+      if (!hasRelevantToken) return;
+
+      let match = pageMatches.get(docId);
+      if (!match) {
+        match = { doc, pageScore: 0, matchingAnchors: [], bestRank: 99 };
+        pageMatches.set(docId, match);
+      }
+
+      const titleMatch = textMatchInfo(lowerTitle, rawQuery, searchTerms);
+      const contentMatch = textMatchInfo(lowerContent, rawQuery, searchTerms);
+
+      if (titleMatch.exactText) {
+        match.pageScore += boostTitle * 3;
+        updateBestRank(match, isOptionDocument(doc) ? 3 : 0);
+      } else if (titleMatch.exactPhrase) {
+        match.pageScore += boostTitle * 2;
+        updateBestRank(match, isOptionDocument(doc) ? 4 : 1);
+      } else if (titleMatch.allTerms) {
+        match.pageScore += boostTitle;
+        updateBestRank(match, isOptionDocument(doc) ? 5 : 2);
+      } else if (titleMatch.anyTerm) {
+        match.pageScore += titleMatch.matchedTerms.length * (boostTitle / 10);
+        updateBestRank(match, isOptionDocument(doc) ? 8 : 6);
+      }
+
+      if (contentMatch.exactPhrase) {
+        match.pageScore += boostContent;
+        updateBestRank(match, isOptionDocument(doc) ? 9 : 7);
+      } else if (contentMatch.allTerms) {
+        match.pageScore += boostContent / 2;
+        updateBestRank(match, isOptionDocument(doc) ? 10 : 8);
+      } else if (contentMatch.anyTerm) {
+        match.pageScore +=
+          contentMatch.matchedTerms.length * (boostContent / 10);
+        updateBestRank(match, isOptionDocument(doc) ? 11 : 9);
+      }
+
+      if (
+        isOptionDocument(doc) &&
+        !titleMatch.exactPhrase &&
+        !titleMatch.anyTerm
+      ) {
+        match.pageScore *= 0.25;
+      }
+    },
+  );
+
+  // Second pass: find matching anchors
+  pageMatches.forEach((match) => {
+    const doc = match.doc;
+    if (
+      !doc.anchors ||
+      !Array.isArray(doc.anchors) ||
+      doc.anchors.length === 0
+    ) {
+      return;
+    }
+
+    doc.anchors.forEach((anchor) => {
+      if (!anchor || !anchor.text) return;
+
+      const anchorText = anchorSearchText(anchor).toLowerCase();
+      const anchorMatch = textMatchInfo(anchorText, rawQuery, searchTerms);
+      let anchorMatches = false;
+
+      if (anchorMatch.exactPhrase || anchorMatch.allTerms) {
+        anchorMatches = true;
+      } else if (useFuzzySearch) {
+        const fuzzyScore = fuzzyMatch(rawQuery, anchorText);
+        if (fuzzyScore !== null && fuzzyScore >= 0.8) {
+          anchorMatches = true;
+        }
+      }
+
+      if (!anchorMatches) {
+        searchTerms.forEach((term) => {
+          if (anchorText.includes(term)) {
+            anchorMatches = true;
+          }
+        });
+      }
+
+      if (anchorMatches) {
+        match.matchingAnchors.push(anchor);
+
+        if (anchorMatch.exactText) {
+          match.pageScore += boostTitle * 3;
+          updateBestRank(match, 0);
+        } else if (anchorMatch.exactPhrase) {
+          match.pageScore += boostTitle * 2;
+          updateBestRank(match, 1);
+        } else if (anchorMatch.allTerms) {
+          match.pageScore += boostTitle;
+          updateBestRank(match, 2);
+        } else {
+          match.pageScore += boostAnchor;
+          updateBestRank(match, 6);
+        }
+      }
+    });
+  });
+
+  return Array.from(pageMatches.values())
+    .filter((m) => m.pageScore > 5)
+    .sort((a, b) => {
+      if (a.bestRank !== b.bestRank) return a.bestRank - b.bestRank;
+      if (b.pageScore !== a.pageScore) return b.pageScore - a.pageScore;
+      return Number(isOptionDocument(a.doc)) - Number(isOptionDocument(b.doc));
+    })
+    .slice(0, limit);
+};
+
 self.onmessage = function (e) {
   const { messageId, type, data } = e.data;
 
-  const respond = (type, data) => {
-    self.postMessage({ messageId, type, data });
+  const respond = (responseType, responseData) => {
+    self.postMessage({ messageId, type: responseType, data: responseData });
   };
 
   const respondError = (error) => {
@@ -200,197 +402,35 @@ self.onmessage = function (e) {
   };
 
   try {
+    if (type === "init") {
+      setDocuments(data?.documents, data?.config);
+      return;
+    }
+
     if (type === "tokenize") {
-      const text = typeof data === "string" ? data : "";
-      const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
-      const tokens = words.filter((word) => word.length > 2);
-      const uniqueTokens = Array.from(new Set(tokens));
-      respond("tokens", uniqueTokens);
-    } else if (type === "search") {
-      const { query, limit = 10 } = data;
+      respond("tokens", tokenizeQuery(typeof data === "string" ? data : ""));
+      return;
+    }
+
+    if (type === "search") {
+      const { query, limit = 10 } = data || {};
 
       if (!query || typeof query !== "string") {
         respond("results", []);
         return;
       }
 
-      const rawQuery = query.toLowerCase();
-      const text = typeof query === "string" ? query : "";
-      const words = text.toLowerCase().match(/\b[a-zA-Z0-9_-]+\b/g) || [];
-      const searchTerms = words.filter((word) => word.length > 2);
-
-      let documents = [];
-      if (typeof data.documents === "string") {
-        documents = JSON.parse(data.documents);
-      } else if (Array.isArray(data.documents)) {
-        documents = data.documents;
-      } else if (typeof data.transferables === "string") {
-        documents = JSON.parse(data.transferables);
+      // Backwards compatibility: accept an inline document set if the host
+      // still sends one and the worker has not been initialized yet.
+      if (data.documents !== undefined && cachedDocuments === null) {
+        const documents =
+          typeof data.documents === "string"
+            ? JSON.parse(data.documents)
+            : data.documents;
+        setDocuments(documents, data.config);
       }
 
-      if (!Array.isArray(documents) || documents.length === 0) {
-        respond("results", []);
-        return;
-      }
-
-      const useFuzzySearch = rawQuery.length >= 3;
-
-      if (searchTerms.length === 0 && rawQuery.length < 3) {
-        respond("results", []);
-        return;
-      }
-
-      const pageMatches = new Map();
-
-      // Pre-compute lower-case strings for each document
-      const processedDocs = documents.map((doc, docId) => {
-        const title = typeof doc.title === "string" ? doc.title : "";
-        const content = typeof doc.content === "string" ? doc.content : "";
-
-        return {
-          docId,
-          doc,
-          lowerTitle: title.toLowerCase(),
-          lowerContent: content.toLowerCase(),
-          lowerAnchors: Array.isArray(doc.anchors)
-            ? doc.anchors
-                .map((anchor) => normalizeSearchText(anchorSearchText(anchor)))
-                .join(" ")
-            : "",
-        };
-      });
-
-      // First pass, only docs containing at least one search term
-      processedDocs.forEach(({
-        docId,
-        doc,
-        lowerTitle,
-        lowerContent,
-        lowerAnchors,
-      }) => {
-        const normalizedQuery = normalizeSearchText(rawQuery);
-        const hasRelevantToken =
-          lowerTitle.includes(rawQuery) ||
-          lowerContent.includes(rawQuery) ||
-          lowerAnchors.includes(normalizedQuery) ||
-          searchTerms.some(
-            (term) =>
-              lowerTitle.includes(term) ||
-              lowerContent.includes(term) ||
-              lowerAnchors.includes(term),
-          );
-        if (!hasRelevantToken) return;
-
-        let match = pageMatches.get(docId);
-        if (!match) {
-          match = { doc, pageScore: 0, matchingAnchors: [], bestRank: 99 };
-          pageMatches.set(docId, match);
-        }
-
-        const titleMatch = textMatchInfo(lowerTitle, rawQuery, searchTerms);
-        const contentMatch = textMatchInfo(lowerContent, rawQuery, searchTerms);
-
-        if (titleMatch.exactText) {
-          match.pageScore += 300;
-          updateBestRank(match, isOptionDocument(doc) ? 3 : 0);
-        } else if (titleMatch.exactPhrase) {
-          match.pageScore += 200;
-          updateBestRank(match, isOptionDocument(doc) ? 4 : 1);
-        } else if (titleMatch.allTerms) {
-          match.pageScore += 100;
-          updateBestRank(match, isOptionDocument(doc) ? 5 : 2);
-        } else if (titleMatch.anyTerm) {
-          match.pageScore += titleMatch.matchedTerms.length * 10;
-          updateBestRank(match, isOptionDocument(doc) ? 8 : 6);
-        }
-
-        if (contentMatch.exactPhrase) {
-          match.pageScore += 30;
-          updateBestRank(match, isOptionDocument(doc) ? 9 : 7);
-        } else if (contentMatch.allTerms) {
-          match.pageScore += 15;
-          updateBestRank(match, isOptionDocument(doc) ? 10 : 8);
-        } else if (contentMatch.anyTerm) {
-          match.pageScore += contentMatch.matchedTerms.length * 3;
-          updateBestRank(match, isOptionDocument(doc) ? 11 : 9);
-        }
-
-        if (
-          isOptionDocument(doc) &&
-          !titleMatch.exactPhrase &&
-          !titleMatch.anyTerm
-        ) {
-          match.pageScore *= 0.25;
-        }
-      });
-
-      // Second pass: Find matching anchors
-      pageMatches.forEach((match) => {
-        const doc = match.doc;
-        if (
-          !doc.anchors ||
-          !Array.isArray(doc.anchors) ||
-          doc.anchors.length === 0
-        ) {
-          return;
-        }
-
-        doc.anchors.forEach((anchor) => {
-          if (!anchor || !anchor.text) return;
-
-          const anchorText = anchorSearchText(anchor).toLowerCase();
-          const anchorMatch = textMatchInfo(anchorText, rawQuery, searchTerms);
-          let anchorMatches = false;
-
-          if (anchorMatch.exactPhrase || anchorMatch.allTerms) {
-            anchorMatches = true;
-          } else if (useFuzzySearch) {
-            const fuzzyScore = fuzzyMatch(rawQuery, anchorText);
-            if (fuzzyScore !== null && fuzzyScore >= 0.8) {
-              anchorMatches = true;
-            }
-          }
-
-          if (!anchorMatches) {
-            searchTerms.forEach((term) => {
-              if (anchorText.includes(term)) {
-                anchorMatches = true;
-              }
-            });
-          }
-
-          if (anchorMatches) {
-            match.matchingAnchors.push(anchor);
-
-            if (anchorMatch.exactText) {
-              match.pageScore += 300;
-              updateBestRank(match, 0);
-            } else if (anchorMatch.exactPhrase) {
-              match.pageScore += 200;
-              updateBestRank(match, 1);
-            } else if (anchorMatch.allTerms) {
-              match.pageScore += 100;
-              updateBestRank(match, 2);
-            } else {
-              match.pageScore += 10;
-              updateBestRank(match, 6);
-            }
-          }
-        });
-      });
-
-      const results = Array.from(pageMatches.values())
-        .filter((m) => m.pageScore > 5)
-        .sort((a, b) => {
-          if (a.bestRank !== b.bestRank) return a.bestRank - b.bestRank;
-          if (b.pageScore !== a.pageScore) return b.pageScore - a.pageScore;
-          return (
-            Number(isOptionDocument(a.doc)) - Number(isOptionDocument(b.doc))
-          );
-        })
-        .slice(0, limit);
-
-      respond("results", results);
+      respond("results", runSearch(query, limit));
     }
   } catch (error) {
     respondError(error);
