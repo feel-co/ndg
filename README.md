@@ -44,7 +44,7 @@ crates that assist in repository maintenance or packaging---such as `xtask`.
 ### ndg
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/feel-co/ndg/rust.yml?branch=main)](https://github.com/feel-co/ndg/actions/workflows/rust.yml)
-[![Rust Version](https://img.shields.io/badge/rust-1.94+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.95.0+-orange.svg)](https://www.rust-lang.org)
 [![GitHub Release](https://img.shields.io/github/v/release/feel-co/ndg)](https://github.com/feel-co/ndg/releases/latest)
 
 [quickstart document]: ./ndg/README.md
@@ -63,24 +63,27 @@ also aims to be more "batteries included" compared to existing and somewhat
 popular Nixpkgs-first tooling (à la `nixos-render-docs`), and offers various
 improvements compared to those tooling such as a **higher degree of
 customization**, **more intuitive architecture**, **graceful error recovery**
-and most critically_a lot_ of room for further extension as NDG is not tied to
+and most critically _a lot_ of room for further extension as NDG is not tied to
 Nixpkgs, and is not constrained by backwards compatibility with legacy baggage.
 
 [Hjem]: https://github.com/feel-co/hjem
 [NVF]: https://github.com/notashelf/nvf
 
 While the _main_ focus of this tool is to generate documentation for projects
-that provide Nix module systems (such as [Hjem], or [NVF]), you may _easily_ use
-it as a MdBook replacement in your projects. You may even disable Nix-specific
-features completely and use it for _any_ project! NDG offers a flexible Markdown
-parser, a robust templating system and various configuration options to allow
-designing beautiful documentation for your projects. The only thing it _can't_
-do is to write the documentation for you...
+that provide Nix module systems (such as [Hjem] and [NVF]) or NixOS
+configurations, you may _easily_ use it as a MdBook replacement in your
+projects.
+
+You may even disable Nix-specific features completely and use it for _any_
+project! Hell, even as a blog. NDG offers a flexible Markdown parser, a robust
+templating system and various configuration options to allow designing beautiful
+documentation for your projects. The only thing it _can't_ do is to write the
+documentation for you...
 
 ### ndg-commonmark
 
 [![Documentation](https://img.shields.io/docsrs/ndg-commonmark/latest)](https://docs.rs/ndg-commonmark/latest/)
-[![Rust Version](https://img.shields.io/badge/rust-1.94+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.95.0+-orange.svg)](https://www.rust-lang.org)
 [![Crates.io Version](https://img.shields.io/crates/v/ndg-commonmark)](https://crates.io/crates/ndg-commonmark)
 
 [documentation for latest tagged release]: https://docs.rs/ndg-commonmark/latest/
