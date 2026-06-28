@@ -33,6 +33,27 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
+## Unreleased
+
+### Changed
+
+- Search worker now caches the document set between searches. Documents are sent
+  to the worker once via an `init` message instead of being re-sent with every
+  keystroke, eliminating structured-cloning overhead on large option sets.
+- Options and library filtering now uses synchronous DOM manipulation with
+  `DocumentFragment` instead of chunked `requestAnimationFrame` rendering,
+  eliminating the visible filter flash that occurred when collapsing non-matching
+  options over several animation frames.
+
+### Fixed
+
+- Worker script load failures now immediately disable the worker and fall back
+  to main-thread search instead of waiting for the per-search five-second
+  timeout.
+- Stale search responses are now dropped when the user continues typing while a
+  worker search is in flight, preventing outdated results from rendering over
+  newer matches.
+
 ## [2.9.0]
 
 ### Breaking Changes
