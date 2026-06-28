@@ -862,10 +862,7 @@ fn generate_options_toc(
         "display_name".to_string(),
         serde_json::to_value(encode_text(category_display_name).as_ref())?,
       );
-      category.insert(
-        "count".to_string(),
-        serde_json::to_value(opts.len())?,
-      );
+      category.insert("count".to_string(), serde_json::to_value(opts.len())?);
 
       // Add parent option if it exists
       if let Some(parent_option) = direct_parent_options.get(parent) {
@@ -942,17 +939,12 @@ fn generate_options_toc(
         children.push(child_value);
       }
 
-      category.insert(
-        "children".to_string(),
-        serde_json::to_value(children)?,
-      );
+      category.insert("children".to_string(), serde_json::to_value(children)?);
 
       // Add position if custom position is set for parent
       if let Some(position) = option_positions.get(parent) {
-        category.insert(
-          "position".to_string(),
-          serde_json::to_value(position)?,
-        );
+        category
+          .insert("position".to_string(), serde_json::to_value(position)?);
       }
 
       dropdown_categories.push(serde_json::to_value(category)?);
