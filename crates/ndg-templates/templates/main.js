@@ -668,12 +668,6 @@ document.addEventListener("DOMContentLoaded", function () {
       };
     });
 
-    // Chunk size and rendering variables
-    const CHUNK_SIZE = isMobile ? 15 : 40;
-    let pendingRender = null;
-    let currentChunk = 0;
-    let itemsToProcess = [];
-
     function debounce(func, wait) {
       let timeout;
       return function () {
@@ -684,42 +678,12 @@ document.addEventListener("DOMContentLoaded", function () {
       };
     }
 
-    // Process options in chunks to prevent UI freezing
-    function processNextChunk() {
-      const startIdx = currentChunk * CHUNK_SIZE;
-      const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
-
-      if (startIdx < itemsToProcess.length) {
-        // Move visible items to container, hide others
-        for (let i = startIdx; i < endIdx; i++) {
-          const item = itemsToProcess[i];
-          if (item.visible) {
-            optionsContainer.appendChild(item.element);
-          } else {
-            hiddenOptionsContainer.content.appendChild(item.element);
-          }
-        }
-
-        currentChunk++;
-        pendingRender = requestAnimationFrame(processNextChunk);
-      } else {
-        pendingRender = null;
-        currentChunk = 0;
-        itemsToProcess = [];
-
-        if (filterResults.visibleCount !== undefined) {
-          if (filterResults.visibleCount < totalCount) {
-            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} options`;
-            filterResults.style.display = "block";
-          } else {
-            filterResults.style.display = "none";
-          }
-        }
-      }
-    }
-
-    // Initialize: keep all options visible by default
-    // They will be moved to hidden container only when filtering
+    // Show only the matching options. Matches are reordered (title matches
+    // first, then description matches); every non-match is detached into a
+    // hidden <template>. The hide and the show happen in one synchronous pass
+    // so the browser never paints a frame with the non-matching options still
+    // visible -- painting the full list and then collapsing it over several
+    // animation frames is what made the list flash while filtering.
     function filterOptions() {
       const searchTerm = optionsFilter.value.toLowerCase().trim();
 
@@ -728,13 +692,6 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
       filterOptions.lastTerm = searchTerm;
-
-      if (pendingRender) {
-        cancelAnimationFrame(pendingRender);
-        pendingRender = null;
-      }
-      currentChunk = 0;
-      itemsToProcess = [];
 
       if (searchTerm === "") {
         // Restore to original order
@@ -753,11 +710,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const searchTerms = searchTerm
         .split(/\s+/)
         .filter((term) => term.length > 0);
+      const term = searchTerms[0];
       let visibleCount = 0;
 
       const titleMatches = [];
       const descMatches = [];
-      const term = searchTerms[0];
 
       for (let i = 0; i < optionsData.length; i++) {
         const data = optionsData[i];
@@ -778,34 +735,36 @@ document.addEventListener("DOMContentLoaded", function () {
         (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
       );
 
+      // Collect the visible matches into a fragment first; appending an element
+      // to the fragment also removes it from its current parent.
       const visibleElements = new Set();
-      itemsToProcess = [];
+      const visibleFragment = document.createDocumentFragment();
       for (let i = 0; i < titleMatches.length; i++) {
         const data = titleMatches[i];
         visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
+        visibleFragment.appendChild(data.element);
       }
       for (let i = 0; i < descMatches.length; i++) {
         const data = descMatches[i];
         visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
+        visibleFragment.appendChild(data.element);
       }
+
+      // Detach every non-matching option before revealing the matches.
       for (let i = 0; i < optionsData.length; i++) {
         const data = optionsData[i];
         if (!visibleElements.has(data.element)) {
-          itemsToProcess.push({ element: data.element, visible: false });
+          hiddenOptionsContainer.content.appendChild(data.element);
         }
       }
+      optionsContainer.appendChild(visibleFragment);
 
-      // Reorder DOM so all title matches, then desc matches, then hidden
-      const fragment = document.createDocumentFragment();
-      for (let i = 0; i < itemsToProcess.length; i++) {
-        fragment.appendChild(itemsToProcess[i].element);
+      if (visibleCount < totalCount) {
+        filterResults.textContent = `Showing ${visibleCount} of ${totalCount} options`;
+        filterResults.style.display = "block";
+      } else {
+        filterResults.style.display = "none";
       }
-      optionsContainer.appendChild(fragment);
-
-      filterResults.visibleCount = visibleCount;
-      pendingRender = requestAnimationFrame(processNextChunk);
     }
 
     // Use different debounce times for desktop vs mobile
@@ -894,11 +853,6 @@ document.addEventListener("DOMContentLoaded", function () {
       };
     });
 
-    const CHUNK_SIZE = isMobile ? 15 : 40;
-    let pendingRender = null;
-    let currentChunk = 0;
-    let itemsToProcess = [];
-
     function debounceLib(func, wait) {
       let timeout;
       return function () {
@@ -909,38 +863,6 @@ document.addEventListener("DOMContentLoaded", function () {
       };
     }
 
-    function processNextChunkLib() {
-      const startIdx = currentChunk * CHUNK_SIZE;
-      const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
-
-      if (startIdx < itemsToProcess.length) {
-        for (let i = startIdx; i < endIdx; i++) {
-          const item = itemsToProcess[i];
-          if (item.visible) {
-            libContainer.appendChild(item.element);
-          } else {
-            hiddenLibContainer.content.appendChild(item.element);
-          }
-        }
-
-        currentChunk++;
-        pendingRender = requestAnimationFrame(processNextChunkLib);
-      } else {
-        pendingRender = null;
-        currentChunk = 0;
-        itemsToProcess = [];
-
-        if (filterResults.visibleCount !== undefined) {
-          if (filterResults.visibleCount < totalCount) {
-            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} functions`;
-            filterResults.style.display = "block";
-          } else {
-            filterResults.style.display = "none";
-          }
-        }
-      }
-    }
-
     function filterLib() {
       const searchTerm = libFilter.value.toLowerCase().trim();
 
@@ -948,13 +870,6 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
       filterLib.lastTerm = searchTerm;
-
-      if (pendingRender) {
-        cancelAnimationFrame(pendingRender);
-        pendingRender = null;
-      }
-      currentChunk = 0;
-      itemsToProcess = [];
 
       if (searchTerm === "") {
         const fragment = document.createDocumentFragment();
@@ -972,11 +887,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const searchTerms = searchTerm
         .split(/\s+/)
         .filter((term) => term.length > 0);
+      const term = searchTerms[0];
       let visibleCount = 0;
 
       const titleMatches = [];
       const descMatches = [];
-      const term = searchTerms[0];
 
       for (let i = 0; i < libData.length; i++) {
         const data = libData[i];
@@ -997,33 +912,35 @@ document.addEventListener("DOMContentLoaded", function () {
         (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
       );
 
+      // Detach non-matches and reveal matches in one synchronous pass; see
+      // filterOptions for why this avoids the filter flash.
       const visibleElements = new Set();
-      itemsToProcess = [];
+      const visibleFragment = document.createDocumentFragment();
       for (let i = 0; i < titleMatches.length; i++) {
         const data = titleMatches[i];
         visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
+        visibleFragment.appendChild(data.element);
       }
       for (let i = 0; i < descMatches.length; i++) {
         const data = descMatches[i];
         visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
+        visibleFragment.appendChild(data.element);
       }
+
       for (let i = 0; i < libData.length; i++) {
         const data = libData[i];
         if (!visibleElements.has(data.element)) {
-          itemsToProcess.push({ element: data.element, visible: false });
+          hiddenLibContainer.content.appendChild(data.element);
         }
       }
+      libContainer.appendChild(visibleFragment);
 
-      const fragment = document.createDocumentFragment();
-      for (let i = 0; i < itemsToProcess.length; i++) {
-        fragment.appendChild(itemsToProcess[i].element);
+      if (visibleCount < totalCount) {
+        filterResults.textContent = `Showing ${visibleCount} of ${totalCount} functions`;
+        filterResults.style.display = "block";
+      } else {
+        filterResults.style.display = "none";
       }
-      libContainer.appendChild(fragment);
-
-      filterResults.visibleCount = visibleCount;
-      pendingRender = requestAnimationFrame(processNextChunkLib);
     }
 
     const debouncedFilter = debounceLib(filterLib, isMobile ? 200 : 100);
