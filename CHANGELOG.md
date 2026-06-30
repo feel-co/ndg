@@ -35,18 +35,21 @@ changes.
 
 ## Unreleased
 
-### Changed
+### Fixed
 
 - Search worker now caches the document set between searches. Documents are sent
   to the worker once via an `init` message instead of being re-sent with every
-  keystroke, eliminating structured-cloning overhead on large option sets.
+  keystroke in order to eliminate the structured-cloning overhead on large
+  option sets.
 - Options and library filtering now uses synchronous DOM manipulation with
-  `DocumentFragment` instead of chunked `requestAnimationFrame` rendering,
-  eliminating the visible filter flash that occurred when collapsing non-matching
+  `DocumentFragment` instead of chunked `requestAnimationFrame` rendering, which
+  fixes the visible filter flash that occurred when collapsing non-matching
   options over several animation frames.
-
-### Fixed
-
+- Generated options and library pages now pass the documentation root prefix to
+  search scripts, so search assets resolve correctly from nested output paths.
+- Search now keeps visible two-character queries and stopword-only phrases
+  searchable even when configured token filtering would otherwise remove all
+  query terms.
 - Worker script load failures now immediately disable the worker and fall back
   to main-thread search instead of waiting for the per-search five-second
   timeout.
