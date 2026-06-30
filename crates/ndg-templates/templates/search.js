@@ -11,6 +11,8 @@ class SearchEngine {
     this.isLoaded = false;
     this.loadError = false;
     this.fullDocuments = null; // for lazy loading
+    // Whether the current document set has been transferred to the worker yet.
+    this.workerDocsSent = false;
     this.rootPath = window.searchNamespace?.rootPath || "";
     // Search configuration (loaded from search data)
     this.config = {
@@ -78,13 +80,13 @@ class SearchEngine {
             boostContent: documents.boost_content || 30.0,
             boostAnchor: documents.boost_anchor || 10.0,
           };
-          this.initializeFromDocuments(documents.documents);
+          await this.initializeFromDocuments(documents.documents);
         } else {
           throw new Error("Invalid search data format");
         }
       } else {
         // Legacy format - just an array of documents
-        this.initializeFromDocuments(documents);
+        await this.initializeFromDocuments(documents);
       }
       this.isLoaded = true;
     } catch (error) {
@@ -103,6 +105,8 @@ class SearchEngine {
     } else {
       this.documents = documents;
     }
+    // The document set changed, so the worker's cached copy is now stale.
+    this.workerDocsSent = false;
     try {
       await this.buildTokenMap();
     } catch (error) {
@@ -117,6 +121,11 @@ class SearchEngine {
     this.lowercaseCache = this.documents.map((doc) => ({
       title: (doc.title || "").toLowerCase(),
       content: (doc.content || "").toLowerCase(),
+      anchors: Array.isArray(doc.anchors)
+        ? doc.anchors
+            .map((anchor) => this.normalizeSearchText(this.anchorSearchText(anchor)))
+            .join(" ")
+        : "",
     }));
   }
 
@@ -158,9 +167,18 @@ class SearchEngine {
               this.lowercaseCache[i] = {
                 title: lowerTitle,
                 content: lowerContent,
+                anchors: Array.isArray(doc.anchors)
+                  ? doc.anchors
+                      .map((anchor) =>
+                        this.normalizeSearchText(this.anchorSearchText(anchor)),
+                      )
+                      .join(" ")
+                  : "",
               };
 
-              const tokens = this.tokenize(lowerTitle + " " + lowerContent);
+              const tokens = this.tokenize(
+                `${lowerTitle} ${lowerContent} ${this.lowercaseCache[i].anchors}`,
+              );
               tokens.forEach((token) => {
                 if (!this.tokenMap.has(token)) {
                   this.tokenMap.set(token, []);
@@ -235,14 +253,17 @@ class SearchEngine {
     const positions = [];
 
     const memo = new Map();
-    const key = (qIdx, tIdx) => `${qIdx}:${tIdx}`;
+    // The accumulated gap participates in pruning (newGap > m), so it must be
+    // part of the memo key; keying on (qIdx, tIdx) alone can return a result
+    // cached under a different gap. Matches the worker implementation.
+    const key = (qIdx, tIdx, gap) => `${qIdx}:${tIdx}:${gap}`;
 
     const findBest = (qIdx, tIdx, currentGap) => {
       if (qIdx === n) {
         return { done: true, positions: [...positions], gap: currentGap };
       }
 
-      const memoKey = key(qIdx, tIdx);
+      const memoKey = key(qIdx, tIdx, currentGap);
       if (memo.has(memoKey)) {
         return memo.get(memoKey);
       }
@@ -447,34 +468,20 @@ class SearchEngine {
     const useFuzzySearch = rawQuery.length >= 3;
 
     const candidateDocIds = new Set();
-    searchTerms.forEach((term) => {
-      if (this.tokenMap.has(term)) {
-        const docIds = this.tokenMap.get(term);
-        docIds.forEach((docId) => candidateDocIds.add(docId));
-      }
-    });
-
-    // Tokenization keeps some Nix-ish identifiers whole, such as
-    // redis-test-hook or services.nginx.enable. Fall back to substring
-    // candidate discovery so exact visible text still searches successfully.
+    const normalizedQuery = this.normalizeSearchText(rawQuery);
     this.lowercaseCache.forEach((cached, docId) => {
-      const doc = this.documents[docId];
       const title = cached?.title || "";
       const content = cached?.content || "";
-      const anchors = Array.isArray(doc?.anchors) ? doc.anchors : [];
-      const anchorText = anchors
-        .map((anchor) => this.normalizeSearchText(this.anchorSearchText(anchor)))
-        .join(" ");
-      const normalizedQuery = this.normalizeSearchText(rawQuery);
+      const anchors = cached?.anchors || "";
       if (
         title.includes(rawQuery) ||
         content.includes(rawQuery) ||
-        anchorText.includes(normalizedQuery) ||
+        anchors.includes(normalizedQuery) ||
         searchTerms.some(
           (term) =>
             title.includes(term) ||
             content.includes(term) ||
-            anchorText.includes(term),
+            anchors.includes(term),
         )
       ) {
         candidateDocIds.add(docId);
@@ -795,12 +802,27 @@ class SearchEngine {
       return this.fallbackSearch(query, limit);
     }
 
+    // Transfer the document set (and search config) to the worker once. Sending
+    // it on every keystroke meant structured-cloning the entire index per
+    // search, which is the main reason worker-backed search felt slow on large
+    // option sets.
+    if (!this.workerDocsSent) {
+      worker.postMessage({
+        type: "init",
+        data: { documents: this.documents, config: this.config },
+      });
+      this.workerDocsSent = true;
+    }
+
     return new Promise((resolve, reject) => {
       const messageId = `search_${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 11)}`;
       const timeout = setTimeout(() => {
         cleanup();
+        // A worker that never answers is treated as unavailable so we stop
+        // paying the timeout on every subsequent search and use the main thread.
+        searchWorker = false;
         reject(new Error("Web Worker search timeout"));
       }, 5000);
 
@@ -820,6 +842,7 @@ class SearchEngine {
       const handleError = (error) => {
         clearTimeout(timeout);
         cleanup();
+        searchWorker = false;
         reject(error);
       };
 
@@ -834,7 +857,7 @@ class SearchEngine {
       worker.postMessage({
         messageId,
         type: "search",
-        data: { query, limit, documents: this.documents },
+        data: { query, limit },
       });
     });
   }
@@ -1152,6 +1175,12 @@ function initializeSearchWorker() {
     const rootPath = window.searchNamespace?.rootPath || "";
     const workerPath = `${rootPath}assets/search-worker.js`;
     searchWorker = new Worker(workerPath);
+    // If the worker script fails to load (for example it was not emitted for a
+    // custom template set), disable it so searches fall back to the main thread
+    // immediately instead of waiting for the per-search timeout.
+    searchWorker.addEventListener("error", () => {
+      searchWorker = false;
+    });
     return searchWorker;
   } catch (error) {
     console.warn("Web Worker creation failed, using main thread:", error);
@@ -1265,7 +1294,6 @@ document.addEventListener("DOMContentLoaded", function () {
       "input",
       debounce(async function () {
         const searchTerm = this.value.trim();
-        const currentSearchTerm = searchTerm;
 
         if (searchTerm.length < 2) {
           searchResults.innerHTML = "";
@@ -1286,7 +1314,9 @@ document.addEventListener("DOMContentLoaded", function () {
             8,
           );
 
-          if (currentSearchTerm !== searchTerm) return;
+          // Drop stale responses: if the user kept typing while this search was
+          // running, the input no longer matches and a newer search will render.
+          if (searchInput.value.trim() !== searchTerm) return;
 
           if (results.length > 0) {
             searchResults.innerHTML = results
