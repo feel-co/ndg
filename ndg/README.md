@@ -912,6 +912,23 @@ $ ndg html -i ./docs -o ./html -T "My Project" -j ./options.json
 #=> The output directory will contain an options.html with your option reference
 ```
 
+Multiple options pages can be configured in `ndg.toml` when a single site needs
+to document several projects or versions:
+
+```toml
+[[module_options_pages]]
+path = "generated/hjem-stable/options.json"
+slug = "projects/hjem/stable/options"
+title = "Hjem Options"
+version = "stable"
+
+[[module_options_pages]]
+path = "generated/hjem-v1/options.json"
+slug = "projects/hjem/v1/options"
+title = "Hjem Options"
+version = "v1"
+```
+
 While there is no clear standard, the `options.json` is expected to be in the
 same "standard" format as the utility used by NixOS. In a traditional setup, you
 can generate this file using `pkgs.nixosOptionsDoc` by providing it with
@@ -1064,7 +1081,11 @@ Builder options worth knowing:
 - `variablelistId` controls the ID used for the options list anchor.
 - `optionsDocArgs` and `warningsAreErrors` are forwarded to `nixosOptionsDoc`.
 - `inputDir = null` means "options-only" docs; the builder still generates
-  `options.json` and always passes `--module-options` to NDG.
+  `options.json` and passes generated options pages to NDG.
+- `projects` documents multiple module projects in one site. Each project gets
+  its own generated `options.json`, output slug, title, and optional version.
+- `projects.*.src` may be any fetched source. `projects.*.git` is a convenience
+  wrapper around `pkgs.fetchgit`; pure Nix builds still require a fixed `hash`.
 - `generateSearch = true` and `highlightCode = true` are **builder defaults**
   even if NDG defaults differ.
 - `optionsDepth` controls option TOC nesting depth (default `2`).
@@ -1123,6 +1144,56 @@ Builder options worth knowing:
 
 If you only want module option docs (no Markdown input), omit `inputDir` and
 provide `rawModules` or `evaluatedModules` instead.
+
+For multi-project or versioned documentation, use `projects`. The old top-level
+`rawModules`/`evaluatedModules` interface is kept for single-project docs; when
+`projects` is non-empty each project is evaluated independently and rendered to
+its own page.
+
+```nix
+packages.${system}.docs = ndg.packages.${system}.ndg-builder.override {
+  title = "Nix Projects";
+  inputDir = ./docs;
+
+  projects = [
+    {
+      name = "hjem";
+      title = "Hjem Options";
+      version = "stable";
+      slug = "projects/hjem/stable/options";
+
+      git = {
+        url = "https://github.com/feel-co/hjem.git";
+        rev = "aabbccddeeff00112233445566778899aabbccdd";
+        hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      };
+
+      modules = src: [ "${src}/modules" ];
+    }
+
+    {
+      name = "nvf";
+      title = "NVF Options";
+      version = "v0.8";
+      slug = "projects/nvf/v0.8/options";
+      src = pkgs.fetchFromGitHub {
+        owner = "NotAShelf";
+        repo = "nvf";
+        rev = "v0.8";
+        hash = "sha256-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=";
+      };
+      modules = src: [ "${src}/modules" ];
+      repoPath = "https://github.com/NotAShelf/nvf/blob/v0.8";
+    }
+  ];
+};
+```
+
+Project fields mirror the single-project builder options: `rawModules`,
+`evaluatedModules`, `modules`, `moduleArgs`, `specialArgs`, `checkModules`,
+`optionsDocArgs`, `warningsAreErrors`, `basePath`, `repoPath`,
+`transformOptions`, and `variablelistId` may be set per project. If `git.url` is
+an HTTPS GitHub URL, `repoPath` defaults to the matching `blob/<rev>` URL.
 
 ##### Building a ZIM Archive
 

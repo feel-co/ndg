@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use color_eyre::eyre::{Context, Result};
 use indexmap::IndexMap;
 use log::debug;
-use ndg_config::Config;
+use ndg_config::{Config, options::ModuleOptionsPage};
 use ndg_manpage::types::NixOption;
 use ndg_utils::{json::extract_value, markdown::create_processor, postprocess};
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -31,6 +31,28 @@ use crate::template;
   reason = "Main processing logic with multiple steps"
 )]
 pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
+  let page = ModuleOptionsPage {
+    path: options_path.to_path_buf(),
+    ..Default::default()
+  };
+  process_options_page(config, &page)
+}
+
+/// Process options from one configured options page and write its HTML output.
+///
+/// # Errors
+///
+/// Returns an error if the input JSON cannot be read or parsed, the output slug
+/// is invalid, or the rendered HTML cannot be written.
+#[allow(
+  clippy::cognitive_complexity,
+  reason = "Main processing logic with multiple steps"
+)]
+pub fn process_options_page(
+  config: &Config,
+  page: &ModuleOptionsPage,
+) -> Result<()> {
+  let options_path = &page.path;
   // Read options JSON
   let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
     format!("Failed to read options file: {}", options_path.display())
@@ -245,7 +267,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     sorted.into_iter().collect();
 
   // Render options page
-  let html = template::render_options(config, &customized_options)?;
+  let html = template::render_options_page(config, &customized_options, page)?;
 
   // Apply postprocessing if requested
   let processed_html = if let Some(ref postprocess) = config.postprocess {
@@ -254,7 +276,16 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     html
   };
 
-  let output_path = config.output_dir.join("options.html");
+  let rel_output_path = template::options_output_path(&page.slug)?;
+  let output_path = config.output_dir.join(rel_output_path);
+  if let Some(parent) = output_path.parent() {
+    fs::create_dir_all(parent).wrap_err_with(|| {
+      format!(
+        "Failed to create options output directory: {}",
+        parent.display()
+      )
+    })?;
+  }
   fs::write(&output_path, processed_html).wrap_err_with(|| {
     format!("Failed to write options file: {}", output_path.display())
   })?;

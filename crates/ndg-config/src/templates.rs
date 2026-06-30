@@ -37,6 +37,13 @@ output_dir = "build"
 # Path to options.json file (optional)
 # module_options = "options.json"
 
+# Additional options.json pages (optional). Each slug is written as <slug>.html.
+# [[module_options_pages]]
+# path = "options-hjem.json"
+# slug = "projects/hjem/stable"
+# title = "Hjem Options"
+# version = "stable"
+
 # Title for the documentation
 title = "My Project Documentation"
 
@@ -199,6 +206,7 @@ max_heading_level = 3
 pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "input_dir": "docs",
   "output_dir": "build",
+  "module_options_pages": [],
   "title": "My Project Documentation",
   "footer_text": "Generated with ndg",
   "generate_anchors": true,

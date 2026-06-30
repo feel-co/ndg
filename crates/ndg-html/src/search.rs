@@ -219,11 +219,23 @@ pub fn generate_search_index(
 
   // Process options if available
   let mut options_count = 0;
-  if let Some(options_path) = &config.module_options
-    && let Ok(options_content) = fs::read_to_string(options_path)
-    && let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
-    && let Some(options_obj) = options_data.as_object()
-  {
+  for page in config.effective_module_options_pages() {
+    let Ok(options_content) = fs::read_to_string(&page.path) else {
+      continue;
+    };
+    let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
+    else {
+      continue;
+    };
+    let Some(options_obj) = options_data.as_object() else {
+      continue;
+    };
+    let Ok(options_page_path) = template::options_output_path(&page.slug)
+    else {
+      continue;
+    };
+    let options_page_path = options_page_path.to_string_lossy();
+
     for (key, option_value) in options_obj {
       let raw_description =
         option_description_text(option_value.get("description"));
@@ -252,7 +264,11 @@ pub fn generate_search_index(
 
       let plain_description = html::content_to_plaintext(&raw_description);
 
-      let title = format!("Option: {key}");
+      let title = if page.title.is_some() || page.version.is_some() {
+        format!("Option: {key} ({})", page.display_title())
+      } else {
+        format!("Option: {key}")
+      };
       let tokens = tokenize(&plain_description);
       let title_tokens = tokenize(&title);
 
@@ -260,7 +276,7 @@ pub fn generate_search_index(
         id: doc_id.to_string(),
         title,
         content: plain_description,
-        path: format!("options.html#{}", sanitize_option_id(key)),
+        path: format!("{}#{}", options_page_path, sanitize_option_id(key)),
         tokens,
         title_tokens,
         // options don't have sub-anchors (or at least we hope they don't)

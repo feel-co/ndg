@@ -132,7 +132,7 @@ fn main() -> Result<()> {
   // Validate that at least one content source is provided. This check must
   // happen AFTER CLI merge so that CLI args are considered
   if config.input_dir.is_none()
-    && config.module_options.is_none()
+    && !config.has_module_options()
     && config.nixdoc_inputs.is_empty()
   {
     bail!(
@@ -350,10 +350,14 @@ fn merge_cli_into_config(config: &mut Config, cli: &Cli) {
 }
 
 fn generate_man_output(config: &Config) -> Result<()> {
-  let Some(module_options) = config.module_options.as_deref() else {
+  let option_pages = config.effective_module_options_pages();
+  let Some(module_options) =
+    option_pages.first().map(|page| page.path.as_path())
+  else {
     bail!(
       "Configuration error: module options are required for man output. Set \
-       'module_options' in config or use 'ndg man -j <options.json>'."
+       'module_options' or 'module_options_pages' in config, or use 'ndg man \
+       -j <options.json>'."
     );
   };
 
@@ -369,10 +373,14 @@ fn generate_man_output(config: &Config) -> Result<()> {
 }
 
 fn generate_pdf_output(config: &Config) -> Result<()> {
-  let Some(module_options) = config.module_options.as_deref() else {
+  let option_pages = config.effective_module_options_pages();
+  let Some(module_options) =
+    option_pages.first().map(|page| page.path.as_path())
+  else {
     bail!(
       "Configuration error: module options are required for PDF output. Set \
-       'module_options' in config or use 'ndg pdf -j <options.json>'."
+       'module_options' or 'module_options_pages' in config, or use 'ndg pdf \
+       -j <options.json>'."
     );
   };
 
@@ -486,9 +494,12 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     .collect();
 
   // Process options if provided
-  let options_processed = if let Some(options_path) = &config.module_options {
-    info!("Processing options.json from {}", options_path.display());
-    html::options::process_options(config, options_path)?;
+  let option_pages = config.effective_module_options_pages();
+  let options_processed = if !option_pages.is_empty() {
+    for page in &option_pages {
+      info!("Processing options.json from {}", page.path.display());
+      html::options::process_options_page(config, page)?;
+    }
     true
   } else {
     info!("Module options were not set, skipping options processing");
