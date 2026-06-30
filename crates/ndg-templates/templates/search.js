@@ -121,6 +121,11 @@ class SearchEngine {
     this.lowercaseCache = this.documents.map((doc) => ({
       title: (doc.title || "").toLowerCase(),
       content: (doc.content || "").toLowerCase(),
+      anchors: Array.isArray(doc.anchors)
+        ? doc.anchors
+            .map((anchor) => this.normalizeSearchText(this.anchorSearchText(anchor)))
+            .join(" ")
+        : "",
     }));
   }
 
@@ -162,9 +167,18 @@ class SearchEngine {
               this.lowercaseCache[i] = {
                 title: lowerTitle,
                 content: lowerContent,
+                anchors: Array.isArray(doc.anchors)
+                  ? doc.anchors
+                      .map((anchor) =>
+                        this.normalizeSearchText(this.anchorSearchText(anchor)),
+                      )
+                      .join(" ")
+                  : "",
               };
 
-              const tokens = this.tokenize(lowerTitle + " " + lowerContent);
+              const tokens = this.tokenize(
+                `${lowerTitle} ${lowerContent} ${this.lowercaseCache[i].anchors}`,
+              );
               tokens.forEach((token) => {
                 if (!this.tokenMap.has(token)) {
                   this.tokenMap.set(token, []);
@@ -454,34 +468,20 @@ class SearchEngine {
     const useFuzzySearch = rawQuery.length >= 3;
 
     const candidateDocIds = new Set();
-    searchTerms.forEach((term) => {
-      if (this.tokenMap.has(term)) {
-        const docIds = this.tokenMap.get(term);
-        docIds.forEach((docId) => candidateDocIds.add(docId));
-      }
-    });
-
-    // Tokenization keeps some Nix-ish identifiers whole, such as
-    // redis-test-hook or services.nginx.enable. Fall back to substring
-    // candidate discovery so exact visible text still searches successfully.
+    const normalizedQuery = this.normalizeSearchText(rawQuery);
     this.lowercaseCache.forEach((cached, docId) => {
-      const doc = this.documents[docId];
       const title = cached?.title || "";
       const content = cached?.content || "";
-      const anchors = Array.isArray(doc?.anchors) ? doc.anchors : [];
-      const anchorText = anchors
-        .map((anchor) => this.normalizeSearchText(this.anchorSearchText(anchor)))
-        .join(" ");
-      const normalizedQuery = this.normalizeSearchText(rawQuery);
+      const anchors = cached?.anchors || "";
       if (
         title.includes(rawQuery) ||
         content.includes(rawQuery) ||
-        anchorText.includes(normalizedQuery) ||
+        anchors.includes(normalizedQuery) ||
         searchTerms.some(
           (term) =>
             title.includes(term) ||
             content.includes(term) ||
-            anchorText.includes(term),
+            anchors.includes(term),
         )
       ) {
         candidateDocIds.add(docId);
