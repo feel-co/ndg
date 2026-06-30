@@ -36,6 +36,13 @@ Deno.test("worker path stays relative for root pages", () => {
  * Each test should call this to isolate state.
  */
 async function loadDocs(docs) {
+  engine.config = {
+    minWordLength: 2,
+    stopwords: [],
+    boostTitle: 100.0,
+    boostContent: 30.0,
+    boostAnchor: 10.0,
+  };
   await engine.initializeFromDocuments(docs);
   engine.isLoaded = true;
   engine.loadError = false;
@@ -376,4 +383,38 @@ Deno.test("anchor match is returned for matching heading", async () => {
     true,
     "sidebar-setup anchor should be in matching anchors",
   );
+});
+
+Deno.test("two-character query still searches when min word length is higher", async () => {
+  await loadDocs([
+    {
+      id: "1",
+      title: "Terminal",
+      content: "Configure the terminal emulator.",
+      path: "term.html",
+      anchors: [],
+    },
+  ]);
+  engine.config = { ...engine.config, minWordLength: 3 };
+
+  const results = await engine.search("te");
+  assertEquals(results.length, 1, "visible two-character text should match");
+  assertEquals(results[0].doc.title, "Terminal");
+});
+
+Deno.test("stopword-only phrase search can return visible title", async () => {
+  await loadDocs([
+    {
+      id: "1",
+      title: "What is",
+      content: "A short introduction.",
+      path: "intro.html",
+      anchors: [],
+    },
+  ]);
+  engine.config = { ...engine.config, stopwords: ["what", "is"] };
+
+  const results = await engine.search("what is");
+  assertEquals(results.length, 1, "visible phrase should match even as stopwords");
+  assertEquals(results[0].doc.title, "What is");
 });

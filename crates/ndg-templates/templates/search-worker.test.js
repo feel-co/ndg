@@ -73,3 +73,41 @@ Deno.test("worker honours a two-character query", () => {
   assertGreater(out[0].data.length, 0, "two-char query should match 'Terminal'");
   assertEquals(out[0].data[0].doc.title, "Terminal");
 });
+
+Deno.test("worker keeps two-character queries below min word length searchable", () => {
+  send({ type: "init", data: { documents: docs, config: { minWordLength: 3 } } });
+  const out = send({
+    messageId: "c",
+    type: "search",
+    data: { query: "te", limit: 8 },
+  });
+  assertEquals(out[0].type, "results");
+  assertGreater(out[0].data.length, 0, "visible two-char text should match");
+  assertEquals(out[0].data[0].doc.title, "Terminal");
+});
+
+Deno.test("worker returns a visible phrase made only of stopwords", () => {
+  send({
+    type: "init",
+    data: {
+      documents: [
+        {
+          id: "intro",
+          title: "What is",
+          content: "A short introduction.",
+          path: "intro.html",
+          anchors: [],
+        },
+      ],
+      config: { minWordLength: 2, stopwords: ["what", "is"] },
+    },
+  });
+  const out = send({
+    messageId: "d",
+    type: "search",
+    data: { query: "what is", limit: 8 },
+  });
+  assertEquals(out[0].type, "results");
+  assertEquals(out[0].data.length, 1, "stopword phrase should still match");
+  assertEquals(out[0].data[0].doc.title, "What is");
+});

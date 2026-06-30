@@ -231,16 +231,18 @@ const setDocuments = (documents, config) => {
   processedDocs = cachedDocuments.map((doc, docId) => {
     const title = typeof doc.title === "string" ? doc.title : "";
     const content = typeof doc.content === "string" ? doc.content : "";
+    const lowerAnchors = Array.isArray(doc.anchors)
+      ? doc.anchors
+          .map((anchor) => normalizeSearchText(anchorSearchText(anchor)))
+          .join(" ")
+      : "";
+
     return {
       docId,
       doc,
       lowerTitle: title.toLowerCase(),
       lowerContent: content.toLowerCase(),
-      lowerAnchors: Array.isArray(doc.anchors)
-        ? doc.anchors
-            .map((anchor) => normalizeSearchText(anchorSearchText(anchor)))
-            .join(" ")
-        : "",
+      lowerAnchors,
     };
   });
 };
@@ -250,7 +252,7 @@ const runSearch = (query, limit) => {
   const searchTerms = tokenizeQuery(query);
   const useFuzzySearch = rawQuery.length >= 3;
 
-  if (searchTerms.length === 0 && rawQuery.length < searchConfig.minWordLength) {
+  if (searchTerms.length === 0 && rawQuery.length < 2) {
     return [];
   }
   if (!processedDocs || processedDocs.length === 0) {
@@ -273,7 +275,7 @@ const runSearch = (query, limit) => {
             lowerTitle.includes(term) ||
             lowerContent.includes(term) ||
             lowerAnchors.includes(term),
-        );
+      );
       if (!hasRelevantToken) return;
 
       let match = pageMatches.get(docId);
