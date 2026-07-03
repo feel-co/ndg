@@ -235,6 +235,8 @@ module options, controlling how options appear in the options table of contents.
 ```toml
 [sidebar.options]
 depth = 2
+nested = false
+nested_depth = 0
 ordering = "alphabetical"
 
 [[sidebar.options.matches]]
@@ -266,6 +268,43 @@ A depth of 2 groups options by their first two components (e.g.,
 - services.nginx.virtualHosts (contains only virtualHosts.* options)
 - services.nginx (contains nginx.enable, nginx.package)
 ```
+
+#### `nested`
+
+Controls whether child attributes inside each option category are rendered as a
+recursive tree.
+
+- **Type**: Boolean
+- **Default**: `false`
+
+When disabled, child options are shown as a flat list under each category. When
+enabled, common child prefixes become nested dropdowns.
+
+```plaintext
+# nested = false
+rum.programs
+├── alacritty.enable
+├── alacritty.package
+└── beets.enable
+
+# nested = true
+rum.programs
+├── alacritty
+│   ├── enable
+│   └── package
+└── beets
+    └── enable
+```
+
+#### `nested_depth`
+
+Limits how many child dropdown levels are created below each category.
+
+- **Type**: Integer
+- **Default**: `0`
+
+`0` means unlimited nesting. A positive value collapses deeper suffixes into a
+single leaf label.
 
 #### `ordering`
 
@@ -403,6 +442,37 @@ Result:
 # With depth = 1 override:
 - programs (all programs.* options together)
 ```
+
+### Multi-Page Options
+
+The top-level `[options.pages]` section controls whether module options are
+split across generated group pages. This is separate from `[sidebar.options]`:
+page routing decides where an option lives, while sidebar options decide how
+links are grouped.
+
+```toml
+[options.pages]
+enabled = true
+depth = 1
+root = "options"
+
+[[options.pages.matches]]
+name.regex = "^foo\\.bar\\.baz(\\.|$)"
+depth = 3
+title = "Foo Bar Baz"
+position = 10
+```
+
+With this configuration:
+
+```plaintext
+options.html                  option group index
+options/foo.html              owns foo.*
+options/foo.bar.baz.html      owns foo.bar.baz.*
+```
+
+Root-level options, such as `enable`, stay on `options.html` unless a page match
+routes them elsewhere.
 
 #### Combined Example
 

@@ -412,6 +412,15 @@ impl Config {
       })?;
     }
 
+    // Validate and compile options configuration if present
+    if let Some(ref mut options) = config.options {
+      options.validate().map_err(|e| {
+        ConfigError::Config(format!(
+          "Options configuration validation failed: {e}"
+        ))
+      })?;
+    }
+
     Ok(config)
   }
 

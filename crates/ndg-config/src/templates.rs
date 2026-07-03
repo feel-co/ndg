@@ -122,6 +122,19 @@ max_heading_level = 3
 # Include options marked internal or invisible.
 # include_internal = true
 
+# Split option documentation into generated group pages.
+# [options.pages]
+# enabled = false
+# depth = 1
+# root = "options"
+
+# Route deep option trees to their own page.
+# [[options.pages.matches]]
+# name.regex = "^foo\\.bar\\.baz(\\.|$)"
+# depth = 3
+# title = "Foo Bar Baz"
+# position = 10
+
 # Sidebar configuration
 # [sidebar]
 # Enable numbering for sidebar items
@@ -164,6 +177,11 @@ max_heading_level = 3
 # [sidebar.options]
 # Depth of parent categories in options TOC (defaults to 2)
 # depth = 2
+
+# Render child attributes as recursive dropdowns.
+# nested = false
+# Maximum child nesting depth below each category, or 0 for unlimited.
+# nested_depth = 0
 
 # Ordering algorithm for options: "alphabetical", "custom", or "filesystem"
 # ordering = "alphabetical"
@@ -211,6 +229,21 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
       "has_default": false,
       "has_description": false,
       "include_internal": true
+    },
+    "pages": {
+      "enabled": false,
+      "depth": 1,
+      "root": "options",
+      "matches": [
+        {
+          "name": {
+            "regex": "^foo\\.bar\\.baz(\\.|$)"
+          },
+          "depth": 3,
+          "title": "Foo Bar Baz",
+          "position": 10
+        }
+      ]
     }
   },
   "highlight_code": true,
@@ -244,6 +277,8 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
     ],
     "options": {
       "depth": 2,
+      "nested": false,
+      "nested_depth": 0,
       "ordering": "alphabetical",
       "matches": [
         {
