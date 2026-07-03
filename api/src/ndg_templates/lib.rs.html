@@ -12,30 +12,32 @@
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">pub const </span>LIB_TEMPLATE: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../templates/lib.html"</span>);
 <a href=#13 id=13 data-nosnippet>13</a>
 <a href=#14 id=14 data-nosnippet>14</a><span class="kw">pub const </span>DEFAULT_CSS: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../templates/default.css"</span>);
-<a href=#15 id=15 data-nosnippet>15</a><span class="kw">pub const </span>SEARCH_JS: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../templates/search.js"</span>);
-<a href=#16 id=16 data-nosnippet>16</a><span class="kw">pub const </span>SEARCH_WORKER_JS: <span class="kw-2">&amp;</span>str =
-<a href=#17 id=17 data-nosnippet>17</a>  <span class="macro">include_str!</span>(<span class="string">"../templates/search-worker.js"</span>);
-<a href=#18 id=18 data-nosnippet>18</a><span class="kw">pub const </span>MAIN_JS: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../templates/main.js"</span>);
-<a href=#19 id=19 data-nosnippet>19</a>
-<a href=#20 id=20 data-nosnippet>20</a><span class="attr">#[must_use]
-<a href=#21 id=21 data-nosnippet>21</a></span><span class="kw">pub fn </span>all_templates() -&gt; HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
-<a href=#22 id=22 data-nosnippet>22</a>  <span class="kw">static </span>CACHE: OnceLock&lt;HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt; = OnceLock::new();
-<a href=#23 id=23 data-nosnippet>23</a>  CACHE
-<a href=#24 id=24 data-nosnippet>24</a>    .get_or_init(|| {
-<a href=#25 id=25 data-nosnippet>25</a>      <span class="kw">let </span><span class="kw-2">mut </span>templates = HashMap::default();
-<a href=#26 id=26 data-nosnippet>26</a>      templates.insert(<span class="string">"default.html"</span>, DEFAULT_TEMPLATE);
-<a href=#27 id=27 data-nosnippet>27</a>      templates.insert(<span class="string">"options.html"</span>, OPTIONS_TEMPLATE);
-<a href=#28 id=28 data-nosnippet>28</a>      templates.insert(<span class="string">"search.html"</span>, SEARCH_TEMPLATE);
-<a href=#29 id=29 data-nosnippet>29</a>      templates.insert(<span class="string">"options_toc.html"</span>, OPTIONS_TOC_TEMPLATE);
-<a href=#30 id=30 data-nosnippet>30</a>      templates.insert(<span class="string">"navbar.html"</span>, NAVBAR_TEMPLATE);
-<a href=#31 id=31 data-nosnippet>31</a>      templates.insert(<span class="string">"footer.html"</span>, FOOTER_TEMPLATE);
-<a href=#32 id=32 data-nosnippet>32</a>      templates.insert(<span class="string">"lib.html"</span>, LIB_TEMPLATE);
-<a href=#33 id=33 data-nosnippet>33</a>      templates.insert(<span class="string">"default.css"</span>, DEFAULT_CSS);
-<a href=#34 id=34 data-nosnippet>34</a>      templates.insert(<span class="string">"search.js"</span>, SEARCH_JS);
-<a href=#35 id=35 data-nosnippet>35</a>      templates.insert(<span class="string">"search-worker.js"</span>, SEARCH_WORKER_JS);
-<a href=#36 id=36 data-nosnippet>36</a>      templates.insert(<span class="string">"main.js"</span>, MAIN_JS);
-<a href=#37 id=37 data-nosnippet>37</a>      templates
-<a href=#38 id=38 data-nosnippet>38</a>    })
-<a href=#39 id=39 data-nosnippet>39</a>    .clone()
-<a href=#40 id=40 data-nosnippet>40</a>}
+<a href=#15 id=15 data-nosnippet>15</a><span class="kw">pub const </span>SEARCH_CORE_JS: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../templates/search-core.js"</span>);
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">pub const </span>SEARCH_JS: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../templates/search.js"</span>);
+<a href=#17 id=17 data-nosnippet>17</a><span class="kw">pub const </span>SEARCH_WORKER_JS: <span class="kw-2">&amp;</span>str =
+<a href=#18 id=18 data-nosnippet>18</a>  <span class="macro">include_str!</span>(<span class="string">"../templates/search-worker.js"</span>);
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">pub const </span>MAIN_JS: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"../templates/main.js"</span>);
+<a href=#20 id=20 data-nosnippet>20</a>
+<a href=#21 id=21 data-nosnippet>21</a><span class="attr">#[must_use]
+<a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">pub fn </span>all_templates() -&gt; HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+<a href=#23 id=23 data-nosnippet>23</a>  <span class="kw">static </span>CACHE: OnceLock&lt;HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt; = OnceLock::new();
+<a href=#24 id=24 data-nosnippet>24</a>  CACHE
+<a href=#25 id=25 data-nosnippet>25</a>    .get_or_init(|| {
+<a href=#26 id=26 data-nosnippet>26</a>      <span class="kw">let </span><span class="kw-2">mut </span>templates = HashMap::default();
+<a href=#27 id=27 data-nosnippet>27</a>      templates.insert(<span class="string">"default.html"</span>, DEFAULT_TEMPLATE);
+<a href=#28 id=28 data-nosnippet>28</a>      templates.insert(<span class="string">"options.html"</span>, OPTIONS_TEMPLATE);
+<a href=#29 id=29 data-nosnippet>29</a>      templates.insert(<span class="string">"search.html"</span>, SEARCH_TEMPLATE);
+<a href=#30 id=30 data-nosnippet>30</a>      templates.insert(<span class="string">"options_toc.html"</span>, OPTIONS_TOC_TEMPLATE);
+<a href=#31 id=31 data-nosnippet>31</a>      templates.insert(<span class="string">"navbar.html"</span>, NAVBAR_TEMPLATE);
+<a href=#32 id=32 data-nosnippet>32</a>      templates.insert(<span class="string">"footer.html"</span>, FOOTER_TEMPLATE);
+<a href=#33 id=33 data-nosnippet>33</a>      templates.insert(<span class="string">"lib.html"</span>, LIB_TEMPLATE);
+<a href=#34 id=34 data-nosnippet>34</a>      templates.insert(<span class="string">"default.css"</span>, DEFAULT_CSS);
+<a href=#35 id=35 data-nosnippet>35</a>      templates.insert(<span class="string">"search-core.js"</span>, SEARCH_CORE_JS);
+<a href=#36 id=36 data-nosnippet>36</a>      templates.insert(<span class="string">"search.js"</span>, SEARCH_JS);
+<a href=#37 id=37 data-nosnippet>37</a>      templates.insert(<span class="string">"search-worker.js"</span>, SEARCH_WORKER_JS);
+<a href=#38 id=38 data-nosnippet>38</a>      templates.insert(<span class="string">"main.js"</span>, MAIN_JS);
+<a href=#39 id=39 data-nosnippet>39</a>      templates
+<a href=#40 id=40 data-nosnippet>40</a>    })
+<a href=#41 id=41 data-nosnippet>41</a>    .clone()
+<a href=#42 id=42 data-nosnippet>42</a>}
 </code></pre></div></section></main></body></html>
