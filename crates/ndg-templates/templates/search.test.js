@@ -13,6 +13,7 @@ globalThis.document = {
   getElementById: (_id) => null,
 };
 
+await import("./search-core.js");
 await import("./search.js");
 
 const engine = globalThis.window.searchNamespace.engine;

@@ -9,6 +9,7 @@ use walkdir::WalkDir;
 use crate::postprocess;
 
 const DEFAULT_CSS: &str = templates::DEFAULT_CSS;
+const SEARCH_CORE_JS: &str = templates::SEARCH_CORE_JS;
 const SEARCH_JS: &str = templates::SEARCH_JS;
 const SEARCH_WORKER_JS: &str = templates::SEARCH_WORKER_JS;
 const MAIN_JS: &str = templates::MAIN_JS;
@@ -73,6 +74,7 @@ pub fn copy_assets(config: &Config) -> Result<()> {
 
   // Create search.js for search functionality
   if config.is_search_enabled() {
+    copy_template_asset(config, &assets_dir, "search-core.js", SEARCH_CORE_JS)?;
     copy_template_asset(config, &assets_dir, "search.js", SEARCH_JS)?;
 
     // Only copy search-worker.js if using default templates or if custom

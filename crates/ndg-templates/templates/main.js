@@ -484,7 +484,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   if (window.location.hash) {
-    const targetElement = document.querySelector(window.location.hash);
+    const targetElement = document.getElementById(
+      decodeURIComponent(window.location.hash.slice(1)),
+    );
     if (targetElement) {
       setTimeout(() => scrollToElement(targetElement), 0);
       // Add highlight class for options page
@@ -612,372 +614,137 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Options filter functionality
-  const optionsFilter = document.getElementById("options-filter");
-  if (optionsFilter) {
-    const optionsContainer = document.querySelector(".options-container");
-    if (!optionsContainer) return;
+  function setupListFilter({
+    inputId,
+    containerSelector,
+    itemSelector,
+    nameSelector,
+    noun,
+  }) {
+    const input = document.getElementById(inputId);
+    const container = document.querySelector(containerSelector);
+    if (!input || !container) return;
 
-    // Template container for hidden options
-    const hiddenOptionsContainer = document.createElement("template");
-    hiddenOptionsContainer.id = "hidden-options-container";
-    document.body.appendChild(hiddenOptionsContainer);
+    const hiddenContainer = document.createElement("template");
+    document.body.appendChild(hiddenContainer);
 
-    // Create filter results counter
     const filterResults = document.createElement("div");
     filterResults.className = "filter-results";
-    optionsFilter.parentNode.insertBefore(
-      filterResults,
-      optionsFilter.nextSibling,
-    );
+    input.parentNode.insertBefore(filterResults, input.nextSibling);
 
-    // Detect if we're on a mobile device
     const isMobile =
       window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-
-    // Cache all option elements and their searchable content
-    const options = Array.from(document.querySelectorAll(".option"));
-    const totalCount = options.length;
-
-    // Store the original order of option elements
-    const originalOptionOrder = options.slice();
-
-    // Pre-process and optimize searchable content
-    const optionsData = options.map((option) => {
-      const nameElem = option.querySelector(".option-name");
-      const descriptionElem = option.querySelector(".option-description");
-      const id = option.id ? option.id.toLowerCase() : "";
-      const name = nameElem ? nameElem.textContent.toLowerCase() : "";
-      const description = descriptionElem
-        ? descriptionElem.textContent.toLowerCase()
-        : "";
-
-      // Extract keywords for faster searching
-      const keywords = (id + " " + name + " " + description)
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((word) => word.length > 1);
-
+    const items = Array.from(document.querySelectorAll(itemSelector));
+    const totalCount = items.length;
+    const originalOrder = items.slice();
+    const data = items.map((element, index) => {
+      const name = element.querySelector(nameSelector)?.textContent ?? "";
       return {
-        element: option,
-        id,
-        name,
-        description,
-        keywords,
-        searchText: (id + " " + name + " " + description).toLowerCase(),
+        element,
+        index,
+        name: name.toLowerCase(),
+        searchText:
+          `${element.id || ""} ${element.textContent || ""}`.toLowerCase(),
       };
     });
 
-    function debounce(func, wait) {
-      let timeout;
-      return function () {
-        const context = this;
-        const args = arguments;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-      };
-    }
+    let lastTerm = "";
+    let timeout = null;
 
-    // Show only the matching options. Matches are reordered (title matches
-    // first, then description matches); every non-match is detached into a
-    // hidden <template>. The hide and the show happen in one synchronous pass
-    // so the browser never paints a frame with the non-matching options still
-    // visible -- painting the full list and then collapsing it over several
-    // animation frames is what made the list flash while filtering.
-    function filterOptions() {
-      const searchTerm = optionsFilter.value.toLowerCase().trim();
+    const applyFilter = () => {
+      const searchTerm = input.value.toLowerCase().trim();
+      if (lastTerm === searchTerm) return;
+      lastTerm = searchTerm;
+      const terms = searchTerm.split(/\s+/).filter(Boolean);
+      const firstTerm = terms[0] || "";
 
-      // Skip if search term hasn't changed
-      if (filterOptions.lastTerm === searchTerm) {
-        return;
-      }
-      filterOptions.lastTerm = searchTerm;
+      const matches =
+        searchTerm === ""
+          ? originalOrder.map((element, index) => ({ element, index }))
+          : data
+              .filter((item) =>
+                terms.every((term) => item.searchText.includes(term)),
+              )
+              .sort((a, b) => {
+                const aRank = a.name.includes(firstTerm) ? 0 : 1;
+                const bRank = b.name.includes(firstTerm) ? 0 : 1;
+                if (aRank !== bRank) return aRank - bRank;
+                const aPos = a.name.includes(firstTerm)
+                  ? a.name.indexOf(firstTerm)
+                  : a.searchText.indexOf(firstTerm);
+                const bPos = b.name.includes(firstTerm)
+                  ? b.name.indexOf(firstTerm)
+                  : b.searchText.indexOf(firstTerm);
+                return aPos - bPos || a.index - b.index;
+              });
 
-      if (searchTerm === "") {
-        // Restore to original order
-        const fragment = document.createDocumentFragment();
-        originalOptionOrder.forEach((option) => {
-          hiddenOptionsContainer.content.appendChild(option);
-        });
-        while (hiddenOptionsContainer.content.firstChild) {
-          fragment.appendChild(hiddenOptionsContainer.content.firstChild);
+      const visibleElements = new Set(matches.map((item) => item.element));
+      for (const item of data) {
+        if (!visibleElements.has(item.element)) {
+          hiddenContainer.content.appendChild(item.element);
         }
-        optionsContainer.appendChild(fragment);
-        filterResults.style.display = "none";
-        return;
       }
-
-      const searchTerms = searchTerm
-        .split(/\s+/)
-        .filter((term) => term.length > 0);
-      const term = searchTerms[0];
-      let visibleCount = 0;
-
-      const titleMatches = [];
-      const descMatches = [];
-
-      for (let i = 0; i < optionsData.length; i++) {
-        const data = optionsData[i];
-        const isTitleMatch = data.name.includes(term);
-        const isDescMatch = !isTitleMatch && data.description.includes(term);
-
-        if (isTitleMatch) {
-          visibleCount++;
-          titleMatches.push(data);
-        } else if (isDescMatch) {
-          visibleCount++;
-          descMatches.push(data);
+      let reference = container.firstChild;
+      for (const item of matches) {
+        if (item.element === reference) {
+          reference = reference.nextSibling;
+        } else {
+          container.insertBefore(item.element, reference);
         }
       }
 
-      titleMatches.sort((a, b) => a.name.indexOf(term) - b.name.indexOf(term));
-      descMatches.sort(
-        (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
-      );
-
-      // Collect the visible matches into a fragment first; appending an element
-      // to the fragment also removes it from its current parent.
-      const visibleElements = new Set();
-      const visibleFragment = document.createDocumentFragment();
-      for (let i = 0; i < titleMatches.length; i++) {
-        const data = titleMatches[i];
-        visibleElements.add(data.element);
-        visibleFragment.appendChild(data.element);
-      }
-      for (let i = 0; i < descMatches.length; i++) {
-        const data = descMatches[i];
-        visibleElements.add(data.element);
-        visibleFragment.appendChild(data.element);
-      }
-
-      // Detach every non-matching option before revealing the matches.
-      for (let i = 0; i < optionsData.length; i++) {
-        const data = optionsData[i];
-        if (!visibleElements.has(data.element)) {
-          hiddenOptionsContainer.content.appendChild(data.element);
-        }
-      }
-      optionsContainer.appendChild(visibleFragment);
-
-      if (visibleCount < totalCount) {
-        filterResults.textContent = `Showing ${visibleCount} of ${totalCount} options`;
+      if (searchTerm !== "" && matches.length < totalCount) {
+        filterResults.textContent = `Showing ${matches.length} of ${totalCount} ${noun}`;
         filterResults.style.display = "block";
       } else {
         filterResults.style.display = "none";
       }
-    }
+    };
 
-    // Use different debounce times for desktop vs mobile
-    const debouncedFilter = debounce(filterOptions, isMobile ? 200 : 100);
+    const debounce = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(applyFilter, isMobile ? 200 : 100);
+    };
 
-    // Set up event listeners
-    optionsFilter.addEventListener("input", debouncedFilter);
-
-    // Allow clearing with Escape key
-    optionsFilter.addEventListener("keydown", function (e) {
+    input.addEventListener("input", debounce);
+    input.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
-        optionsFilter.value = "";
-        filterOptions();
+        input.value = "";
+        applyFilter();
       }
     });
-
-    // Handle visibility changes
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden && optionsFilter.value) {
-        filterOptions();
-      }
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && input.value) applyFilter();
     });
 
-    // Run initial filter if there's a value
-    if (optionsFilter.value) {
-      filterOptions();
-    }
-
-    // Pre-calculate heights for smoother scrolling
+    if (input.value) applyFilter();
     if (isMobile && totalCount > 50) {
       requestIdleCallback(() => {
-        const sampleOption = options[0];
-        if (sampleOption) {
-          const height = sampleOption.offsetHeight;
-          if (height > 0) {
-            options.forEach((opt) => {
-              opt.style.containIntrinsicSize = `0 ${height}px`;
-            });
-          }
+        const height = items[0]?.offsetHeight ?? 0;
+        if (height > 0) {
+          items.forEach((item) => {
+            item.style.containIntrinsicSize = `0 ${height}px`;
+          });
         }
       });
     }
   }
 
-  // Lib filter functionality
-  const libFilter = document.getElementById("lib-filter");
-  if (libFilter && document.querySelector(".lib-container")) {
-    const libContainer = document.querySelector(".lib-container");
+  setupListFilter({
+    inputId: "options-filter",
+    containerSelector: ".options-container",
+    itemSelector: ".option",
+    nameSelector: ".option-name",
+    noun: "options",
+  });
 
-    const hiddenLibContainer = document.createElement("template");
-    hiddenLibContainer.id = "hidden-lib-container";
-    document.body.appendChild(hiddenLibContainer);
-
-    const filterResults = document.createElement("div");
-    filterResults.className = "filter-results";
-    libFilter.parentNode.insertBefore(filterResults, libFilter.nextSibling);
-
-    const isMobile =
-      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-
-    const libEntries = Array.from(document.querySelectorAll(".lib-entry"));
-    const totalCount = libEntries.length;
-    const originalLibOrder = libEntries.slice();
-
-    const libData = libEntries.map((entry) => {
-      const nameElem = entry.querySelector(".lib-entry-name");
-      const descriptionElem = entry.querySelector(".lib-entry-description");
-      const id = entry.id ? entry.id.toLowerCase() : "";
-      const name = nameElem ? nameElem.textContent.toLowerCase() : "";
-      const description = descriptionElem
-        ? descriptionElem.textContent.toLowerCase()
-        : "";
-
-      const keywords = (id + " " + name + " " + description)
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((word) => word.length > 1);
-
-      return {
-        element: entry,
-        id,
-        name,
-        description,
-        keywords,
-        searchText: (id + " " + name + " " + description).toLowerCase(),
-      };
-    });
-
-    function debounceLib(func, wait) {
-      let timeout;
-      return function () {
-        const context = this;
-        const args = arguments;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-      };
-    }
-
-    function filterLib() {
-      const searchTerm = libFilter.value.toLowerCase().trim();
-
-      if (filterLib.lastTerm === searchTerm) {
-        return;
-      }
-      filterLib.lastTerm = searchTerm;
-
-      if (searchTerm === "") {
-        const fragment = document.createDocumentFragment();
-        originalLibOrder.forEach((entry) => {
-          hiddenLibContainer.content.appendChild(entry);
-        });
-        while (hiddenLibContainer.content.firstChild) {
-          fragment.appendChild(hiddenLibContainer.content.firstChild);
-        }
-        libContainer.appendChild(fragment);
-        filterResults.style.display = "none";
-        return;
-      }
-
-      const searchTerms = searchTerm
-        .split(/\s+/)
-        .filter((term) => term.length > 0);
-      const term = searchTerms[0];
-      let visibleCount = 0;
-
-      const titleMatches = [];
-      const descMatches = [];
-
-      for (let i = 0; i < libData.length; i++) {
-        const data = libData[i];
-        const isTitleMatch = data.name.includes(term);
-        const isDescMatch = !isTitleMatch && data.description.includes(term);
-
-        if (isTitleMatch) {
-          visibleCount++;
-          titleMatches.push(data);
-        } else if (isDescMatch) {
-          visibleCount++;
-          descMatches.push(data);
-        }
-      }
-
-      titleMatches.sort((a, b) => a.name.indexOf(term) - b.name.indexOf(term));
-      descMatches.sort(
-        (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
-      );
-
-      // Detach non-matches and reveal matches in one synchronous pass; see
-      // filterOptions for why this avoids the filter flash.
-      const visibleElements = new Set();
-      const visibleFragment = document.createDocumentFragment();
-      for (let i = 0; i < titleMatches.length; i++) {
-        const data = titleMatches[i];
-        visibleElements.add(data.element);
-        visibleFragment.appendChild(data.element);
-      }
-      for (let i = 0; i < descMatches.length; i++) {
-        const data = descMatches[i];
-        visibleElements.add(data.element);
-        visibleFragment.appendChild(data.element);
-      }
-
-      for (let i = 0; i < libData.length; i++) {
-        const data = libData[i];
-        if (!visibleElements.has(data.element)) {
-          hiddenLibContainer.content.appendChild(data.element);
-        }
-      }
-      libContainer.appendChild(visibleFragment);
-
-      if (visibleCount < totalCount) {
-        filterResults.textContent = `Showing ${visibleCount} of ${totalCount} functions`;
-        filterResults.style.display = "block";
-      } else {
-        filterResults.style.display = "none";
-      }
-    }
-
-    const debouncedFilter = debounceLib(filterLib, isMobile ? 200 : 100);
-
-    libFilter.addEventListener("input", debouncedFilter);
-
-    libFilter.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        libFilter.value = "";
-        filterLib();
-      }
-    });
-
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden && libFilter.value) {
-        filterLib();
-      }
-    });
-
-    if (libFilter.value) {
-      filterLib();
-    }
-
-    if (isMobile && totalCount > 50) {
-      requestIdleCallback(() => {
-        const sampleEntry = libEntries[0];
-        if (sampleEntry) {
-          const height = sampleEntry.offsetHeight;
-          if (height > 0) {
-            libEntries.forEach((entry) => {
-              entry.style.containIntrinsicSize = `0 ${height}px`;
-            });
-          }
-        }
-      });
-    }
-  }
+  setupListFilter({
+    inputId: "lib-filter",
+    containerSelector: ".lib-container",
+    itemSelector: ".lib-entry",
+    nameSelector: ".lib-entry-name",
+    noun: "functions",
+  });
 
   // URL-based search highlighting
   const urlParams = new URLSearchParams(window.location.search);

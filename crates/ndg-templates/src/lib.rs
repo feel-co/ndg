@@ -12,6 +12,7 @@ pub const FOOTER_TEMPLATE: &str = include_str!("../templates/footer.html");
 pub const LIB_TEMPLATE: &str = include_str!("../templates/lib.html");
 
 pub const DEFAULT_CSS: &str = include_str!("../templates/default.css");
+pub const SEARCH_CORE_JS: &str = include_str!("../templates/search-core.js");
 pub const SEARCH_JS: &str = include_str!("../templates/search.js");
 pub const SEARCH_WORKER_JS: &str =
   include_str!("../templates/search-worker.js");
@@ -31,6 +32,7 @@ pub fn all_templates() -> HashMap<&'static str, &'static str> {
       templates.insert("footer.html", FOOTER_TEMPLATE);
       templates.insert("lib.html", LIB_TEMPLATE);
       templates.insert("default.css", DEFAULT_CSS);
+      templates.insert("search-core.js", SEARCH_CORE_JS);
       templates.insert("search.js", SEARCH_JS);
       templates.insert("search-worker.js", SEARCH_WORKER_JS);
       templates.insert("main.js", MAIN_JS);
