@@ -7,6 +7,8 @@ use serde::{
   de::{self, MapAccess, Visitor},
 };
 
+use crate::matchers::OptionNameMatch;
+
 /// Deserializer for match types with `exact` and `regex` fields.
 fn deserialize_match_field<'de, D, T>(
   deserializer: D,
@@ -486,6 +488,15 @@ pub struct OptionsConfig {
   #[config(key = "depth")]
   pub depth: usize,
 
+  /// Render option children as recursive nested groups.
+  #[config(key = "nested")]
+  pub nested: bool,
+
+  /// Maximum nested child depth below each parent category, or 0 for
+  /// unlimited.
+  #[config(key = "nested_depth")]
+  pub nested_depth: usize,
+
   /// Ordering algorithm for options.
   #[config(key = "ordering")]
   pub ordering: SidebarOrdering,
@@ -497,9 +508,11 @@ pub struct OptionsConfig {
 impl Default for OptionsConfig {
   fn default() -> Self {
     Self {
-      depth:    2,
-      ordering: SidebarOrdering::default(),
-      matches:  Vec::new(),
+      depth:        2,
+      nested:       false,
+      nested_depth: 0,
+      ordering:     SidebarOrdering::default(),
+      matches:      Vec::new(),
     }
   }
 }
@@ -525,81 +538,6 @@ impl OptionsConfig {
   #[must_use]
   pub fn find_match(&self, option_name: &str) -> Option<&OptionsMatch> {
     self.matches.iter().find(|m| m.matches(option_name))
-  }
-}
-
-/// Option name matching criteria (exact or regex).
-#[derive(Debug, Clone, Serialize, Default)]
-pub struct OptionNameMatch {
-  /// Exact option name match.
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub exact: Option<String>,
-
-  /// Regex pattern for option name matching.
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub regex: Option<String>,
-
-  /// Compiled regex cache (populated after validation).
-  #[serde(skip)]
-  pub compiled_regex: Option<Regex>,
-}
-
-impl PartialEq for OptionNameMatch {
-  fn eq(&self, other: &Self) -> bool {
-    self.exact == other.exact && self.regex == other.regex
-  }
-}
-
-impl Eq for OptionNameMatch {}
-
-impl MatchField for OptionNameMatch {
-  fn from_exact(exact: String) -> Self {
-    Self {
-      exact:          Some(exact),
-      regex:          None,
-      compiled_regex: None,
-    }
-  }
-
-  fn from_parts(exact: Option<String>, regex: Option<String>) -> Self {
-    Self {
-      exact,
-      regex,
-      compiled_regex: None,
-    }
-  }
-}
-
-impl OptionNameMatch {
-  /// Create a new [`OptionNameMatch`] with exact matching.
-  #[cfg(test)]
-  #[must_use]
-  pub const fn exact(name: String) -> Self {
-    Self {
-      exact:          Some(name),
-      regex:          None,
-      compiled_regex: None,
-    }
-  }
-
-  /// Create a new [`OptionNameMatch`] with regex matching.
-  #[cfg(test)]
-  #[must_use]
-  pub const fn regex(pattern: String) -> Self {
-    Self {
-      exact:          None,
-      regex:          Some(pattern),
-      compiled_regex: None,
-    }
-  }
-}
-
-impl<'de> Deserialize<'de> for OptionNameMatch {
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    deserialize_match_field(deserializer, "name")
   }
 }
 
@@ -1194,9 +1132,9 @@ position = 1
   #[test]
   fn test_options_config_find_match() {
     let mut config = OptionsConfig {
-      depth:    2,
+      depth: 2,
       ordering: SidebarOrdering::Custom,
-      matches:  vec![
+      matches: vec![
         OptionsMatch {
           name:     Some(OptionNameMatch::exact(
             "programs.neovim.enable".to_string(),
@@ -1214,6 +1152,7 @@ position = 1
           hidden:   None,
         },
       ],
+      ..Default::default()
     };
 
     // Validate to compile regexes
@@ -1232,9 +1171,9 @@ position = 1
   #[test]
   fn test_options_config_first_rule_wins() {
     let config = OptionsConfig {
-      depth:    2,
+      depth: 2,
       ordering: SidebarOrdering::Alphabetical,
-      matches:  vec![
+      matches: vec![
         OptionsMatch {
           name:     Some(OptionNameMatch::exact("test.option".to_string())),
           new_name: Some("First".to_string()),
@@ -1250,6 +1189,7 @@ position = 1
           hidden:   None,
         },
       ],
+      ..Default::default()
     };
 
     let m = config
@@ -1387,15 +1327,16 @@ position = 50
   #[test]
   fn test_options_config_validation_invalid_regex() {
     let mut config = OptionsConfig {
-      depth:    2,
+      depth: 2,
       ordering: SidebarOrdering::Alphabetical,
-      matches:  vec![OptionsMatch {
+      matches: vec![OptionsMatch {
         name:     Some(OptionNameMatch::regex("[invalid regex(".to_string())),
         new_name: None,
         depth:    None,
         position: None,
         hidden:   None,
       }],
+      ..Default::default()
     };
 
     let result = config.validate();
@@ -1453,12 +1394,13 @@ position = 50
     };
 
     let other = OptionsConfig {
-      depth:    4,
+      depth: 4,
       ordering: SidebarOrdering::Custom,
-      matches:  vec![OptionsMatch {
+      matches: vec![OptionsMatch {
         name: Some(OptionNameMatch::exact("test".to_string())),
         ..Default::default()
       }],
+      ..Default::default()
     };
 
     config.merge_fields(other);
