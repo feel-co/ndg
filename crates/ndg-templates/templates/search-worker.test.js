@@ -4,6 +4,7 @@ const messages = [];
 globalThis.self = globalThis;
 globalThis.postMessage = (msg) => messages.push(msg);
 
+await import("./search-core.js");
 await import("./search-worker.js");
 
 function assertEquals(a, b, msg) {
@@ -110,4 +111,29 @@ Deno.test("worker returns a visible phrase made only of stopwords", () => {
   assertEquals(out[0].type, "results");
   assertEquals(out[0].data.length, 1, "stopword phrase should still match");
   assertEquals(out[0].data[0].doc.title, "What is");
+});
+
+Deno.test("worker maps content matches to containing anchors", () => {
+  send({
+    type: "init",
+    data: {
+      documents: [
+        {
+          id: "guide",
+          title: "Guide",
+          content: "Install\nThe sidebar setting lives here.",
+          path: "guide.html",
+          anchors: [{ id: "install", text: "Install", level: 2, tokens: [] }],
+        },
+      ],
+      config: { minWordLength: 2 },
+    },
+  });
+  const out = send({
+    messageId: "e",
+    type: "search",
+    data: { query: "sidebar", limit: 8 },
+  });
+  assertEquals(out[0].type, "results");
+  assertEquals(out[0].data[0].matchingAnchors[0].id, "install");
 });
