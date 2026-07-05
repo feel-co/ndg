@@ -68,6 +68,16 @@
             </div>
           </details>
 
+          {% if show_option_groups_toc %}
+          <details class="sidebar-section" data-section="option-groups" open>
+            <summary>Option Groups</summary>
+            <div class="sidebar-section-content">
+              {{ option_page_nav|safe }}
+              {{ option_groups_toc|safe }}
+            </div>
+          </details>
+          {% endif %}
+
           <details class="sidebar-section" data-section="toc" open>
             <summary>Contents</summary>
             <div class="sidebar-section-content">

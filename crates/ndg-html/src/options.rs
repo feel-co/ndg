@@ -9,7 +9,7 @@ use ndg_utils::{json::extract_value, markdown::create_processor, postprocess};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::{self, Value};
 
-use crate::template;
+use crate::{option_page_render, option_pages, template};
 
 /// Process options from a JSON file and generate the options documentation
 /// page.
@@ -244,17 +244,51 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   let customized_options: IndexMap<String, NixOption> =
     sorted.into_iter().collect();
 
-  // Render options page
-  let html = template::render_options(config, &customized_options)?;
+  if option_pages::pages_enabled(config) {
+    write_split_options(config, &customized_options)?;
+  } else {
+    let html = template::render_options(config, &customized_options)?;
+    write_options_html(config, "options.html", html)?;
+  }
 
-  // Apply postprocessing if requested
+  Ok(())
+}
+
+fn write_split_options(
+  config: &Config,
+  options: &IndexMap<String, NixOption>,
+) -> Result<()> {
+  let page_set = option_pages::build_option_pages(config, options);
+  let index_html = option_page_render::render_options_index(config, &page_set)?;
+  write_options_html(config, "options.html", index_html)?;
+
+  for page in &page_set.pages {
+    let html =
+      option_page_render::render_option_page(config, page, &page_set.pages)?;
+    write_options_html(config, &page.path, html)?;
+  }
+
+  Ok(())
+}
+
+fn write_options_html(
+  config: &Config,
+  relative_path: &str,
+  html: String,
+) -> Result<()> {
   let processed_html = if let Some(ref postprocess) = config.postprocess {
     postprocess::process_html(&html, postprocess)?
   } else {
     html
   };
 
-  let output_path = config.output_dir.join("options.html");
+  let output_path = config.output_dir.join(relative_path);
+  if let Some(parent) = output_path.parent() {
+    fs::create_dir_all(parent).wrap_err_with(|| {
+      format!("Failed to create options directory: {}", parent.display())
+    })?;
+  }
+
   fs::write(&output_path, processed_html).wrap_err_with(|| {
     format!("Failed to write options file: {}", output_path.display())
   })?;

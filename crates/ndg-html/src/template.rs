@@ -123,6 +123,12 @@ impl PageContext {
   }
 }
 
+#[derive(Clone, Copy, Default)]
+pub(crate) struct OptionsSidebarHtml<'a> {
+  pub(crate) option_groups_toc: Option<&'a str>,
+  pub(crate) option_page_nav:   Option<&'a str>,
+}
+
 /// Cache for template content strings to avoid repeated disk I/O
 static TEMPLATE_CONTENT_CACHE: LazyLock<RwLock<FxHashMap<String, Arc<str>>>> =
   LazyLock::new(|| RwLock::new(FxHashMap::default()));
@@ -585,11 +591,29 @@ fn resolve_doc_template(
 /// # Panics
 ///
 /// Panics if an internal template or content cache `RwLock` is poisoned.
-#[expect(
-  clippy::expect_used,
-  reason = "RwLock poisoning is unrecoverable; panic is the correct response"
-)]
 pub fn render_options(
+  config: &Config,
+  options: &IndexMap<String, NixOption>,
+) -> Result<String> {
+  let options_html = generate_options_html(options, config);
+  let options_toc = render_options_toc(config, options)?;
+  render_options_body(
+    config,
+    Path::new("options.html"),
+    &format!("{} Options", config.title),
+    "Options",
+    &options_html,
+    &options_toc,
+    OptionsSidebarHtml::default(),
+  )
+}
+
+/// Render one generated option group page.
+///
+/// # Errors
+///
+/// Returns an error if the options template or TOC template cannot be rendered.
+pub(crate) fn render_options_toc(
   config: &Config,
   options: &IndexMap<String, NixOption>,
 ) -> Result<String> {
@@ -611,18 +635,31 @@ pub fn render_options(
       .map_or_else(|| "default".to_string(), |p| p.display().to_string())
   );
   {
-    let mut cache = TERA_CACHE.write().expect("tera cache lock not poisoned");
+    let mut cache = TERA_CACHE
+      .write()
+      .unwrap_or_else(std::sync::PoisonError::into_inner);
     cache.insert(cache_key, tera.clone());
   }
 
-  // Create options HTML
-  let options_html = generate_options_html(options, config);
-
   // Generate options TOC using Tera templating
-  let options_toc = generate_options_toc(options, config, &tera)?;
+  generate_options_toc(options, config, &tera)
+}
+
+pub(crate) fn render_options_body(
+  config: &Config,
+  root_path: &Path,
+  heading: &str,
+  title_suffix: &str,
+  options_html: &str,
+  options_toc: &str,
+  sidebar_html: OptionsSidebarHtml<'_>,
+) -> Result<String> {
+  // Load templates with caching
+  let options_template =
+    get_template_content(config, "options.html", OPTIONS_TEMPLATE)?;
+  let tera = setup_tera_templates(config, "options", &options_template)?;
 
   // Generate document navigation and paths
-  let root_path = Path::new("options.html");
   let doc_nav = generate_doc_nav(config, root_path);
   let custom_scripts = generate_custom_scripts(config, root_path)?;
   let asset_paths = generate_asset_paths(root_path);
@@ -639,14 +676,26 @@ pub fn render_options(
     &root_prefix,
     "class=\"active\"",
   );
-  tera_context.insert("title", &format!("{} - Options", config.title));
-  tera_context.insert("heading", &format!("{} Options", config.title));
-  tera_context.insert("options", &options_html);
+  tera_context.insert("title", &format!("{} - {}", config.title, title_suffix));
+  tera_context.insert("heading", heading);
+  tera_context.insert("options", options_html);
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("doc_nav", &doc_nav);
-  tera_context.insert("toc", &options_toc);
+  tera_context.insert("toc", options_toc);
+  tera_context.insert(
+    "show_option_groups_toc",
+    &sidebar_html.option_groups_toc.is_some(),
+  );
+  tera_context.insert(
+    "option_groups_toc",
+    &sidebar_html.option_groups_toc.unwrap_or(""),
+  );
+  tera_context.insert(
+    "option_page_nav",
+    &sidebar_html.option_page_nav.unwrap_or(""),
+  );
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
@@ -727,12 +776,13 @@ fn generate_options_toc(
   config: &Config,
   tera: &Tera,
 ) -> Result<String> {
+  let sidebar_options =
+    config.sidebar.as_ref().and_then(|s| s.options.as_ref());
+
   // Get depth from sidebar.options config or fallback to default
-  let default_depth = config
-    .sidebar
-    .as_ref()
-    .and_then(|s| s.options.as_ref())
-    .map_or(2, |o| o.depth);
+  let default_depth = sidebar_options.map_or(2, |o| o.depth);
+  let nested = sidebar_options.is_some_and(|o| o.nested);
+  let nested_depth = sidebar_options.map_or(0, |o| o.nested_depth);
 
   let mut grouped_options: FxHashMap<String, Vec<&NixOption>> =
     FxHashMap::default();
@@ -743,11 +793,7 @@ fn generate_options_toc(
 
   for option in options.values() {
     // Check if this option has a matching rule in sidebar.options config
-    let match_result = config
-      .sidebar
-      .as_ref()
-      .and_then(|s| s.options.as_ref())
-      .and_then(|o| o.find_match(&option.name));
+    let match_result = sidebar_options.and_then(|o| o.find_match(&option.name));
 
     // Skip if option is marked as hidden
     if let Some(matched) = &match_result {
@@ -781,6 +827,16 @@ fn generate_options_toc(
 
     // Add to grouped options
     grouped_options.entry(parent).or_default().push(option);
+  }
+
+  if nested {
+    return Ok(crate::option_toc::generate_nested_options_toc_html(
+      &grouped_options,
+      &direct_parent_options,
+      &option_custom_names,
+      &option_positions,
+      nested_depth,
+    ));
   }
 
   // Separate categories into single options and dropdown categories
@@ -1688,7 +1744,7 @@ fn sanitize_option_id_legacy(name: &str) -> String {
 }
 
 /// Generate the options HTML content
-fn generate_options_html(
+pub(crate) fn generate_options_html(
   options: &IndexMap<String, NixOption>,
   config: &Config,
 ) -> String {

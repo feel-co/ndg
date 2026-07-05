@@ -1,3 +1,8 @@
+#![allow(
+  dead_code,
+  reason = "Shared integration-test helpers are target-local"
+)]
+
 use std::{
   fs,
   path::{Path, PathBuf},
