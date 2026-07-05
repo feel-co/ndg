@@ -35,6 +35,23 @@ changes.
 
 ## Unreleased
 
+### Added
+
+- Options documentation can now be split across generated group pages with the
+  new `[options.pages]` configuration. Split pages include an option-group
+  index, per-group breadcrumbs, adjacent group navigation, and search index
+  links that point to the generated page owning each option.
+- Options sidebars now support recursive child grouping with
+  `sidebar.options.nested` and `sidebar.options.nested_depth`, allowing large
+  option trees to render as nested dropdowns instead of a flat category list.
+
+### Changed
+
+- Mobile documentation navigation now uses a header menu button and modal
+  sidebar with backdrop, close button, Escape handling, and cloned site
+  navigation instead of the previous floating action button and draggable bottom
+  sheet.
+
 ### Fixed
 
 - Search worker now caches the document set between searches. Documents are sent
