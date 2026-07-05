@@ -116,6 +116,38 @@ fn render_options_page_renders_description() {
 }
 
 #[test]
+fn render_options_page_can_render_nested_toc() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  config.sidebar = Some(SidebarConfig {
+    options: Some(ndg_config::sidebar::OptionsConfig {
+      depth: 2,
+      nested: true,
+      ..Default::default()
+    }),
+    ..Default::default()
+  });
+
+  let mut options = IndexMap::new();
+  for name in [
+    "rum.programs.alacritty.enable",
+    "rum.programs.alacritty.package",
+    "rum.programs.beets.enable",
+  ] {
+    options.insert(name.to_string(), create_basic_option(name, "desc"));
+  }
+
+  let html = template::render_options(&config, &options)
+    .expect("Should render nested options TOC");
+
+  assert!(html.contains("title=\"rum.programs\""));
+  assert!(html.contains("<span>alacritty</span>"));
+  assert!(html.contains(">enable"));
+  assert!(html.contains(">package"));
+  assert!(html.contains("<span>beets</span>"));
+}
+
+#[test]
 fn render_page_with_syntax_highlighting() {
   let mut config = minimal_config();
   config.highlight_code = true;

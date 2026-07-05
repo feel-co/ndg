@@ -10,7 +10,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{template, template::sanitize_option_id};
+use crate::{option_pages, template, template::sanitize_option_id};
 
 /// Represents a searchable anchor/heading within a document
 #[derive(Debug, Serialize, Deserialize)]
@@ -260,7 +260,11 @@ pub fn generate_search_index(
         id: doc_id.to_string(),
         title,
         content: plain_description,
-        path: format!("options.html#{}", sanitize_option_id(key)),
+        path: format!(
+          "{}#{}",
+          option_pages::option_page_path(config, key),
+          sanitize_option_id(key)
+        ),
         tokens,
         title_tokens,
         // options don't have sub-anchors (or at least we hope they don't)
