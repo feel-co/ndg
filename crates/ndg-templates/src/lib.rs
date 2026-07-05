@@ -11,7 +11,13 @@ pub const NAVBAR_TEMPLATE: &str = include_str!("../templates/navbar.html");
 pub const FOOTER_TEMPLATE: &str = include_str!("../templates/footer.html");
 pub const LIB_TEMPLATE: &str = include_str!("../templates/lib.html");
 
-pub const DEFAULT_CSS: &str = include_str!("../templates/default.css");
+pub const DEFAULT_CSS: &str = concat!(
+  include_str!("../templates/default.css"),
+  "\n",
+  include_str!("../templates/mobile-sidebar.css"),
+  "\n",
+  include_str!("../templates/options-pages.css"),
+);
 pub const SEARCH_CORE_JS: &str = include_str!("../templates/search-core.js");
 pub const SEARCH_JS: &str = include_str!("../templates/search.js");
 pub const SEARCH_WORKER_JS: &str =
