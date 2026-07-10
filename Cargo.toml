@@ -50,7 +50,7 @@ open = "5.3.5"
 rand = "0.10.1"
 rustc-hash = "2.1.2"
 
-comrak = { version = "0.52.0", default-features = false }
+comrak = { version = "0.53.0", default-features = false }
 grass  = { version = "0.13.4", default-features = false }
 nixdoc = "0.2.0"
 
