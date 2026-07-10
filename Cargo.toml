@@ -75,7 +75,7 @@ markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
 oxc_allocator = "0.137.0"
 oxc_codegen   = { version = "0.137.0", default-features = false }
-oxc_minifier  = "0.137.0"
+oxc_minifier  = "0.138.0"
 oxc_parser    = "0.137.0"
 oxc_span      = "0.137.0"
 printpdf      = "0.9.1"
