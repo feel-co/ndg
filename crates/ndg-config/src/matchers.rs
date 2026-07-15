@@ -6,12 +6,12 @@ use serde::{
   de::{self, MapAccess, Visitor},
 };
 
-trait MatchField: Sized {
+pub(crate) trait MatchField: Sized {
   fn from_exact(exact: String) -> Self;
   fn from_parts(exact: Option<String>, regex: Option<String>) -> Self;
 }
 
-fn deserialize_match_field<'de, D, T>(
+pub(crate) fn deserialize_match_field<'de, D, T>(
   deserializer: D,
   field_name: &'static str,
 ) -> Result<T, D::Error>
