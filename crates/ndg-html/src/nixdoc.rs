@@ -30,22 +30,17 @@ pub fn process_nixdoc(
   let mut error_count = 0usize;
 
   for input in &config.nixdoc_inputs {
-    if input.is_dir() {
-      match ndg_nixdoc::extract_from_dir(input) {
-        Ok(entries) => all_entries.extend(entries),
-        Err(e) => {
-          log::warn!("Failed to extract nixdoc from {}: {e}", input.display());
-          error_count += 1;
-        },
-      }
+    let result = if input.is_dir() {
+      ndg_nixdoc::extract_from_dir(input)
     } else {
-      match ndg_nixdoc::extract_from_file(input) {
-        Ok(entries) => all_entries.extend(entries),
-        Err(e) => {
-          log::warn!("Failed to extract nixdoc from {}: {e}", input.display());
-          error_count += 1;
-        },
-      }
+      ndg_nixdoc::extract_from_file(input)
+    };
+    match result {
+      Ok(entries) => all_entries.extend(entries),
+      Err(e) => {
+        log::warn!("Failed to extract nixdoc from {}: {e}", input.display());
+        error_count += 1;
+      },
     }
   }
 
