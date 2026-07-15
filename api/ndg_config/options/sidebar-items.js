@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["contains_ignore_ascii_case","default_true"],"struct":["FilterConfig","OptionsConfig"]};
+window.SIDEBAR_ITEMS = {"fn":["contains_ignore_ascii_case","default_pages_depth","default_pages_root","default_true"],"struct":["FilterConfig","OptionsConfig","OptionsPageMatch","OptionsPagesConfig"]};

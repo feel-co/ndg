@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_option_pages","clean_root","option_page_path","option_prefix","option_route","pages_enabled","sanitize_page_slug"],"struct":["OptionPage","OptionPageSet","OptionRoute"]};

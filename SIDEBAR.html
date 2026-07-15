@@ -113,6 +113,7 @@
 <li><a href="#option-pattern-matching">Option Pattern Matching</a>
 <li><a href="#shorthand-syntax">Shorthand Syntax</a>
 <li><a href="#options-examples">Options Examples</a>
+<li><a href="#multi-page-options">Multi-Page Options</a>
 </ul><li><a href="#json-configuration">JSON Configuration</a>
 </li></ul></li>
               </ul>
@@ -350,6 +351,8 @@ module options, controlling how options appear in the options table of contents.
 <h3 id="structure">Structure</h3>
 <pre><code class="language-toml">[sidebar.options]
 depth = 2
+nested = false
+nested_depth = 0
 ordering = "alphabetical"
 
 [[sidebar.options.matches]]
@@ -372,6 +375,37 @@ ordering = "alphabetical"
 <pre><code class="language-plaintext">- services.nginx.virtualHosts (contains only virtualHosts.* options)
 - services.nginx (contains nginx.enable, nginx.package)
 </code></pre>
+<h4 id="nested"><code>nested</code></h4>
+<p>Controls whether child attributes inside each option category are rendered as a
+recursive tree.</p>
+<ul>
+<li><strong>Type</strong>: Boolean</li>
+<li><strong>Default</strong>: <code>false</code></li>
+</ul>
+<p>When disabled, child options are shown as a flat list under each category. When
+enabled, common child prefixes become nested dropdowns.</p>
+<pre><code class="language-plaintext"># nested = false
+rum.programs
+├── alacritty.enable
+├── alacritty.package
+└── beets.enable
+
+# nested = true
+rum.programs
+├── alacritty
+│   ├── enable
+│   └── package
+└── beets
+    └── enable
+</code></pre>
+<h4 id="nested_depth"><code>nested_depth</code></h4>
+<p>Limits how many child dropdown levels are created below each category.</p>
+<ul>
+<li><strong>Type</strong>: Integer</li>
+<li><strong>Default</strong>: <code>0</code></li>
+</ul>
+<p><code>0</code> means unlimited nesting. A positive value collapses deeper suffixes into a
+single leaf label.</p>
 <h4 id="ordering"><code>ordering</code></h4>
 <p>Determines how options are sorted in the table of contents.</p>
 <ul>
@@ -527,6 +561,29 @@ depth = 1
 # With depth = 1 override:
 - programs (all programs.* options together)
 </code></pre>
+<h3 id="multi-page-options">Multi-Page Options</h3>
+<p>The top-level <code>[options.pages]</code> section controls whether module options are
+split across generated group pages. This is separate from <code>[sidebar.options]</code>:
+page routing decides where an option lives, while sidebar options decide how
+links are grouped.</p>
+<pre><code class="language-toml">[options.pages]
+enabled = true
+depth = 1
+root = "options"
+
+[[options.pages.matches]]
+name.regex = "^foo\\.bar\\.baz(\\.|$)"
+depth = 3
+title = "Foo Bar Baz"
+position = 10
+</code></pre>
+<p>With this configuration:</p>
+<pre><code class="language-plaintext">options.html                  option group index
+options/foo.html              owns foo.*
+options/foo.bar.baz.html      owns foo.bar.baz.*
+</code></pre>
+<p>Root-level options, such as <code>enable</code>, stay on <code>options.html</code> unless a page match
+routes them elsewhere.</p>
 <h4 id="combined-example">Combined Example</h4>
 <pre><code class="language-toml">[sidebar.options]
 depth = 2
@@ -598,6 +655,7 @@ or nested syntax:</p>
 <li><a href="#option-pattern-matching">Option Pattern Matching</a>
 <li><a href="#shorthand-syntax">Shorthand Syntax</a>
 <li><a href="#options-examples">Options Examples</a>
+<li><a href="#multi-page-options">Multi-Page Options</a>
 </ul><li><a href="#json-configuration">JSON Configuration</a>
 </li></ul></li>
           </ul>

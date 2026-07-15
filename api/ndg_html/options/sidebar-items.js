@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["escape_html_in_markdown","format_location","process_options"]};
+window.SIDEBAR_ITEMS = {"fn":["escape_html_in_markdown","format_location","process_options","write_options_html","write_split_options"]};
