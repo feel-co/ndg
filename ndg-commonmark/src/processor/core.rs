@@ -165,46 +165,7 @@ impl MarkdownProcessor {
     }
 
     let document = parse_html().one(html);
-
-    // Collect all code blocks first to avoid DOM modification during iteration
-    let mut code_blocks = Vec::new();
-    for pre_node in safe_select(&document, "pre > code") {
-      let code_node = pre_node;
-      if let Some(element) = code_node.as_element() {
-        let language = element
-          .attributes
-          .borrow()
-          .get("class")
-          .and_then(|class| class.strip_prefix("language-"))
-          .unwrap_or("text")
-          .to_string();
-        let code_text = code_node.text_contents();
-
-        if let Some(pre_parent) = code_node.parent() {
-          code_blocks.push((
-            pre_parent.clone(),
-            code_node.clone(),
-            code_text,
-            language,
-          ));
-        }
-      }
-    }
-
-    // Process each code block
-    for (pre_element, _code_node, code_text, language) in code_blocks {
-      if let Some(highlighted) = self.highlight_code_html(&code_text, &language)
-      {
-        // Wrap highlighted HTML in <pre><code> with appropriate classes
-        let wrapped_html = format!(
-          r#"<pre class="highlight"><code class="language-{language}">{highlighted}</code></pre>"#
-        );
-        let fragment = parse_html().one(wrapped_html.as_str());
-        pre_element.insert_after(fragment);
-        pre_element.detach();
-      }
-      // Do not add highlight/language-* classes if not highlighted
-    }
+    self.highlight_codeblocks_document(&document);
 
     let mut buf = Vec::new();
     if let Err(e) = document.serialize(&mut buf) {
@@ -299,8 +260,11 @@ impl MarkdownProcessor {
   #[must_use]
   pub fn render(&self, markdown: &str) -> MarkdownResult {
     let (preprocessed, included_files) = self.preprocess(markdown);
-    let (headers, title) = self.extract_headers(&preprocessed);
-    let html = self.process_html_pipeline(&preprocessed);
+    let arena = Arena::new();
+    let options = self.comrak_options();
+    let root = parse_document(&arena, &preprocessed, &options);
+    let (headers, title) = Self::extract_headers_from_ast(root, &preprocessed);
+    let html = self.process_html_pipeline_from_ast(root, &options);
 
     MarkdownResult {
       html,
@@ -310,30 +274,33 @@ impl MarkdownProcessor {
     }
   }
 
-  /// Process the HTML generation and post-processing pipeline.
-  fn process_html_pipeline(&self, content: &str) -> String {
-    let mut html = self.convert_to_html(content);
+  fn process_html_pipeline_from_ast<'a>(
+    &self,
+    root: &'a AstNode<'a>,
+    options: &Options<'a>,
+  ) -> String {
+    let mut html = Self::format_html(root, options);
+    self.process_rendered_html(&mut html);
+    html
+  }
 
+  fn process_rendered_html(&self, html: &mut String) {
     // Apply feature-specific post-processing
     if cfg!(feature = "ndg-flavored") {
       #[cfg(feature = "ndg-flavored")]
       {
-        html = super::extensions::process_option_references(
-          &html,
+        *html = super::extensions::process_option_references(
+          html,
           self.options.valid_options.as_ref(),
         );
       }
     }
 
     if self.options.nixpkgs {
-      html = self.process_manpage_references_html(&html);
+      *html = self.process_manpage_references_html(html);
     }
 
-    if self.options.highlight_code {
-      html = self.highlight_codeblocks(&html);
-    }
-
-    self.kuchiki_postprocess(&html)
+    *html = self.kuchiki_postprocess(html);
   }
 
   /// Preprocess the markdown content with all enabled transformations.
@@ -411,124 +378,122 @@ impl MarkdownProcessor {
     &self,
     content: &str,
   ) -> (Vec<Header>, Option<String>) {
-    use std::fmt::Write;
-
-    let arena = Arena::new();
-    let options = self.comrak_options();
-
-    let content = remove_admonition_blocks_for_headers(content);
-
-    // Normalize custom anchors with no heading level to h2
-    let mut normalized = String::with_capacity(content.len());
-    let mut lines = content.lines().peekable();
-    while let Some(line) = lines.next() {
-      let trimmed = line.trim();
-      if !trimmed.starts_with('#')
-        && !lines
-          .peek()
-          .is_some_and(|next| is_setext_heading_underline(next.trim()))
-        && let Some(anchor_start) = trimmed.rfind("{#")
-        && let Some(anchor_end) = trimmed[anchor_start..].find('}')
-      {
-        let text = trimmed[..anchor_start].trim_end();
-        let id = &trimmed[anchor_start + 2..anchor_start + anchor_end];
-        let _ = writeln!(normalized, "## {text} {{#{id}}}");
-        continue;
-      }
-      normalized.push_str(line);
-      normalized.push('\n');
-    }
-
-    let root = parse_document(&arena, &normalized, &options);
-
-    let mut headers = Vec::new();
-    let mut found_title = None;
-
-    for node in root.descendants() {
-      if let NodeValue::Heading(NodeHeading { level, .. }) =
-        &node.data.borrow().value
-      {
-        let mut text = String::new();
-        let mut explicit_id = None;
-
-        for child in node.children() {
-          match &child.data.borrow().value {
-            NodeValue::Text(t) => text.push_str(t),
-            NodeValue::Code(t) => text.push_str(&t.literal),
-            NodeValue::Link(..)
-            | NodeValue::Emph
-            | NodeValue::Strong
-            | NodeValue::Subscript
-            | NodeValue::Strikethrough
-            | NodeValue::Superscript
-            | NodeValue::FootnoteReference(..) => {
-              text.push_str(&extract_inline_text(child));
-            },
-            NodeValue::HtmlInline(html) => {
-              // Look for explicit anchor in HTML inline node: {#id}
-              let html_str = html.as_str();
-              if let Some(start) = html_str.find("{#")
-                && let Some(end) = html_str[start..].find('}')
-              {
-                let anchor = &html_str[start + 2..start + end];
-                explicit_id = Some(anchor.to_string());
-              }
-            },
-            #[expect(clippy::match_same_arms, reason = "Explicit for clarity")]
-            NodeValue::Image(..) => {},
-            _ => {},
-          }
-        }
-
-        // Check for trailing {#id} in heading text
-        let trimmed = text.trim_end();
-        #[expect(
-          clippy::option_if_let_else,
-          reason = "nested options clearer with if-let"
-        )]
-        let (final_text, id) = if let Some(start) = trimmed.rfind("{#") {
-          if let Some(end) = trimmed[start..].find('}') {
-            let anchor = &trimmed[start + 2..start + end];
-            (trimmed[..start].trim_end().to_string(), anchor.to_string())
-          } else {
-            (
-              text.clone(),
-              explicit_id.unwrap_or_else(|| slugify_heading(&text)),
-            )
-          }
-        } else {
-          (
-            text.clone(),
-            explicit_id.unwrap_or_else(|| slugify_heading(&text)),
-          )
-        };
-        if *level == 1 && found_title.is_none() {
-          found_title = Some(final_text.clone());
-        }
-        headers.push(Header {
-          text: final_text,
-          level: *level,
-          id,
-        });
-      }
-    }
-
-    (headers, found_title)
-  }
-
-  /// Convert markdown to HTML using comrak and configured options.
-  fn convert_to_html(&self, content: &str) -> String {
-    // Process directly without panic catching for better performance
     let arena = Arena::new();
     let options = self.comrak_options();
     let root = parse_document(&arena, content, &options);
+    Self::extract_headers_from_ast(root, content)
+  }
 
+  /// Extract headings from the already-rendered Comrak tree.
+  fn extract_headers_from_ast<'a>(
+    root: &'a AstNode<'a>,
+    source: &str,
+  ) -> (Vec<Header>, Option<String>) {
+    let mut headers = Vec::new();
+    let mut title = None;
+    let ignored_lines = admonition_lines(source);
+    for node in root.descendants() {
+      let NodeValue::Heading(NodeHeading { level, .. }) =
+        &node.data.borrow().value
+      else {
+        continue;
+      };
+      let line = node.data.borrow().sourcepos.start.line;
+      if ignored_lines.get(line).copied().unwrap_or(false) {
+        continue;
+      }
+      let mut text = String::new();
+      let mut explicit_id = None;
+      for child in node.children() {
+        match &child.data.borrow().value {
+          NodeValue::Text(value) => text.push_str(value),
+          NodeValue::Code(value) => text.push_str(&value.literal),
+          NodeValue::Link(..)
+          | NodeValue::Emph
+          | NodeValue::Strong
+          | NodeValue::Subscript
+          | NodeValue::Strikethrough
+          | NodeValue::Superscript
+          | NodeValue::FootnoteReference(..) => {
+            text.push_str(&extract_inline_text(child));
+          },
+          NodeValue::HtmlInline(value) => {
+            if let Some(start) = value.find("{#")
+              && let Some(end) = value[start..].find('}')
+            {
+              explicit_id = Some(value[start + 2..start + end].to_string());
+            }
+          },
+          _ => {},
+        }
+      }
+      let trimmed = text.trim_end();
+      let (text, id) = if let Some(start) = trimmed.rfind("{#")
+        && let Some(end) = trimmed[start..].find('}')
+      {
+        (
+          trimmed[..start].trim_end().to_string(),
+          trimmed[start + 2..start + end].to_string(),
+        )
+      } else {
+        (
+          text.clone(),
+          explicit_id.unwrap_or_else(|| slugify_heading(&text)),
+        )
+      };
+      if *level == 1 && title.is_none() {
+        title = Some(text.clone());
+      }
+      headers.push((line, Header {
+        text,
+        level: *level,
+        id,
+      }));
+    }
+    let lines: Vec<_> = source.lines().collect();
+    let mut fence = utils::codeblock::FenceTracker::new();
+    for (index, line) in lines.iter().enumerate() {
+      fence = fence.process_line(line);
+      if ignored_lines.get(index + 1).copied().unwrap_or(false) {
+        continue;
+      }
+      if fence.in_code_block() {
+        continue;
+      }
+      let trimmed = line.trim();
+      if trimmed.starts_with('#')
+        || lines
+          .get(index + 1)
+          .is_some_and(|next| is_setext_heading_underline(next.trim()))
+      {
+        continue;
+      }
+      if let Some(start) = trimmed.rfind("{#")
+        && let Some(end) = trimmed[start..].find('}')
+      {
+        let text = trimmed[..start].trim_end();
+        let id = &trimmed[start + 2..start + end];
+        headers.push((index + 1, Header {
+          text:  text.to_string(),
+          level: 2,
+          id:    id.to_string(),
+        }));
+      }
+    }
+    headers.sort_by_key(|(line, _)| *line);
+    (
+      headers.into_iter().map(|(_, header)| header).collect(),
+      title,
+    )
+  }
+
+  fn format_html<'a>(root: &'a AstNode<'a>, options: &Options<'a>) -> String {
     // Apply AST transformations
     let prompt_transformer = PromptTransformer;
     prompt_transformer.transform(root);
 
     let mut html_output = String::new();
-    if let Err(e) = comrak::format_html(root, &options, &mut html_output) {
+    if let Err(e) = comrak::format_html(root, options, &mut html_output) {
       log::error!("Failed to format HTML: {e}");
     }
 
@@ -609,15 +574,43 @@ impl MarkdownProcessor {
   }
 
   /// HTML post-processing using kuchiki DOM manipulation.
-  #[expect(
-    clippy::unused_self,
-    reason = "Method signature matches processor pattern"
-  )]
   fn kuchiki_postprocess(&self, html: &str) -> String {
     // Use a standalone function to avoid borrowing issues
     kuchiki_postprocess_html(html, |document| {
+      self.highlight_codeblocks_document(document);
       Self::apply_dom_transformations(document);
     })
+  }
+
+  fn highlight_codeblocks_document(&self, document: &kuchikikiki::NodeRef) {
+    if !self.options.highlight_code || self.syntax_manager.is_none() {
+      return;
+    }
+    let mut code_blocks = Vec::new();
+    for code_node in safe_select(document, "pre > code") {
+      if let Some(element) = code_node.as_element() {
+        let language = element
+          .attributes
+          .borrow()
+          .get("class")
+          .and_then(|class| class.strip_prefix("language-"))
+          .unwrap_or("text")
+          .to_string();
+        if let Some(pre_node) = code_node.parent() {
+          code_blocks.push((pre_node, code_node.text_contents(), language));
+        }
+      }
+    }
+    for (pre_node, code, language) in code_blocks {
+      if let Some(highlighted) = self.highlight_code_html(&code, &language) {
+        use tendril::TendrilSink;
+        let replacement = kuchikikiki::parse_html().one(format!(
+          r#"<pre class="highlight"><code class="language-{language}">{highlighted}</code></pre>"#
+        ));
+        pre_node.insert_after(replacement);
+        pre_node.detach();
+      }
+    }
   }
 
   /// Apply all DOM transformations to the parsed HTML document.
@@ -1333,31 +1326,24 @@ pub enum ProcessorFeature {
   ManpageUrls,
 }
 
-fn remove_admonition_blocks_for_headers(content: &str) -> String {
-  let mut output = String::with_capacity(content.len());
-  let mut admonition_depth = 0usize;
+fn admonition_lines(content: &str) -> Vec<bool> {
+  let mut ignored = vec![false; content.lines().count() + 1];
+  let mut depth = 0usize;
 
-  for line in content.lines() {
+  for (index, line) in content.lines().enumerate() {
     let trimmed = line.trim_start();
     if trimmed.starts_with("<div class=\"admonition ") {
-      admonition_depth += 1;
-      output.push('\n');
-      continue;
+      depth += 1;
     }
-
-    if admonition_depth > 0 {
-      if trimmed == "</div>" {
-        admonition_depth -= 1;
-      }
-      output.push('\n');
-      continue;
+    if depth > 0 {
+      ignored[index + 1] = true;
     }
-
-    output.push_str(line);
-    output.push('\n');
+    if depth > 0 && trimmed == "</div>" {
+      depth -= 1;
+    }
   }
 
-  output
+  ignored
 }
 
 fn is_setext_heading_underline(line: &str) -> bool {

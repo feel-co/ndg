@@ -7,8 +7,9 @@ fn extract_headers_from_markdown(md: &str) -> Vec<Header> {
     ..Default::default()
   };
   let processor = MarkdownProcessor::new(options);
-  let (headers, _title) = processor.extract_headers(md);
-  headers
+  let rendered = processor.render(md).headers;
+  assert_eq!(processor.extract_headers(md).0, rendered);
+  rendered
 }
 
 #[test]
@@ -61,6 +62,8 @@ fn test_no_headers_from_code_block() {
 
   ```markdown
   ## Installation {#my-epic-installation}
+
+  Not a heading {#not-a-heading}
 
   Refer to the [installation instructions](#my-epic-installation) above.
   ```
