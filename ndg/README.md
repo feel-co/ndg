@@ -26,6 +26,7 @@ are optional and can be controlled via various knobs.
 ### Features
 
 [ndg-commonmark]: https://crates.io/crates/ndg-commonmark
+[RFC 145]: https://github.com/NixOS/rfcs/blob/master/rfcs/0145-doc-strings.md
 
 We would like for NDG to be fast, but also flexible and powerful. It boasts
 several features such as:
@@ -41,6 +42,7 @@ several features such as:
 - **Nix module options support** to generate documentation from `options.json`
   - **Flexible options sidebar customization** to control visibility, naming,
     ordering, and depth of option categories
+- **Nix library references** from [RFC 145]-style `/** ... */` comments
 - **`nixos-render-docs` compatibility mode** via the `nrd` feature and Nix
   package aliases for projects that need drop-in option rendering commands
 - **Fully customizable templates** to match your project's style fully
@@ -357,6 +359,8 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 - `script_paths` - Array of custom JavaScript file paths
 - `assets_dir` - Directory containing additional assets to copy
 - `module_options` - Path to `options.json` for NixOS module documentation
+- `nixdoc_inputs` - Nix files or directories scanned recursively for RFC
+  145-style doc comments (requires the `nixdoc` build feature)
 - `options.filter.prefix` - Include only options whose names start with this
   prefix
 - `options.filter.type` - Include only options whose type contains this text,
@@ -596,6 +600,30 @@ conversion.
 > Optionally you may pass an `options.json` to also render an `options.html`
 > page for a listing of your module options. See the
 > [NixOS Options](#nixos-options) section below for more details.
+
+### Nix Library Documentation
+
+Set `nixdoc_inputs` to generate `lib.html` from RFC 145-style comments attached
+to static attribute bindings. Directories are scanned recursively for `.nix`
+files.
+
+```toml
+nixdoc_inputs = ["lib", "src/helpers.nix"]
+revision = "main"
+```
+
+Nixdoc support is enabled in default builds. To omit `ndg-nixdoc`, `rnix`, and
+the parser dependencies, build with explicit features and leave out `nixdoc`:
+
+```bash
+cargo build -p ndg --no-default-features --features commonmark-ndg
+```
+
+The extractor currently documents only statically named attribute bindings.
+Dynamic attribute paths are skipped, syntax errors are handled using `rnix`'s
+error-tolerant syntax tree, and comments that the `nixdoc` parser rejects remain
+available only as raw comments. Treat generated library references as output to
+review, especially for malformed or highly dynamic Nix sources.
 
 ### Generating Manpages
 
