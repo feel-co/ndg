@@ -6,12 +6,12 @@
 <a href=#6 id=6 data-nosnippet>6</a>  de::{<span class="self">self</span>, MapAccess, Visitor},
 <a href=#7 id=7 data-nosnippet>7</a>};
 <a href=#8 id=8 data-nosnippet>8</a>
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">trait </span>MatchField: Sized {
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>MatchField: Sized {
 <a href=#10 id=10 data-nosnippet>10</a>  <span class="kw">fn </span>from_exact(exact: String) -&gt; <span class="self">Self</span>;
 <a href=#11 id=11 data-nosnippet>11</a>  <span class="kw">fn </span>from_parts(exact: <span class="prelude-ty">Option</span>&lt;String&gt;, regex: <span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="self">Self</span>;
 <a href=#12 id=12 data-nosnippet>12</a>}
 <a href=#13 id=13 data-nosnippet>13</a>
-<a href=#14 id=14 data-nosnippet>14</a><span class="kw">fn </span>deserialize_match_field&lt;<span class="lifetime">'de</span>, D, T&gt;(
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>deserialize_match_field&lt;<span class="lifetime">'de</span>, D, T&gt;(
 <a href=#15 id=15 data-nosnippet>15</a>  deserializer: D,
 <a href=#16 id=16 data-nosnippet>16</a>  field_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 <a href=#17 id=17 data-nosnippet>17</a>) -&gt; <span class="prelude-ty">Result</span>&lt;T, D::Error&gt;
