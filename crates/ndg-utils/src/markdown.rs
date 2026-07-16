@@ -1,6 +1,7 @@
 use std::{
   fs,
   path::{Path, PathBuf},
+  sync::Mutex,
 };
 
 use color_eyre::eyre::{Context, Result};
@@ -125,6 +126,18 @@ struct MarkdownCacheEntry {
   frontmatter:      Option<PageFrontmatter>,
 }
 
+#[derive(Serialize)]
+struct MarkdownCacheEntryRef<'a> {
+  schema:           u8,
+  source_digest:    &'a str,
+  dependencies:     Vec<(PathBuf, Option<String>)>,
+  processor_digest: &'a str,
+  result:           &'a ndg_commonmark::MarkdownResult,
+  frontmatter:      Option<&'a PageFrontmatter>,
+}
+
+type DependencyDigests = Mutex<FxHashMap<PathBuf, Option<String>>>;
+
 /// Processes all markdown files in the input directory and returns processed
 /// data.
 ///
@@ -212,16 +225,8 @@ fn process_markdown_files_impl(
     let base_processor = processor
       .map_or_else(|| create_processor(config, None), std::clone::Clone::clone);
 
-    // Store render results to avoid rendering twice
-    #[expect(clippy::items_after_statements, reason = "Local type alias")]
-    type RenderCache = FxHashMap<PathBuf, ndg_commonmark::MarkdownResult>;
-    let mut render_cache: RenderCache = FxHashMap::default();
-
-    // Store parsed frontmatter per source file
-    let mut frontmatter_cache: FxHashMap<PathBuf, Option<PageFrontmatter>> =
-      FxHashMap::default();
-
     let cache = cache_dir.map(|dir| (dir, processor_digest(&base_processor)));
+    let dependency_digests = DependencyDigests::default();
     let progress = ProgressBar::new(files.len() as u64);
     #[expect(
       clippy::expect_used,
@@ -255,9 +260,10 @@ fn process_markdown_files_impl(
             base_dir,
             &source_digest,
             processor_digest,
+            &dependency_digests,
           )
         {
-          return Ok((file_path.clone(), entry.frontmatter, entry.result));
+          return Ok((entry.frontmatter, entry.result));
         }
 
         let (frontmatter, content) = strip_frontmatter(&raw_content);
@@ -276,13 +282,13 @@ fn process_markdown_files_impl(
             frontmatter.as_ref(),
           );
         }
-        Ok((file_path.clone(), frontmatter, result))
+        Ok((frontmatter, result))
       })
       .collect();
     progress.finish_with_message("Markdown processing complete");
 
-    for (file_path, frontmatter, result) in rendered? {
-      frontmatter_cache.insert(file_path.clone(), frontmatter);
+    let rendered = rendered?;
+    for (file_path, (_, result)) in files.iter().zip(&rendered) {
       let base_dir = file_path.parent().unwrap_or(input_dir.as_path());
 
       // Track custom outputs for included files
@@ -320,19 +326,10 @@ fn process_markdown_files_impl(
             .or_insert_with(|| includer_rel.to_owned());
         }
       }
-
-      // Cache the render result
-      render_cache.insert(file_path, result);
     }
 
-    // Second pass: use cached results to build output map
-    for file_path in &files {
-      // Retrieve cached result instead of rendering again
-      #[expect(clippy::expect_used, reason = "File is guaranteed to be cached")]
-      let result = render_cache
-        .get(file_path)
-        .expect("File should have cached result");
-
+    // Second pass: build output entries after resolving include relationships.
+    for (file_path, (frontmatter, result)) in files.into_iter().zip(rendered) {
       let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
         format!(
           "Failed to determine relative path for {}",
@@ -364,18 +361,16 @@ fn process_markdown_files_impl(
       let custom_outputs =
         pending_custom_outputs.remove(rel_path).unwrap_or_default();
 
-      let frontmatter = frontmatter_cache.remove(file_path).flatten();
-
       // If this file has custom outputs via html:into-file, write to those
       // locations
       if custom_outputs.is_empty() {
         output_map.insert(
           output_path_str,
           (
-            result.html.clone(),
-            result.headers.clone(),
-            result.title.clone(),
-            file_path.clone(),
+            result.html,
+            result.headers,
+            result.title,
+            file_path,
             is_included,
             frontmatter,
           ),
@@ -504,6 +499,7 @@ fn read_cache(
   base_dir: &Path,
   source_digest: &str,
   processor_digest: &str,
+  dependency_digests: &DependencyDigests,
 ) -> Option<MarkdownCacheEntry> {
   let entry: MarkdownCacheEntry =
     serde_json::from_slice(&fs::read(cache_path(cache_dir, source)).ok()?)
@@ -517,8 +513,30 @@ fn read_cache(
   entry
     .dependencies
     .iter()
-    .all(|(path, expected)| digest_file(&base_dir.join(path)) == *expected)
+    .all(|(path, expected)| {
+      dependency_matches(
+        &base_dir.join(path),
+        expected.as_deref(),
+        dependency_digests,
+      )
+    })
     .then_some(entry)
+}
+
+fn dependency_matches(
+  path: &Path,
+  expected: Option<&str>,
+  digests: &DependencyDigests,
+) -> bool {
+  // ponytail: first reads are serialized; shard if unique includes dominate.
+  let Ok(mut digests) = digests.lock() else {
+    return false;
+  };
+  digests
+    .entry(path.to_owned())
+    .or_insert_with(|| digest_file(path))
+    .as_deref()
+    == expected
 }
 
 fn write_cache(
@@ -539,13 +557,13 @@ fn write_cache(
       (path, digest)
     })
     .collect();
-  let entry = MarkdownCacheEntry {
+  let entry = MarkdownCacheEntryRef {
     schema: MARKDOWN_CACHE_SCHEMA,
-    source_digest: source_digest.to_owned(),
+    source_digest,
     dependencies,
-    processor_digest: processor_digest.to_owned(),
-    result: result.clone(),
-    frontmatter: frontmatter.cloned(),
+    processor_digest,
+    result,
+    frontmatter,
   };
   let Ok(data) = serde_json::to_vec(&entry) else {
     return;
@@ -646,6 +664,23 @@ mod tests {
   use tempfile::TempDir;
 
   use super::*;
+
+  fn read_cache(
+    cache_dir: &Path,
+    source: &Path,
+    base_dir: &Path,
+    source_digest: &str,
+    processor_digest: &str,
+  ) -> Option<MarkdownCacheEntry> {
+    super::read_cache(
+      cache_dir,
+      source,
+      base_dir,
+      source_digest,
+      processor_digest,
+      &DependencyDigests::default(),
+    )
+  }
 
   #[test]
   fn cache_rejects_changed_inputs() {
