@@ -23,11 +23,11 @@ ndg-templates.workspace  = true
 
 log.workspace        = true
 regex.workspace      = true
+rustc-hash.workspace = true
 serde.workspace      = true
 serde_json.workspace = true
 thiserror.workspace  = true
 toml.workspace       = true
-rustc-hash.workspace = true
 
 
 [lints]

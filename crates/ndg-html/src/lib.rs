@@ -1,5 +1,5 @@
-pub mod libdoc;
-pub mod nixdoc;
+#[cfg(feature = "nixdoc")] pub mod libdoc;
+#[cfg(feature = "nixdoc")] pub mod nixdoc;
 pub mod option_page_render;
 pub mod option_pages;
 pub mod option_toc;

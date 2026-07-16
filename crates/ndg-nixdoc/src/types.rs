@@ -162,7 +162,7 @@ fn parse_doc_comment(
   Some(ParsedDoc {
     title: parsed.title().map(str::to_owned),
     description: parsed.description().to_owned(),
-    type_sig: parsed.type_sig(),
+    type_sig: parsed.type_sig().map(|sig| sig.trim().to_owned()),
     arguments,
     examples,
     notes,

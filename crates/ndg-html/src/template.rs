@@ -27,6 +27,7 @@ const SEARCH_TEMPLATE: &str = templates::SEARCH_TEMPLATE;
 const OPTIONS_TOC_TEMPLATE: &str = templates::OPTIONS_TOC_TEMPLATE;
 const NAVBAR_TEMPLATE: &str = templates::NAVBAR_TEMPLATE;
 const FOOTER_TEMPLATE: &str = templates::FOOTER_TEMPLATE;
+#[cfg(feature = "nixdoc")]
 const LIB_TEMPLATE: &str = templates::LIB_TEMPLATE;
 
 /// Current ndg version, available as the built-in `{{ ndg_version }}` variable.
@@ -719,6 +720,7 @@ pub(crate) fn render_options_body(
 /// # Errors
 ///
 /// Returns an error if template rendering fails.
+#[cfg(feature = "nixdoc")]
 pub fn render_lib(
   config: &Config,
   entries_html: &str,
@@ -1595,7 +1597,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     );
   }
 
-  // Add link to lib page if nixdoc_inputs is configured
+  #[cfg(feature = "nixdoc")]
   if !config.nixdoc_inputs.is_empty() {
     let _ = writeln!(
       doc_nav,

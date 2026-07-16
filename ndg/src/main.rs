@@ -129,15 +129,23 @@ fn main() -> Result<()> {
   let mut config = Config::load(&cli.config_files, &cli.config_overrides)?;
   merge_cli_into_config(&mut config, &cli);
 
+  #[cfg(not(feature = "nixdoc"))]
+  if !config.nixdoc_inputs.is_empty() {
+    bail!(
+      "Configuration error: nixdoc inputs require an ndg build with the \
+       `nixdoc` feature."
+    );
+  }
+
   // Validate that at least one content source is provided. This check must
   // happen AFTER CLI merge so that CLI args are considered
   if config.input_dir.is_none()
     && config.module_options.is_none()
-    && config.nixdoc_inputs.is_empty()
+    && (cfg!(not(feature = "nixdoc")) || config.nixdoc_inputs.is_empty())
   {
     bail!(
-      "Configuration error: At least one of input directory, module options, \
-       or nixdoc inputs must be provided."
+      "Configuration error: At least one supported content source must be \
+       provided."
     );
   }
 
@@ -495,8 +503,10 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     false
   };
 
-  // Process nixdoc library documentation if configured
+  #[cfg(feature = "nixdoc")]
   let nixdoc_doc = html::nixdoc::process_nixdoc(config)?;
+  #[cfg(not(feature = "nixdoc"))]
+  let nixdoc_doc = None;
   let nixdoc_processed = nixdoc_doc.is_some();
 
   // Check if we need to create a fallback index.html
@@ -530,7 +540,7 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
     // Filter out included files - they should not appear as standalone entries
     // in search results. Their content is indexed as part of the parent
     // document.
-    let mut searchable_docs: Vec<html::search::ProcessedDocument> =
+    let searchable_docs: Vec<html::search::ProcessedDocument> =
       processed_markdown
         .iter()
         .filter(|item| !item.is_included)
@@ -543,12 +553,8 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
             html_path:    item.output_path.clone(),
           }
         })
+        .chain(nixdoc_doc)
         .collect();
-
-    // Include the nixdoc lib page in the search index when present.
-    if let Some(doc) = nixdoc_doc {
-      searchable_docs.push(doc);
-    }
 
     html::search::generate_search_index(config, &searchable_docs)?;
   }

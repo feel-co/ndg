@@ -37,6 +37,10 @@ output_dir = "build"
 # Path to options.json file (optional)
 # module_options = "options.json"
 
+# Nix files or directories containing RFC 145-style /** ... */ comments.
+# Requires an ndg build with the default `nixdoc` Cargo feature enabled.
+# nixdoc_inputs = ["lib"]
+
 # Title for the documentation
 title = "My Project Documentation"
 
@@ -217,6 +221,7 @@ max_heading_level = 3
 pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "input_dir": "docs",
   "output_dir": "build",
+  "nixdoc_inputs": [],
   "title": "My Project Documentation",
   "footer_text": "Generated with ndg",
   "generate_anchors": true,
