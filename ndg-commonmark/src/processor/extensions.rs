@@ -263,30 +263,27 @@ fn read_options_includes(
     }
 
     let full_path = base_dir.join(trimmed);
-    match fs::read_to_string(&full_path) {
-      Ok(content) => {
-        if let Some(rendered) = render_options_include(&content) {
-          result.push_str(&rendered);
-        } else {
-          let _ = writeln!(
-            result,
-            "<!-- ndg: could not parse options include: {} -->",
-            full_path.display()
-          );
-        }
-        included_files.push(crate::types::IncludedFile {
-          path:          trimmed.to_string(),
-          custom_output: None,
-        });
-      },
-      Err(_) => {
+    if let Ok(content) = fs::read_to_string(&full_path) {
+      if let Some(rendered) = render_options_include(&content) {
+        result.push_str(&rendered);
+      } else {
         let _ = writeln!(
           result,
-          "<!-- ndg: could not include file: {} -->",
+          "<!-- ndg: could not parse options include: {} -->",
           full_path.display()
         );
-      },
+      }
+    } else {
+      let _ = writeln!(
+        result,
+        "<!-- ndg: could not include file: {} -->",
+        full_path.display()
+      );
     }
+    included_files.push(crate::types::IncludedFile {
+      path:          trimmed.to_string(),
+      custom_output: None,
+    });
   }
 
   result
@@ -316,30 +313,27 @@ fn read_options_file(
   }
 
   let full_path = base_dir.join(source);
-  match fs::read_to_string(&full_path) {
-    Ok(content) => {
-      if let Some(rendered) = render_options_include(&content) {
-        result.push_str(&rendered);
-      } else {
-        let _ = writeln!(
-          result,
-          "<!-- ndg: could not parse options include: {} -->",
-          full_path.display()
-        );
-      }
-      included_files.push(crate::types::IncludedFile {
-        path:          source.to_string(),
-        custom_output: None,
-      });
-    },
-    Err(_) => {
+  if let Ok(content) = fs::read_to_string(&full_path) {
+    if let Some(rendered) = render_options_include(&content) {
+      result.push_str(&rendered);
+    } else {
       let _ = writeln!(
         result,
-        "<!-- ndg: could not include file: {} -->",
+        "<!-- ndg: could not parse options include: {} -->",
         full_path.display()
       );
-    },
+    }
+  } else {
+    let _ = writeln!(
+      result,
+      "<!-- ndg: could not include file: {} -->",
+      full_path.display()
+    );
   }
+  included_files.push(crate::types::IncludedFile {
+    path:          source.to_string(),
+    custom_output: None,
+  });
 
   result
 }
@@ -368,54 +362,54 @@ fn read_includes(
     let full_path = base_dir.join(trimmed);
     log::info!("Including file: {}", full_path.display());
 
-    match fs::read_to_string(&full_path) {
-      Ok(content) => {
-        let file_dir = full_path.parent().unwrap_or(base_dir);
-        let (processed_content, nested_includes) =
-          process_file_includes(&content, file_dir, depth + 1)?;
+    if let Ok(content) = fs::read_to_string(&full_path) {
+      let file_dir = full_path.parent().unwrap_or(base_dir);
+      let (processed_content, nested_includes) =
+        process_file_includes(&content, file_dir, depth + 1)?;
 
-        let processed_content = if let Some(prefix) = auto_id_prefix.as_deref()
-        {
-          apply_auto_id_prefix(
-            &processed_content,
-            &format!("{}-{}", prefix, line_index + 1),
-          )
-        } else {
-          processed_content
-        };
+      let processed_content = if let Some(prefix) = auto_id_prefix.as_deref() {
+        apply_auto_id_prefix(
+          &processed_content,
+          &format!("{}-{}", prefix, line_index + 1),
+        )
+      } else {
+        processed_content
+      };
 
-        if custom_output.is_none() {
-          result.push_str(&processed_content);
-          if !processed_content.ends_with('\n') {
-            result.push('\n');
-          }
-          result.push_str(INCLUDE_BOUNDARY_MARKER);
+      if custom_output.is_none() {
+        result.push_str(&processed_content);
+        if !processed_content.ends_with('\n') {
           result.push('\n');
         }
+        result.push_str(INCLUDE_BOUNDARY_MARKER);
+        result.push('\n');
+      }
 
-        included_files.push(crate::types::IncludedFile {
-          path:          trimmed.to_string(),
-          custom_output: custom_output.clone(),
-        });
+      included_files.push(crate::types::IncludedFile {
+        path:          trimmed.to_string(),
+        custom_output: custom_output.clone(),
+      });
 
-        // Normalize nested include paths relative to original base_dir
-        for nested in nested_includes {
-          let nested_full_path = file_dir.join(&nested.path);
-          if let Ok(normalized_path) = nested_full_path.strip_prefix(base_dir) {
-            included_files.push(crate::types::IncludedFile {
-              path:          normalized_path.to_string_lossy().to_string(),
-              custom_output: nested.custom_output,
-            });
-          }
+      // Normalize nested include paths relative to original base_dir
+      for nested in nested_includes {
+        let nested_full_path = file_dir.join(&nested.path);
+        if let Ok(normalized_path) = nested_full_path.strip_prefix(base_dir) {
+          included_files.push(crate::types::IncludedFile {
+            path:          normalized_path.to_string_lossy().to_string(),
+            custom_output: nested.custom_output,
+          });
         }
-      },
-      Err(_) => {
-        let _ = writeln!(
-          result,
-          "<!-- ndg: could not include file: {} -->",
-          full_path.display()
-        );
-      },
+      }
+    } else {
+      let _ = writeln!(
+        result,
+        "<!-- ndg: could not include file: {} -->",
+        full_path.display()
+      );
+      included_files.push(crate::types::IncludedFile {
+        path:          trimmed.to_string(),
+        custom_output: custom_output.clone(),
+      });
     }
   }
   Ok(result)
