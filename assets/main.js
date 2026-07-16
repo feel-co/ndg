@@ -19,39 +19,52 @@ if (typeof window.requestIdleCallback === "undefined") {
 
 // Create mobile elements if they don't exist
 function createMobileElements() {
-  // Create mobile sidebar FAB
-  const mobileFab = document.createElement("button");
-  mobileFab.className = "mobile-sidebar-fab";
-  mobileFab.setAttribute("aria-label", "Toggle sidebar menu");
-  mobileFab.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  const mobileToggle = document.createElement("button");
+  mobileToggle.className = "mobile-sidebar-toggle";
+  mobileToggle.type = "button";
+  mobileToggle.setAttribute("aria-label", "Open contents");
+  mobileToggle.setAttribute("aria-controls", "mobile-sidebar");
+  mobileToggle.setAttribute("aria-expanded", "false");
+  mobileToggle.innerHTML = `
+    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="3" y1="12" x2="21" y2="12"></line>
       <line x1="3" y1="6" x2="21" y2="6"></line>
       <line x1="3" y1="18" x2="21" y2="18"></line>
     </svg>
   `;
 
-  // Only show FAB on mobile (max-width: 800px)
-  function updateFabVisibility() {
+  function updateMobileToggleVisibility() {
+    const header = document.querySelector("header");
     if (window.innerWidth > 800) {
-      if (mobileFab.parentNode) mobileFab.parentNode.removeChild(mobileFab);
-    } else {
-      if (!document.body.contains(mobileFab)) {
-        document.body.appendChild(mobileFab);
+      if (mobileToggle.parentNode) {
+        mobileToggle.parentNode.removeChild(mobileToggle);
       }
-      mobileFab.style.display = "flex";
+    } else {
+      if (header && !header.contains(mobileToggle)) {
+        header.insertBefore(mobileToggle, header.firstChild);
+      }
     }
   }
-  updateFabVisibility();
-  window.addEventListener("resize", updateFabVisibility);
+  updateMobileToggleVisibility();
+  window.addEventListener("resize", updateMobileToggleVisibility);
 
-  // Create mobile sidebar container
+  const mobileBackdrop = document.createElement("div");
+  mobileBackdrop.className = "mobile-sidebar-backdrop";
+  mobileBackdrop.hidden = true;
+
   const mobileContainer = document.createElement("div");
+  mobileContainer.id = "mobile-sidebar";
   mobileContainer.className = "mobile-sidebar-container";
+  mobileContainer.setAttribute("role", "dialog");
+  mobileContainer.setAttribute("aria-modal", "true");
+  mobileContainer.setAttribute("aria-labelledby", "mobile-sidebar-title");
+  mobileContainer.setAttribute("aria-hidden", "true");
   mobileContainer.innerHTML = `
-    <div class="mobile-sidebar-handle">
-      <div class="mobile-sidebar-dragger"></div>
+    <div class="mobile-sidebar-header">
+      <h2 id="mobile-sidebar-title">Menu</h2>
+      <button type="button" class="mobile-sidebar-close" aria-label="Close contents">&times;</button>
     </div>
+    <nav class="mobile-sidebar-site-nav" aria-label="Site navigation"></nav>
     <div class="mobile-sidebar-content">
       <!-- Sidebar content will be cloned here -->
     </div>
@@ -75,6 +88,7 @@ function createMobileElements() {
   `;
 
   // Insert at end of body so it is not affected by .container flex or stacking context
+  document.body.appendChild(mobileBackdrop);
   document.body.appendChild(mobileContainer);
   document.body.appendChild(mobileSearchPopup);
 
@@ -85,6 +99,14 @@ function createMobileElements() {
   );
   if (desktopSidebar && mobileSidebarContent) {
     mobileSidebarContent.innerHTML = desktopSidebar.innerHTML;
+  }
+
+  const headerNav = document.querySelector(".header-nav ul");
+  const mobileSiteNav = mobileContainer.querySelector(
+    ".mobile-sidebar-site-nav",
+  );
+  if (headerNav && mobileSiteNav) {
+    mobileSiteNav.innerHTML = headerNav.outerHTML;
   }
 }
 
@@ -238,6 +260,255 @@ function initScrollSpy() {
   setTimeout(updateActiveLink, 100);
 }
 
+function initMobileNavigation() {
+  const mobileSidebarContainer = document.querySelector(
+    ".mobile-sidebar-container",
+  );
+  const mobileSidebarToggle = document.querySelector(".mobile-sidebar-toggle");
+  const mobileSidebarBackdrop = document.querySelector(
+    ".mobile-sidebar-backdrop",
+  );
+  const mobileSidebarClose = document.querySelector(".mobile-sidebar-close");
+  const mobileSidebarLinks = mobileSidebarContainer?.querySelectorAll("a") ?? [];
+
+  if (!mobileSidebarToggle || !mobileSidebarContainer || !mobileSidebarBackdrop)
+    return;
+
+  const openMobileSidebar = () => {
+    mobileSidebarContainer.classList.add("active");
+    mobileSidebarBackdrop.hidden = false;
+    mobileSidebarBackdrop.classList.add("active");
+    mobileSidebarToggle.setAttribute("aria-expanded", "true");
+    mobileSidebarContainer.setAttribute("aria-hidden", "false");
+    document.body.classList.add("mobile-sidebar-open");
+    mobileSidebarClose?.focus();
+  };
+
+  const closeMobileSidebar = () => {
+    mobileSidebarContainer.classList.remove("active");
+    mobileSidebarBackdrop.classList.remove("active");
+    mobileSidebarToggle.setAttribute("aria-expanded", "false");
+    mobileSidebarContainer.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("mobile-sidebar-open");
+    setTimeout(() => {
+      if (!mobileSidebarBackdrop.classList.contains("active")) {
+        mobileSidebarBackdrop.hidden = true;
+      }
+    }, 200);
+  };
+
+  mobileSidebarToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (mobileSidebarContainer.classList.contains("active")) {
+      closeMobileSidebar();
+    } else {
+      openMobileSidebar();
+    }
+  });
+
+  mobileSidebarBackdrop.addEventListener("click", closeMobileSidebar);
+  mobileSidebarClose?.addEventListener("click", closeMobileSidebar);
+  mobileSidebarLinks.forEach((link) => {
+    link.addEventListener("click", closeMobileSidebar);
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 800) {
+      closeMobileSidebar();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Escape" &&
+      mobileSidebarContainer.classList.contains("active")
+    ) {
+      closeMobileSidebar();
+    }
+  });
+}
+
+function getFilterMatches(searchTerm, originalOrder, data) {
+  if (searchTerm === "") {
+    return originalOrder.map((element, index) => ({ element, index }));
+  }
+
+  const terms = searchTerm.split(/\s+/).filter(Boolean);
+  const firstTerm = terms[0] || "";
+
+  return data
+    .filter((item) => terms.every((term) => item.searchText.includes(term)))
+    .sort((a, b) => {
+      const aRank = a.name.includes(firstTerm) ? 0 : 1;
+      const bRank = b.name.includes(firstTerm) ? 0 : 1;
+      if (aRank !== bRank) return aRank - bRank;
+      const aPos = a.name.includes(firstTerm)
+        ? a.name.indexOf(firstTerm)
+        : a.searchText.indexOf(firstTerm);
+      const bPos = b.name.includes(firstTerm)
+        ? b.name.indexOf(firstTerm)
+        : b.searchText.indexOf(firstTerm);
+      return aPos - bPos || a.index - b.index;
+    });
+}
+
+function reconcileFilteredItems({
+  container,
+  hiddenContainer,
+  matches,
+  data,
+  reduceMotion,
+  isCurrentRun,
+}) {
+  const visibleElements = new Set(matches.map((item) => item.element));
+  const leaving = [];
+
+  for (const item of data) {
+    if (visibleElements.has(item.element)) continue;
+    if (reduceMotion.matches || !container.contains(item.element)) {
+      hiddenContainer.content.appendChild(item.element);
+    } else {
+      item.element.classList.add("filter-leaving");
+      leaving.push(item.element);
+    }
+  }
+
+  const updateVisibleItems = () => {
+    if (!isCurrentRun()) return;
+    for (const element of leaving) {
+      element.classList.remove("filter-leaving");
+      if (!visibleElements.has(element)) {
+        hiddenContainer.content.appendChild(element);
+      }
+    }
+
+    const entering = [];
+    let reference = container.firstChild;
+    for (const item of matches) {
+      const wasHidden = !container.contains(item.element);
+      if (wasHidden && !reduceMotion.matches) {
+        item.element.classList.add("filter-entering");
+        entering.push(item.element);
+      }
+
+      if (item.element === reference) {
+        reference = reference.nextSibling;
+      } else {
+        container.insertBefore(item.element, reference);
+      }
+    }
+
+    if (entering.length > 0) {
+      requestAnimationFrame(() => {
+        for (const element of entering) {
+          element.classList.remove("filter-entering");
+        }
+      });
+    }
+  };
+
+  if (leaving.length > 0) {
+    setTimeout(updateVisibleItems, 160);
+  } else {
+    updateVisibleItems();
+  }
+}
+
+function setupListFilter({
+  inputId,
+  containerSelector,
+  itemSelector,
+  nameSelector,
+  noun,
+}) {
+  const input = document.getElementById(inputId);
+  const container = document.querySelector(containerSelector);
+  if (!input || !container) return;
+
+  const hiddenContainer = document.createElement("template");
+  document.body.appendChild(hiddenContainer);
+
+  const filterResults = document.createElement("div");
+  filterResults.className = "filter-results";
+  input.parentNode.insertBefore(filterResults, input.nextSibling);
+
+  const isMobile =
+    window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+  const items = Array.from(document.querySelectorAll(itemSelector));
+  const totalCount = items.length;
+  const originalOrder = items.slice();
+  const data = items.map((element, index) => {
+    const name = element.querySelector(nameSelector)?.textContent ?? "";
+    return {
+      element,
+      index,
+      name: name.toLowerCase(),
+      searchText:
+        `${element.id || ""} ${element.textContent || ""}`.toLowerCase(),
+    };
+  });
+
+  let lastTerm = "";
+  let timeout = null;
+  let filterRun = 0;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  const applyFilter = () => {
+    const searchTerm = input.value.toLowerCase().trim();
+    if (lastTerm === searchTerm) return;
+    lastTerm = searchTerm;
+    filterRun += 1;
+    const currentRun = filterRun;
+    for (const item of data) {
+      item.element.classList.remove("filter-entering", "filter-leaving");
+    }
+
+    const matches = getFilterMatches(searchTerm, originalOrder, data);
+    reconcileFilteredItems({
+      container,
+      hiddenContainer,
+      matches,
+      data,
+      reduceMotion,
+      isCurrentRun: () => currentRun === filterRun,
+    });
+
+    if (searchTerm !== "" && matches.length < totalCount) {
+      filterResults.textContent = `Showing ${matches.length} of ${totalCount} ${noun}`;
+      filterResults.style.display = "block";
+    } else {
+      filterResults.style.display = "none";
+    }
+  };
+
+  const debounce = () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(applyFilter, isMobile ? 200 : 100);
+  };
+
+  input.addEventListener("input", debounce);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      input.value = "";
+      applyFilter();
+    }
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && input.value) applyFilter();
+  });
+
+  if (input.value) applyFilter();
+  if (isMobile && totalCount > 50) {
+    requestIdleCallback(() => {
+      const height = items[0]?.offsetHeight ?? 0;
+      if (height > 0) {
+        items.forEach((item) => {
+          item.style.containIntrinsicSize = `0 ${height}px`;
+        });
+      }
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   // Apply sidebar state immediately before DOM rendering
   try {
@@ -249,9 +520,10 @@ document.addEventListener("DOMContentLoaded", function () {
     // localStorage unavailable
   }
 
-  if (!document.querySelector(".mobile-sidebar-fab")) {
+  if (!document.querySelector(".mobile-sidebar-toggle")) {
     createMobileElements();
   }
+  initMobileNavigation();
 
   // Initialize scroll spy for page TOC
   initScrollSpy();
@@ -298,41 +570,6 @@ document.addEventListener("DOMContentLoaded", function () {
         sidebarHiddenContainer.content.appendChild(content);
       }
     });
-
-  // Handle sidebar collapse/expand - move entire sidebar to template when collapsed
-  const sidebar = document.querySelector(".sidebar");
-  const sidebarObserver = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.attributeName === "class") {
-        const isCollapsed =
-          document.documentElement.classList.contains("sidebar-collapsed");
-        if (isCollapsed) {
-          // Sidebar collapsed - move to template
-          if (sidebar.parentElement) {
-            sidebarHiddenContainer.content.appendChild(sidebar);
-          }
-        } else {
-          // Sidebar expanded - move back to DOM
-          if (sidebarHiddenContainer.content.contains(sidebar)) {
-            const layout = document.querySelector(".layout");
-            const contentEl = document.querySelector(".content");
-            if (layout) {
-              layout.insertBefore(sidebar, contentEl);
-            }
-          }
-        }
-      }
-    });
-  });
-
-  if (sidebar) {
-    sidebarObserver.observe(document.documentElement, { attributes: true });
-
-    // Initial state - if collapsed, move sidebar to template
-    if (document.documentElement.classList.contains("sidebar-collapsed")) {
-      sidebarHiddenContainer.content.appendChild(sidebar);
-    }
-  }
 
   // Desktop Sidebar Toggle
   const sidebarToggle = document.querySelector(".sidebar-toggle");
@@ -484,7 +721,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   if (window.location.hash) {
-    const targetElement = document.querySelector(window.location.hash);
+    const targetElement = document.getElementById(
+      decodeURIComponent(window.location.hash.slice(1)),
+    );
     if (targetElement) {
       setTimeout(() => scrollToElement(targetElement), 0);
       // Add highlight class for options page
@@ -494,573 +733,24 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Mobile Sidebar Functionality
-  const mobileSidebarContainer = document.querySelector(
-    ".mobile-sidebar-container",
-  );
-  const mobileSidebarFab = document.querySelector(".mobile-sidebar-fab");
-  const mobileSidebarHandle = document.querySelector(".mobile-sidebar-handle");
-
-  // Always set up FAB if it exists
-  if (mobileSidebarFab && mobileSidebarContainer) {
-    const openMobileSidebar = () => {
-      mobileSidebarContainer.classList.add("active");
-      mobileSidebarFab.setAttribute("aria-expanded", "true");
-      mobileSidebarContainer.setAttribute("aria-hidden", "false");
-      mobileSidebarFab.classList.add("fab-hidden"); // hide FAB when drawer is open
-    };
-
-    const closeMobileSidebar = () => {
-      mobileSidebarContainer.classList.remove("active");
-      mobileSidebarFab.setAttribute("aria-expanded", "false");
-      mobileSidebarContainer.setAttribute("aria-hidden", "true");
-      mobileSidebarFab.classList.remove("fab-hidden"); // Show FAB when drawer is closed
-    };
-
-    mobileSidebarFab.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (mobileSidebarContainer.classList.contains("active")) {
-        closeMobileSidebar();
-      } else {
-        openMobileSidebar();
-      }
-    });
-
-    // Only set up drag functionality if handle exists
-    if (mobileSidebarHandle) {
-      // Drag functionality
-      let isDragging = false;
-      let startY = 0;
-      let startHeight = 0;
-
-      // Cleanup function for drag interruption
-      function cleanupDrag() {
-        if (isDragging) {
-          isDragging = false;
-          mobileSidebarHandle.style.cursor = "grab";
-          document.body.style.userSelect = "";
-        }
-      }
-
-      mobileSidebarHandle.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        startY = e.pageY;
-        startHeight = mobileSidebarContainer.offsetHeight;
-        mobileSidebarHandle.style.cursor = "grabbing";
-        document.body.style.userSelect = "none"; // prevent text selection
-      });
-
-      mobileSidebarHandle.addEventListener("touchstart", (e) => {
-        isDragging = true;
-        startY = e.touches[0].pageY;
-        startHeight = mobileSidebarContainer.offsetHeight;
-      });
-
-      document.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
-        const deltaY = startY - e.pageY;
-        const newHeight = startHeight + deltaY;
-        const vh = window.innerHeight;
-        const minHeight = vh * 0.15;
-        const maxHeight = vh * 0.9;
-
-        if (newHeight >= minHeight && newHeight <= maxHeight) {
-          mobileSidebarContainer.style.height = `${newHeight}px`;
-        }
-      });
-
-      document.addEventListener("touchmove", (e) => {
-        if (!isDragging) return;
-        const deltaY = startY - e.touches[0].pageY;
-        const newHeight = startHeight + deltaY;
-        const vh = window.innerHeight;
-        const minHeight = vh * 0.15;
-        const maxHeight = vh * 0.9;
-
-        if (newHeight >= minHeight && newHeight <= maxHeight) {
-          mobileSidebarContainer.style.height = `${newHeight}px`;
-        }
-      });
-
-      document.addEventListener("mouseup", cleanupDrag);
-      document.addEventListener("touchend", cleanupDrag);
-      window.addEventListener("blur", cleanupDrag);
-      document.addEventListener("visibilitychange", function () {
-        if (document.hidden) cleanupDrag();
-      });
-    }
-
-    // Close on outside click
-    document.addEventListener("click", (event) => {
-      if (
-        mobileSidebarContainer.classList.contains("active") &&
-        !mobileSidebarContainer.contains(event.target) &&
-        !mobileSidebarFab.contains(event.target)
-      ) {
-        closeMobileSidebar();
-      }
-    });
-
-    // Close on escape key
-    document.addEventListener("keydown", (event) => {
-      if (
-        event.key === "Escape" &&
-        mobileSidebarContainer.classList.contains("active")
-      ) {
-        closeMobileSidebar();
-      }
-    });
-  }
-
-  // Options filter functionality
-  const optionsFilter = document.getElementById("options-filter");
-  if (optionsFilter) {
-    const optionsContainer = document.querySelector(".options-container");
-    if (!optionsContainer) return;
-
-    // Template container for hidden options
-    const hiddenOptionsContainer = document.createElement("template");
-    hiddenOptionsContainer.id = "hidden-options-container";
-    document.body.appendChild(hiddenOptionsContainer);
-
-    // Create filter results counter
-    const filterResults = document.createElement("div");
-    filterResults.className = "filter-results";
-    optionsFilter.parentNode.insertBefore(
-      filterResults,
-      optionsFilter.nextSibling,
-    );
-
-    // Detect if we're on a mobile device
-    const isMobile =
-      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-
-    // Cache all option elements and their searchable content
-    const options = Array.from(document.querySelectorAll(".option"));
-    const totalCount = options.length;
-
-    // Store the original order of option elements
-    const originalOptionOrder = options.slice();
-
-    // Pre-process and optimize searchable content
-    const optionsData = options.map((option) => {
-      const nameElem = option.querySelector(".option-name");
-      const descriptionElem = option.querySelector(".option-description");
-      const id = option.id ? option.id.toLowerCase() : "";
-      const name = nameElem ? nameElem.textContent.toLowerCase() : "";
-      const description = descriptionElem
-        ? descriptionElem.textContent.toLowerCase()
-        : "";
-
-      // Extract keywords for faster searching
-      const keywords = (id + " " + name + " " + description)
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((word) => word.length > 1);
-
-      return {
-        element: option,
-        id,
-        name,
-        description,
-        keywords,
-        searchText: (id + " " + name + " " + description).toLowerCase(),
-      };
-    });
-
-    // Chunk size and rendering variables
-    const CHUNK_SIZE = isMobile ? 15 : 40;
-    let pendingRender = null;
-    let currentChunk = 0;
-    let itemsToProcess = [];
-
-    function debounce(func, wait) {
-      let timeout;
-      return function () {
-        const context = this;
-        const args = arguments;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-      };
-    }
-
-    // Process options in chunks to prevent UI freezing
-    function processNextChunk() {
-      const startIdx = currentChunk * CHUNK_SIZE;
-      const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
-
-      if (startIdx < itemsToProcess.length) {
-        // Move visible items to container, hide others
-        for (let i = startIdx; i < endIdx; i++) {
-          const item = itemsToProcess[i];
-          if (item.visible) {
-            optionsContainer.appendChild(item.element);
-          } else {
-            hiddenOptionsContainer.content.appendChild(item.element);
-          }
-        }
-
-        currentChunk++;
-        pendingRender = requestAnimationFrame(processNextChunk);
-      } else {
-        pendingRender = null;
-        currentChunk = 0;
-        itemsToProcess = [];
-
-        if (filterResults.visibleCount !== undefined) {
-          if (filterResults.visibleCount < totalCount) {
-            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} options`;
-            filterResults.style.display = "block";
-          } else {
-            filterResults.style.display = "none";
-          }
-        }
-      }
-    }
-
-    // Initialize: keep all options visible by default
-    // They will be moved to hidden container only when filtering
-    function filterOptions() {
-      const searchTerm = optionsFilter.value.toLowerCase().trim();
-
-      // Skip if search term hasn't changed
-      if (filterOptions.lastTerm === searchTerm) {
-        return;
-      }
-      filterOptions.lastTerm = searchTerm;
-
-      if (pendingRender) {
-        cancelAnimationFrame(pendingRender);
-        pendingRender = null;
-      }
-      currentChunk = 0;
-      itemsToProcess = [];
-
-      if (searchTerm === "") {
-        // Restore to original order
-        const fragment = document.createDocumentFragment();
-        originalOptionOrder.forEach((option) => {
-          hiddenOptionsContainer.content.appendChild(option);
-        });
-        while (hiddenOptionsContainer.content.firstChild) {
-          fragment.appendChild(hiddenOptionsContainer.content.firstChild);
-        }
-        optionsContainer.appendChild(fragment);
-        filterResults.style.display = "none";
-        return;
-      }
-
-      const searchTerms = searchTerm
-        .split(/\s+/)
-        .filter((term) => term.length > 0);
-      let visibleCount = 0;
-
-      const titleMatches = [];
-      const descMatches = [];
-      const term = searchTerms[0];
-
-      for (let i = 0; i < optionsData.length; i++) {
-        const data = optionsData[i];
-        const isTitleMatch = data.name.includes(term);
-        const isDescMatch = !isTitleMatch && data.description.includes(term);
-
-        if (isTitleMatch) {
-          visibleCount++;
-          titleMatches.push(data);
-        } else if (isDescMatch) {
-          visibleCount++;
-          descMatches.push(data);
-        }
-      }
-
-      titleMatches.sort((a, b) => a.name.indexOf(term) - b.name.indexOf(term));
-      descMatches.sort(
-        (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
-      );
-
-      const visibleElements = new Set();
-      itemsToProcess = [];
-      for (let i = 0; i < titleMatches.length; i++) {
-        const data = titleMatches[i];
-        visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
-      }
-      for (let i = 0; i < descMatches.length; i++) {
-        const data = descMatches[i];
-        visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
-      }
-      for (let i = 0; i < optionsData.length; i++) {
-        const data = optionsData[i];
-        if (!visibleElements.has(data.element)) {
-          itemsToProcess.push({ element: data.element, visible: false });
-        }
-      }
-
-      // Reorder DOM so all title matches, then desc matches, then hidden
-      const fragment = document.createDocumentFragment();
-      for (let i = 0; i < itemsToProcess.length; i++) {
-        fragment.appendChild(itemsToProcess[i].element);
-      }
-      optionsContainer.appendChild(fragment);
-
-      filterResults.visibleCount = visibleCount;
-      pendingRender = requestAnimationFrame(processNextChunk);
-    }
-
-    // Use different debounce times for desktop vs mobile
-    const debouncedFilter = debounce(filterOptions, isMobile ? 200 : 100);
-
-    // Set up event listeners
-    optionsFilter.addEventListener("input", debouncedFilter);
-
-    // Allow clearing with Escape key
-    optionsFilter.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        optionsFilter.value = "";
-        filterOptions();
-      }
-    });
-
-    // Handle visibility changes
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden && optionsFilter.value) {
-        filterOptions();
-      }
-    });
-
-    // Run initial filter if there's a value
-    if (optionsFilter.value) {
-      filterOptions();
-    }
-
-    // Pre-calculate heights for smoother scrolling
-    if (isMobile && totalCount > 50) {
-      requestIdleCallback(() => {
-        const sampleOption = options[0];
-        if (sampleOption) {
-          const height = sampleOption.offsetHeight;
-          if (height > 0) {
-            options.forEach((opt) => {
-              opt.style.containIntrinsicSize = `0 ${height}px`;
-            });
-          }
-        }
-      });
-    }
-  }
-
-  // Lib filter functionality
-  const libFilter = document.getElementById("lib-filter");
-  if (libFilter && document.querySelector(".lib-container")) {
-    const libContainer = document.querySelector(".lib-container");
-
-    const hiddenLibContainer = document.createElement("template");
-    hiddenLibContainer.id = "hidden-lib-container";
-    document.body.appendChild(hiddenLibContainer);
-
-    const filterResults = document.createElement("div");
-    filterResults.className = "filter-results";
-    libFilter.parentNode.insertBefore(filterResults, libFilter.nextSibling);
-
-    const isMobile =
-      window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-
-    const libEntries = Array.from(document.querySelectorAll(".lib-entry"));
-    const totalCount = libEntries.length;
-    const originalLibOrder = libEntries.slice();
-
-    const libData = libEntries.map((entry) => {
-      const nameElem = entry.querySelector(".lib-entry-name");
-      const descriptionElem = entry.querySelector(".lib-entry-description");
-      const id = entry.id ? entry.id.toLowerCase() : "";
-      const name = nameElem ? nameElem.textContent.toLowerCase() : "";
-      const description = descriptionElem
-        ? descriptionElem.textContent.toLowerCase()
-        : "";
-
-      const keywords = (id + " " + name + " " + description)
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((word) => word.length > 1);
-
-      return {
-        element: entry,
-        id,
-        name,
-        description,
-        keywords,
-        searchText: (id + " " + name + " " + description).toLowerCase(),
-      };
-    });
-
-    const CHUNK_SIZE = isMobile ? 15 : 40;
-    let pendingRender = null;
-    let currentChunk = 0;
-    let itemsToProcess = [];
-
-    function debounceLib(func, wait) {
-      let timeout;
-      return function () {
-        const context = this;
-        const args = arguments;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-      };
-    }
-
-    function processNextChunkLib() {
-      const startIdx = currentChunk * CHUNK_SIZE;
-      const endIdx = Math.min(startIdx + CHUNK_SIZE, itemsToProcess.length);
-
-      if (startIdx < itemsToProcess.length) {
-        for (let i = startIdx; i < endIdx; i++) {
-          const item = itemsToProcess[i];
-          if (item.visible) {
-            libContainer.appendChild(item.element);
-          } else {
-            hiddenLibContainer.content.appendChild(item.element);
-          }
-        }
-
-        currentChunk++;
-        pendingRender = requestAnimationFrame(processNextChunkLib);
-      } else {
-        pendingRender = null;
-        currentChunk = 0;
-        itemsToProcess = [];
-
-        if (filterResults.visibleCount !== undefined) {
-          if (filterResults.visibleCount < totalCount) {
-            filterResults.textContent = `Showing ${filterResults.visibleCount} of ${totalCount} functions`;
-            filterResults.style.display = "block";
-          } else {
-            filterResults.style.display = "none";
-          }
-        }
-      }
-    }
-
-    function filterLib() {
-      const searchTerm = libFilter.value.toLowerCase().trim();
-
-      if (filterLib.lastTerm === searchTerm) {
-        return;
-      }
-      filterLib.lastTerm = searchTerm;
-
-      if (pendingRender) {
-        cancelAnimationFrame(pendingRender);
-        pendingRender = null;
-      }
-      currentChunk = 0;
-      itemsToProcess = [];
-
-      if (searchTerm === "") {
-        const fragment = document.createDocumentFragment();
-        originalLibOrder.forEach((entry) => {
-          hiddenLibContainer.content.appendChild(entry);
-        });
-        while (hiddenLibContainer.content.firstChild) {
-          fragment.appendChild(hiddenLibContainer.content.firstChild);
-        }
-        libContainer.appendChild(fragment);
-        filterResults.style.display = "none";
-        return;
-      }
-
-      const searchTerms = searchTerm
-        .split(/\s+/)
-        .filter((term) => term.length > 0);
-      let visibleCount = 0;
-
-      const titleMatches = [];
-      const descMatches = [];
-      const term = searchTerms[0];
-
-      for (let i = 0; i < libData.length; i++) {
-        const data = libData[i];
-        const isTitleMatch = data.name.includes(term);
-        const isDescMatch = !isTitleMatch && data.description.includes(term);
-
-        if (isTitleMatch) {
-          visibleCount++;
-          titleMatches.push(data);
-        } else if (isDescMatch) {
-          visibleCount++;
-          descMatches.push(data);
-        }
-      }
-
-      titleMatches.sort((a, b) => a.name.indexOf(term) - b.name.indexOf(term));
-      descMatches.sort(
-        (a, b) => a.description.indexOf(term) - b.description.indexOf(term),
-      );
-
-      const visibleElements = new Set();
-      itemsToProcess = [];
-      for (let i = 0; i < titleMatches.length; i++) {
-        const data = titleMatches[i];
-        visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
-      }
-      for (let i = 0; i < descMatches.length; i++) {
-        const data = descMatches[i];
-        visibleElements.add(data.element);
-        itemsToProcess.push({ element: data.element, visible: true });
-      }
-      for (let i = 0; i < libData.length; i++) {
-        const data = libData[i];
-        if (!visibleElements.has(data.element)) {
-          itemsToProcess.push({ element: data.element, visible: false });
-        }
-      }
-
-      const fragment = document.createDocumentFragment();
-      for (let i = 0; i < itemsToProcess.length; i++) {
-        fragment.appendChild(itemsToProcess[i].element);
-      }
-      libContainer.appendChild(fragment);
-
-      filterResults.visibleCount = visibleCount;
-      pendingRender = requestAnimationFrame(processNextChunkLib);
-    }
-
-    const debouncedFilter = debounceLib(filterLib, isMobile ? 200 : 100);
-
-    libFilter.addEventListener("input", debouncedFilter);
-
-    libFilter.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        libFilter.value = "";
-        filterLib();
-      }
-    });
-
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden && libFilter.value) {
-        filterLib();
-      }
-    });
-
-    if (libFilter.value) {
-      filterLib();
-    }
-
-    if (isMobile && totalCount > 50) {
-      requestIdleCallback(() => {
-        const sampleEntry = libEntries[0];
-        if (sampleEntry) {
-          const height = sampleEntry.offsetHeight;
-          if (height > 0) {
-            libEntries.forEach((entry) => {
-              entry.style.containIntrinsicSize = `0 ${height}px`;
-            });
-          }
-        }
-      });
-    }
-  }
+  const optionsIndexList = document.querySelector(".options-index-list");
+  setupListFilter({
+    inputId: "options-filter",
+    containerSelector: optionsIndexList
+      ? ".options-index-list"
+      : ".options-container",
+    itemSelector: optionsIndexList ? ".option-page-row" : ".option",
+    nameSelector: optionsIndexList ? ".option-page-title" : ".option-name",
+    noun: optionsIndexList ? "option groups" : "options",
+  });
+
+  setupListFilter({
+    inputId: "lib-filter",
+    containerSelector: ".lib-container",
+    itemSelector: ".lib-entry",
+    nameSelector: ".lib-entry-name",
+    noun: "functions",
+  });
 
   // URL-based search highlighting
   const urlParams = new URLSearchParams(window.location.search);
