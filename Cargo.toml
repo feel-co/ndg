@@ -5,7 +5,7 @@ resolver        = "3"
 
 [workspace.package]
 license      = "MPL-2.0"
-rust-version = "1.94.0"
+rust-version = "1.95.0"
 version      = "2.9.0"
 edition      = "2024"
 repository   = "https://github.com/feel-co/ndg"
@@ -50,7 +50,7 @@ open = "5.3.5"
 rand = "0.10.1"
 rustc-hash = "2.1.2"
 
-comrak = { version = "0.52.0", default-features = false }
+comrak = { version = "0.54.0", default-features = false }
 grass  = { version = "0.13.4", default-features = false }
 nixdoc = "0.2.0"
 
@@ -73,12 +73,12 @@ kuchikikiki   = "0.12.0"
 lightningcss  = { version = "=1.0.0-alpha.71", default-features = false }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.137.0"
-oxc_codegen   = { version = "0.137.0", default-features = false }
-oxc_minifier  = "0.137.0"
-oxc_parser    = "0.137.0"
-oxc_span      = "0.137.0"
-printpdf      = "0.9.1"
+oxc_allocator = "0.140.0"
+oxc_codegen   = { version = "0.140.0", default-features = false }
+oxc_minifier  = "0.140.0"
+oxc_parser    = "0.140.0"
+oxc_span      = "0.140.0"
+printpdf      = "0.11.1"
 
 
 axum       = { version = "0.8.9", default-features = false }
