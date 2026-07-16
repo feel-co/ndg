@@ -1207,6 +1207,8 @@ test1.md
 
     // Should show include processing (file not found)
     assert!(result.html.contains("<!-- ndg: could not include file:"));
+    assert_eq!(result.included_files.len(), 1);
+    assert_eq!(result.included_files[0].path, "test1.md");
   }
 }
 
