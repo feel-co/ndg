@@ -45,8 +45,13 @@ use super::{
 pub struct SyntasticaHighlighter {
   themes:        FxHashMap<String, ResolvedTheme>,
   default_theme: ResolvedTheme,
-  processor:     Mutex<Processor<'static, UserQueryLanguageSet>>,
-  renderer:      Mutex<HtmlRenderer>,
+  language_set:  &'static UserQueryLanguageSet,
+  workers:       Mutex<Vec<HighlightWorker>>,
+}
+
+struct HighlightWorker {
+  processor: Processor<'static, UserQueryLanguageSet>,
+  renderer:  HtmlRenderer,
 }
 
 struct UserQueryLanguageSet {
@@ -347,13 +352,11 @@ impl SyntasticaHighlighter {
     // raw-pointer cast would require.
     let language_set_static: &'static UserQueryLanguageSet =
       Box::leak(Box::new(UserQueryLanguageSet::new(syntax_queries_dir)));
-    let processor = Processor::new(language_set_static);
-
     Ok(Self {
       themes,
       default_theme,
-      processor: Mutex::new(processor),
-      renderer: Mutex::new(HtmlRenderer::new()),
+      language_set: language_set_static,
+      workers: Mutex::new(Vec::new()),
     })
   }
 
@@ -507,25 +510,39 @@ impl SyntaxHighlighter for SyntasticaHighlighter {
 
     let theme = self.get_theme(theme);
 
-    // Use the reusable processor via Mutex for thread-safe interior mutability
-    let highlights = self
-      .processor
+    let mut worker = self
+      .workers
       .lock()
       .map_err(|e| {
-        SyntaxError::HighlightingFailed(format!("Processor lock poisoned: {e}"))
+        SyntaxError::HighlightingFailed(format!(
+          "Worker pool lock poisoned: {e}"
+        ))
       })?
+      .pop()
+      .unwrap_or_else(|| {
+        HighlightWorker {
+          processor: Processor::new(self.language_set),
+          renderer:  HtmlRenderer::new(),
+        }
+      });
+
+    let result = worker
+      .processor
       .process(code, lang)
-      .map_err(|e| SyntaxError::HighlightingFailed(e.to_string()))?;
+      .map(|highlights| render(&highlights, &mut worker.renderer, theme))
+      .map_err(|e| SyntaxError::HighlightingFailed(e.to_string()));
 
-    // Use the reusable renderer via Mutex for thread-safe interior mutability
-    let html = {
-      let mut renderer = self.renderer.lock().map_err(|e| {
-        SyntaxError::HighlightingFailed(format!("Renderer lock poisoned: {e}"))
-      })?;
-      render(&highlights, &mut *renderer, theme)
-    };
+    self
+      .workers
+      .lock()
+      .map_err(|e| {
+        SyntaxError::HighlightingFailed(format!(
+          "Worker pool lock poisoned: {e}"
+        ))
+      })?
+      .push(worker);
 
-    Ok(html)
+    result
   }
 
   fn language_from_extension(&self, extension: &str) -> Option<String> {
