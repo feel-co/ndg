@@ -37,6 +37,12 @@ changes.
 
 ### Added
 
+- The Nix library parsing & page generation features via `nixdoc_inputs` can now
+  be disabled entirely by disabling the `nixdoc` feature for the `ndg` crate.
+  This will drop a dependency on `rnix-parser` and thus yield slightly faster
+  compile times and slightly smaller crates.
+  - Existing configurations with `nixdoc_inputs` set will error if this feature
+    is disabled!
 - Options documentation can now be split across generated group pages with the
   new `[options.pages]` configuration. Split pages include an option-group
   index, per-group breadcrumbs, adjacent group navigation, and search index

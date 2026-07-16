@@ -28,13 +28,14 @@ commonmark-nixpkgs = [
   "ndg-manpage/commonmark-nixpkgs",
   "ndg-utils/commonmark-nixpkgs",
 ]
-default = [ "commonmark-ndg" ]
+default = [ "commonmark-ndg", "nixdoc" ]
+nixdoc = [ "dep:ndg-nixdoc" ]
 
 [dependencies]
 ndg-commonmark.workspace = true
 ndg-config.workspace     = true
 ndg-manpage.workspace    = true
-ndg-nixdoc.workspace     = true
+ndg-nixdoc               = { workspace = true, optional = true }
 ndg-templates.workspace  = true
 ndg-utils.workspace      = true
 
@@ -45,7 +46,7 @@ indexmap.workspace    = true
 log.workspace         = true
 rayon.workspace       = true
 regex.workspace       = true
-rustc-hash.workspace = true
+rustc-hash.workspace  = true
 serde.workspace       = true
 serde_json.workspace  = true
 tera.workspace        = true

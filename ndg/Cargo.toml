@@ -28,7 +28,8 @@ commonmark-nixpkgs = [
   "ndg-pdf/commonmark-nixpkgs",
   "ndg-utils/commonmark-nixpkgs",
 ]
-default = [ "commonmark-ndg" ]
+default = [ "commonmark-ndg", "nixdoc" ]
+nixdoc = [ "ndg-html/nixdoc" ]
 nrd = [ "commonmark-nixpkgs" ]
 serve = [ "dep:axum", "dep:tokio", "dep:tower-http" ]
 
@@ -37,7 +38,6 @@ ndg-commonmark.workspace = true
 ndg-config.workspace     = true
 ndg-html.workspace       = true
 ndg-manpage.workspace    = true
-ndg-nixdoc.workspace     = true
 ndg-pdf.workspace        = true
 ndg-utils.workspace      = true
 
@@ -54,11 +54,11 @@ num_cpus.workspace            = true
 open.workspace                = true
 rayon.workspace               = true
 regex.workspace               = true
+rustc-hash                    = "2.1.2"
 serde.workspace               = true
 serde_json.workspace          = true
 tera.workspace                = true
 thiserror.workspace           = true
-rustc-hash = "2.1.2"
 toml.workspace                = true
 
 axum       = { workspace = true, optional = true, features = [ "tokio", "http1" ] }

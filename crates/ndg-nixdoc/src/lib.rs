@@ -118,3 +118,78 @@ pub fn extract_from_dir(
 
   Ok(entries)
 }
+
+#[cfg(test)]
+mod tests {
+  #![expect(clippy::expect_used, reason = "Fine in tests")]
+
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  use super::*;
+
+  #[test]
+  fn extracts_structured_documentation_from_file() {
+    let dir = tempdir().expect("create temporary directory");
+    let path = dir.path().join("lib.nix");
+    fs::write(
+      &path,
+      r"{
+  /**
+    Return the input unchanged.
+
+    # Type
+
+    ```
+    identity :: a -> a
+    ```
+
+    # Arguments
+
+    - [value] The value to return.
+
+    # Example
+
+    ```nix
+    identity 1
+    ```
+  */
+  identity = value: value;
+}",
+    )
+    .expect("write Nix source");
+
+    let entries = extract_from_file(&path).expect("extract documentation");
+
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].attr_path, ["identity"]);
+    assert_eq!(entries[0].location.line, 21);
+    let doc = entries[0].doc.as_ref().expect("parse doc comment");
+    assert_eq!(doc.title.as_deref(), Some("Return the input unchanged."));
+    assert_eq!(doc.type_sig.as_deref(), Some("identity :: a -> a"));
+    assert_eq!(doc.arguments.len(), 1);
+    assert_eq!(doc.arguments[0].name, "value");
+    assert_eq!(doc.examples.len(), 1);
+    assert_eq!(doc.examples[0].language.as_deref(), Some("nix"));
+  }
+
+  #[test]
+  fn directory_extraction_is_recursive_and_ignores_other_files() {
+    let dir = tempdir().expect("create temporary directory");
+    let nested = dir.path().join("nested");
+    fs::create_dir(&nested).expect("create nested directory");
+    fs::write(nested.join("lib.nix"), "{ /** Documented. */ value = 1; }")
+      .expect("write Nix source");
+    fs::write(
+      dir.path().join("ignored.txt"),
+      "{ /** Hidden. */ value = 1; }",
+    )
+    .expect("write non-Nix source");
+
+    let entries = extract_from_dir(dir.path()).expect("extract directory");
+
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].attr_path, ["value"]);
+  }
+}
