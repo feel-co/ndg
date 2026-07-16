@@ -71,6 +71,7 @@ html5ever     = "0.39.0"
 indexmap      = "2.14.0"
 kuchikikiki   = "0.12.0"
 lightningcss  = { version = "=1.0.0-alpha.71", default-features = false }
+lopdf         = { version = "0.44.0", default-features = false, features = [ "chrono", "jiff", "rayon" ] }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
 oxc_allocator = "0.140.0"
