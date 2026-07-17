@@ -69,14 +69,23 @@
   --heading-color: #0f172a;
   --link-color: #3b82f6;
   --link-hover-color: #2563eb;
+
+  /* Accent */
+  --brand: var(--link-color);
+  --brand-hover: var(--link-hover-color);
+  --focus-ring: rgba(59, 130, 246, 0.35);
+  --border-strong: #cbd5e1;
+
   --border-color: #e2e8f0;
   --table-border-color: #cbd5e1;
   --code-bg: #f1f5f9;
-  --header-bg: #1e293b;
-  --header-text: #f8fafc;
+  --header-bg: rgba(255, 255, 255, 0.8);
+  --header-text: #1e293b;
+  --header-muted: #64748b;
+  --header-border: #e2e8f0;
   --sidebar-bg: #f8fafc;
-  --sidebar-hover: #f1f5f9;
-  --sidebar-active: #e2e8f0;
+  --sidebar-hover: #eef1f6;
+  --sidebar-active: #e6eaf1;
   --footer-bg: #f1f5f9;
   --shadow-color: rgba(15, 23, 42, 0.08);
   --shadow-color-darker: rgba(15, 23, 42, 0.12);
@@ -89,6 +98,7 @@
   --admonition-info-color: #6366f1;
   --admonition-important-color: #8b5cf6;
   --admonition-example-color: #06b6d4;
+  --admonition-caution-color: #f97316;
 
   /* Spacing  */
   --space-1: 0.25rem;
@@ -129,11 +139,19 @@
     --heading-color: var(--neutral-100);
     --link-color: #60a5fa;
     --link-hover-color: #93c5fd;
+
+    --brand: var(--link-color);
+    --brand-hover: var(--link-hover-color);
+    --focus-ring: rgba(96, 165, 250, 0.4);
+    --border-strong: var(--neutral-700);
+
     --border-color: var(--neutral-800);
     --code-bg: #111827;
     --code-border: var(--neutral-800);
-    --header-bg: var(--neutral-950);
-    --header-text: #f8fafc;
+    --header-bg: color-mix(in oklch, var(--neutral-950) 80%, transparent);
+    --header-text: var(--neutral-100);
+    --header-muted: var(--neutral-400);
+    --header-border: var(--neutral-800);
     --sidebar-bg: var(--neutral-900);
     --sidebar-hover: var(--neutral-800);
     --sidebar-active: var(--neutral-700);
@@ -282,25 +300,26 @@ section.footnotes p {
 /* Header Styling */
 header {
   background-color: var(--header-bg);
-  padding-inline: var(--space-4);
+  padding-inline: var(--space-6);
   position: sticky;
   display: flex;
   gap: var(--space-6);
   align-items: center;
-  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.16);
+  border-bottom: 1px solid var(--header-border);
   z-index: 100;
-  position: sticky;
   top: 0px;
-  transition: background-color var(--transition);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  transition:
+    background-color var(--transition),
+    border-color var(--transition);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
   height: var(--header-height);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-6);
 }
 
 .site-title {
@@ -309,7 +328,6 @@ header {
   font-weight: 600;
   letter-spacing: -0.01em;
   border-bottom: none;
-  margin: 0;
 
   a {
     color: var(--header-text);
@@ -343,7 +361,7 @@ header {
   }
 
   a {
-    color: var(--header-text);
+    color: var(--header-muted);
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 500;
@@ -353,23 +371,14 @@ header {
   }
 
   a:hover {
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--header-text);
     text-decoration: none;
   }
 
+  /* Active item, highlighted */
   li.active a {
-    position: relative;
-  }
-
-  li.active a::after {
-    content: "";
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background-color: var(--header-text);
-    border-radius: var(--radius-sm);
+    color: var(--link-color);
+    font-weight: 600;
   }
 }
 
@@ -450,15 +459,16 @@ header {
       background-color var(--transition-fast);
     font-size: 0.875rem;
 
-    &:hover,
-    &.active {
-      color: var(--link-color);
+    &:hover {
+      color: var(--heading-color);
       background-color: var(--sidebar-hover);
     }
 
     &.active {
+      color: var(--link-color);
       background-color: var(--sidebar-active);
-      font-weight: 500;
+      font-weight: 600;
+      box-shadow: inset 2px 0 0 var(--brand);
     }
   }
 
@@ -620,6 +630,17 @@ a:hover {
   text-decoration-thickness: from-font;
 }
 
+/* Visible keyboard focus everywhere interactive. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+.copy-link:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 /* Code Styling */
 code {
   font-family: var(--font-mono);
@@ -745,18 +766,20 @@ img {
 
 /* Desktop search input */
 #search-input {
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   padding-left: 2.5rem;
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  width: 250px;
+  width: 240px;
   font-size: 0.875rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--header-text);
+  background-color: var(--bg-surface);
+  color: var(--text-color);
   transition:
     background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
     width var(--transition);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(255, 255, 255, 0.7)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: 0.75rem center;
   background-size: 1rem;
@@ -764,15 +787,17 @@ img {
 }
 
 #search-input::placeholder {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-muted);
 }
 
 /* Expand input when focused OR when results are visible */
 .search-container:focus-within #search-input,
 .search-container.has-results #search-input {
   outline: none;
-  background-color: rgba(255, 255, 255, 0.15);
-  width: 350px;
+  background-color: var(--bg-color);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  width: 320px;
 }
 
 .search-results {
@@ -890,8 +915,8 @@ img {
 
 #mobile-search-input:focus {
   outline: none;
-  border-color: var(--link-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .close-mobile-search {
@@ -997,8 +1022,8 @@ img {
 
 #search-page-input:focus {
   outline: none;
-  border-color: var(--link-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .search-keyboard-hints {
@@ -1830,7 +1855,7 @@ h6:hover .copy-link {
 .option:target,
 .option.highlight {
   border-color: var(--link-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px var(--focus-ring);
   animation: highlight-pulse 1.5s ease;
 }
 
@@ -1904,8 +1929,8 @@ h6:hover .copy-link {
 
 .lib-entry:target,
 .lib-entry.highlight {
-  border-color: var(--link-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--focus-ring);
   animation: highlight-pulse 1.5s ease;
 }
 
@@ -2201,13 +2226,20 @@ h6:hover .copy-link {
   margin-bottom: var(--space-2);
 }
 
+/* Divider between sections */
+.sidebar-section + .sidebar-section {
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+}
+
 /* Only target direct child summary (section headers like "Documents", "Contents") */
 .sidebar-section > summary {
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   padding: var(--space-2) var(--space-3);
   list-style: none;
