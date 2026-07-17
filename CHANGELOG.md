@@ -53,6 +53,9 @@ changes.
 
 ### Changed
 
+- HTML generation now processes Markdown pages in parallel and caches rendered
+  results in `.ndg-cache/markdown` for faster repeated builds; `ndg init`
+  ignores this generated cache automatically.
 - Mobile documentation navigation now uses a header menu button and modal
   sidebar with backdrop, close button, Escape handling, and cloned site
   navigation instead of the previous floating action button and draggable bottom
