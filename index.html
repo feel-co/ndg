@@ -102,6 +102,7 @@
 </ul><li><a href="#detailed-usage">Detailed Usage</a>
 <ul><li><a href="#cli-flags-and-configuration-options">CLI Flags and Configuration Options</a>
 <li><a href="#generating-html-documents">Generating HTML Documents</a>
+<li><a href="#nix-library-documentation">Nix Library Documentation</a>
 <li><a href="#generating-manpages">Generating Manpages</a>
 <li><a href="#generating-pdfs">Generating PDFs</a>
 </ul><li><a href="#customization">Customization</a>
@@ -171,6 +172,7 @@ Nixpkgs-flavored CommonMark features<sup class="footnote-ref"><a href="#fn-1" id
 ordering, and depth of option categories</li>
 </ul>
 </li>
+<li><strong>Nix library references</strong> from <a href="https://github.com/NixOS/rfcs/blob/master/rfcs/0145-doc-strings.md">RFC 145</a>-style <code>/** ... */</code> comments</li>
 <li><strong><code>nixos-render-docs</code> compatibility mode</strong> via the <code>nrd</code> feature and Nix
 package aliases for projects that need drop-in option rendering commands</li>
 <li><strong>Fully customizable templates</strong> to match your project's style fully</li>
@@ -389,6 +391,8 @@ config when present). For a full list of CLI options, see the help output with
 <li><code>script_paths</code> - Array of custom JavaScript file paths</li>
 <li><code>assets_dir</code> - Directory containing additional assets to copy</li>
 <li><code>module_options</code> - Path to <code>options.json</code> for NixOS module documentation</li>
+<li><code>nixdoc_inputs</code> - Nix files or directories scanned recursively for RFC
+145-style doc comments (requires the <code>nixdoc</code> build feature)</li>
 <li><code>options.filter.prefix</code> - Include only options whose names start with this
 prefix</li>
 <li><code>options.filter.type</code> - Include only options whose type contains this text,
@@ -584,6 +588,21 @@ Optionally you may pass an <code>options.json</code> to also render an <code>opt
 page for a listing of your module options. See the
 <a href="#nixos-options">NixOS Options</a> section below for more details.</p>
 </blockquote>
+<h3 id="nix-library-documentation">Nix Library Documentation</h3>
+<p>Set <code>nixdoc_inputs</code> to generate <code>lib.html</code> from RFC 145-style comments attached
+to static attribute bindings. Directories are scanned recursively for <code>.nix</code>
+files.</p>
+<pre><code class="language-toml">nixdoc_inputs = ["lib", "src/helpers.nix"]
+revision = "main"
+</code></pre>
+<p>Nixdoc support is enabled in default builds. To omit <code>ndg-nixdoc</code>, <code>rnix</code>, and
+the parser dependencies, build with explicit features and leave out <code>nixdoc</code>:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(97,175,239);">cargo</span>&nbsp;<span style="color:rgb(232,102,113);">build</span>&nbsp;<span style="color:rgb(232,102,113);">-p</span>&nbsp;<span style="color:rgb(232,102,113);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">--no-default-features</span>&nbsp;<span style="color:rgb(232,102,113);">--features</span>&nbsp;<span style="color:rgb(232,102,113);">commonmark-ndg</span><br></code></pre>
+<p>The extractor currently documents only statically named attribute bindings.
+Dynamic attribute paths are skipped, syntax errors are handled using <code>rnix</code>'s
+error-tolerant syntax tree, and comments that the <code>nixdoc</code> parser rejects remain
+available only as raw comments. Treat generated library references as output to
+review, especially for malformed or highly dynamic Nix sources.</p>
 <h3 id="generating-manpages">Generating Manpages</h3>
 <p>NDG allows generating manual pages for your project using your <code>options.json</code>.
 Due to the shortcomings of Troff, manpage generation is not as robust or mature
@@ -1117,6 +1136,7 @@ if this is the case! <a href="#fnref-1" class="footnote-backref" data-footnote-b
 </ul><li><a href="#detailed-usage">Detailed Usage</a>
 <ul><li><a href="#cli-flags-and-configuration-options">CLI Flags and Configuration Options</a>
 <li><a href="#generating-html-documents">Generating HTML Documents</a>
+<li><a href="#nix-library-documentation">Nix Library Documentation</a>
 <li><a href="#generating-manpages">Generating Manpages</a>
 <li><a href="#generating-pdfs">Generating PDFs</a>
 </ul><li><a href="#customization">Customization</a>
