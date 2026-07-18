@@ -1,10 +1,11 @@
 use std::{
   fs,
   path::{Path, PathBuf},
+  sync::Mutex,
 };
 
 use color_eyre::eyre::{Context, Result};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use log::{info, warn};
 use ndg_commonmark::{
   Header,
@@ -14,8 +15,9 @@ use ndg_commonmark::{
   processor::types::TabStyle,
 };
 use ndg_config::Config;
+use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// TOML frontmatter parsed from the `+++` delimited block at the start of a
 /// markdown document.
@@ -23,7 +25,7 @@ use serde::Deserialize;
 /// Frontmatter must appear at the very beginning of the file, wrapped in
 /// `+++` delimiters on their own lines. Any unrecognised keys are silently
 /// ignored by the TOML deserialiser.
-#[derive(Debug, Default, Clone, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct PageFrontmatter {
   /// Overrides the page title extracted from the first H1 heading.
   pub title:       Option<String>,
@@ -112,6 +114,30 @@ pub struct ProcessedMarkdown {
   pub frontmatter:  Option<PageFrontmatter>,
 }
 
+const MARKDOWN_CACHE_SCHEMA: u8 = 2;
+
+#[derive(Serialize, Deserialize)]
+struct MarkdownCacheEntry {
+  schema:           u8,
+  source_digest:    String,
+  dependencies:     Vec<(PathBuf, Option<String>)>,
+  processor_digest: String,
+  result:           ndg_commonmark::MarkdownResult,
+  frontmatter:      Option<PageFrontmatter>,
+}
+
+#[derive(Serialize)]
+struct MarkdownCacheEntryRef<'a> {
+  schema:           u8,
+  source_digest:    &'a str,
+  dependencies:     Vec<(PathBuf, Option<String>)>,
+  processor_digest: &'a str,
+  result:           &'a ndg_commonmark::MarkdownResult,
+  frontmatter:      Option<&'a PageFrontmatter>,
+}
+
+type DependencyDigests = Mutex<FxHashMap<PathBuf, Option<String>>>;
+
 /// Processes all markdown files in the input directory and returns processed
 /// data.
 ///
@@ -143,9 +169,32 @@ pub fn process_markdown_files(
   config: &mut Config,
   processor: Option<&MarkdownProcessor>,
 ) -> Result<Vec<ProcessedMarkdown>> {
+  process_markdown_files_impl(config, processor, None)
+}
+
+/// Processes markdown files, reusing project-local render entries when valid.
+///
+/// # Errors
+///
+/// Returns an error when Markdown sources cannot be collected, read, or
+/// processed.
+pub fn process_markdown_files_with_cache(
+  config: &mut Config,
+  processor: Option<&MarkdownProcessor>,
+  cache_dir: &Path,
+) -> Result<Vec<ProcessedMarkdown>> {
+  process_markdown_files_impl(config, processor, Some(cache_dir))
+}
+
+fn process_markdown_files_impl(
+  config: &mut Config,
+  processor: Option<&MarkdownProcessor>,
+  cache_dir: Option<&Path>,
+) -> Result<Vec<ProcessedMarkdown>> {
   if let Some(ref input_dir) = config.input_dir {
     info!("Input directory: {}", input_dir.display());
-    let files = collect_markdown_files(input_dir);
+    let mut files = collect_markdown_files(input_dir);
+    files.sort();
     info!("Found {} markdown files", files.len());
 
     // Map: output html path -> output entry
@@ -176,21 +225,12 @@ pub fn process_markdown_files(
     let base_processor = processor
       .map_or_else(|| create_processor(config, None), std::clone::Clone::clone);
 
-    // Store render results to avoid rendering twice
-    #[expect(clippy::items_after_statements, reason = "Local type alias")]
-    type RenderCache = FxHashMap<PathBuf, ndg_commonmark::MarkdownResult>;
-    let mut render_cache: RenderCache = FxHashMap::default();
-
-    // Store parsed frontmatter per source file
-    let mut frontmatter_cache: FxHashMap<PathBuf, Option<PageFrontmatter>> =
-      FxHashMap::default();
-
-    // First pass: render all files once and collect metadata
+    let cache = cache_dir.map(|dir| (dir, processor_digest(&base_processor)));
+    let dependency_digests = DependencyDigests::default();
     let progress = ProgressBar::new(files.len() as u64);
     #[expect(
       clippy::expect_used,
-      reason = "template string is a compile-time constant; failure is \
-                impossible"
+      reason = "template string is a compile-time constant"
     )]
     let style = ProgressStyle::default_bar()
       .template(
@@ -203,24 +243,53 @@ pub fn process_markdown_files(
     progress.set_message("Processing markdown");
     progress.enable_steady_tick(std::time::Duration::from_millis(100));
 
-    for file_path in &files {
-      progress.inc(1);
-      let raw_content = fs::read_to_string(file_path).wrap_err_with(|| {
-        format!("Failed to read markdown file: {}", file_path.display())
-      })?;
+    let rendered: Result<Vec<_>> = files
+      .par_iter()
+      .progress_with(progress.clone())
+      .map(|file_path| {
+        let raw_content =
+          fs::read_to_string(file_path).wrap_err_with(|| {
+            format!("Failed to read markdown file: {}", file_path.display())
+          })?;
+        let base_dir = file_path.parent().unwrap_or(input_dir.as_path());
+        let source_digest = digest(&raw_content);
+        if let Some((dir, processor_digest)) = &cache
+          && let Some(entry) = read_cache(
+            dir,
+            file_path,
+            base_dir,
+            &source_digest,
+            processor_digest,
+            &dependency_digests,
+          )
+        {
+          return Ok((entry.frontmatter, entry.result));
+        }
 
-      let (frontmatter, content) = strip_frontmatter(&raw_content);
-      frontmatter_cache.insert(file_path.clone(), frontmatter);
+        let (frontmatter, content) = strip_frontmatter(&raw_content);
+        let result = base_processor
+          .clone()
+          .with_base_dir(base_dir)
+          .render(&content);
+        if let Some((dir, processor_digest)) = &cache {
+          write_cache(
+            dir,
+            file_path,
+            base_dir,
+            &source_digest,
+            processor_digest,
+            &result,
+            frontmatter.as_ref(),
+          );
+        }
+        Ok((frontmatter, result))
+      })
+      .collect();
+    progress.finish_with_message("Markdown processing complete");
 
-      let base_dir = file_path.parent().unwrap_or_else(|| {
-        config
-          .input_dir
-          .as_deref()
-          .unwrap_or_else(|| Path::new("."))
-      });
-      let processor = base_processor.clone().with_base_dir(base_dir);
-
-      let result = processor.render(&content);
+    let rendered = rendered?;
+    for (file_path, (_, result)) in files.iter().zip(&rendered) {
+      let base_dir = file_path.parent().unwrap_or(input_dir.as_path());
 
       // Track custom outputs for included files
       for inc in &result.included_files {
@@ -257,21 +326,10 @@ pub fn process_markdown_files(
             .or_insert_with(|| includer_rel.to_owned());
         }
       }
-
-      // Cache the render result
-      render_cache.insert(file_path.clone(), result);
     }
 
-    progress.finish_with_message("Markdown processing complete");
-
-    // Second pass: use cached results to build output map
-    for file_path in &files {
-      // Retrieve cached result instead of rendering again
-      #[expect(clippy::expect_used, reason = "File is guaranteed to be cached")]
-      let result = render_cache
-        .get(file_path)
-        .expect("File should have cached result");
-
+    // Second pass: build output entries after resolving include relationships.
+    for (file_path, (frontmatter, result)) in files.into_iter().zip(rendered) {
       let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
         format!(
           "Failed to determine relative path for {}",
@@ -303,18 +361,16 @@ pub fn process_markdown_files(
       let custom_outputs =
         pending_custom_outputs.remove(rel_path).unwrap_or_default();
 
-      let frontmatter = frontmatter_cache.remove(file_path).flatten();
-
       // If this file has custom outputs via html:into-file, write to those
       // locations
       if custom_outputs.is_empty() {
         output_map.insert(
           output_path_str,
           (
-            result.html.clone(),
-            result.headers.clone(),
-            result.title.clone(),
-            file_path.clone(),
+            result.html,
+            result.headers,
+            result.title,
+            file_path,
             is_included,
             frontmatter,
           ),
@@ -375,6 +431,151 @@ pub fn process_markdown_files(
 
 fn normalize_custom_output_path(path: &str) -> PathBuf {
   PathBuf::from(path.trim_start_matches('/'))
+}
+
+fn digest(content: impl AsRef<[u8]>) -> String {
+  blake3::hash(content.as_ref()).to_hex().to_string()
+}
+
+fn digest_file(path: &Path) -> Option<String> {
+  fs::read(path).ok().map(digest)
+}
+
+fn digest_tree(path: Option<&str>) -> String {
+  let Some(path) = path else {
+    return String::new();
+  };
+  let path = Path::new(path);
+  if path.is_file() {
+    return digest_file(path).unwrap_or_default();
+  }
+  let mut files: Vec<_> = walkdir::WalkDir::new(path)
+    .into_iter()
+    .filter_map(Result::ok)
+    .filter(|entry| !entry.file_type().is_dir())
+    .map(walkdir::DirEntry::into_path)
+    .collect();
+  files.sort();
+  let mut hasher = blake3::Hasher::new();
+  for file in files {
+    hasher.update(file.to_string_lossy().as_bytes());
+    if let Ok(content) = fs::read(&file) {
+      hasher.update(&content);
+    }
+  }
+  hasher.finalize().to_hex().to_string()
+}
+
+fn processor_digest(processor: &MarkdownProcessor) -> String {
+  processor_digest_for_version(processor, env!("CARGO_PKG_VERSION"))
+}
+
+fn processor_digest_for_version(
+  processor: &MarkdownProcessor,
+  version: &str,
+) -> String {
+  let options = processor.options();
+  digest(format!(
+    "{MARKDOWN_CACHE_SCHEMA}|{version}|{:?}|{}|{}|{}|{}|{}",
+    options,
+    digest_tree(options.manpage_urls_path.as_deref()),
+    digest_tree(options.syntax_queries_path.as_deref()),
+    cfg!(feature = "commonmark-ndg"),
+    cfg!(feature = "commonmark-nixpkgs"),
+    cfg!(feature = "commonmark-nixpkgs") || cfg!(feature = "commonmark-ndg"),
+  ))
+}
+
+fn cache_path(cache_dir: &Path, source: &Path) -> PathBuf {
+  cache_dir.join(format!(
+    "{}.json",
+    digest(source.to_string_lossy().as_bytes())
+  ))
+}
+
+fn read_cache(
+  cache_dir: &Path,
+  source: &Path,
+  base_dir: &Path,
+  source_digest: &str,
+  processor_digest: &str,
+  dependency_digests: &DependencyDigests,
+) -> Option<MarkdownCacheEntry> {
+  let entry: MarkdownCacheEntry =
+    serde_json::from_slice(&fs::read(cache_path(cache_dir, source)).ok()?)
+      .ok()?;
+  if entry.schema != MARKDOWN_CACHE_SCHEMA
+    || entry.source_digest != source_digest
+    || entry.processor_digest != processor_digest
+  {
+    return None;
+  }
+  entry
+    .dependencies
+    .iter()
+    .all(|(path, expected)| {
+      dependency_matches(
+        &base_dir.join(path),
+        expected.as_deref(),
+        dependency_digests,
+      )
+    })
+    .then_some(entry)
+}
+
+fn dependency_matches(
+  path: &Path,
+  expected: Option<&str>,
+  digests: &DependencyDigests,
+) -> bool {
+  // ponytail: first reads are serialized; shard if unique includes dominate.
+  let Ok(mut digests) = digests.lock() else {
+    return false;
+  };
+  digests
+    .entry(path.to_owned())
+    .or_insert_with(|| digest_file(path))
+    .as_deref()
+    == expected
+}
+
+fn write_cache(
+  cache_dir: &Path,
+  source: &Path,
+  base_dir: &Path,
+  source_digest: &str,
+  processor_digest: &str,
+  result: &ndg_commonmark::MarkdownResult,
+  frontmatter: Option<&PageFrontmatter>,
+) {
+  let dependencies = result
+    .included_files
+    .iter()
+    .map(|include| {
+      let path = PathBuf::from(&include.path);
+      let digest = digest_file(&base_dir.join(&path));
+      (path, digest)
+    })
+    .collect();
+  let entry = MarkdownCacheEntryRef {
+    schema: MARKDOWN_CACHE_SCHEMA,
+    source_digest,
+    dependencies,
+    processor_digest,
+    result,
+    frontmatter,
+  };
+  let Ok(data) = serde_json::to_vec(&entry) else {
+    return;
+  };
+  if fs::create_dir_all(cache_dir).is_err() {
+    return;
+  }
+  let path = cache_path(cache_dir, source);
+  let temp = path.with_extension(format!("{}.tmp", std::process::id()));
+  if fs::write(&temp, data).is_ok() {
+    let _ = fs::rename(temp, path);
+  }
 }
 
 /// Creates a markdown processor from the NDG configuration.
@@ -452,5 +653,160 @@ pub fn extract_page_title(file_path: &Path, html_path: &Path) -> String {
       );
       default_title
     },
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  #![allow(clippy::unwrap_used, reason = "Tests can unwrap")]
+
+  use ndg_commonmark::{IncludedFile, MarkdownResult};
+  use tempfile::TempDir;
+
+  use super::*;
+
+  fn read_cache(
+    cache_dir: &Path,
+    source: &Path,
+    base_dir: &Path,
+    source_digest: &str,
+    processor_digest: &str,
+  ) -> Option<MarkdownCacheEntry> {
+    super::read_cache(
+      cache_dir,
+      source,
+      base_dir,
+      source_digest,
+      processor_digest,
+      &DependencyDigests::default(),
+    )
+  }
+
+  #[test]
+  fn cache_rejects_changed_inputs() {
+    let temp = TempDir::new().unwrap();
+    let base = temp.path().join("docs");
+    let cache = temp.path().join("cache");
+    let source = base.join("page.md");
+    let include = base.join("part.md");
+    fs::create_dir_all(&base).unwrap();
+    fs::write(&source, "# Page").unwrap();
+    fs::write(&include, "included v1").unwrap();
+
+    let result = MarkdownResult {
+      html:           String::new(),
+      headers:        Vec::new(),
+      title:          None,
+      included_files: vec![IncludedFile {
+        path:          "part.md".to_string(),
+        custom_output: None,
+      }],
+    };
+    let source_digest = digest("# Page");
+    write_cache(
+      &cache,
+      &source,
+      &base,
+      &source_digest,
+      "processor-a",
+      &result,
+      None,
+    );
+
+    assert!(
+      read_cache(&cache, &source, &base, &source_digest, "processor-a")
+        .is_some(),
+      "unchanged inputs should reuse the cache"
+    );
+    assert!(
+      read_cache(&cache, &source, &base, &digest("# Changed"), "processor-a")
+        .is_none(),
+      "changed Markdown should invalidate the cache"
+    );
+
+    fs::write(&include, "included v2").unwrap();
+    assert!(
+      read_cache(&cache, &source, &base, &source_digest, "processor-a")
+        .is_none(),
+      "changed includes should invalidate the cache"
+    );
+
+    fs::write(&include, "included v1").unwrap();
+    assert!(
+      read_cache(&cache, &source, &base, &source_digest, "processor-b")
+        .is_none(),
+      "changed processor options should invalidate the cache"
+    );
+  }
+
+  #[test]
+  fn cache_rejects_a_dependency_that_appears() {
+    let temp = TempDir::new().unwrap();
+    let base = temp.path().join("docs");
+    let cache = temp.path().join("cache");
+    let source = base.join("page.md");
+    fs::create_dir_all(&base).unwrap();
+
+    let result = MarkdownResult {
+      html:           String::new(),
+      headers:        Vec::new(),
+      title:          None,
+      included_files: vec![IncludedFile {
+        path:          "missing.md".to_string(),
+        custom_output: None,
+      }],
+    };
+    let source_digest = digest("# Page");
+    write_cache(
+      &cache,
+      &source,
+      &base,
+      &source_digest,
+      "processor",
+      &result,
+      None,
+    );
+
+    assert!(
+      read_cache(&cache, &source, &base, &source_digest, "processor").is_some()
+    );
+    fs::write(base.join("missing.md"), "now available").unwrap();
+    assert!(
+      read_cache(&cache, &source, &base, &source_digest, "processor").is_none(),
+      "creating a previously missing include should invalidate the cache"
+    );
+  }
+
+  #[test]
+  fn processor_digest_tracks_query_files() {
+    let temp = TempDir::new().unwrap();
+    let queries = temp.path().join("queries");
+    fs::create_dir_all(&queries).unwrap();
+    fs::write(queries.join("highlights.scm"), "query v1").unwrap();
+    let config = Config {
+      syntax_queries_path: Some(queries.clone()),
+      ..Config::default()
+    };
+    let processor = create_processor(&config, None);
+    let before = processor_digest(&processor);
+
+    fs::write(queries.join("highlights.scm"), "query v2").unwrap();
+
+    assert_ne!(
+      before,
+      processor_digest(&processor),
+      "changed syntax queries should invalidate the cache"
+    );
+  }
+
+  #[test]
+  fn processor_digest_tracks_ndg_version() {
+    let processor = create_processor(&Config::default(), None);
+
+    assert_ne!(
+      processor_digest_for_version(&processor, "2.9.0"),
+      processor_digest_for_version(&processor, "2.10.0"),
+      "upgrading NDG should invalidate the cache"
+    );
   }
 }

@@ -191,28 +191,13 @@ $ ndg html --config-file base.toml --config-file overrides.toml
 $ ndg html --config search.enable=false --config sidebar.options.depth=3
 ```
 
-Upon running `ndg init`, you will receive a configuration file in one of JSON or
-TOML formats depending on the format specified, with all available options and
-their default values as well as explanatory comments. You can then edit this
-file to customize your documentation generation process.
-
 > [!TIP]
-> The generated configuration includes detailed comments for each option, making
-> it easy to understand what each setting does without needing to refer to the
-> documentation.
-
-Once you have a configuration file, NDG will automatically detect it when ran in
-the same directory. Though if you want to move the configuration file to a
-nonstandard location, you may specify a path to the configuration file using the
-`--config-file` option.
-
-```bash
-# Run with automatically detected config
-$ ndg html
-
-# Run with explicitly specified config
-$ ndg html --config-file nested/path/to/ndg.toml
-```
+> Repeated HTML builds keep Markdown render entries in `.ndg-cache/markdown/`
+> below the project directory. For an explicit configuration, this is the
+> directory containing the first configuration file; otherwise it is the working
+> directory. The cache is safe to delete and is ignored when it cannot be read
+> or written. `ndg init` will automatically append this directory to your
+> `.gitignore` if present, or will create a `.gitignore` if none is found.
 
 ### Generating Your First Documents
 
@@ -525,7 +510,7 @@ robots = "index,follow"
 
 ### Generating HTML Documents
 
-As of `v2.0.0`, NDG features a more compartmentalized architechture with a focus
+As of `v2.0.0`, NDG features a more compartmentalized architecture with a focus
 on distinguishing between output formats more carefully. Prior to version 2.0.0,
 HTML was the "default" output format, and the only "blessed" one.
 
@@ -623,7 +608,11 @@ The extractor currently documents only statically named attribute bindings.
 Dynamic attribute paths are skipped, syntax errors are handled using `rnix`'s
 error-tolerant syntax tree, and comments that the `nixdoc` parser rejects remain
 available only as raw comments. Treat generated library references as output to
-review, especially for malformed or highly dynamic Nix sources.
+review, especially for malformed or highly dynamic Nix sources. This feature
+uses a [tiny in-house crate](https://crates.io/crates/nixdoc) which has an
+unfortunate name collision with the "official" `nixdoc` tool. The parser is
+entirely in-house and acts as a library. `ndg-nixdoc` and by extension, ndg,
+does not call `nixdoc` as a CLI tool.
 
 ### Generating Manpages
 
@@ -639,8 +628,8 @@ $ ndg man -j ./options.json --output-file ./man/project.5 --title "My Project" -
 
 > [!NOTE]
 > For manpages, you **must** provide an `options.json` using `--module-options`
-> or `-j`. Since we do not convert arbitrary pages in the Manpages mode, this is
-> necessary to generate the main page containing module options.
+> or `-j`. Since we **do not yet** convert arbitrary pages in the Manpages mode,
+> this is necessary to generate the main page containing module options.
 
 ### Generating PDFs
 

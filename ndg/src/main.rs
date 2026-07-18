@@ -67,6 +67,7 @@ fn main() -> Result<()> {
             )
           },
         )?;
+        update_gitignore(output)?;
 
         info!(
           "Configuration file created successfully. Edit it to customize your \
@@ -126,6 +127,7 @@ fn main() -> Result<()> {
     }
   }
 
+  let project_root = project_root(&cli.config_files);
   let mut config = Config::load(&cli.config_files, &cli.config_overrides)?;
   merge_cli_into_config(&mut config, &cli);
 
@@ -150,7 +152,10 @@ fn main() -> Result<()> {
   }
 
   if output_mode.generate_html() {
-    generate_documentation(&mut config)?;
+    generate_documentation(
+      &mut config,
+      &project_root.join(".ndg-cache/markdown"),
+    )?;
   }
   if output_mode.generate_man() {
     generate_man_output(&config)?;
@@ -179,8 +184,53 @@ fn main() -> Result<()> {
   Ok(())
 }
 
+fn update_gitignore(config_path: &Path) -> Result<()> {
+  const CACHE_ENTRY: &str = ".ndg-cache/";
+  const CACHE_SECTION: &str = "# NDG generated cache\n.ndg-cache/\n";
+
+  let root = config_path
+    .parent()
+    .filter(|path| !path.as_os_str().is_empty())
+    .unwrap_or_else(|| Path::new("."));
+  let path = root.join(".gitignore");
+  let mut content = if path.exists() {
+    fs::read_to_string(&path)
+      .wrap_err_with(|| format!("Failed to read {}", path.display()))?
+  } else {
+    String::new()
+  };
+
+  if content.lines().any(|line| line.trim() == CACHE_ENTRY) {
+    return Ok(());
+  }
+  if !content.is_empty() {
+    if !content.ends_with('\n') {
+      content.push('\n');
+    }
+    content.push('\n');
+  }
+  content.push_str(CACHE_SECTION);
+  fs::write(&path, content)
+    .wrap_err_with(|| format!("Failed to update {}", path.display()))
+}
+
+fn project_root(config_files: &[PathBuf]) -> PathBuf {
+  config_files
+    .first()
+    .and_then(|path| path.parent())
+    .filter(|path| !path.as_os_str().is_empty())
+    .map_or_else(
+      || std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+      Path::to_path_buf,
+    )
+}
+
 #[cfg(test)]
 mod tests {
+  #![allow(clippy::unwrap_used, reason = "Tests can unwrap")]
+
+  use tempfile::tempdir;
+
   use super::*;
 
   fn processed(output_path: &str) -> utils::markdown::ProcessedMarkdown {
@@ -207,6 +257,31 @@ mod tests {
     let processed_markdown = vec![processed("index.html")];
 
     assert!(has_root_homepage(&processed_markdown));
+  }
+
+  #[test]
+  fn init_creates_or_updates_gitignore_idempotently() {
+    let temp = tempdir().unwrap();
+    let new_project = temp.path().join("new");
+    fs::create_dir(&new_project).unwrap();
+    update_gitignore(&new_project.join("ndg.toml")).unwrap();
+    assert_eq!(
+      fs::read_to_string(new_project.join(".gitignore")).unwrap(),
+      "# NDG generated cache\n.ndg-cache/\n"
+    );
+
+    let existing_project = temp.path().join("existing");
+    fs::create_dir(&existing_project).unwrap();
+    let gitignore = existing_project.join(".gitignore");
+    fs::write(&gitignore, "result\n").unwrap();
+    let config = existing_project.join("custom.toml");
+    update_gitignore(&config).unwrap();
+    update_gitignore(&config).unwrap();
+    assert_eq!(
+      fs::read_to_string(gitignore).unwrap(),
+      "result\n\n# NDG generated cache\n.ndg-cache/\n"
+    );
+    assert_eq!(project_root(&[config]), existing_project);
   }
 }
 
@@ -403,7 +478,7 @@ fn has_root_homepage(
 }
 
 /// Main documentation generation process
-fn generate_documentation(config: &mut Config) -> Result<()> {
+fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
   info!("Starting documentation generation...");
 
   // Validate required paths after CLI merge
@@ -441,8 +516,11 @@ fn generate_documentation(config: &mut Config) -> Result<()> {
   // As a side effect, this populates config.included_files so that the
   // sidebar navigation can correctly filter out included files.
   info!("Processing markdown files...");
-  let mut processed_markdown =
-    utils::process_markdown_files(config, processor.as_ref())?;
+  let mut processed_markdown = utils::process_markdown_files_with_cache(
+    config,
+    processor.as_ref(),
+    cache_dir,
+  )?;
   info!("Processed {} markdown files", processed_markdown.len());
 
   // Build a global anchor registry from all pages and rewrite cross-page

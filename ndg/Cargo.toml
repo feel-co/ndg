@@ -73,5 +73,9 @@ tempfile.workspace  = true
 harness = false
 name    = "postprocess"
 
+[[bench]]
+harness = false
+name    = "markdown"
+
 [lints]
 workspace = true
