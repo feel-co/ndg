@@ -11,15 +11,25 @@ use tempfile::tempdir;
 #[test]
 fn test_markdown_extensions_from_config() {
   let config: Config = toml::from_str(
-    r#"markdown_extensions = ["math-dollars", "math-code", "math-latex"]"#,
+    r#"
+      [markdown]
+      extensions = ["math-dollars", "math-code", "math-latex"]
+    "#,
   )
   .expect("parse Markdown extensions");
 
-  assert_eq!(config.markdown_extensions, vec![
-    MarkdownExtension::MathDollars,
-    MarkdownExtension::MathCode,
-    MarkdownExtension::MathLatex,
-  ]);
+  assert_eq!(
+    config
+      .markdown
+      .as_ref()
+      .expect("Markdown configuration")
+      .extensions,
+    vec![
+      MarkdownExtension::MathDollars,
+      MarkdownExtension::MathCode,
+      MarkdownExtension::MathLatex,
+    ]
+  );
 
   let html = ndg::utils::create_processor(&config, None)
     .render("$x$ $`y`$ \\(z\\)")
