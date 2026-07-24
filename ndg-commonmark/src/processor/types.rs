@@ -20,11 +20,12 @@
 //! let processor = MarkdownProcessor::new(options);
 //! ```
 
-use std::sync::LazyLock;
+use std::{str::FromStr, sync::LazyLock};
 
 use comrak::nodes::AstNode;
 use regex::Regex;
 use rustc_hash::{FxHashMap, FxHashSet};
+use serde::{Deserialize, Serialize};
 
 static COMMAND_PROMPT_RE: LazyLock<Regex> = LazyLock::new(|| {
   Regex::new(r"^\s*\$\s+(.+)$").unwrap_or_else(|e| {
@@ -76,6 +77,9 @@ pub struct MarkdownOptions {
   /// Enable syntax highlighting for code blocks.
   pub highlight_code: bool,
 
+  /// Additional Comrak Markdown extensions to enable.
+  pub extensions: Vec<MarkdownExtension>,
+
   /// Optional: Custom syntax highlighting theme name.
   pub highlight_theme: Option<String>,
 
@@ -124,6 +128,7 @@ impl MarkdownOptions {
         feature = "syntastica",
         feature = "syntect"
       )),
+      extensions:          Vec::new(),
       highlight_theme:     None,
       manpage_urls_path:   None,
       syntax_queries_path: None,
@@ -144,6 +149,7 @@ impl MarkdownOptions {
       gfm,
       nixpkgs,
       highlight_code,
+      extensions: Vec::new(),
       highlight_theme: None,
       manpage_urls_path: None,
       syntax_queries_path: None,
@@ -160,12 +166,104 @@ impl Default for MarkdownOptions {
       gfm:                 cfg!(feature = "gfm"),
       nixpkgs:             cfg!(feature = "nixpkgs"),
       highlight_code:      cfg!(feature = "syntastica"),
+      extensions:          Vec::new(),
       manpage_urls_path:   None,
       syntax_queries_path: None,
       highlight_theme:     None,
       auto_link_options:   true,
       valid_options:       None,
       tab_style:           TabStyle::None,
+    }
+  }
+}
+
+/// Optional Markdown syntax extensions provided by Comrak.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MarkdownExtension {
+  /// GitHub-style alerts.
+  Alerts,
+  /// Automatic links.
+  Autolink,
+  /// Container block directives using `:::`.
+  BlockDirective,
+  /// CJK-friendly emphasis parsing.
+  CjkFriendlyEmphasis,
+  /// Greentext parsing.
+  Greentext,
+  /// Description lists.
+  DescriptionLists,
+  /// Footnotes.
+  Footnotes,
+  /// Highlighted text using `==`.
+  Highlight,
+  /// Inserted text using `++`.
+  Insert,
+  /// Inline footnotes using `^[...]`.
+  InlineFootnotes,
+  /// Math using code syntax.
+  MathCode,
+  /// Math using dollar syntax.
+  MathDollars,
+  /// Math using LaTeX delimiters.
+  MathLatex,
+  /// Multiline block quotes.
+  MultilineBlockQuotes,
+  /// Spoiler text using `||`.
+  Spoiler,
+  /// Strikethrough text.
+  Strikethrough,
+  /// Subscript text using `~`.
+  Subscript,
+  /// Block-scoped subtext.
+  Subtext,
+  /// Superscript text.
+  Superscript,
+  /// Tables.
+  Table,
+  /// GFM tag filtering.
+  Tagfilter,
+  /// Task lists.
+  Tasklist,
+  /// Underlined text using `__`.
+  Underline,
+  /// Wikilinks with the title after the pipe.
+  WikilinksTitleAfterPipe,
+  /// Wikilinks with the title before the pipe.
+  WikilinksTitleBeforePipe,
+}
+
+impl FromStr for MarkdownExtension {
+  type Err = String;
+
+  fn from_str(value: &str) -> Result<Self, Self::Err> {
+    match value {
+      "alerts" => Ok(Self::Alerts),
+      "autolink" => Ok(Self::Autolink),
+      "block-directive" => Ok(Self::BlockDirective),
+      "cjk-friendly-emphasis" => Ok(Self::CjkFriendlyEmphasis),
+      "greentext" => Ok(Self::Greentext),
+      "description-lists" => Ok(Self::DescriptionLists),
+      "footnotes" => Ok(Self::Footnotes),
+      "highlight" => Ok(Self::Highlight),
+      "insert" => Ok(Self::Insert),
+      "inline-footnotes" => Ok(Self::InlineFootnotes),
+      "math-code" => Ok(Self::MathCode),
+      "math-dollars" => Ok(Self::MathDollars),
+      "math-latex" => Ok(Self::MathLatex),
+      "multiline-block-quotes" => Ok(Self::MultilineBlockQuotes),
+      "spoiler" => Ok(Self::Spoiler),
+      "strikethrough" => Ok(Self::Strikethrough),
+      "subscript" => Ok(Self::Subscript),
+      "subtext" => Ok(Self::Subtext),
+      "superscript" => Ok(Self::Superscript),
+      "table" => Ok(Self::Table),
+      "tagfilter" => Ok(Self::Tagfilter),
+      "tasklist" => Ok(Self::Tasklist),
+      "underline" => Ok(Self::Underline),
+      "wikilinks-title-after-pipe" => Ok(Self::WikilinksTitleAfterPipe),
+      "wikilinks-title-before-pipe" => Ok(Self::WikilinksTitleBeforePipe),
+      _ => Err(format!("unknown Markdown extension: {value}")),
     }
   }
 }
@@ -262,6 +360,13 @@ impl MarkdownOptionsBuilder {
   #[must_use]
   pub const fn highlight_code(mut self, enabled: bool) -> Self {
     self.options.highlight_code = enabled;
+    self
+  }
+
+  /// Enable additional Comrak Markdown extensions.
+  #[must_use]
+  pub fn extensions(mut self, extensions: Vec<MarkdownExtension>) -> Self {
+    self.options.extensions = extensions;
     self
   }
 

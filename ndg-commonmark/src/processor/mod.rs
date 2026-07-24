@@ -59,6 +59,7 @@ pub use process::{
 };
 pub use types::{
   AstTransformer,
+  MarkdownExtension,
   MarkdownOptions,
   MarkdownOptionsBuilder,
   MarkdownProcessor,
