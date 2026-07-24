@@ -509,6 +509,21 @@ function setupListFilter({
   }
 }
 
+// Mark the current top-nav item active by matching the URL, so it works for
+// every entry (Options, Search, ...) rather than relying on server-side flags.
+function markActiveNav() {
+  const normalize = (p) => p.replace(/index\.html$/, "").replace(/\/$/, "");
+  const here = normalize(window.location.pathname);
+  document.querySelectorAll(".header-nav a[href]").forEach((link) => {
+    const linkPath = normalize(
+      new URL(link.getAttribute("href"), window.location.href).pathname,
+    );
+    if (linkPath && linkPath === here) {
+      link.closest("li")?.classList.add("active");
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   // Apply sidebar state immediately before DOM rendering
   try {
@@ -519,6 +534,9 @@ document.addEventListener("DOMContentLoaded", function () {
   } catch {
     // localStorage unavailable
   }
+
+  // Highlight the active nav item before the mobile nav is cloned from it.
+  markActiveNav();
 
   if (!document.querySelector(".mobile-sidebar-toggle")) {
     createMobileElements();
