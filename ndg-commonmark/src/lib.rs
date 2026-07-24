@@ -77,11 +77,20 @@
 //! need to dynamically configure the Markdown processor.
 //!
 //! ```rust
-//! use ndg_commonmark::{MarkdownOptionsBuilder, MarkdownProcessor};
+//! use ndg_commonmark::{
+//!   MarkdownExtension,
+//!   MarkdownOptionsBuilder,
+//!   MarkdownProcessor,
+//! };
 //!
 //! let options = MarkdownOptionsBuilder::new()
 //!   .gfm(true)
 //!   .nixpkgs(true)
+//!   .extensions(vec![
+//!     MarkdownExtension::MathDollars,
+//!     MarkdownExtension::MathCode,
+//!     MarkdownExtension::MathLatex,
+//!   ])
 //!   .highlight_code(true)
 //!   .highlight_theme(Some("github"))
 //!   .build();
