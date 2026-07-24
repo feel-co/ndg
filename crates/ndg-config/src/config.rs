@@ -3,6 +3,7 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use ndg_commonmark::MarkdownExtension;
 use ndg_macros::Configurable;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -109,6 +110,9 @@ pub struct Config {
   #[config(key = "highlight_code")]
   pub highlight_code: bool,
 
+  /// Additional Comrak Markdown extensions to enable.
+  pub markdown_extensions: Vec<MarkdownExtension>,
+
   /// GitHub revision for linking to source files.
   #[config(key = "revision")]
   pub revision: String,
@@ -203,6 +207,7 @@ impl Default for Config {
       search:                None,
       footer_text:           DEFAULT_FOOTER_TEXT.to_string(),
       highlight_code:        true,
+      markdown_extensions:   Vec::new(),
       revision:              DEFAULT_REVISION.to_string(),
       included_files:        FxHashMap::default(),
       included_output_files: FxHashMap::default(),
