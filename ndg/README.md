@@ -350,6 +350,8 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 - `search.max_heading_level` - Maximum heading level to index (default: `6`)
 - `highlight_code` - Enable syntax highlighting (default: `true`)
 - `generate_anchors` - Generate heading anchors (default: `true`)
+- `markdown.extensions` - Additional Comrak extensions to enable (default:
+  `[]`).
 
 **Advanced Options:**
 
@@ -397,11 +399,6 @@ title = "My Project Documentation"
 footer_text = "© 2025 My Project"
 jobs = 4
 
-# Search configuration
-[search]
-enable = true
-max_heading_level = 3
-
 # Enable features
 highlight_code = true
 generate_anchors = true
@@ -418,6 +415,14 @@ assets_dir = "static"
 # Git integration
 revision = "main"
 
+[markdown]
+extensions = ["math-dollars", "math-code", "math-latex"]
+
+# Search configuration
+[search]
+enable = true
+max_heading_level = 3
+
 # SEO metadata
 [meta.opengraph]
 "og:title" = "My Project Docs"
@@ -429,6 +434,19 @@ description = "Complete guide to My Project"
 keywords = "documentation,nix,tutorial"
 author = "My Name"
 ```
+
+Supported `markdown.extensions` values are:
+
+- `alerts`, `autolink`, `block-directive`, `cjk-friendly-emphasis`
+- `description-lists`, `footnotes`, `greentext`, `highlight`, `insert`
+- `inline-footnotes`, `math-code`, `math-dollars`, `math-latex`
+- `multiline-block-quotes`, `spoiler`, `strikethrough`, `subscript`, `subtext`
+- `superscript`, `table`, `tagfilter`, `tasklist`, `underline`
+- `wikilinks-title-after-pipe`, `wikilinks-title-before-pipe`
+
+These extensions only enable Comrak syntax parsing and HTML markup. For example,
+math extensions emit elements marked with `data-math-style`; rendering typeset
+equations still requires a client-side renderer such as KaTeX or MathJax.
 
 #### Advanced Configuration Details
 
@@ -770,7 +788,7 @@ Each template can use these variables as needed. For example, in the
 
     <div class="container">
       <nav class="sidebar">
-        {{ toc|safe }} {{ doc_nav|safe }} {% if has_options %}
+        {{ toc | safe }} {{ doc_nav | safe }} {% if has_options %}
         <div class="options-link">
           <a href="{{ options_path }}">Module Options</a>
         </div>
@@ -778,7 +796,7 @@ Each template can use these variables as needed. For example, in the
       </nav>
 
       <main class="content">
-        {{ content|safe }}
+        {{ content | safe }}
       </main>
     </div>
 
@@ -786,7 +804,7 @@ Each template can use these variables as needed. For example, in the
       <p>{{ footer_text }}</p>
     </footer>
 
-    {{ custom_scripts|safe }}
+    {{ custom_scripts | safe }}
   </body>
 </html>
 ```
