@@ -5,8 +5,39 @@ use ndg::{
   config::{Config, postprocess::PostprocessConfig},
   utils::assets::copy_assets,
 };
-use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
+use ndg_commonmark::{MarkdownExtension, MarkdownOptions, MarkdownProcessor};
 use tempfile::tempdir;
+
+#[test]
+fn test_markdown_extensions_from_config() {
+  let config: Config = toml::from_str(
+    r#"
+      [markdown]
+      extensions = ["math-dollars", "math-code", "math-latex"]
+    "#,
+  )
+  .expect("parse Markdown extensions");
+
+  assert_eq!(
+    config
+      .markdown
+      .as_ref()
+      .expect("Markdown configuration")
+      .extensions,
+    vec![
+      MarkdownExtension::MathDollars,
+      MarkdownExtension::MathCode,
+      MarkdownExtension::MathLatex,
+    ]
+  );
+
+  let html = ndg::utils::create_processor(&config, None)
+    .render("$x$ $`y`$ \\(z\\)")
+    .html;
+  assert!(html.contains("data-math-style=\"inline\">x</span>"));
+  assert!(html.contains("data-math-style=\"inline\">y</code>"));
+  assert!(html.contains("data-math-style=\"inline\">z</span>"));
+}
 
 #[test]
 fn test_full_document_processing() {

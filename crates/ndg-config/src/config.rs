@@ -12,6 +12,7 @@ use crate::{
   assets,
   error::ConfigError,
   index,
+  markdown,
   meta,
   options,
   postprocess,
@@ -109,6 +110,10 @@ pub struct Config {
   #[config(key = "highlight_code")]
   pub highlight_code: bool,
 
+  /// Markdown rendering configuration.
+  #[config(nested)]
+  pub markdown: Option<markdown::MarkdownConfig>,
+
   /// GitHub revision for linking to source files.
   #[config(key = "revision")]
   pub revision: String,
@@ -203,6 +208,7 @@ impl Default for Config {
       search:                None,
       footer_text:           DEFAULT_FOOTER_TEXT.to_string(),
       highlight_code:        true,
+      markdown:              None,
       revision:              DEFAULT_REVISION.to_string(),
       included_files:        FxHashMap::default(),
       included_output_files: FxHashMap::default(),

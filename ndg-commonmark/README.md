@@ -96,26 +96,52 @@ let result = processor.render(markdown);
 ### Feature Configuration
 
 ```rust
-use ndg_commonmark::MarkdownOptions;
+use ndg_commonmark::{
+  MarkdownExtension,
+  MarkdownOptionsBuilder,
+  MarkdownProcessor,
+};
 
-let mut options = MarkdownOptions::default();
-
-// Enable GitHub Flavored Markdown (GFM)
-options.gfm = true;
-
-// Enable Nixpkgs-specific extensions
-options.nixpkgs = true;
-
-// Configure syntax highlighting
-options.highlight_code = true;
-options.highlight_theme = Some("gruvbox-dark".to_string());
-
-// Set manpage URL mappings
-// NOTE: this is required for {man} role to function correctly
-options.manpage_urls_path = Some("manpage-urls.json".to_string());
+let options = MarkdownOptionsBuilder::new()
+  .gfm(true)
+  .nixpkgs(true)
+  .highlight_code(true)
+  .highlight_theme(Some("gruvbox-dark"))
+  .extensions(vec![
+    MarkdownExtension::MathDollars,
+    MarkdownExtension::MathCode,
+    MarkdownExtension::MathLatex,
+  ])
+  .manpage_urls_path(Some("manpage-urls.json"))
+  .build();
 
 let processor = MarkdownProcessor::new(options);
 ```
+
+`MarkdownExtension` exposes Comrak's runtime syntax extensions:
+
+- `Alerts`, `Autolink`, `BlockDirective`, `CjkFriendlyEmphasis`
+- `DescriptionLists`, `Footnotes`, `Greentext`, `Highlight`, `Insert`
+- `InlineFootnotes`, `MathCode`, `MathDollars`, `MathLatex`
+- `MultilineBlockQuotes`, `Spoiler`, `Strikethrough`, `Subscript`, `Subtext`
+- `Superscript`, `Table`, `Tagfilter`, `Tasklist`, `Underline`
+- `WikilinksTitleAfterPipe`, `WikilinksTitleBeforePipe`
+
+Math extensions produce HTML annotated with `data-math-style`. Typeset those
+elements with a renderer such as [KaTeX](https://katex.org/docs/api):
+
+```javascript
+for (const element of document.querySelectorAll("[data-math-style]")) {
+  katex.render(element.textContent, element, {
+    displayMode: element.dataset.mathStyle === "display",
+    throwOnError: false,
+  });
+}
+```
+
+Load KaTeX's JavaScript and stylesheet before running this loop. Delimiter-based
+auto-rendering is not appropriate here because ndg-commonmark has already
+converted the delimiters into annotated HTML elements.
 
 ### Cargo Feature Flags
 
@@ -171,6 +197,7 @@ pub struct MarkdownOptions {
     pub gfm: bool,                              // GitHub Flavored Markdown
     pub nixpkgs: bool,                          // NixOS documentation features
     pub highlight_code: bool,                   // Syntax highlighting
+    pub extensions: Vec<MarkdownExtension>,     // Additional Comrak extensions
     pub manpage_urls_path: Option<String>,      // Manpage URL mappings
     pub highlight_theme: Option<String>,        // Syntax highlighting theme
     pub tab_style: TabStyle,                    // How to handle hard tabs in code blocks

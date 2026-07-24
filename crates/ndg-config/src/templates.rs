@@ -84,6 +84,10 @@ tab_style = "none"
 # GitHub revision for linking to source files (defaults to 'local')
 revision = "main"
 
+# Markdown rendering options
+# [markdown]
+# extensions = ["math-dollars", "math-code", "math-latex"]
+
 # Index page configuration
 # [index]
 # Whether to use README.md as the homepage when index.md is not present.
@@ -252,6 +256,9 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
     }
   },
   "highlight_code": true,
+  "markdown": {
+    "extensions": []
+  },
   "syntax_queries_path": "queries",
   "tab_style": "none",
   "revision": "main",
