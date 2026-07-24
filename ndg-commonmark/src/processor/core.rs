@@ -29,6 +29,7 @@ use super::{
   process::process_safe,
   types::{
     AstTransformer,
+    MarkdownExtension,
     MarkdownOptions,
     MarkdownProcessor,
     PromptTransformer,
@@ -580,6 +581,54 @@ impl MarkdownProcessor {
       options.extension.tasklist = true;
       options.extension.superscript = true;
       options.extension.autolink = true;
+    }
+
+    for extension in &self.options.extensions {
+      match extension {
+        MarkdownExtension::Alerts => options.extension.alerts = true,
+        MarkdownExtension::Autolink => options.extension.autolink = true,
+        MarkdownExtension::BlockDirective => {
+          options.extension.block_directive = true;
+        },
+        MarkdownExtension::CjkFriendlyEmphasis => {
+          options.extension.cjk_friendly_emphasis = true;
+        },
+        MarkdownExtension::DescriptionLists => {
+          options.extension.description_lists = true;
+        },
+        MarkdownExtension::Footnotes => options.extension.footnotes = true,
+        MarkdownExtension::Greentext => options.extension.greentext = true,
+        MarkdownExtension::Highlight => options.extension.highlight = true,
+        MarkdownExtension::Insert => options.extension.insert = true,
+        MarkdownExtension::InlineFootnotes => {
+          options.extension.inline_footnotes = true;
+        },
+        MarkdownExtension::MathCode => options.extension.math_code = true,
+        MarkdownExtension::MathDollars => {
+          options.extension.math_dollars = true;
+        },
+        MarkdownExtension::MathLatex => options.extension.math_latex = true,
+        MarkdownExtension::MultilineBlockQuotes => {
+          options.extension.multiline_block_quotes = true;
+        },
+        MarkdownExtension::Spoiler => options.extension.spoiler = true,
+        MarkdownExtension::Strikethrough => {
+          options.extension.strikethrough = true;
+        },
+        MarkdownExtension::Subscript => options.extension.subscript = true,
+        MarkdownExtension::Subtext => options.extension.subtext = true,
+        MarkdownExtension::Superscript => options.extension.superscript = true,
+        MarkdownExtension::Table => options.extension.table = true,
+        MarkdownExtension::Tagfilter => options.extension.tagfilter = true,
+        MarkdownExtension::Tasklist => options.extension.tasklist = true,
+        MarkdownExtension::Underline => options.extension.underline = true,
+        MarkdownExtension::WikilinksTitleAfterPipe => {
+          options.extension.wikilinks_title_after_pipe = true;
+        },
+        MarkdownExtension::WikilinksTitleBeforePipe => {
+          options.extension.wikilinks_title_before_pipe = true;
+        },
+      }
     }
 
     // Enable unsafe HTML references. This is not a security concern

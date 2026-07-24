@@ -112,6 +112,7 @@ pub use crate::processor::{
 pub use crate::{
   processor::{
     AstTransformer,
+    MarkdownExtension,
     MarkdownOptions,
     MarkdownOptionsBuilder,
     MarkdownProcessor,

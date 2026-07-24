@@ -1,5 +1,10 @@
 #![expect(clippy::expect_used, clippy::panic, reason = "Fine in tests")]
-use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
+use ndg_commonmark::{
+  MarkdownExtension,
+  MarkdownOptions,
+  MarkdownOptionsBuilder,
+  MarkdownProcessor,
+};
 
 fn processor() -> MarkdownProcessor {
   let options = MarkdownOptions {
@@ -7,6 +12,25 @@ fn processor() -> MarkdownProcessor {
     ..Default::default()
   };
   MarkdownProcessor::new(options)
+}
+
+#[test]
+fn enables_math_extensions() {
+  let processor = MarkdownProcessor::new(
+    MarkdownOptionsBuilder::new()
+      .extensions(vec![
+        MarkdownExtension::MathDollars,
+        MarkdownExtension::MathCode,
+        MarkdownExtension::MathLatex,
+      ])
+      .build(),
+  );
+
+  let html = processor.render("$x$ $`y`$ \\(z\\)").html;
+
+  assert!(html.contains("data-math-style=\"inline\">x</span>"));
+  assert!(html.contains("data-math-style=\"inline\">y</code>"));
+  assert!(html.contains("data-math-style=\"inline\">z</span>"));
 }
 
 #[test]
