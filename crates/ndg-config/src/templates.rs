@@ -75,6 +75,9 @@ generate_anchors = true
 # Whether to enable syntax highlighting for code blocks
 highlight_code = true
 
+# Additional Comrak Markdown extensions (for example, math)
+# markdown_extensions = ["math-dollars", "math-code", "math-latex"]
+
 # Path to user-defined Tree-sitter query overrides
 # syntax_queries_path = "queries"
 
@@ -252,6 +255,7 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
     }
   },
   "highlight_code": true,
+  "markdown_extensions": [],
   "syntax_queries_path": "queries",
   "tab_style": "none",
   "revision": "main",

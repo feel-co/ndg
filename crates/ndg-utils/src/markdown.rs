@@ -400,6 +400,7 @@ pub fn create_processor(
   let mut builder = MarkdownOptionsBuilder::new()
     .gfm(true)
     .highlight_code(config.highlight_code)
+    .extensions(config.markdown_extensions.clone())
     .tab_style(tab_style);
 
   if let Some(mappings_path) = &config.manpage_urls_path {
