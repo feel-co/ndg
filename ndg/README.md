@@ -444,9 +444,63 @@ Supported `markdown.extensions` values are:
 - `superscript`, `table`, `tagfilter`, `tasklist`, `underline`
 - `wikilinks-title-after-pipe`, `wikilinks-title-before-pipe`
 
-These extensions only enable Comrak syntax parsing and HTML markup. For example,
-math extensions emit elements marked with `data-math-style`; rendering typeset
-equations still requires a client-side renderer such as KaTeX or MathJax.
+### Rendering math with KaTeX
+
+Comrak converts math into elements marked with `data-math-style="inline"` or
+`data-math-style="display"`. To typeset those elements, create `assets/math.js`:
+
+```javascript
+const stylesheet = document.createElement("link");
+stylesheet.rel = "stylesheet";
+stylesheet.href =
+    "https://cdn.jsdelivr.net/npm/katex@0.18.1/dist/katex.min.css";
+stylesheet.integrity =
+    "sha384-1vdNCNel6Tx/NQa8IR1mGOGKsbGreCkOPfbtPPnUURJ5Tu2PRVfQ/7KLZC+Pi1p1";
+stylesheet.crossOrigin = "anonymous";
+document.head.append(stylesheet);
+
+const script = document.createElement("script");
+script.src = "https://cdn.jsdelivr.net/npm/katex@0.18.1/dist/katex.min.js";
+script.integrity =
+    "sha384-ycJ6GAwiS15LoUPipwJOrWTvkUHl/YqELValBwI5I4awP1EeEQJYarj+w85ntcz7";
+script.crossOrigin = "anonymous";
+script.addEventListener("load", () => {
+    for (const element of document.querySelectorAll("[data-math-style]")) {
+        katex.render(element.textContent, element, {
+            displayMode: element.dataset.mathStyle === "display",
+            throwOnError: false,
+        });
+    }
+});
+document.head.append(script);
+```
+
+Then load it while generating the site:
+
+```console
+ndg html --script assets/math.js
+```
+
+The `assets/` prefix is significant: NDG copies custom scripts into the
+generated `assets/` directory and uses the configured path in each page's script
+tag. The same setup can be made persistent in `ndg.toml`:
+
+```toml
+script_paths = ["assets/math.js"]
+
+[markdown]
+extensions = ["math-dollars", "math-code", "math-latex"]
+```
+
+[KaTeX browser setup]: https://katex.org/docs/browser.html
+[rendering API]: https://katex.org/docs/api
+
+The script uses KaTeX's direct rendering API because Comrak has already removed
+the original math delimiters. The KaTeX auto-render extension, which searches
+text nodes for delimiters, is therefore not needed. To avoid a CDN dependency,
+download KaTeX's prebuilt distribution and serve its JavaScript, stylesheet, and
+`fonts/` directory from `assets/` instead. See the [KaTeX browser setup] and
+[rendering API] documentation.
 
 #### Advanced Configuration Details
 
@@ -481,8 +535,8 @@ automatically link manpage citations in your documentation:
 
 ```json
 {
-  "man(1)": "https://man7.org/linux/man-pages/man1/man.1.html",
-  "bash(1)": "https://man7.org/linux/man-pages/man1/bash.1.html"
+    "man(1)": "https://man7.org/linux/man-pages/man1/man.1.html",
+    "bash(1)": "https://man7.org/linux/man-pages/man1/bash.1.html"
 }
 ```
 
@@ -761,7 +815,7 @@ Each template can use these variables as needed. For example, in the
 ```html
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+    <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
@@ -771,7 +825,7 @@ Each template can use these variables as needed. For example, in the
     <script defer src="{{ search_js_path }}"></script>
     {% endif %}
   </head>
-  <body>
+    <body>
     <header>
       <h1><a href="{{ index_path }}">{{ title }}</a></h1>
       {% if generate_search %}
@@ -969,26 +1023,26 @@ CLI, module evaluation is done for you automatically.
 >
 > ```json
 > {
->   "vim.withRuby": {
->     "declarations": [
->       {
->         "name": "<nvf/modules/wrapper/environment/options.nix>",
->         "url": "https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"
->       }
->     ],
->     "default": {
->       "_type": "literalExpression",
->       "text": "true"
->     },
->     "description": "Whether to enable Ruby support in the Neovim wrapper.\n.",
->     "example": {
->       "_type": "literalExpression",
->       "text": "true"
->     },
->     "loc": ["vim", "withRuby"],
->     "readOnly": false,
->     "type": "boolean"
->   }
+>     "vim.withRuby": {
+>         "declarations": [
+>             {
+>                 "name": "<nvf/modules/wrapper/environment/options.nix>",
+>                 "url": "https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"
+>             }
+>         ],
+>         "default": {
+>             "_type": "literalExpression",
+>             "text": "true"
+>         },
+>         "description": "Whether to enable Ruby support in the Neovim wrapper.\n.",
+>         "example": {
+>             "_type": "literalExpression",
+>             "text": "true"
+>         },
+>         "loc": ["vim", "withRuby"],
+>         "readOnly": false,
+>         "type": "boolean"
+>     }
 > }
 > ```
 

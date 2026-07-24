@@ -127,8 +127,21 @@ let processor = MarkdownProcessor::new(options);
 - `Superscript`, `Table`, `Tagfilter`, `Tasklist`, `Underline`
 - `WikilinksTitleAfterPipe`, `WikilinksTitleBeforePipe`
 
-Math extensions produce HTML annotated with `data-math-style`; a renderer such
-as KaTeX or MathJax is still needed to typeset the resulting expressions.
+Math extensions produce HTML annotated with `data-math-style`. Typeset those
+elements with a renderer such as [KaTeX](https://katex.org/docs/api):
+
+```javascript
+for (const element of document.querySelectorAll("[data-math-style]")) {
+  katex.render(element.textContent, element, {
+    displayMode: element.dataset.mathStyle === "display",
+    throwOnError: false,
+  });
+}
+```
+
+Load KaTeX's JavaScript and stylesheet before running this loop. Delimiter-based
+auto-rendering is not appropriate here because ndg-commonmark has already
+converted the delimiters into annotated HTML elements.
 
 ### Cargo Feature Flags
 
