@@ -74,12 +74,12 @@ lightningcss  = { version = "=1.0.0-alpha.71", default-features = false }
 lopdf         = { version = "0.44.0", default-features = false, features = [ "chrono", "jiff", "rayon" ] }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.140.0"
-oxc_codegen   = { version = "0.140.0", default-features = false }
-oxc_minifier  = "0.140.0"
-oxc_parser    = "0.140.0"
-oxc_span      = "0.140.0"
-printpdf      = "0.11.1"
+oxc_allocator = "0.141.0"
+oxc_codegen   = { version = "0.141.0", default-features = false }
+oxc_minifier  = "0.141.0"
+oxc_parser    = "0.141.0"
+oxc_span      = "0.141.0"
+printpdf      = "0.12.4"
 
 
 axum       = { version = "0.8.9", default-features = false }
@@ -88,7 +88,7 @@ tower-http = { version = "0.7.0", default-features = false }
 
 proc-macro2 = "1.0.106"
 quote       = "1.0.46"
-syn         = { version = "2.0.118", features = [ "full", "derive" ] }
+syn         = { version = "3.0.3", features = ["full", "derive"] }
 
 criterion = { version = "0.8.2", features = [ "html_reports" ], default-features = false }
 tempfile  = "3.27.0"
