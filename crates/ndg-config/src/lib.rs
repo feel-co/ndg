@@ -3,6 +3,7 @@ pub mod assets;
 pub mod config;
 pub mod error;
 pub mod index;
+pub mod markdown;
 pub mod matchers;
 pub mod meta;
 pub mod options;
