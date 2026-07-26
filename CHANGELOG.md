@@ -37,6 +37,12 @@ changes.
 
 ### Added
 
+- Comrak Markdown syntax extensions are now configurable via the new
+  `[markdown]` configuration section. Supports 24 extensions including tables,
+  task lists, footnotes, strikethrough, math (code/dollar/LaTeX), alerts,
+  spoilers, subscript/superscript, description lists, wikilinks, and more.
+  Configure with `markdown.extensions = ["footnotes", "tasklist"]` in
+  `ndg.toml`.
 - The Nix library parsing & page generation features via `nixdoc_inputs` can now
   be disabled entirely by disabling the `nixdoc` feature for the `ndg` crate.
   This will drop a dependency on `rnix-parser` and thus yield slightly faster
