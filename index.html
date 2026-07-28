@@ -260,21 +260,15 @@ the same directory. Though if you want to move the configuration file to a
 nonstandard location, you may specify a path to the configuration file using the
 <code>--config-file</code> option.</p>
 <pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;automatically&nbsp;detected&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;explicitly&nbsp;specified&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">nested/path/to/ndg.toml</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;multiple&nbsp;config&nbsp;files&nbsp;(merged&nbsp;in&nbsp;order)</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">base.toml</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">overrides.toml</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Override&nbsp;specific&nbsp;config&nbsp;values&nbsp;without&nbsp;editing&nbsp;files</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">search.enable=false</span>&nbsp;<span style="color:rgb(232,102,113);">--config</span>&nbsp;<span style="color:rgb(232,102,113);">sidebar.options.depth=3</span><br></code></pre>
-<p>Upon running <code>ndg init</code>, you will receive a configuration file in one of JSON or
-TOML formats depending on the format specified, with all available options and
-their default values as well as explanatory comments. You can then edit this
-file to customize your documentation generation process.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The generated configuration includes detailed comments for each option, making
-it easy to understand what each setting does without needing to refer to the
-documentation.</p>
+<p>Repeated HTML builds keep Markdown render entries in <code>.ndg-cache/markdown/</code>
+below the project directory. For an explicit configuration, this is the
+directory containing the first configuration file; otherwise it is the working
+directory. The cache is safe to delete and is ignored when it cannot be read
+or written. <code>ndg init</code> will automatically append this directory to your
+<code>.gitignore</code> if present, or will create a <code>.gitignore</code> if none is found.</p>
 </div>
-<p>Once you have a configuration file, NDG will automatically detect it when ran in
-the same directory. Though if you want to move the configuration file to a
-nonstandard location, you may specify a path to the configuration file using the
-<code>--config-file</code> option.</p>
-<pre class="highlight"><code class="language-bash"><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;automatically&nbsp;detected&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;Run&nbsp;with&nbsp;explicitly&nbsp;specified&nbsp;config</span><br><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--config-file</span>&nbsp;<span style="color:rgb(232,102,113);">nested/path/to/ndg.toml</span><br></code></pre>
 <h3 id="generating-your-first-documents">Generating Your First Documents</h3>
 <p>To generate your documents, NDG requires one of two things: <strong>Markdown Sources</strong>
 or <strong><code>options.json</code></strong>. Alternatively, for more comprehensive documents, you can
@@ -558,7 +552,7 @@ author = "Jane Developer"
 robots = "index,follow"
 </code></pre>
 <h3 id="generating-html-documents">Generating HTML Documents</h3>
-<p>As of <code>v2.0.0</code>, NDG features a more compartmentalized architechture with a focus
+<p>As of <code>v2.0.0</code>, NDG features a more compartmentalized architecture with a focus
 on distinguishing between output formats more carefully. Prior to version 2.0.0,
 HTML was the "default" output format, and the only "blessed" one.</p>
 <p>In more recent versions of NDG, HTML support is fully mature and is available
@@ -638,7 +632,11 @@ the parser dependencies, build with explicit features and leave out <code>nixdoc
 Dynamic attribute paths are skipped, syntax errors are handled using <code>rnix</code>'s
 error-tolerant syntax tree, and comments that the <code>nixdoc</code> parser rejects remain
 available only as raw comments. Treat generated library references as output to
-review, especially for malformed or highly dynamic Nix sources.</p>
+review, especially for malformed or highly dynamic Nix sources. This feature
+uses a <a href="https://crates.io/crates/nixdoc">tiny in-house crate</a> which has an
+unfortunate name collision with the "official" <code>nixdoc</code> tool. The parser is
+entirely in-house and acts as a library. <code>ndg-nixdoc</code> and by extension, ndg,
+does not call <code>nixdoc</code> as a CLI tool.</p>
 <h3 id="generating-manpages">Generating Manpages</h3>
 <p>NDG allows generating manual pages for your project using your <code>options.json</code>.
 Due to the shortcomings of Troff, manpage generation is not as robust or mature
@@ -648,8 +646,8 @@ your options:</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>For manpages, you <strong>must</strong> provide an <code>options.json</code> using <code>--module-options</code>
-or <code>-j</code>. Since we do not convert arbitrary pages in the Manpages mode, this is
-necessary to generate the main page containing module options.</p>
+or <code>-j</code>. Since we <strong>do not yet</strong> convert arbitrary pages in the Manpages mode,
+this is necessary to generate the main page containing module options.</p>
 </div>
 <h3 id="generating-pdfs">Generating PDFs</h3>
 <p>NDG can also generate PDF documentation from your <code>options.json</code> using the <code>pdf</code>
