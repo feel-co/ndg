@@ -117,7 +117,7 @@ pub(crate) fn validate_rendered_anchor_ids(
 ) -> Result<(), DuplicateAnchorError> {
   validate_anchor_ids(headers)?;
 
-  let mut seen = rustc_hash::FxHashMap::default();
+  let mut seen = rustc_hash::FxHashSet::default();
   let mut duplicate_ids = Vec::new();
   let mut rest = html;
   while let Some(start) = rest.find("id=\"") {
@@ -126,9 +126,7 @@ pub(crate) fn validate_rendered_anchor_ids(
       break;
     };
     let id = &rest[..end];
-    if seen.insert(id, ()).is_some()
-      && !duplicate_ids.iter().any(|seen| seen == id)
-    {
+    if !seen.insert(id) && !duplicate_ids.iter().any(|seen| seen == id) {
       duplicate_ids.push(id.to_owned());
     }
     rest = &rest[end + 1..];
@@ -142,9 +140,10 @@ pub(crate) fn validate_rendered_anchor_ids(
     .into_iter()
     .map(|id| {
       let heading = headers.iter().find(|header| header.id == id);
-      let (first_text, first_level) = heading
-        .map(|header| (header.text.clone(), header.level))
-        .unwrap_or_else(|| ("non-heading anchor".to_owned(), 0));
+      let (first_text, first_level) = heading.map_or_else(
+        || ("non-heading anchor".to_owned(), 0),
+        |header| (header.text.clone(), header.level),
+      );
       DuplicateAnchor {
         id,
         first_text,
