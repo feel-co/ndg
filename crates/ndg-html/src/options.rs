@@ -36,8 +36,10 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     format!("Failed to read options file: {}", options_path.display())
   })?;
 
-  let options_data: Value = serde_json::from_str(&json_content)
-    .wrap_err("Failed to parse options JSON")?;
+  let options_data: Value =
+    serde_json::from_str(&json_content).wrap_err_with(|| {
+      format!("Failed to parse options JSON at {}", options_path.display())
+    })?;
 
   // First pass: collect all option names for validation
   let mut valid_options = FxHashSet::default();

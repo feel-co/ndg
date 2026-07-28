@@ -493,6 +493,17 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
     .validate_paths()
     .map_err(|e| color_eyre::eyre::eyre!("Configuration error: {e}"))?;
 
+  if let Some(path) = &config.manpage_urls_path {
+    ndg_commonmark::utils::load_manpage_urls(&path.to_string_lossy()).map_err(
+      |e| {
+        color_eyre::eyre::eyre!(
+          "Failed to parse manpage URLs JSON at {}: {e}",
+          path.display()
+        )
+      },
+    )?;
+  }
+
   // Ensure output directory exists
   fs::create_dir_all(&config.output_dir)?;
   info!("Output directory: {}", config.output_dir.display());

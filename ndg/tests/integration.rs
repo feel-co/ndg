@@ -1,5 +1,5 @@
 #![expect(clippy::expect_used, clippy::unwrap_used, reason = "Fine in tests")]
-use std::fs;
+use std::{fs, process::Command};
 
 use ndg::{
   config::{Config, postprocess::PostprocessConfig},
@@ -90,6 +90,49 @@ fn test_error_handling_on_invalid_input() {
 
   // Test that config handles missing directory gracefully
   assert_eq!(config.input_dir, Some(invalid_input));
+}
+
+#[test]
+#[expect(
+  clippy::disallowed_methods,
+  reason = "Regression test must exercise the ndg CLI exit status"
+)]
+fn test_html_rejects_invalid_json_inputs() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let input_dir = temp_dir.path().join("input");
+  fs::create_dir_all(&input_dir).expect("Failed to create input dir in test");
+  fs::write(input_dir.join("index.md"), "# Test")
+    .expect("Failed to write index.md in test");
+
+  for option in ["--module-options", "--manpage-urls"] {
+    let json_path = temp_dir.path().join(format!("{option}.json"));
+    fs::write(&json_path, "{\n  \"broken\":")
+      .expect("Failed to write invalid JSON in test");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_ndg"))
+      .args([
+        "html",
+        "--input-dir",
+        input_dir.to_str().expect("UTF-8 input path"),
+        "--output-dir",
+        temp_dir.path().to_str().expect("UTF-8 output path"),
+        option,
+        json_path.to_str().expect("UTF-8 JSON path"),
+      ])
+      .output()
+      .expect("Failed to run ndg");
+
+    assert!(!output.status.success(), "{option} accepted invalid JSON");
+    let stderr = String::from_utf8(output.stderr).expect("UTF-8 stderr");
+    assert!(
+      stderr.contains(json_path.to_str().expect("UTF-8 JSON path")),
+      "{option} error did not identify the JSON file: {stderr}"
+    );
+    assert!(
+      stderr.contains("line 2 column"),
+      "{option} error did not identify the parse location: {stderr}"
+    );
+  }
 }
 
 #[test]
