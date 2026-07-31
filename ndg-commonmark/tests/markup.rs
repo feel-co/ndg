@@ -242,6 +242,129 @@ fn test_setext_heading_with_explicit_anchor_keeps_level() {
   );
 }
 
+#[test]
+fn test_duplicate_explicit_anchor_ids_detected() {
+  let md = "## First {#same-id}\n\n## Second {#same-id}";
+  let options = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor = ndg_commonmark::MarkdownProcessor::new(options);
+  let result = processor.render_checked(md);
+  assert!(result.is_err());
+  let err = result.unwrap_err();
+  let msg = err.to_string();
+  assert!(
+    msg.contains("same-id"),
+    "Error should mention the duplicate ID. Got:\n{msg}"
+  );
+  assert!(
+    msg.contains("First") && msg.contains("Second"),
+    "Error should mention both heading texts. Got:\n{msg}"
+  );
+}
+
+#[test]
+fn test_duplicate_auto_generated_anchor_ids_detected() {
+  let md = "## Installation\n\nSome text.\n\n## Installation";
+  let options = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor = ndg_commonmark::MarkdownProcessor::new(options);
+  let result = processor.render_checked(md);
+  assert!(result.is_err());
+  let err = result.unwrap_err();
+  let msg = err.to_string();
+  assert!(
+    msg.contains("installation"),
+    "Error should mention the duplicate slug. Got:\n{msg}"
+  );
+}
+
+#[test]
+fn test_mixed_explicit_and_auto_duplicate_ids_detected() {
+  let md = "## Setup {#setup}\n\n## Setup";
+  let options = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor = ndg_commonmark::MarkdownProcessor::new(options);
+  let result = processor.render_checked(md);
+  assert!(result.is_err());
+}
+
+#[test]
+fn test_unique_anchor_ids_pass_validation() {
+  let md = "## First {#first}\n\n## Second {#second}\n\n## Third";
+  let options = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor = ndg_commonmark::MarkdownProcessor::new(options);
+  let result = processor.render_checked(md);
+  assert!(result.is_ok());
+}
+
+#[test]
+fn test_duplicate_anchor_ids_from_included_files() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().expect("create temp dir");
+  fs::write(
+    dir.path().join("included.md"),
+    "## Overview\n\nIncluded content.",
+  )
+  .expect("write included file");
+
+  let md = "## Overview\n\nMain content.\n\n```{=include=}\nincluded.md\n```";
+  let options = ndg_commonmark::MarkdownOptions {
+    nixpkgs: true,
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor =
+    ndg_commonmark::MarkdownProcessor::new(options).with_base_dir(dir.path());
+  let result = processor.render_checked(md);
+  assert!(result.is_err());
+  let err = result.unwrap_err();
+  let msg = err.to_string();
+  assert!(
+    msg.contains("overview"),
+    "Error should mention the duplicate slug from include. Got:\n{msg}"
+  );
+}
+
+#[test]
+fn test_auto_id_prefix_prevents_include_duplicates() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().expect("create temp dir");
+  fs::write(dir.path().join("a.md"), "## Overview\n\nFrom A.")
+    .expect("write file a");
+  fs::write(dir.path().join("b.md"), "## Overview\n\nFrom B.")
+    .expect("write file b");
+
+  let md = "```{=include=} auto-id-prefix=docs\na.md\nb.md\n```";
+  let options = ndg_commonmark::MarkdownOptions {
+    nixpkgs: true,
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor =
+    ndg_commonmark::MarkdownProcessor::new(options).with_base_dir(dir.path());
+  let result = processor.render_checked(md);
+  assert!(
+    result.is_ok(),
+    "auto-id-prefix with line numbers should prevent duplicates. Got:\n{}",
+    result.unwrap_err()
+  );
+}
+
 // Edge case: inline anchor at start of line
 #[test]
 fn test_inline_anchor_start_of_line() {
