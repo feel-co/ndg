@@ -146,5 +146,12 @@ pub use crate::{
     SyntaxManager,
     create_default_manager,
   },
-  types::{Header, IncludedFile, MarkdownResult},
+  types::{
+    DuplicateAnchor,
+    DuplicateAnchorError,
+    Header,
+    IncludedFile,
+    MarkdownResult,
+    validate_anchor_ids,
+  },
 };
