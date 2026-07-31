@@ -275,6 +275,24 @@ impl MarkdownProcessor {
     }
   }
 
+  /// Render Markdown to HTML with anchor validation.
+  ///
+  /// Same as [`render()`](Self::render), but additionally validates that all
+  /// heading anchor IDs are unique. Returns an error if duplicates are found.
+  ///
+  /// # Errors
+  ///
+  /// Returns `Err(DuplicateAnchorError)` if any two headings share the same
+  /// anchor ID.
+  pub fn render_checked(
+    &self,
+    markdown: &str,
+  ) -> Result<MarkdownResult, crate::types::DuplicateAnchorError> {
+    let result = self.render(markdown);
+    crate::types::validate_anchor_ids(&result.headers)?;
+    Ok(result)
+  }
+
   fn process_html_pipeline_from_ast<'a>(
     &self,
     root: &'a AstNode<'a>,
