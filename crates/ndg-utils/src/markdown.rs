@@ -270,7 +270,13 @@ fn process_markdown_files_impl(
         let result = base_processor
           .clone()
           .with_base_dir(base_dir)
-          .render(&content);
+          .render_checked(&content)
+          .map_err(|e| {
+            color_eyre::eyre::eyre!(
+              "Duplicate anchor IDs in {}:\n{e}",
+              file_path.display()
+            )
+          })?;
         if let Some((dir, processor_digest)) = &cache {
           write_cache(
             dir,
