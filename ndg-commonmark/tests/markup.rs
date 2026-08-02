@@ -295,6 +295,18 @@ fn test_mixed_explicit_and_auto_duplicate_ids_detected() {
 }
 
 #[test]
+fn test_duplicate_non_heading_anchor_ids_detected() {
+  let md = "## Introduction {#same-id}\n\n[]{#same-id}";
+  let options = ndg_commonmark::MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor = ndg_commonmark::MarkdownProcessor::new(options);
+
+  assert!(processor.render_checked(md).is_err());
+}
+
+#[test]
 fn test_unique_anchor_ids_pass_validation() {
   let md = "## First {#first}\n\n## Second {#second}\n\n## Third";
   let options = ndg_commonmark::MarkdownOptions {

@@ -110,6 +110,54 @@ pub fn validate_anchor_ids(
   }
 }
 
+/// Validate that all IDs in rendered HTML are unique.
+pub(crate) fn validate_rendered_anchor_ids(
+  headers: &[Header],
+  html: &str,
+) -> Result<(), DuplicateAnchorError> {
+  validate_anchor_ids(headers)?;
+
+  let mut seen = rustc_hash::FxHashMap::default();
+  let mut duplicate_ids = Vec::new();
+  let mut rest = html;
+  while let Some(start) = rest.find("id=\"") {
+    rest = &rest[start + 4..];
+    let Some(end) = rest.find('"') else {
+      break;
+    };
+    let id = &rest[..end];
+    if seen.insert(id, ()).is_some()
+      && !duplicate_ids.iter().any(|seen| seen == id)
+    {
+      duplicate_ids.push(id.to_owned());
+    }
+    rest = &rest[end + 1..];
+  }
+
+  if duplicate_ids.is_empty() {
+    return Ok(());
+  }
+
+  let duplicates = duplicate_ids
+    .into_iter()
+    .map(|id| {
+      let heading = headers.iter().find(|header| header.id == id);
+      let (first_text, first_level) = heading
+        .map(|header| (header.text.clone(), header.level))
+        .unwrap_or_else(|| ("non-heading anchor".to_owned(), 0));
+      DuplicateAnchor {
+        id,
+        first_text,
+        first_level,
+        second_text: "non-heading anchor".to_owned(),
+        second_level: 0,
+      }
+    })
+    .collect();
+
+  Err(DuplicateAnchorError { duplicates })
+}
+
 /// Result of Markdown processing.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MarkdownResult {
