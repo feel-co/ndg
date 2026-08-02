@@ -114,7 +114,7 @@ pub struct ProcessedMarkdown {
   pub frontmatter:  Option<PageFrontmatter>,
 }
 
-const MARKDOWN_CACHE_SCHEMA: u8 = 2;
+const MARKDOWN_CACHE_SCHEMA: u8 = 3;
 
 #[derive(Serialize, Deserialize)]
 struct MarkdownCacheEntry {
@@ -786,6 +786,43 @@ mod tests {
     assert!(
       read_cache(&cache, &source, &base, &source_digest, "processor").is_none(),
       "creating a previously missing include should invalidate the cache"
+    );
+  }
+
+  #[test]
+  fn cache_rejects_entries_from_previous_schema() {
+    let temp = TempDir::new().unwrap();
+    let base = temp.path().join("docs");
+    let cache = temp.path().join("cache");
+    let source = base.join("page.md");
+    fs::create_dir_all(&base).unwrap();
+
+    let result = MarkdownResult {
+      html:           String::new(),
+      headers:        Vec::new(),
+      title:          None,
+      included_files: Vec::new(),
+    };
+    let source_digest = digest("# Page");
+    write_cache(
+      &cache,
+      &source,
+      &base,
+      &source_digest,
+      "processor",
+      &result,
+      None,
+    );
+
+    let path = cache_path(&cache, &source);
+    let mut entry: serde_json::Value =
+      serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    entry["schema"] = serde_json::json!(MARKDOWN_CACHE_SCHEMA - 1);
+    fs::write(&path, serde_json::to_vec(&entry).unwrap()).unwrap();
+
+    assert!(
+      read_cache(&cache, &source, &base, &source_digest, "processor").is_none(),
+      "entries from the previous schema must be re-rendered"
     );
   }
 
