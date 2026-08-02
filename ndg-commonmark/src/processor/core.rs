@@ -289,7 +289,7 @@ impl MarkdownProcessor {
     markdown: &str,
   ) -> Result<MarkdownResult, crate::types::DuplicateAnchorError> {
     let result = self.render(markdown);
-    crate::types::validate_anchor_ids(&result.headers)?;
+    crate::types::validate_rendered_anchor_ids(&result.headers, &result.html)?;
     Ok(result)
   }
 
