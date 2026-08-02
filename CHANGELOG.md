@@ -69,6 +69,9 @@ changes.
 
 ### Fixed
 
+- Markdown documentation builds now detect duplicate rendered anchor IDs and
+  report the colliding anchors instead of producing pages with broken or
+  ambiguous navigation.
 - Search worker now caches the document set between searches. Documents are sent
   to the worker once via an `init` message instead of being re-sent with every
   keystroke in order to eliminate the structured-cloning overhead on large
