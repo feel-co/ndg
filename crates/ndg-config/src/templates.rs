@@ -155,6 +155,11 @@ max_heading_level = 3
 # Ordering algorithm for sidebar items: "alphabetical", "custom", or "filesystem"
 # ordering = "alphabetical"
 
+# Exclude headings from generated per-page tables of contents.
+# [sidebar.toc]
+# [[sidebar.toc.exclude]]
+# regex = "^(Inputs|Type|Examples)$"
+
 # Pattern-based sidebar matching rules
 # Rules are evaluated in order, and the first matching rule is applied.
 # All specified conditions are expected to match.

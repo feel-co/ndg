@@ -221,6 +221,7 @@ fn test_sidebar_integration() {
     group_by_dir:         false,
     show_group_counts:    true,
     matches:              vec![],
+    toc:                  Default::default(),
     options:              None,
   };
 
@@ -283,6 +284,7 @@ fn test_sidebar_integration() {
         position:  Some(2),
       },
     ],
+    toc:                  Default::default(),
     options:              None,
   };
 
@@ -330,6 +332,7 @@ fn test_sidebar_integration() {
       new_title: Some("📖 Guide".to_string()),
       position:  None,
     }],
+    toc:                  Default::default(),
     options:              None,
   };
 

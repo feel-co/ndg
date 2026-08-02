@@ -20,6 +20,9 @@ ordering = "alphabetical"
 [[sidebar.matches]]
 # Pattern-based matching rules
 
+[sidebar.toc]
+# Per-page table of contents configuration
+
 [sidebar.options]
 # NixOS options-specific configuration
 ```
@@ -87,6 +90,27 @@ Determines how sidebar items are sorted.
   - `"alphabetical"` - Sort items alphabetically by title
   - `"filesystem"` - Preserve filesystem order
   - `"custom"` - Sort by the `position` field from pattern matches
+
+## Page Table of Contents
+
+The `sidebar.toc` section controls the generated per-page table of contents used
+by both the sidebar Contents section and the desktop On this page navigation.
+Use `exclude` entries to omit headings by exact title or regular expression.
+
+```toml
+[sidebar.toc]
+
+[[sidebar.toc.exclude]]
+exact = "Internal details"
+
+[[sidebar.toc.exclude]]
+regex = "^(Inputs|Type|Examples)$"
+```
+
+Exclusions only remove matching headings from the navigation; the headings and
+their content remain in the rendered page. Exclusion entries use the same title
+matcher semantics as `sidebar.matches`: `exact` and `regex` are both supported,
+and both must match when specified together.
 
 ## Pattern Matching
 

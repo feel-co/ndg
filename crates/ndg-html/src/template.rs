@@ -485,7 +485,12 @@ pub fn render(
   // Table of contents .
   // Suppressed when frontmatter sets `toc = false`.
   let toc = if frontmatter.is_none_or(|fm| fm.toc != Some(false)) {
-    generate_toc(headers)
+    generate_toc(headers.iter().filter(|header| {
+      config
+        .sidebar
+        .as_ref()
+        .is_none_or(|sidebar| !sidebar.toc.excludes(&header.text))
+    }))
   } else {
     String::new()
   };
@@ -1635,7 +1640,7 @@ fn generate_custom_scripts(
 }
 
 /// Generate table of contents from headers
-fn generate_toc(headers: &[Header]) -> String {
+fn generate_toc<'a>(headers: impl IntoIterator<Item = &'a Header>) -> String {
   let mut toc = String::new();
   let mut current_level = 0;
 
@@ -1680,7 +1685,7 @@ fn generate_toc(headers: &[Header]) -> String {
     toc.push_str("</li></ul>");
     current_level -= 1;
   }
-  if !headers.is_empty() && !toc.is_empty() && !toc.ends_with("</li>") {
+  if !toc.is_empty() && !toc.ends_with("</li>") {
     toc.push_str("</li>");
   }
 
