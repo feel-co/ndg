@@ -44,6 +44,10 @@ pub struct SidebarConfig {
   #[serde(default)]
   pub matches: Vec<SidebarMatch>,
 
+  /// Per-page table of contents configuration.
+  #[serde(default)]
+  pub toc: SidebarTocConfig,
+
   /// Options sidebar configuration.
   #[serde(default)]
   pub options: Option<OptionsConfig>,
@@ -68,6 +72,8 @@ impl SidebarConfig {
         .map_err(|e| format!("Sidebar match #{}: {}", idx + 1, e))?;
     }
 
+    self.toc.validate()?;
+
     // Validate and compile options config if present
     if let Some(ref mut options_config) = self.options {
       options_config.validate()?;
@@ -80,6 +86,39 @@ impl SidebarConfig {
   #[must_use]
   pub fn find_match(&self, path: &str, title: &str) -> Option<&SidebarMatch> {
     self.matches.iter().find(|m| m.matches(path, title))
+  }
+}
+
+/// Configuration for generated per-page tables of contents.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct SidebarTocConfig {
+  /// Heading titles to exclude from tables of contents.
+  #[serde(default)]
+  pub exclude: Vec<TitleMatch>,
+}
+
+impl SidebarTocConfig {
+  /// Validate and compile all exclusion regex patterns.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if any regex pattern is invalid.
+  pub fn validate(&mut self) -> Result<(), String> {
+    for (idx, title_match) in self.exclude.iter_mut().enumerate() {
+      title_match
+        .compile_regex()
+        .map_err(|e| format!("Sidebar TOC exclusion #{}: {e}", idx + 1))?;
+    }
+    Ok(())
+  }
+
+  /// Returns whether a heading title should be excluded.
+  #[must_use]
+  pub fn excludes(&self, title: &str) -> bool {
+    self
+      .exclude
+      .iter()
+      .any(|matcher| matcher.has_pattern() && matcher.matches(title))
   }
 }
 
@@ -229,6 +268,47 @@ impl MatchField for TitleMatch {
 }
 
 impl TitleMatch {
+  const fn has_pattern(&self) -> bool {
+    self.exact.is_some() || self.regex.is_some()
+  }
+
+  fn compile_regex(&mut self) -> Result<(), String> {
+    if let Some(ref pattern) = self.regex {
+      self.compiled_regex = Some(
+        Regex::new(pattern)
+          .map_err(|e| format!("Invalid title regex '{pattern}': {e}"))?,
+      );
+    }
+    Ok(())
+  }
+
+  /// Returns whether this matcher matches a title.
+  ///
+  /// # Panics
+  ///
+  /// Panics if a regex pattern has not been compiled by configuration
+  /// validation.
+  #[must_use]
+  fn matches(&self, title: &str) -> bool {
+    if self.exact.as_ref().is_some_and(|exact| title != exact) {
+      return false;
+    }
+
+    if self.regex.is_some() {
+      #[expect(
+        clippy::expect_used,
+        reason = "invariant guaranteed by configuration validation"
+      )]
+      return self
+        .compiled_regex
+        .as_ref()
+        .expect("internal error: invalid regex configuration")
+        .is_match(title);
+    }
+
+    true
+  }
+
   /// Create a new `TitleMatch` with exact matching.
   #[cfg(test)]
   #[must_use]
@@ -302,13 +382,8 @@ impl SidebarMatch {
       );
     }
 
-    if let Some(ref mut title_match) = self.title
-      && let Some(ref pattern) = title_match.regex
-    {
-      title_match.compiled_regex = Some(
-        Regex::new(pattern)
-          .map_err(|e| format!("Invalid title regex '{pattern}': {e}"))?,
-      );
+    if let Some(ref mut title_match) = self.title {
+      title_match.compile_regex()?;
     }
 
     Ok(())
@@ -356,28 +431,12 @@ impl SidebarMatch {
     }
 
     // Check title matching
-    if let Some(ref title_match) = self.title {
-      // Check exact title match
-      if let Some(ref exact_title) = title_match.exact
-        && title_str != exact_title
-      {
-        return false;
-      }
-
-      // Check regex title match
-      if let Some(ref _pattern) = title_match.regex {
-        #[expect(
-          clippy::expect_used,
-          reason = "invariant guaranteed during SidebarEntry construction"
-        )]
-        let re = title_match
-          .compiled_regex
-          .as_ref()
-          .expect("internal error: invalid regex configuration");
-        if !re.is_match(title_str) {
-          return false;
-        }
-      }
+    if self
+      .title
+      .as_ref()
+      .is_some_and(|title_match| !title_match.matches(title_str))
+    {
+      return false;
     }
 
     true
@@ -622,6 +681,7 @@ mod tests {
     assert!(!config.number_special_files);
     assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
     assert!(config.matches.is_empty());
+    assert!(config.toc.exclude.is_empty());
     assert!(config.options.is_none());
   }
 
@@ -732,6 +792,7 @@ mod tests {
       ordering:             SidebarOrdering::Custom,
       group_by_dir:         false,
       show_group_counts:    true,
+      toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -770,6 +831,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
       show_group_counts:    true,
+      toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![
         SidebarMatch {
@@ -802,6 +864,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
       show_group_counts:    true,
+      toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),
@@ -828,6 +891,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
       show_group_counts:    true,
+      toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![SidebarMatch {
         path:      Some(PathMatch::exact("test.md".to_string())),
@@ -886,6 +950,23 @@ position = 50
       Some(r"^api/.*\.md$")
     );
     assert_eq!(config.matches[1].position, Some(50));
+  }
+
+  #[test]
+  fn test_sidebar_toc_rejects_invalid_exclusion_regex() {
+    let toml = r#"
+[toc]
+[[toc.exclude]]
+regex = "[invalid"
+"#;
+    let mut config: SidebarConfig =
+      toml::from_str(toml).expect("sidebar TOC config should deserialize");
+
+    let error = config
+      .validate()
+      .expect_err("invalid TOC exclusion regex should fail validation");
+    assert!(error.contains("Sidebar TOC exclusion #1"));
+    assert!(error.contains("Invalid title regex"));
   }
 
   #[test]

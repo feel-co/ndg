@@ -43,6 +43,8 @@ changes.
 - Module option JSON now uses a shared typed `nixosOptionsDoc` parser across
   HTML, search, manpage, and PDF output. Option pages also render the upstream
   `relatedPackages` field.
+- Per-page table-of-contents entries can now be excluded by exact title or
+  regular expression with `[sidebar.toc]` and `[[sidebar.toc.exclude]]`.
 - Comrak Markdown syntax extensions are now configurable via the new
   `[markdown]` configuration section. Supports 24 extensions including tables,
   task lists, footnotes, strikethrough, math (code/dollar/LaTeX), alerts,

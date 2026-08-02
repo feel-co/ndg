@@ -18,6 +18,8 @@ use ndg_config::{
     SidebarConfig,
     SidebarMatch,
     SidebarOrdering,
+    SidebarTocConfig,
+    TitleMatch,
   },
 };
 use ndg_html::{options::process_options, template};
@@ -578,6 +580,57 @@ fn render_page_with_headers_toc() {
 }
 
 #[test]
+fn render_page_toc_excludes_matching_headings() {
+  let mut config = minimal_config();
+  config.sidebar = Some(SidebarConfig {
+    toc: SidebarTocConfig {
+      exclude: vec![
+        TitleMatch {
+          exact:          None,
+          regex:          Some("^(Inputs|Type|Examples)$".to_string()),
+          compiled_regex: None,
+        },
+        TitleMatch::default(),
+      ],
+    },
+    ..Default::default()
+  });
+  config
+    .sidebar
+    .as_mut()
+    .expect("sidebar should be configured")
+    .validate()
+    .expect("TOC exclusion regex should be valid");
+  let headers = vec![
+    Header {
+      level: 1,
+      text:  "Inputs".to_string(),
+      id:    "inputs".to_string(),
+    },
+    Header {
+      level: 1,
+      text:  "Usage".to_string(),
+      id:    "usage".to_string(),
+    },
+  ];
+  let content = "<h1 id=\"inputs\">Inputs</h1><h1 id=\"usage\">Usage</h1>";
+
+  let html = template::render(
+    &config,
+    content,
+    "Test Page",
+    &headers,
+    Path::new("index.html"),
+    None,
+  )
+  .expect("Should render HTML");
+
+  assert!(!html.contains("href=\"#inputs\""));
+  assert!(html.contains("href=\"#usage\""));
+  assert!(html.contains("<h1 id=\"inputs\">Inputs</h1>"));
+}
+
+#[test]
 fn render_options_page_with_multiple_options() {
   let mut config = minimal_config();
   config.module_options = Some("dummy.json".into());
@@ -958,6 +1011,7 @@ fn sidebar_numbering_excludes_special_files() {
     group_by_dir:         false,
     show_group_counts:    true,
     matches:              vec![],
+    toc:                  SidebarTocConfig::default(),
     options:              None,
   });
 
@@ -1017,6 +1071,7 @@ fn sidebar_numbering_special_files_included() {
     group_by_dir:         false,
     show_group_counts:    true,
     matches:              vec![],
+    toc:                  SidebarTocConfig::default(),
     options:              None,
   });
 
@@ -1082,6 +1137,7 @@ fn sidebar_numbering_disabled_no_numbers() {
     group_by_dir:         false,
     show_group_counts:    true,
     matches:              vec![],
+    toc:                  SidebarTocConfig::default(),
     options:              None,
   });
 
