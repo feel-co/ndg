@@ -314,6 +314,12 @@ Determines how options are sorted in the table of contents.
 - **Default**: `"alphabetical"`
 - **Options**: `"alphabetical"`, `"custom"`, `"filesystem"`
 
+`alphabetical` sorts option links and groups by name. `custom` sorts matched
+`position` values first, then by name; a group's position is its lowest matched
+member position. `filesystem` preserves the order from the input options data.
+Direct option links are always rendered before collapsible groups; ordering
+applies within each section.
+
 ### Option Pattern Matching
 
 Each `[[sidebar.options.matches]]` entry supports:
