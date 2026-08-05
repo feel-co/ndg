@@ -926,6 +926,42 @@ fn sidebar_numbering_disabled_no_numbers() {
   );
 }
 
+#[test]
+fn sidebar_groups_regular_items_but_keeps_special_items_flat() {
+  let temp_dir = TempDir::new().expect("create temp dir");
+  let input_dir = temp_dir.path();
+  let guides_dir = input_dir.join("guides");
+  fs::create_dir_all(&guides_dir).expect("create guides dir");
+  fs::write(input_dir.join("index.md"), "# Index\nIndex content")
+    .expect("write index");
+  fs::write(guides_dir.join("intro.md"), "# Intro\nIntro content")
+    .expect("write intro");
+
+  let mut config = minimal_config();
+  config.input_dir = Some(input_dir.to_path_buf());
+  config.sidebar = Some(SidebarConfig {
+    group_by_dir: true,
+    show_group_counts: true,
+    ..Default::default()
+  });
+
+  let html = template::render(
+    &config,
+    "<p>Test content</p>",
+    "Test Page",
+    &[],
+    Path::new("test.html"),
+    None,
+  )
+  .expect("render page");
+  let index = html.find(">Index</a>").expect("index link");
+  let group = html
+    .find("<span class=\"sidebar-dir-label\">Guides</span>")
+    .expect("guides group");
+  assert!(index < group);
+  assert!(html.contains("<span class=\"sidebar-dir-count\">1</span>"));
+}
+
 // Regression test for bug where included files appeared in sidebar navigation.
 // Included files should never appear as standalone entries in the sidebar
 // because they don't have their own HTML pages generated

@@ -1277,6 +1277,68 @@ fn render_grouped(output: &mut String, items: Vec<NavItem>, show_counts: bool) {
   }
 }
 
+struct DocumentNavigation {
+  special_items:     Vec<NavItem>,
+  regular_items:     Vec<NavItem>,
+  number_special:    bool,
+  show_group_counts: bool,
+}
+
+trait DocumentNavigationGenerator {
+  fn generate(&self, output: &mut String, navigation: DocumentNavigation);
+}
+
+struct FlatDocumentNavigationGenerator;
+
+impl DocumentNavigationGenerator for FlatDocumentNavigationGenerator {
+  fn generate(&self, output: &mut String, navigation: DocumentNavigation) {
+    let DocumentNavigation {
+      mut special_items,
+      regular_items,
+      number_special,
+      ..
+    } = navigation;
+    if number_special {
+      special_items.extend(regular_items);
+      for (index, item) in special_items.iter_mut().enumerate() {
+        item.number = Some(index + 1);
+      }
+      for item in special_items {
+        render_nav_item(output, &item);
+      }
+      return;
+    }
+    for item in special_items.into_iter().chain(regular_items) {
+      render_nav_item(output, &item);
+    }
+  }
+}
+
+struct GroupedDocumentNavigationGenerator;
+
+impl DocumentNavigationGenerator for GroupedDocumentNavigationGenerator {
+  fn generate(&self, output: &mut String, navigation: DocumentNavigation) {
+    let DocumentNavigation {
+      mut special_items,
+      regular_items,
+      number_special,
+      show_group_counts,
+    } = navigation;
+    if number_special {
+      special_items.extend(regular_items);
+      for (index, item) in special_items.iter_mut().enumerate() {
+        item.number = Some(index + 1);
+      }
+      render_grouped(output, special_items, show_group_counts);
+      return;
+    }
+    for item in special_items {
+      render_nav_item(output, &item);
+    }
+    render_grouped(output, regular_items, show_group_counts);
+  }
+}
+
 /// Generate the document navigation HTML
 fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
   let mut doc_nav = String::new();
@@ -1497,43 +1559,16 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
       let show_group_counts =
         config.sidebar.as_ref().is_some_and(|s| s.show_group_counts);
 
-      // Render navigation items
-      if should_number_special {
-        // Combine special and regular items with unified numbering
-        let mut all_items = special_nav_items;
-        all_items.extend(nav_items);
-
-        // Apply numbering to all items
-        for (idx, item) in all_items.iter_mut().enumerate() {
-          item.number = Some(idx + 1);
-        }
-
-        if group_by_dir {
-          render_grouped(&mut doc_nav, all_items, show_group_counts);
-        } else {
-          // Render all items flat
-          for item in all_items {
-            render_nav_item(&mut doc_nav, &item);
-          }
-        }
+      let navigation = DocumentNavigation {
+        special_items: special_nav_items,
+        regular_items: nav_items,
+        number_special: should_number_special,
+        show_group_counts,
+      };
+      if group_by_dir {
+        GroupedDocumentNavigationGenerator.generate(&mut doc_nav, navigation);
       } else {
-        // Render special entries first without numbering
-        for item in &special_nav_items {
-          let _ = writeln!(
-            doc_nav,
-            "<li><a href=\"{}\">{}</a></li>",
-            item.path, item.title
-          );
-        }
-
-        if group_by_dir {
-          render_grouped(&mut doc_nav, nav_items, show_group_counts);
-        } else {
-          // Render regular entries with optional numbering
-          for item in nav_items {
-            render_nav_item(&mut doc_nav, &item);
-          }
-        }
+        FlatDocumentNavigationGenerator.generate(&mut doc_nav, navigation);
       }
     }
   }
