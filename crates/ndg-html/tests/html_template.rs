@@ -8,11 +8,12 @@ use indexmap::IndexMap;
 use ndg_commonmark::{Header, MarkdownOptions, MarkdownProcessor};
 use ndg_config::{
   Config,
+  matchers::OptionNameMatch,
   meta::{FaviconEntry, MetaConfig},
   search::SearchConfig,
-  sidebar::SidebarConfig,
+  sidebar::{OptionsConfig, OptionsMatch, SidebarConfig, SidebarOrdering},
 };
-use ndg_html::template;
+use ndg_html::{options::process_options, template};
 use ndg_manpage::types::NixOption;
 use rustc_hash::FxHashMap;
 use tempfile::TempDir;
@@ -145,6 +146,188 @@ fn render_options_page_can_render_nested_toc() {
   assert!(html.contains(">enable"));
   assert!(html.contains(">package"));
   assert!(html.contains("<span>beets</span>"));
+}
+
+#[test]
+fn nested_options_toc_renders_direct_links_first_and_honors_ordering() {
+  let mut options = IndexMap::new();
+  for name in [
+    "rum.zeta",
+    "rum.middle.first",
+    "rum.middle.second",
+    "rum.alpha",
+  ] {
+    options.insert(name.to_string(), create_basic_option(name, "desc"));
+  }
+
+  let render = |ordering, matches| {
+    let mut config = minimal_config();
+    config.module_options = Some("dummy.json".into());
+    config.sidebar = Some(SidebarConfig {
+      options: Some(OptionsConfig {
+        depth: 2,
+        nested: true,
+        ordering,
+        matches,
+        ..Default::default()
+      }),
+      ..Default::default()
+    });
+    template::render_options(&config, &options).expect("render nested TOC")
+  };
+
+  let alphabetical = render(SidebarOrdering::Alphabetical, Vec::new());
+  let alpha = alphabetical.find("rum.alpha").expect("alpha link");
+  let zeta = alphabetical.find("rum.zeta").expect("zeta link");
+  let middle = alphabetical
+    .find("title=\"rum.middle\"")
+    .expect("middle group");
+  assert!(alpha < zeta && zeta < middle);
+
+  let filesystem = render(SidebarOrdering::Filesystem, Vec::new());
+  let zeta = filesystem.find("rum.zeta").expect("zeta link");
+  let alpha = filesystem.find("rum.alpha").expect("alpha link");
+  let middle = filesystem
+    .find("title=\"rum.middle\"")
+    .expect("middle group");
+  assert!(zeta < alpha && alpha < middle);
+
+  let custom = render(SidebarOrdering::Custom, vec![
+    OptionsMatch {
+      name: Some(OptionNameMatch {
+        exact: Some("rum.zeta".to_string()),
+        ..Default::default()
+      }),
+      position: Some(1),
+      ..Default::default()
+    },
+    OptionsMatch {
+      name: Some(OptionNameMatch {
+        exact: Some("rum.alpha".to_string()),
+        ..Default::default()
+      }),
+      position: Some(2),
+      ..Default::default()
+    },
+  ]);
+  let zeta = custom.find("rum.zeta").expect("zeta link");
+  let alpha = custom.find("rum.alpha").expect("alpha link");
+  let middle = custom.find("title=\"rum.middle\"").expect("middle group");
+  assert!(zeta < alpha && alpha < middle);
+}
+
+#[test]
+fn custom_option_order_uses_the_lowest_position_in_each_group() {
+  let mut options = IndexMap::new();
+  for name in [
+    "rum.alpha.enable",
+    "rum.alpha.package",
+    "rum.zeta.enable",
+    "rum.zeta.package",
+  ] {
+    options.insert(name.to_string(), create_basic_option(name, "desc"));
+  }
+
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  config.sidebar = Some(SidebarConfig {
+    options: Some(OptionsConfig {
+      depth: 2,
+      nested: true,
+      ordering: SidebarOrdering::Custom,
+      matches: vec![
+        OptionsMatch {
+          name: Some(OptionNameMatch {
+            exact: Some("rum.zeta.enable".to_string()),
+            ..Default::default()
+          }),
+          position: Some(1),
+          ..Default::default()
+        },
+        OptionsMatch {
+          name: Some(OptionNameMatch {
+            exact: Some("rum.alpha.enable".to_string()),
+            ..Default::default()
+          }),
+          position: Some(2),
+          ..Default::default()
+        },
+      ],
+      ..Default::default()
+    }),
+    ..Default::default()
+  });
+
+  let html =
+    template::render_options(&config, &options).expect("render nested TOC");
+  let zeta = html.find("title=\"rum.zeta\"").expect("zeta group");
+  let alpha = html.find("title=\"rum.alpha\"").expect("alpha group");
+  assert!(zeta < alpha);
+}
+
+#[test]
+fn filesystem_option_order_uses_json_order() {
+  let temp = TempDir::new().expect("create temp dir");
+  let options_path = temp.path().join("options.json");
+  fs::write(&options_path, r#"{"rum.zeta": {}, "rum.alpha": {}}"#)
+    .expect("write options");
+
+  let mut config = minimal_config();
+  config.output_dir = temp.path().join("output");
+  config.sidebar = Some(SidebarConfig {
+    options: Some(OptionsConfig {
+      depth: 2,
+      nested: true,
+      ordering: SidebarOrdering::Filesystem,
+      ..Default::default()
+    }),
+    ..Default::default()
+  });
+  process_options(&config, &options_path).expect("process options");
+
+  let html = fs::read_to_string(config.output_dir.join("options.html"))
+    .expect("read options page");
+  let zeta_toc = html.find("href='#option-rum.zeta'").expect("zeta TOC link");
+  let alpha_toc = html
+    .find("href='#option-rum.alpha'")
+    .expect("alpha TOC link");
+  assert!(zeta_toc < alpha_toc);
+  let alpha_body = html.find("id=\"option-rum.alpha\"").expect("alpha body");
+  let zeta_body = html.find("id=\"option-rum.zeta\"").expect("zeta body");
+  assert!(alpha_body < zeta_body);
+}
+
+#[test]
+fn flat_filesystem_option_order_keeps_child_links_in_input_order() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  config.sidebar = Some(SidebarConfig {
+    options: Some(OptionsConfig {
+      depth: 2,
+      ordering: SidebarOrdering::Filesystem,
+      ..Default::default()
+    }),
+    ..Default::default()
+  });
+  let mut options = IndexMap::new();
+  options.insert(
+    "rum.group.zeta".to_string(),
+    create_basic_option("rum.group.zeta", "desc"),
+  );
+  options.insert(
+    "rum.group.alpha".to_string(),
+    create_basic_option("rum.group.alpha", "desc"),
+  );
+
+  let html =
+    template::render_options(&config, &options).expect("render filesystem TOC");
+  let zeta = html
+    .find("href='#option-rum.group.zeta'")
+    .expect("zeta child link");
+  let alpha = html
+    .find("href='#option-rum.group.alpha'")
+    .expect("alpha child link");
+  assert!(zeta < alpha);
 }
 
 #[test]

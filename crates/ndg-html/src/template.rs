@@ -596,8 +596,17 @@ pub fn render_options(
   config: &Config,
   options: &IndexMap<String, NixOption>,
 ) -> Result<String> {
+  render_options_with_order(config, options, None)
+}
+
+pub(crate) fn render_options_with_order(
+  config: &Config,
+  options: &IndexMap<String, NixOption>,
+  input_order: Option<&FxHashMap<String, usize>>,
+) -> Result<String> {
   let options_html = generate_options_html(options, config);
-  let options_toc = render_options_toc(config, options)?;
+  let options_toc =
+    render_options_toc_with_order(config, options, input_order)?;
   render_options_body(
     config,
     Path::new("options.html"),
@@ -609,14 +618,10 @@ pub fn render_options(
   )
 }
 
-/// Render one generated option group page.
-///
-/// # Errors
-///
-/// Returns an error if the options template or TOC template cannot be rendered.
-pub(crate) fn render_options_toc(
+pub(crate) fn render_options_toc_with_order(
   config: &Config,
   options: &IndexMap<String, NixOption>,
+  input_order: Option<&FxHashMap<String, usize>>,
 ) -> Result<String> {
   // Load templates with caching
   let options_template =
@@ -643,7 +648,7 @@ pub(crate) fn render_options_toc(
   }
 
   // Generate options TOC using Tera templating
-  generate_options_toc(options, config, &tera)
+  generate_options_toc(options, config, &tera, input_order)
 }
 
 pub(crate) fn render_options_body(
@@ -777,6 +782,7 @@ fn generate_options_toc(
   options: &IndexMap<String, NixOption>,
   config: &Config,
   tera: &Tera,
+  input_order: Option<&FxHashMap<String, usize>>,
 ) -> Result<String> {
   let sidebar_options =
     config.sidebar.as_ref().and_then(|s| s.options.as_ref());
@@ -785,9 +791,18 @@ fn generate_options_toc(
   let default_depth = sidebar_options.map_or(2, |o| o.depth);
   let nested = sidebar_options.is_some_and(|o| o.nested);
   let nested_depth = sidebar_options.map_or(0, |o| o.nested_depth);
+  let ordering =
+    sidebar_options.map_or(SidebarOrdering::Alphabetical, |o| o.ordering);
+  let input_order = input_order.cloned().unwrap_or_else(|| {
+    options
+      .keys()
+      .enumerate()
+      .map(|(index, name)| (name.clone(), index))
+      .collect()
+  });
 
-  let mut grouped_options: FxHashMap<String, Vec<&NixOption>> =
-    FxHashMap::default();
+  let mut grouped_options: IndexMap<String, Vec<&NixOption>> =
+    IndexMap::default();
   let mut direct_parent_options: FxHashMap<String, &NixOption> =
     FxHashMap::default();
   let mut option_custom_names: FxHashMap<String, String> = FxHashMap::default();
@@ -831,13 +846,40 @@ fn generate_options_toc(
     grouped_options.entry(parent).or_default().push(option);
   }
 
+  let group_positions = grouped_options
+    .iter()
+    .filter_map(|(parent, options)| {
+      options
+        .iter()
+        .filter_map(|option| option_positions.get(&option.name))
+        .min()
+        .map(|position| (parent.clone(), *position))
+    })
+    .collect();
+  let group_input_order = grouped_options
+    .iter()
+    .filter_map(|(parent, options)| {
+      options
+        .iter()
+        .filter_map(|option| input_order.get(&option.name))
+        .min()
+        .map(|position| (parent.clone(), *position))
+    })
+    .collect();
+
   if nested {
     return Ok(crate::option_toc::generate_nested_options_toc_html(
-      &grouped_options,
-      &direct_parent_options,
-      &option_custom_names,
-      &option_positions,
-      nested_depth,
+      &crate::option_toc::NestedOptionsToc {
+        grouped_options: &grouped_options,
+        direct_parents: &direct_parent_options,
+        custom_names: &option_custom_names,
+        option_positions: &option_positions,
+        group_positions: &group_positions,
+        input_order: &input_order,
+        group_input_order: &group_input_order,
+        nested_depth,
+        ordering,
+      },
     ));
   }
 
@@ -955,13 +997,30 @@ fn generate_options_toc(
         .copied()
         .collect();
 
-      // Sort by suffix
       let parent_prefix = format!("{parent}.");
-      child_options.sort_by_cached_key(|a| {
-        a.name
-          .strip_prefix(&parent_prefix)
-          .unwrap_or(&a.name)
-          .to_string()
+      child_options.sort_by(|a, b| {
+        match ordering {
+          SidebarOrdering::Filesystem => {
+            input_order.get(&a.name).cmp(&input_order.get(&b.name))
+          },
+          SidebarOrdering::Custom => {
+            let a_name = a.name.strip_prefix(&parent_prefix).unwrap_or(&a.name);
+            let b_name = b.name.strip_prefix(&parent_prefix).unwrap_or(&b.name);
+            match (option_positions.get(&a.name), option_positions.get(&b.name))
+            {
+              (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
+              (Some(_), None) => std::cmp::Ordering::Less,
+              (None, Some(_)) => std::cmp::Ordering::Greater,
+              (None, None) => a_name.cmp(b_name),
+            }
+          },
+          SidebarOrdering::Alphabetical => {
+            a.name
+              .strip_prefix(&parent_prefix)
+              .unwrap_or(&a.name)
+              .cmp(b.name.strip_prefix(&parent_prefix).unwrap_or(&b.name))
+          },
+        }
       });
 
       for option in child_options {
@@ -1000,7 +1059,7 @@ fn generate_options_toc(
       category.insert("children".to_string(), serde_json::to_value(children)?);
 
       // Add position if custom position is set for parent
-      if let Some(position) = option_positions.get(parent) {
+      if let Some(position) = group_positions.get(parent) {
         category
           .insert("position".to_string(), serde_json::to_value(position)?);
       }
@@ -1009,45 +1068,40 @@ fn generate_options_toc(
     }
   }
 
-  // Sort single options - by position first if available, then alphabetically
-  single_options.sort_by(|a, b| {
-    let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let a_position = a.get("position").and_then(Value::as_u64);
-    let b_position = b.get("position").and_then(Value::as_u64);
-
-    match (a_position, b_position) {
-      (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
-      (Some(_), None) => std::cmp::Ordering::Less,
-      (None, Some(_)) => std::cmp::Ordering::Greater,
-      (None, None) => a_name.cmp(b_name),
-    }
-  });
-
-  // Sort dropdown categories - by position first if available, then by
-  // component count and alphabetically
-  dropdown_categories.sort_by(|a, b| {
-    let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    let a_position = a.get("position").and_then(Value::as_u64);
-    let b_position = b.get("position").and_then(Value::as_u64);
-
-    match (a_position, b_position) {
-      (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
-      (Some(_), None) => std::cmp::Ordering::Less,
-      (None, Some(_)) => std::cmp::Ordering::Greater,
-      (None, None) => {
-        let a_components = a_name.split('.').count();
-        let b_components = b_name.split('.').count();
-
-        // Sort by component count first
-        match a_components.cmp(&b_components) {
-          std::cmp::Ordering::Equal => a_name.cmp(b_name), // then alphabetically
-          other => other,
+  if matches!(ordering, SidebarOrdering::Filesystem) {
+    single_options.sort_by_key(|option| {
+      option
+        .get("name")
+        .and_then(Value::as_str)
+        .and_then(|name| input_order.get(name))
+    });
+    dropdown_categories.sort_by_key(|category| {
+      category
+        .get("name")
+        .and_then(Value::as_str)
+        .and_then(|name| group_input_order.get(name))
+    });
+  } else {
+    let sort_entries = |a: &Value, b: &Value| {
+      let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
+      let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
+      if matches!(ordering, SidebarOrdering::Custom) {
+        match (
+          a.get("position").and_then(Value::as_u64),
+          b.get("position").and_then(Value::as_u64),
+        ) {
+          (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+          (Some(_), None) => std::cmp::Ordering::Less,
+          (None, Some(_)) => std::cmp::Ordering::Greater,
+          (None, None) => a_name.cmp(b_name),
         }
+      } else {
+        a_name.cmp(b_name)
       }
-    }
-  });
+    };
+    single_options.sort_by(sort_entries);
+    dropdown_categories.sort_by(sort_entries);
+  }
 
   let mut tera_context = tera::Context::new();
   tera_context.insert("single_options", &single_options);

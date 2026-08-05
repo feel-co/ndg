@@ -4,6 +4,7 @@ use color_eyre::eyre::Result;
 use html_escape::encode_text;
 use ndg_config::Config;
 use ndg_utils::html::calculate_root_relative_path;
+use rustc_hash::FxHashMap;
 
 use crate::{
   option_pages::{OptionPage, OptionPageSet},
@@ -16,16 +17,25 @@ use crate::{
 /// # Errors
 ///
 /// Returns an error if the options template or TOC template cannot be rendered.
+#[expect(
+  clippy::implicit_hasher,
+  reason = "the source-order map is internal and deliberately uses FxHashMap"
+)]
 pub fn render_option_page(
   config: &Config,
   page: &OptionPage,
   pages: &[OptionPage],
+  input_order: &FxHashMap<String, usize>,
 ) -> Result<String> {
   let root_path = Path::new(&page.path);
   let mut options_html = generate_option_page_header(page, root_path);
   options_html
     .push_str(&template::generate_options_html(&page.options, config));
-  let options_toc = template::render_options_toc(config, &page.options)?;
+  let options_toc = template::render_options_toc_with_order(
+    config,
+    &page.options,
+    Some(input_order),
+  )?;
   let option_groups_toc =
     generate_option_pages_toc(pages, Some(&page.path), root_path);
   let option_page_nav =
