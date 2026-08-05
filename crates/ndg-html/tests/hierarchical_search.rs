@@ -71,7 +71,7 @@ Set up your config.
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
-  let processor = create_processor(&config, None);
+  let processor = create_processor(&config, None).expect("create processor");
   let processed_docs =
     files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
@@ -184,7 +184,7 @@ fn test_max_heading_level_filtering() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
-  let processor = create_processor(&config, None);
+  let processor = create_processor(&config, None).expect("create processor");
   let processed_docs =
     files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
@@ -250,7 +250,7 @@ fn test_anchor_tokenization() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
-  let processor = create_processor(&config, None);
+  let processor = create_processor(&config, None).expect("create processor");
   let processed_docs =
     files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
@@ -349,7 +349,7 @@ fn test_document_without_headings() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
-  let processor = create_processor(&config, None);
+  let processor = create_processor(&config, None).expect("create processor");
   let processed_docs =
     files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
@@ -472,7 +472,7 @@ fn test_anchor_id_generation() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
-  let processor = create_processor(&config, None);
+  let processor = create_processor(&config, None).expect("create processor");
   let processed_docs =
     files_to_processed_docs(&markdown_files, &input_dir, &processor);
 
@@ -559,7 +559,7 @@ fn test_multiple_documents_with_anchors() {
   };
 
   let markdown_files = collect_markdown_files(&input_dir);
-  let processor = create_processor(&config, None);
+  let processor = create_processor(&config, None).expect("create processor");
   let processed_docs =
     files_to_processed_docs(&markdown_files, &input_dir, &processor);
 

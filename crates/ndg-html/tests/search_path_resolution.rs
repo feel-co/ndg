@@ -179,7 +179,8 @@ This file should be transitively included in `main.html`
     ..test_input_config(&input_dir, &output_dir)
   };
 
-  let processor = Some(create_processor(&config, None));
+  let processor =
+    Some(create_processor(&config, None).expect("create processor"));
 
   // Populate config.included_files as a side effect of processing markdown
   // files
@@ -311,7 +312,8 @@ This describes the Home Manager module installation.
     ..test_input_config(&input_dir, &output_dir)
   };
 
-  let processor = Some(create_processor(&config, None));
+  let processor =
+    Some(create_processor(&config, None).expect("create processor"));
 
   let all_markdown_files = collect_markdown_files(&input_dir);
 

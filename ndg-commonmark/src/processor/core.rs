@@ -88,10 +88,7 @@ impl MarkdownProcessor {
   /// Create a new `MarkdownProcessor` with the given options.
   #[must_use]
   pub fn new(options: MarkdownOptions) -> Self {
-    let manpage_urls = options
-      .manpage_urls_path
-      .as_ref()
-      .and_then(|path| crate::utils::load_manpage_urls(path).ok());
+    let manpage_urls = options.manpage_urls.clone();
 
     let syntax_manager = if options.highlight_code {
       match create_default_manager(
@@ -342,6 +339,7 @@ impl MarkdownProcessor {
       included_files = files;
     }
 
+    #[cfg(any(feature = "nixpkgs", feature = "ndg-flavored"))]
     if self.options.nixpkgs || cfg!(feature = "ndg-flavored") {
       processed = super::extensions::process_role_markup(
         &processed,

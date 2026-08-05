@@ -493,17 +493,6 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
     .validate_paths()
     .map_err(|e| color_eyre::eyre::eyre!("Configuration error: {e}"))?;
 
-  if let Some(path) = &config.manpage_urls_path {
-    ndg_commonmark::utils::load_manpage_urls(&path.to_string_lossy()).map_err(
-      |e| {
-        color_eyre::eyre::eyre!(
-          "Failed to parse manpage URLs JSON at {}: {e}",
-          path.display()
-        )
-      },
-    )?;
-  }
-
   // Ensure output directory exists
   fs::create_dir_all(&config.output_dir)?;
   info!("Output directory: {}", config.output_dir.display());
@@ -518,7 +507,7 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
   //
   // Create processor once and reuse for all markdown operations
   let processor = if config.input_dir.is_some() {
-    Some(utils::create_processor(config, None))
+    Some(utils::create_processor(config, None)?)
   } else {
     None
   };
@@ -548,15 +537,18 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
   let output_dirs: FxHashSet<PathBuf> = processed_markdown
     .iter()
     .filter(|item| !item.is_included)
-    .filter_map(|item| {
-      let rel_path = std::path::Path::new(&item.output_path);
-      let rel_path = rel_path
-        .strip_prefix(std::path::MAIN_SEPARATOR_STR)
-        .unwrap_or(rel_path);
-      let output_path = config.output_dir.join(rel_path);
-      output_path.parent().map(std::path::Path::to_path_buf)
+    .map(|item| {
+      utils::output_path(&config.output_dir, Path::new(&item.output_path))?
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| {
+          color_eyre::eyre::eyre!(
+            "output path has no parent: {}",
+            item.output_path
+          )
+        })
     })
-    .collect();
+    .collect::<Result<_>>()?;
 
   for dir in output_dirs {
     fs::create_dir_all(&dir).wrap_err_with(|| {

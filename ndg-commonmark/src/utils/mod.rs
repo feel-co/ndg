@@ -1,4 +1,7 @@
-use std::sync::{LazyLock, OnceLock, RwLock};
+use std::{
+  path::{Path, PathBuf},
+  sync::{LazyLock, OnceLock, RwLock},
+};
 
 use rustc_hash::FxHashMap;
 pub mod codeblock;
@@ -305,16 +308,50 @@ pub fn is_markdown_header(line: &str) -> bool {
   line.trim_start().starts_with('#')
 }
 
+/// Errors while loading manpage URL mappings.
+#[derive(Debug, thiserror::Error)]
+pub enum ManpageUrlsError {
+  /// The mappings file could not be read.
+  #[error("failed to read manpage URL mappings from {path}")]
+  Read {
+    /// Path of the mappings file.
+    path:   PathBuf,
+    /// Underlying filesystem error.
+    #[source]
+    source: std::io::Error,
+  },
+  /// The mappings file was not valid JSON.
+  #[error("failed to parse manpage URL mappings from {path}")]
+  Parse {
+    /// Path of the mappings file.
+    path:   PathBuf,
+    /// Underlying JSON error.
+    #[source]
+    source: serde_json::Error,
+  },
+}
+
 /// Load manpage URL mappings from a JSON file.
 ///
 /// # Errors
 ///
 /// Returns an error if the file cannot be read or if the JSON is invalid.
 pub fn load_manpage_urls(
-  path: &str,
-) -> Result<FxHashMap<String, String>, Box<dyn std::error::Error>> {
-  let content = std::fs::read_to_string(path)?;
-  let mappings: FxHashMap<String, String> = serde_json::from_str(&content)?;
+  path: impl AsRef<Path>,
+) -> Result<FxHashMap<String, String>, ManpageUrlsError> {
+  let path = path.as_ref();
+  let content = std::fs::read_to_string(path).map_err(|source| {
+    ManpageUrlsError::Read {
+      path: path.to_path_buf(),
+      source,
+    }
+  })?;
+  let mappings = serde_json::from_str(&content).map_err(|source| {
+    ManpageUrlsError::Parse {
+      path: path.to_path_buf(),
+      source,
+    }
+  })?;
   Ok(mappings)
 }
 

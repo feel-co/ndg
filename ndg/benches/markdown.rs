@@ -1,4 +1,8 @@
-#![expect(clippy::unwrap_used, reason = "Fine in benchmarks")]
+#![expect(
+  clippy::expect_used,
+  clippy::unwrap_used,
+  reason = "Fine in benchmarks"
+)]
 
 use std::{fs, hint::black_box, path::Path};
 
@@ -71,9 +75,11 @@ fn config(root: &Path, highlight_code: bool) -> Config {
 fn markdown(c: &mut Criterion) {
   let fixture = fixture();
   let cache = fixture.path().join("cache");
-  let plain_processor = create_processor(&config(fixture.path(), false), None);
+  let plain_processor = create_processor(&config(fixture.path(), false), None)
+    .expect("create plain processor");
   let highlighted_processor =
-    create_processor(&config(fixture.path(), true), None);
+    create_processor(&config(fixture.path(), true), None)
+      .expect("create highlighted processor");
   let mut group = c.benchmark_group("markdown-site-128-pages");
 
   group.bench_function("plain", |b| {
