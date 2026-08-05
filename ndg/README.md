@@ -361,6 +361,8 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 - `options.filter.include_internal` - Include options marked internal or
   invisible (default: `true`)
 - `sidebar.options.depth` - Depth of option categories in TOC (default: `2`)
+- `sidebar.options.ordering` - Order option links and groups: `alphabetical`,
+  `custom`, or input (`filesystem`)
 - `manpage_urls_path` - Path to manpage URL mappings JSON file
 - `syntax_queries_path` - Directory containing Tree-sitter query overrides for
   Syntastica
