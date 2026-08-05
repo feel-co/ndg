@@ -2016,17 +2016,7 @@ pub fn render_and_write(
   use ndg_utils::postprocess;
 
   let rel_path = std::path::Path::new(&item.output_path);
-  if rel_path.is_absolute() {
-    log::warn!(
-      "Output path '{}' is absolute. Normalizing to relative.",
-      item.output_path
-    );
-  }
-
-  // Force rel_path to be relative
-  let rel_path = rel_path
-    .strip_prefix(std::path::MAIN_SEPARATOR_STR)
-    .unwrap_or(rel_path);
+  let output_path = ndg_utils::output_path(&config.output_dir, rel_path)?;
 
   let html = render(
     config,
@@ -2045,7 +2035,6 @@ pub fn render_and_write(
     html
   };
 
-  let output_path = config.output_dir.join(rel_path);
   fs::write(&output_path, processed_html).wrap_err_with(|| {
     format!("Failed to write output HTML: {}", output_path.display())
   })?;
