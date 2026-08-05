@@ -13,10 +13,10 @@ use super::{dom::safe_select, process::process_safe};
 fn sanitize_option_id(name: &str) -> String {
   let sanitized: String = name
     .chars()
-    .map(|c| {
-      match c {
+    .map(|character| {
+      match character {
         '*' | '<' | '>' | '[' | ']' | ':' | '"' | ' ' => '_',
-        c => c,
+        character => character,
       }
     })
     .collect();
@@ -49,22 +49,16 @@ const MAX_INCLUDE_DEPTH: usize = 8;
 /// Internal sentinel inserted between included files before block processing.
 const INCLUDE_BOUNDARY_MARKER: &str = "<!-- ndg:include-boundary -->";
 
-/// Check if a path is safe for file inclusion (no parent directory traversal).
+/// Check whether an include path stays below its markdown source directory.
 #[cfg(feature = "nixpkgs")]
 fn is_safe_path(path: &str, _base_dir: &Path) -> bool {
   let p = Path::new(path);
-  if path.contains('\\') {
+  if path.contains('\\') || p.is_absolute() {
     return false;
   }
 
-  // Reject any path containing parent directory components
-  for component in p.components() {
-    if matches!(component, std::path::Component::ParentDir) {
-      return false;
-    }
-  }
-
-  true
+  !p.components()
+    .any(|component| matches!(component, std::path::Component::ParentDir))
 }
 
 /// Parse the custom output directive from an include block.
