@@ -56,9 +56,9 @@ pub fn process_nixdoc(
     return Ok(None);
   }
 
-  let entries_html =
-    libdoc::generate_lib_entries_html(&all_entries, &config.revision);
-  let toc_html = libdoc::generate_lib_toc_html(&all_entries);
+  let page = libdoc::LibDocPage::new(&all_entries, &config.revision);
+  let entries_html = page.entries_html();
+  let toc_html = page.toc_html();
   let lib_html = template::render_lib(config, &entries_html, &toc_html)
     .wrap_err("Failed to render lib page")?;
 
