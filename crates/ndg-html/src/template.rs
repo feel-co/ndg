@@ -21,6 +21,8 @@ use rustc_hash::FxHashMap;
 use serde_json::Value;
 use tera::Tera;
 
+use crate::option_toc::OptionsTocGenerator;
+
 const DEFAULT_TEMPLATE: &str = templates::DEFAULT_TEMPLATE;
 const OPTIONS_TEMPLATE: &str = templates::OPTIONS_TEMPLATE;
 const SEARCH_TEMPLATE: &str = templates::SEARCH_TEMPLATE;
@@ -777,7 +779,6 @@ pub fn render_lib(
   Ok(html)
 }
 
-/// Generate specialized TOC for options page
 fn generate_options_toc(
   options: &IndexMap<String, NixOption>,
   config: &Config,
@@ -786,251 +787,63 @@ fn generate_options_toc(
 ) -> Result<String> {
   let sidebar_options =
     config.sidebar.as_ref().and_then(|s| s.options.as_ref());
-
-  // Get depth from sidebar.options config or fallback to default
-  let default_depth = sidebar_options.map_or(2, |o| o.depth);
-  let nested = sidebar_options.is_some_and(|o| o.nested);
-  let nested_depth = sidebar_options.map_or(0, |o| o.nested_depth);
-  let ordering =
-    sidebar_options.map_or(SidebarOrdering::Alphabetical, |o| o.ordering);
-  let input_order = input_order.cloned().unwrap_or_else(|| {
-    options
-      .keys()
-      .enumerate()
-      .map(|(index, name)| (name.clone(), index))
-      .collect()
-  });
-
-  let mut grouped_options: IndexMap<String, Vec<&NixOption>> =
-    IndexMap::default();
-  let mut direct_parent_options: FxHashMap<String, &NixOption> =
-    FxHashMap::default();
-  let mut option_custom_names: FxHashMap<String, String> = FxHashMap::default();
-  let mut option_positions: FxHashMap<String, usize> = FxHashMap::default();
-
-  for option in options.values() {
-    // Check if this option has a matching rule in sidebar.options config
-    let match_result = sidebar_options.and_then(|o| o.find_match(&option.name));
-
-    // Skip if option is marked as hidden
-    if let Some(matched) = &match_result {
-      if matched.is_hidden() {
-        continue;
-      }
-
-      // Store custom name if provided
-      if let Some(name) = matched.get_name() {
-        option_custom_names.insert(option.name.clone(), name.to_string());
-      }
-
-      // Store custom position if provided
-      if let Some(position) = matched.get_position() {
-        option_positions.insert(option.name.clone(), position);
-      }
-    }
-
-    // Use custom depth if specified, otherwise use default
-    let depth = match_result
-      .as_ref()
-      .and_then(|m| m.get_depth())
-      .unwrap_or(default_depth);
-
-    let parent = get_option_parent(&option.name, depth);
-
-    // Check if this option exactly matches its parent category
-    if option.name == parent {
-      direct_parent_options.insert(parent.clone(), option);
-    }
-
-    // Add to grouped options
-    grouped_options.entry(parent).or_default().push(option);
+  let model = crate::option_toc::OptionsTocModel::new(
+    options,
+    sidebar_options,
+    input_order,
+  );
+  if sidebar_options.is_some_and(|options| options.nested) {
+    crate::option_toc::NestedOptionsTocGenerator.generate(&model)
+  } else {
+    FlatOptionsTocGenerator { tera }.generate(&model)
   }
+}
 
-  let group_positions = grouped_options
-    .iter()
-    .filter_map(|(parent, options)| {
-      options
-        .iter()
-        .filter_map(|option| option_positions.get(&option.name))
-        .min()
-        .map(|position| (parent.clone(), *position))
-    })
-    .collect();
-  let group_input_order = grouped_options
-    .iter()
-    .filter_map(|(parent, options)| {
-      options
-        .iter()
-        .filter_map(|option| input_order.get(&option.name))
-        .min()
-        .map(|position| (parent.clone(), *position))
-    })
-    .collect();
+struct FlatOptionsTocGenerator<'a> {
+  tera: &'a Tera,
+}
 
-  if nested {
-    return Ok(crate::option_toc::generate_nested_options_toc_html(
-      &crate::option_toc::NestedOptionsToc {
-        grouped_options: &grouped_options,
-        direct_parents: &direct_parent_options,
-        custom_names: &option_custom_names,
-        option_positions: &option_positions,
-        group_positions: &group_positions,
-        input_order: &input_order,
-        group_input_order: &group_input_order,
-        nested_depth,
-        ordering,
-      },
-    ));
-  }
+impl crate::option_toc::OptionsTocGenerator for FlatOptionsTocGenerator<'_> {
+  fn generate(
+    &self,
+    model: &crate::option_toc::OptionsTocModel<'_>,
+  ) -> Result<String> {
+    let grouped_options = &model.grouped_options;
+    let direct_parent_options = &model.direct_parent_options;
+    let option_custom_names = &model.custom_names;
+    let option_positions = &model.option_positions;
+    let group_positions = &model.group_positions;
+    let input_order = &model.input_order;
+    let group_input_order = &model.group_input_order;
+    let ordering = model.ordering;
 
-  // Separate categories into single options and dropdown categories
-  let mut single_options: Vec<Value> = Vec::new();
-  let mut dropdown_categories: Vec<Value> = Vec::new();
+    // Separate categories into single options and dropdown categories
+    let mut single_options: Vec<Value> = Vec::new();
+    let mut dropdown_categories: Vec<Value> = Vec::new();
 
-  for (parent, opts) in &grouped_options {
-    let has_multiple_options = opts.len() > 1;
-    let has_child_options =
-      opts.len() > usize::from(direct_parent_options.contains_key(parent));
+    for (parent, opts) in grouped_options {
+      let has_multiple_options = opts.len() > 1;
+      let has_child_options =
+        opts.len() > usize::from(direct_parent_options.contains_key(parent));
 
-    if !has_multiple_options && !has_child_options {
-      // Single option with no children
-      let option = opts[0];
+      if !has_multiple_options && !has_child_options {
+        // Single option with no children
+        let option = opts[0];
 
-      // Use custom name if available, otherwise use option name
-      #[expect(
-        clippy::map_unwrap_or,
-        reason = "map().unwrap_or() expresses fallback intent more clearly \
-                  than map_or()"
-      )]
-      let display_name = option_custom_names
-        .get(&option.name)
-        .map(String::as_str)
-        .unwrap_or(&option.name);
-
-      let option_value = serde_json::to_value({
-        let mut map = serde_json::Map::new();
-        // HTML-escape display strings: Tera::default() has no auto-escaping.
-        map.insert(
-          "name".to_string(),
-          serde_json::to_value(encode_text(&option.name).as_ref())?,
-        );
-        map.insert(
-          "id".to_string(),
-          serde_json::to_value(sanitize_option_id(&option.name))?,
-        );
-        map.insert(
-          "display_name".to_string(),
-          serde_json::to_value(encode_text(display_name).as_ref())?,
-        );
-        map.insert(
-          "internal".to_string(),
-          serde_json::to_value(option.internal)?,
-        );
-        map.insert(
-          "read_only".to_string(),
-          serde_json::to_value(option.read_only)?,
-        );
-
-        // Add position if custom position is set
-        if let Some(position) = option_positions.get(&option.name) {
-          map.insert("position".to_string(), serde_json::to_value(position)?);
-        }
-
-        map
-      })?;
-      single_options.push(option_value);
-    } else {
-      // Category with multiple options or child options
-      let mut category = serde_json::Map::new();
-
-      // Use custom name for category if the parent option has one
-      #[expect(
-        clippy::map_unwrap_or,
-        reason = "map().unwrap_or() expresses fallback intent more clearly \
-                  than map_or()"
-      )]
-      let category_display_name = option_custom_names
-        .get(parent)
-        .map(String::as_str)
-        .unwrap_or(parent);
-
-      category.insert(
-        "name".to_string(),
-        serde_json::to_value(encode_text(parent).as_ref())?,
-      );
-      category.insert(
-        "display_name".to_string(),
-        serde_json::to_value(encode_text(category_display_name).as_ref())?,
-      );
-      category.insert("count".to_string(), serde_json::to_value(opts.len())?);
-
-      // Add parent option if it exists
-      if let Some(parent_option) = direct_parent_options.get(parent) {
-        let parent_option_value = serde_json::to_value({
-          let mut map = serde_json::Map::new();
-          map.insert(
-            "name".to_string(),
-            serde_json::to_value(encode_text(&parent_option.name).as_ref())?,
-          );
-          map.insert(
-            "id".to_string(),
-            serde_json::to_value(sanitize_option_id(&parent_option.name))?,
-          );
-          map.insert(
-            "internal".to_string(),
-            serde_json::to_value(parent_option.internal)?,
-          );
-          map.insert(
-            "read_only".to_string(),
-            serde_json::to_value(parent_option.read_only)?,
-          );
-          map
-        })?;
-        category.insert("parent_option".to_string(), parent_option_value);
-      }
-
-      // Add child options
-      let mut children = Vec::new();
-      let mut child_options: Vec<&NixOption> = opts
-        .iter()
-        .filter(|opt| opt.name != *parent)
-        .copied()
-        .collect();
-
-      let parent_prefix = format!("{parent}.");
-      child_options.sort_by(|a, b| {
-        match ordering {
-          SidebarOrdering::Filesystem => {
-            input_order.get(&a.name).cmp(&input_order.get(&b.name))
-          },
-          SidebarOrdering::Custom => {
-            let a_name = a.name.strip_prefix(&parent_prefix).unwrap_or(&a.name);
-            let b_name = b.name.strip_prefix(&parent_prefix).unwrap_or(&b.name);
-            match (option_positions.get(&a.name), option_positions.get(&b.name))
-            {
-              (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
-              (Some(_), None) => std::cmp::Ordering::Less,
-              (None, Some(_)) => std::cmp::Ordering::Greater,
-              (None, None) => a_name.cmp(b_name),
-            }
-          },
-          SidebarOrdering::Alphabetical => {
-            a.name
-              .strip_prefix(&parent_prefix)
-              .unwrap_or(&a.name)
-              .cmp(b.name.strip_prefix(&parent_prefix).unwrap_or(&b.name))
-          },
-        }
-      });
-
-      for option in child_options {
-        let display_name = option
-          .name
-          .strip_prefix(&parent_prefix)
+        // Use custom name if available, otherwise use option name
+        #[expect(
+          clippy::map_unwrap_or,
+          reason = "map().unwrap_or() expresses fallback intent more clearly \
+                    than map_or()"
+        )]
+        let display_name = option_custom_names
+          .get(&option.name)
+          .map(String::as_str)
           .unwrap_or(&option.name);
 
-        let child_value = serde_json::to_value({
+        let option_value = serde_json::to_value({
           let mut map = serde_json::Map::new();
+          // HTML-escape display strings: Tera::default() has no auto-escaping.
           map.insert(
             "name".to_string(),
             serde_json::to_value(encode_text(&option.name).as_ref())?,
@@ -1051,75 +864,157 @@ fn generate_options_toc(
             "read_only".to_string(),
             serde_json::to_value(option.read_only)?,
           );
+
+          // Add position if custom position is set
+          if let Some(position) = option_positions.get(&option.name) {
+            map.insert("position".to_string(), serde_json::to_value(position)?);
+          }
+
           map
         })?;
-        children.push(child_value);
-      }
-
-      category.insert("children".to_string(), serde_json::to_value(children)?);
-
-      // Add position if custom position is set for parent
-      if let Some(position) = group_positions.get(parent) {
-        category
-          .insert("position".to_string(), serde_json::to_value(position)?);
-      }
-
-      dropdown_categories.push(serde_json::to_value(category)?);
-    }
-  }
-
-  if matches!(ordering, SidebarOrdering::Filesystem) {
-    single_options.sort_by_key(|option| {
-      option
-        .get("name")
-        .and_then(Value::as_str)
-        .and_then(|name| input_order.get(name))
-    });
-    dropdown_categories.sort_by_key(|category| {
-      category
-        .get("name")
-        .and_then(Value::as_str)
-        .and_then(|name| group_input_order.get(name))
-    });
-  } else {
-    let sort_entries = |a: &Value, b: &Value| {
-      let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
-      let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
-      if matches!(ordering, SidebarOrdering::Custom) {
-        match (
-          a.get("position").and_then(Value::as_u64),
-          b.get("position").and_then(Value::as_u64),
-        ) {
-          (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
-          (Some(_), None) => std::cmp::Ordering::Less,
-          (None, Some(_)) => std::cmp::Ordering::Greater,
-          (None, None) => a_name.cmp(b_name),
-        }
+        single_options.push(option_value);
       } else {
-        a_name.cmp(b_name)
+        // Category with multiple options or child options
+        let mut category = serde_json::Map::new();
+
+        // Use custom name for category if the parent option has one
+        #[expect(
+          clippy::map_unwrap_or,
+          reason = "map().unwrap_or() expresses fallback intent more clearly \
+                    than map_or()"
+        )]
+        let category_display_name = option_custom_names
+          .get(parent)
+          .map(String::as_str)
+          .unwrap_or(parent);
+
+        category.insert(
+          "name".to_string(),
+          serde_json::to_value(encode_text(parent).as_ref())?,
+        );
+        category.insert(
+          "display_name".to_string(),
+          serde_json::to_value(encode_text(category_display_name).as_ref())?,
+        );
+        category.insert("count".to_string(), serde_json::to_value(opts.len())?);
+
+        // Add parent option if it exists
+        if let Some(parent_option) = direct_parent_options.get(parent) {
+          let parent_option_value = serde_json::to_value({
+            let mut map = serde_json::Map::new();
+            map.insert(
+              "name".to_string(),
+              serde_json::to_value(encode_text(&parent_option.name).as_ref())?,
+            );
+            map.insert(
+              "id".to_string(),
+              serde_json::to_value(sanitize_option_id(&parent_option.name))?,
+            );
+            map.insert(
+              "internal".to_string(),
+              serde_json::to_value(parent_option.internal)?,
+            );
+            map.insert(
+              "read_only".to_string(),
+              serde_json::to_value(parent_option.read_only)?,
+            );
+            map
+          })?;
+          category.insert("parent_option".to_string(), parent_option_value);
+        }
+
+        // Add child options
+        let mut children = Vec::new();
+        let parent_prefix = format!("{parent}.");
+        for option in model.child_options(parent, opts) {
+          let display_name = option
+            .name
+            .strip_prefix(&parent_prefix)
+            .unwrap_or(&option.name);
+
+          let child_value = serde_json::to_value({
+            let mut map = serde_json::Map::new();
+            map.insert(
+              "name".to_string(),
+              serde_json::to_value(encode_text(&option.name).as_ref())?,
+            );
+            map.insert(
+              "id".to_string(),
+              serde_json::to_value(sanitize_option_id(&option.name))?,
+            );
+            map.insert(
+              "display_name".to_string(),
+              serde_json::to_value(encode_text(display_name).as_ref())?,
+            );
+            map.insert(
+              "internal".to_string(),
+              serde_json::to_value(option.internal)?,
+            );
+            map.insert(
+              "read_only".to_string(),
+              serde_json::to_value(option.read_only)?,
+            );
+            map
+          })?;
+          children.push(child_value);
+        }
+
+        category
+          .insert("children".to_string(), serde_json::to_value(children)?);
+
+        // Add position if custom position is set for parent
+        if let Some(position) = group_positions.get(parent) {
+          category
+            .insert("position".to_string(), serde_json::to_value(position)?);
+        }
+
+        dropdown_categories.push(serde_json::to_value(category)?);
       }
-    };
-    single_options.sort_by(sort_entries);
-    dropdown_categories.sort_by(sort_entries);
-  }
+    }
 
-  let mut tera_context = tera::Context::new();
-  tera_context.insert("single_options", &single_options);
-  tera_context.insert("dropdown_categories", &dropdown_categories);
+    if matches!(ordering, SidebarOrdering::Filesystem) {
+      single_options.sort_by_key(|option| {
+        option
+          .get("name")
+          .and_then(Value::as_str)
+          .and_then(|name| input_order.get(name))
+      });
+      dropdown_categories.sort_by_key(|category| {
+        category
+          .get("name")
+          .and_then(Value::as_str)
+          .and_then(|name| group_input_order.get(name))
+      });
+    } else {
+      let sort_entries = |a: &Value, b: &Value| {
+        let a_name = a.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let b_name = b.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        if matches!(ordering, SidebarOrdering::Custom) {
+          match (
+            a.get("position").and_then(Value::as_u64),
+            b.get("position").and_then(Value::as_u64),
+          ) {
+            (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => a_name.cmp(b_name),
+          }
+        } else {
+          a_name.cmp(b_name)
+        }
+      };
+      single_options.sort_by(sort_entries);
+      dropdown_categories.sort_by(sort_entries);
+    }
 
-  // Render the template
-  let rendered = tera.render("options_toc", &tera_context)?;
+    let mut tera_context = tera::Context::new();
+    tera_context.insert("single_options", &single_options);
+    tera_context.insert("dropdown_categories", &dropdown_categories);
 
-  Ok(rendered)
-}
+    // Render the template
+    let rendered = self.tera.render("options_toc", &tera_context)?;
 
-/// Extract the parent category from an option name with configurable depth
-fn get_option_parent(option_name: &str, depth: usize) -> String {
-  let parts: Vec<&str> = option_name.split('.').collect();
-  if parts.len() <= depth {
-    option_name.to_string()
-  } else {
-    parts[..depth].join(".")
+    Ok(rendered)
   }
 }
 
