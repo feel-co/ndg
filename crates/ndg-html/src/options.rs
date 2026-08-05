@@ -53,7 +53,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   let processor = create_processor(config, Some(valid_options))?;
 
   // Extract options
-  let mut options = FxHashMap::default();
+  let mut options: IndexMap<String, NixOption> = IndexMap::default();
 
   if let Value::Object(map) = options_data {
     for (key, value) in map {
@@ -225,6 +225,12 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     }
   }
 
+  let input_order = options
+    .keys()
+    .enumerate()
+    .map(|(index, name)| (name.clone(), index))
+    .collect();
+
   // Sort options by priority (enable > package > other), with secondary
   // alphabetical sort within each priority group.
   let mut sorted: Vec<_> = options.into_iter().collect();
@@ -242,14 +248,16 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
       .cmp(&priority(name_b))
       .then_with(|| name_a.cmp(name_b))
   });
-
-  let customized_options: IndexMap<String, NixOption> =
-    sorted.into_iter().collect();
+  let customized_options = sorted.into_iter().collect();
 
   if option_pages::pages_enabled(config) {
-    write_split_options(config, &customized_options)?;
+    write_split_options(config, &customized_options, &input_order)?;
   } else {
-    let html = template::render_options(config, &customized_options)?;
+    let html = template::render_options_with_order(
+      config,
+      &customized_options,
+      Some(&input_order),
+    )?;
     write_options_html(config, "options.html", html)?;
   }
 
@@ -259,14 +267,19 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
 fn write_split_options(
   config: &Config,
   options: &IndexMap<String, NixOption>,
+  input_order: &FxHashMap<String, usize>,
 ) -> Result<()> {
   let page_set = option_pages::build_option_pages(config, options);
   let index_html = option_page_render::render_options_index(config, &page_set)?;
   write_options_html(config, "options.html", index_html)?;
 
   for page in &page_set.pages {
-    let html =
-      option_page_render::render_option_page(config, page, &page_set.pages)?;
+    let html = option_page_render::render_option_page(
+      config,
+      page,
+      &page_set.pages,
+      input_order,
+    )?;
     write_options_html(config, &page.path, html)?;
   }
 

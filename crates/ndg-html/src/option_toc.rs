@@ -1,6 +1,8 @@
 use std::fmt::Write;
 
 use html_escape::encode_text;
+use indexmap::IndexMap;
+use ndg_config::sidebar::SidebarOrdering;
 use ndg_manpage::types::NixOption;
 use rustc_hash::FxHashMap;
 
@@ -9,42 +11,89 @@ use crate::{
   toc_tree::{TocPathPart, TocTree},
 };
 
-pub(crate) fn generate_nested_options_toc_html(
-  grouped_options: &FxHashMap<String, Vec<&NixOption>>,
-  direct_parent_options: &FxHashMap<String, &NixOption>,
-  option_custom_names: &FxHashMap<String, String>,
-  option_positions: &FxHashMap<String, usize>,
-  nested_depth: usize,
-) -> String {
-  let mut categories: Vec<_> = grouped_options.iter().collect();
-  categories.sort_by(|(a_name, _), (b_name, _)| {
-    let a_position = option_positions.get(*a_name);
-    let b_position = option_positions.get(*b_name);
+pub(crate) struct NestedOptionsToc<'a> {
+  pub grouped_options:   &'a IndexMap<String, Vec<&'a NixOption>>,
+  pub direct_parents:    &'a FxHashMap<String, &'a NixOption>,
+  pub custom_names:      &'a FxHashMap<String, String>,
+  pub option_positions:  &'a FxHashMap<String, usize>,
+  pub group_positions:   &'a FxHashMap<String, usize>,
+  pub input_order:       &'a FxHashMap<String, usize>,
+  pub group_input_order: &'a FxHashMap<String, usize>,
+  pub nested_depth:      usize,
+  pub ordering:          SidebarOrdering,
+}
 
-    match (a_position, b_position) {
-      (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
-      (Some(_), None) => std::cmp::Ordering::Less,
-      (None, Some(_)) => std::cmp::Ordering::Greater,
-      (None, None) => a_name.cmp(b_name),
-    }
-  });
+pub(crate) fn generate_nested_options_toc_html(
+  toc: &NestedOptionsToc<'_>,
+) -> String {
+  let mut categories: Vec<_> = toc.grouped_options.iter().collect();
+  match toc.ordering {
+    SidebarOrdering::Alphabetical => categories.sort_by_key(|(name, _)| *name),
+    SidebarOrdering::Custom => {
+      categories.sort_by(|(a_name, _), (b_name, _)| {
+        match (
+          toc.group_positions.get(*a_name),
+          toc.group_positions.get(*b_name),
+        ) {
+          (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
+          (Some(_), None) => std::cmp::Ordering::Less,
+          (None, Some(_)) => std::cmp::Ordering::Greater,
+          (None, None) => a_name.cmp(b_name),
+        }
+      });
+    },
+    SidebarOrdering::Filesystem => {
+      categories.sort_by_key(|(name, _)| toc.group_input_order.get(*name));
+    },
+  }
+
+  let (single_options, dropdown_categories): (Vec<_>, Vec<_>) =
+    categories.into_iter().partition(|(parent, opts)| {
+      let child_count =
+        opts.iter().filter(|option| option.name != **parent).count();
+      child_count == 0
+        || (!toc.direct_parents.contains_key(*parent) && child_count == 1)
+    });
 
   let mut html = String::new();
   html.push_str("<ul class=\"toc-list\">\n");
 
-  for (parent, opts) in categories {
-    let parent_option = direct_parent_options.get(parent).copied();
-    let child_options: Vec<_> = opts
+  for (parent, opts) in single_options.into_iter().chain(dropdown_categories) {
+    let parent_option = toc.direct_parents.get(parent).copied();
+    let mut child_options: Vec<_> = opts
       .iter()
       .filter(|option| option.name != *parent)
       .copied()
       .collect();
 
+    match toc.ordering {
+      SidebarOrdering::Alphabetical => {
+        child_options.sort_by(|a, b| a.name.cmp(&b.name));
+      },
+      SidebarOrdering::Custom => {
+        child_options.sort_by(|a, b| {
+          match (
+            toc.option_positions.get(&a.name),
+            toc.option_positions.get(&b.name),
+          ) {
+            (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => a.name.cmp(&b.name),
+          }
+        });
+      },
+      SidebarOrdering::Filesystem => {
+        child_options.sort_by_key(|option| toc.input_order.get(&option.name));
+      },
+    }
+
     if parent_option.is_none() && child_options.len() == 1 {
       render_option_toc_link(
         &mut html,
         child_options[0],
-        option_custom_names
+        toc
+          .custom_names
           .get(&child_options[0].name)
           .map_or(&child_options[0].name, String::as_str),
         1,
@@ -55,7 +104,7 @@ pub(crate) fn generate_nested_options_toc_html(
     let mut tree = TocTree::default();
     if let Some(option) = parent_option {
       tree.insert(
-        &[parent_path_part(parent, option_custom_names)],
+        &[parent_path_part(parent, toc.custom_names)],
         option_toc_leaf_html(option, &option.name),
         false,
       );
@@ -63,13 +112,14 @@ pub(crate) fn generate_nested_options_toc_html(
 
     for option in child_options {
       tree.insert(
-        &option_toc_path(parent, option, option_custom_names, nested_depth),
+        &option_toc_path(parent, option, toc.custom_names, toc.nested_depth),
         option_toc_leaf_html(
           option,
-          option_custom_names
+          toc
+            .custom_names
             .get(&option.name)
             .map_or_else(
-              || option_leaf_label(parent, option, nested_depth),
+              || option_leaf_label(parent, option, toc.nested_depth),
               Clone::clone,
             )
             .as_str(),
