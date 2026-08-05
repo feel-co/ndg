@@ -83,8 +83,8 @@ pub struct MarkdownOptions {
   /// Optional: Custom syntax highlighting theme name.
   pub highlight_theme: Option<String>,
 
-  /// Optional: Path to manpage URL mappings (for {manpage} roles).
-  pub manpage_urls_path: Option<String>,
+  /// Optional URL mappings for `{manpage}` roles.
+  pub manpage_urls: Option<FxHashMap<String, String>>,
 
   /// Optional: Path to user-provided Tree-sitter query overrides.
   ///
@@ -130,7 +130,7 @@ impl MarkdownOptions {
       )),
       extensions:          Vec::new(),
       highlight_theme:     None,
-      manpage_urls_path:   None,
+      manpage_urls:        None,
       syntax_queries_path: None,
       auto_link_options:   true,
       valid_options:       None,
@@ -151,7 +151,7 @@ impl MarkdownOptions {
       highlight_code,
       extensions: Vec::new(),
       highlight_theme: None,
-      manpage_urls_path: None,
+      manpage_urls: None,
       syntax_queries_path: None,
       auto_link_options: true,
       valid_options: None,
@@ -167,7 +167,7 @@ impl Default for MarkdownOptions {
       nixpkgs:             cfg!(feature = "nixpkgs"),
       highlight_code:      cfg!(feature = "syntastica"),
       extensions:          Vec::new(),
-      manpage_urls_path:   None,
+      manpage_urls:        None,
       syntax_queries_path: None,
       highlight_theme:     None,
       auto_link_options:   true,
@@ -383,17 +383,14 @@ impl MarkdownOptionsBuilder {
     inner(self, theme.map(Into::into))
   }
 
-  /// Set the manpage URLs path.
+  /// Set URL mappings for `{manpage}` roles.
   #[must_use]
-  pub fn manpage_urls_path<S: Into<String>>(self, path: Option<S>) -> Self {
-    fn inner(
-      mut this: MarkdownOptionsBuilder,
-      path: Option<String>,
-    ) -> MarkdownOptionsBuilder {
-      this.options.manpage_urls_path = path;
-      this
-    }
-    inner(self, path.map(Into::into))
+  pub fn manpage_urls(
+    mut self,
+    mappings: Option<FxHashMap<String, String>>,
+  ) -> Self {
+    self.options.manpage_urls = mappings;
+    self
   }
 
   /// Set the path to user-provided Tree-sitter query overrides.

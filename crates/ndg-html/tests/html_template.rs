@@ -800,7 +800,8 @@ This is a standalone page.
   };
 
   // Process markdown files, this should populate config.included_files
-  let processor = ndg_utils::markdown::create_processor(&config, None);
+  let processor = ndg_utils::markdown::create_processor(&config, None)
+    .expect("create processor");
   let processed =
     ndg_utils::process_markdown_files(&mut config, Some(&processor))
       .expect("Failed to process markdown files");
@@ -903,7 +904,7 @@ fn html_into_file_include_is_split_from_parent_and_added_to_sidebar() {
 
 Before split include.
 
-```{=include=} appendix html:into-file=//split.html
+```{=include=} appendix html:into-file=split.html
 included/split.md
 ```
 
@@ -932,7 +933,8 @@ This content should be rendered only in split.html.
     ..Default::default()
   };
 
-  let processor = ndg_utils::markdown::create_processor(&config, None);
+  let processor = ndg_utils::markdown::create_processor(&config, None)
+    .expect("create processor");
   let processed =
     ndg_utils::process_markdown_files(&mut config, Some(&processor))
       .expect("Failed to process markdown files");
@@ -973,6 +975,36 @@ This content should be rendered only in split.html.
     html.contains("split.html") && html.contains("Split Page"),
     "html:into-file output should appear in sidebar navigation. Got:\n{html}"
   );
+}
+
+#[test]
+fn html_into_file_rejects_paths_outside_the_output_directory() {
+  let temp_dir = TempDir::new().expect("create temp dir");
+  let input_dir = temp_dir.path().join("input");
+  fs::create_dir_all(&input_dir).expect("create input dir");
+  fs::write(
+    input_dir.join("main.md"),
+    "```{=include=} html:into-file=../outside.html\nincluded.md\n```",
+  )
+  .expect("write main markdown");
+  fs::write(input_dir.join("included.md"), "# Included")
+    .expect("write included markdown");
+
+  let mut config = Config {
+    input_dir: Some(input_dir),
+    output_dir: temp_dir.path().join("output"),
+    highlight_code: false,
+    ..Default::default()
+  };
+  let processor = ndg_utils::markdown::create_processor(&config, None)
+    .expect("create processor");
+
+  let result = ndg_utils::process_markdown_files(&mut config, Some(&processor));
+  assert!(result.as_ref().err().is_some_and(|error| {
+    error
+      .to_string()
+      .contains("Invalid html:into-file output path")
+  }));
 }
 
 #[test]

@@ -50,7 +50,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   }
 
   // Create processor once with validation enabled
-  let processor = create_processor(config, Some(valid_options));
+  let processor = create_processor(config, Some(valid_options))?;
 
   // Extract options
   let mut options = FxHashMap::default();

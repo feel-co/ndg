@@ -32,6 +32,7 @@ fn test_markdown_extensions_from_config() {
   );
 
   let html = ndg::utils::create_processor(&config, None)
+    .expect("create processor")
     .render("$x$ $`y`$ \\(z\\)")
     .html;
   assert!(html.contains("data-math-style=\"inline\">x</span>"));
@@ -1198,7 +1199,8 @@ fn test_readme_as_homepage_enabled() {
   };
 
   // Process markdown files
-  let processor = ndg::utils::create_processor(&config, None);
+  let processor =
+    ndg::utils::create_processor(&config, None).expect("create processor");
   let processed =
     ndg::utils::process_markdown_files(&mut config, Some(&processor))
       .expect("Failed to process markdown files");
@@ -1241,7 +1243,8 @@ fn test_readme_as_homepage_disabled() {
   };
 
   // Process markdown files
-  let processor = ndg::utils::create_processor(&config, None);
+  let processor =
+    ndg::utils::create_processor(&config, None).expect("create processor");
   let processed =
     ndg::utils::process_markdown_files(&mut config, Some(&processor))
       .expect("Failed to process markdown files");

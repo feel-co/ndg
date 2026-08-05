@@ -97,10 +97,13 @@ let result = processor.render(markdown);
 
 ```rust
 use ndg_commonmark::{
+  utils::load_manpage_urls,
   MarkdownExtension,
   MarkdownOptionsBuilder,
   MarkdownProcessor,
 };
+
+let manpage_urls = load_manpage_urls("manpage-urls.json")?;
 
 let options = MarkdownOptionsBuilder::new()
   .gfm(true)
@@ -112,7 +115,7 @@ let options = MarkdownOptionsBuilder::new()
     MarkdownExtension::MathCode,
     MarkdownExtension::MathLatex,
   ])
-  .manpage_urls_path(Some("manpage-urls.json"))
+  .manpage_urls(Some(manpage_urls))
   .build();
 
 let processor = MarkdownProcessor::new(options);
@@ -198,7 +201,7 @@ pub struct MarkdownOptions {
     pub nixpkgs: bool,                          // NixOS documentation features
     pub highlight_code: bool,                   // Syntax highlighting
     pub extensions: Vec<MarkdownExtension>,     // Additional Comrak extensions
-    pub manpage_urls_path: Option<String>,      // Manpage URL mappings
+    pub manpage_urls: Option<FxHashMap<String, String>>, // Manpage URL mappings
     pub highlight_theme: Option<String>,        // Syntax highlighting theme
     pub tab_style: TabStyle,                    // How to handle hard tabs in code blocks
 }
@@ -297,15 +300,14 @@ fn main() {
 ### Advanced Configuration
 
 ```rust
-use ndg_commonmark::{MarkdownProcessor, MarkdownOptions};
-use std::collections::HashMap;
+use ndg_commonmark::{utils::load_manpage_urls, MarkdownProcessor, MarkdownOptions};
 
 let mut options = MarkdownOptions::default();
 options.gfm = true;
 options.nixpkgs = true;
 options.highlight_code = true;
 options.highlight_theme = Some("gruvbox-dark".to_string());
-options.manpage_urls_path = Some("manpages.json".to_string());
+options.manpage_urls = Some(load_manpage_urls("manpages.json")?);
 
 let processor = MarkdownProcessor::new(options);
 

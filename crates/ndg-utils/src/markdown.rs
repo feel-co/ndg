@@ -223,7 +223,8 @@ fn process_markdown_files_impl(
 
     // Use provided processor or create a new one
     let base_processor = processor
-      .map_or_else(|| create_processor(config, None), std::clone::Clone::clone);
+      .cloned()
+      .map_or_else(|| create_processor(config, None), Ok)?;
 
     let cache = cache_dir.map(|dir| (dir, processor_digest(&base_processor)));
     let dependency_digests = DependencyDigests::default();
@@ -302,7 +303,15 @@ fn process_markdown_files_impl(
         if let Some(ref custom_output) = inc.custom_output {
           let inc_path = base_dir.join(&inc.path);
           if let Ok(inc_rel) = inc_path.strip_prefix(input_dir) {
-            let normalized_output = normalize_custom_output_path(custom_output);
+            let custom_output = Path::new(custom_output);
+            crate::output::output_path(&config.output_dir, custom_output)
+              .wrap_err_with(|| {
+                format!(
+                  "Invalid html:into-file output path: {}",
+                  custom_output.display()
+                )
+              })?;
+            let normalized_output = custom_output.to_path_buf();
             pending_custom_outputs
               .entry(inc_rel.to_path_buf())
               .or_default()
@@ -435,10 +444,6 @@ fn process_markdown_files_impl(
   }
 }
 
-fn normalize_custom_output_path(path: &str) -> PathBuf {
-  PathBuf::from(path.trim_start_matches('/'))
-}
-
 fn digest(content: impl AsRef<[u8]>) -> String {
   blake3::hash(content.as_ref()).to_hex().to_string()
 }
@@ -482,9 +487,8 @@ fn processor_digest_for_version(
 ) -> String {
   let options = processor.options();
   digest(format!(
-    "{MARKDOWN_CACHE_SCHEMA}|{version}|{:?}|{}|{}|{}|{}|{}",
+    "{MARKDOWN_CACHE_SCHEMA}|{version}|{:?}|{}|{}|{}|{}",
     options,
-    digest_tree(options.manpage_urls_path.as_deref()),
     digest_tree(options.syntax_queries_path.as_deref()),
     cfg!(feature = "commonmark-ndg"),
     cfg!(feature = "commonmark-nixpkgs"),
@@ -589,7 +593,11 @@ fn write_cache(
 /// # Arguments
 /// * `config` - The loaded configuration for documentation generation.
 /// * `valid_options` - Optional set of valid option names for validation.
-#[must_use]
+///
+/// # Errors
+///
+/// Returns an error when configured manpage URL mappings cannot be read or
+/// parsed.
 #[expect(
   clippy::implicit_hasher,
   reason = "Standard FxHashSet sufficient for this use case"
@@ -597,7 +605,7 @@ fn write_cache(
 pub fn create_processor(
   config: &Config,
   valid_options: Option<FxHashSet<String>>,
-) -> MarkdownProcessor {
+) -> Result<MarkdownProcessor> {
   let tab_style = match config.tab_style.as_str() {
     "warn" => TabStyle::Warn,
     "normalize" => TabStyle::Normalize,
@@ -616,8 +624,14 @@ pub fn create_processor(
     .tab_style(tab_style);
 
   if let Some(mappings_path) = &config.manpage_urls_path {
-    builder = builder
-      .manpage_urls_path(Some(mappings_path.to_string_lossy().to_string()));
+    let mappings = ndg_commonmark::utils::load_manpage_urls(mappings_path)
+      .wrap_err_with(|| {
+        format!(
+          "Failed to load manpage URL mappings from {}",
+          mappings_path.display()
+        )
+      })?;
+    builder = builder.manpage_urls(Some(mappings));
   }
 
   if let Some(queries_path) = &config.syntax_queries_path {
@@ -629,7 +643,7 @@ pub fn create_processor(
     builder = builder.valid_options(Some(options));
   }
 
-  MarkdownProcessor::new(builder.build())
+  Ok(MarkdownProcessor::new(builder.build()))
 }
 
 /// Extracts the page title from a markdown file.
@@ -669,6 +683,7 @@ pub fn extract_page_title(file_path: &Path, html_path: &Path) -> String {
 }
 
 #[cfg(test)]
+#[expect(clippy::expect_used, reason = "Fine in tests")]
 mod tests {
   #![allow(clippy::unwrap_used, reason = "Tests can unwrap")]
 
@@ -836,7 +851,7 @@ mod tests {
       syntax_queries_path: Some(queries.clone()),
       ..Config::default()
     };
-    let processor = create_processor(&config, None);
+    let processor = create_processor(&config, None).expect("create processor");
     let before = processor_digest(&processor);
 
     fs::write(queries.join("highlights.scm"), "query v2").unwrap();
@@ -850,12 +865,26 @@ mod tests {
 
   #[test]
   fn processor_digest_tracks_ndg_version() {
-    let processor = create_processor(&Config::default(), None);
+    let processor =
+      create_processor(&Config::default(), None).expect("create processor");
 
     assert_ne!(
       processor_digest_for_version(&processor, "2.9.0"),
       processor_digest_for_version(&processor, "2.10.0"),
       "upgrading NDG should invalidate the cache"
     );
+  }
+
+  #[test]
+  fn create_processor_rejects_invalid_manpage_url_mappings() {
+    let temp = TempDir::new().expect("create tempdir");
+    let mappings = temp.path().join("manpage-urls.json");
+    fs::write(&mappings, "{").expect("write invalid mappings");
+    let config = Config {
+      manpage_urls_path: Some(mappings),
+      ..Config::default()
+    };
+
+    assert!(create_processor(&config, None).is_err());
   }
 }

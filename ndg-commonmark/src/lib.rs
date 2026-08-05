@@ -154,4 +154,5 @@ pub use crate::{
     MarkdownResult,
     validate_anchor_ids,
   },
+  utils::ManpageUrlsError,
 };

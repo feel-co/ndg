@@ -461,7 +461,10 @@ fn test_manpage_role_with_url() {
 
   let opts = ndg_commonmark::MarkdownOptions {
     highlight_code: false,
-    manpage_urls_path: Some(json_path.to_str().unwrap().to_string()),
+    manpage_urls: Some(
+      ndg_commonmark::utils::load_manpage_urls(&json_path)
+        .expect("load manpage URL mappings"),
+    ),
     ..Default::default()
   };
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
@@ -495,7 +498,10 @@ fn test_manpage_role_without_url() {
 
   let opts = ndg_commonmark::MarkdownOptions {
     highlight_code: false,
-    manpage_urls_path: Some(json_path.to_str().unwrap().to_string()),
+    manpage_urls: Some(
+      ndg_commonmark::utils::load_manpage_urls(&json_path)
+        .expect("load manpage URL mappings"),
+    ),
     ..Default::default()
   };
   let processor = ndg_commonmark::MarkdownProcessor::new(opts);
@@ -1488,7 +1494,7 @@ fn test_include_auto_id_prefix_adds_heading_ids() {
 }
 
 #[test]
-fn test_absolute_file_include_is_processed() {
+fn test_absolute_file_include_is_rejected() {
   use std::fs;
 
   use tempfile::tempdir;
@@ -1509,12 +1515,9 @@ fn test_absolute_file_include_is_processed() {
   let html = processor.render(&md).html;
 
   assert!(
-    html.contains("Generated") && html.contains("Content from generated file."),
-    "absolute include path should be rendered. Got:\n{html}"
-  );
-  assert!(
-    !html.contains("could not include file"),
-    "absolute include path should not be rejected. Got:\n{html}"
+    !html.contains("Generated")
+      && !html.contains("Content from generated file."),
+    "absolute include path should not be rendered. Got:\n{html}"
   );
 }
 
