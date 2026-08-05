@@ -1,12 +1,10 @@
 #![expect(clippy::expect_used, reason = "Fine in tests")]
 
-use std::fs;
+#[cfg(feature = "syntastica")] use std::fs;
 
-use ndg_commonmark::{
-  MarkdownOptions,
-  MarkdownProcessor,
-  create_default_manager,
-};
+#[cfg(feature = "syntastica")]
+use ndg_commonmark::create_default_manager;
+use ndg_commonmark::{MarkdownOptions, MarkdownProcessor};
 
 #[test]
 fn test_syntax_highlighting_pipeline() {

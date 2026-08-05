@@ -99,7 +99,6 @@ impl SyntectHighlighter {
       "SolarizedLight" => Some(EmbeddedThemeName::SolarizedLight),
       "SublimeSnazzy" => Some(EmbeddedThemeName::SublimeSnazzy),
       "TwoDark" => Some(EmbeddedThemeName::TwoDark),
-      "VisualStudioDarkPlus" => Some(EmbeddedThemeName::VisualStudioDarkPlus),
       "Zenburn" => Some(EmbeddedThemeName::Zenburn),
       _ => None,
     };
@@ -172,7 +171,6 @@ impl SyntaxHighlighter for SyntectHighlighter {
       "SolarizedLight".to_string(),
       "SublimeSnazzy".to_string(),
       "TwoDark".to_string(),
-      "VisualStudioDarkPlus".to_string(),
       "Zenburn".to_string(),
     ];
 

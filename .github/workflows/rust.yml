@@ -62,6 +62,23 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
+  features:
+    name: Feature configurations
+    needs: changes
+    if: ${{ needs.changes.outputs.files_changed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check Syntect backend
+        run: |
+          cargo check -p ndg-commonmark --no-default-features --features syntect --lib
+          cargo check -p ndg-commonmark --no-default-features --features ndg-flavored,syntect --all-targets
+
   test:
     name: Test
     runs-on: ubuntu-latest
