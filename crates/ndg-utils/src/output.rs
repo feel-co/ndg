@@ -1,8 +1,33 @@
-use std::{fmt::Write, path::PathBuf};
+use std::{
+  fmt::Write,
+  path::{Component, Path, PathBuf},
+};
 
+use color_eyre::eyre::{Result, bail};
 use ndg_config::Config;
 
 use crate::markdown::extract_page_title;
+
+/// Join an output-relative path to an output directory.
+///
+/// # Errors
+///
+/// Returns an error when `relative` is absolute or escapes its output root.
+pub fn output_path(output_dir: &Path, relative: &Path) -> Result<PathBuf> {
+  if relative.components().any(|component| {
+    matches!(
+      component,
+      Component::ParentDir | Component::RootDir | Component::Prefix(_)
+    )
+  }) {
+    bail!(
+      "output path must be relative and must not contain parent components: {}",
+      relative.display()
+    );
+  }
+
+  Ok(output_dir.join(relative))
+}
 
 /// Creates a fallback index page listing available documents.
 ///
@@ -65,4 +90,31 @@ pub fn create_fallback_index(
   }
 
   content
+}
+
+#[cfg(test)]
+#[expect(clippy::expect_used, reason = "Fine in tests")]
+mod tests {
+  use std::path::Path;
+
+  use super::output_path;
+
+  #[test]
+  fn output_path_rejects_paths_that_escape_the_output_directory() {
+    assert!(
+      output_path(Path::new("site"), Path::new("../outside.html")).is_err()
+    );
+    assert!(
+      output_path(Path::new("site"), Path::new("/outside.html")).is_err()
+    );
+  }
+
+  #[test]
+  fn output_path_accepts_nested_relative_paths() {
+    assert_eq!(
+      output_path(Path::new("site"), Path::new("nested/page.html"))
+        .expect("nested relative path is valid"),
+      Path::new("site/nested/page.html")
+    );
+  }
 }

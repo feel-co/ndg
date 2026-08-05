@@ -13,7 +13,7 @@ pub use markdown::{
   process_markdown_files,
   process_markdown_files_with_cache,
 };
-pub use output::create_fallback_index;
+pub use output::{create_fallback_index, output_path};
 pub use xref::{
   AnchorEntry,
   AnchorRegistry,
