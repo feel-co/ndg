@@ -438,24 +438,24 @@ Comrak converts math into elements marked with `data-math-style="inline"` or
 const stylesheet = document.createElement("link");
 stylesheet.rel = "stylesheet";
 stylesheet.href =
-    "https://cdn.jsdelivr.net/npm/katex@0.18.1/dist/katex.min.css";
+  "https://cdn.jsdelivr.net/npm/katex@0.18.1/dist/katex.min.css";
 stylesheet.integrity =
-    "sha384-1vdNCNel6Tx/NQa8IR1mGOGKsbGreCkOPfbtPPnUURJ5Tu2PRVfQ/7KLZC+Pi1p1";
+  "sha384-1vdNCNel6Tx/NQa8IR1mGOGKsbGreCkOPfbtPPnUURJ5Tu2PRVfQ/7KLZC+Pi1p1";
 stylesheet.crossOrigin = "anonymous";
 document.head.append(stylesheet);
 
 const script = document.createElement("script");
 script.src = "https://cdn.jsdelivr.net/npm/katex@0.18.1/dist/katex.min.js";
 script.integrity =
-    "sha384-ycJ6GAwiS15LoUPipwJOrWTvkUHl/YqELValBwI5I4awP1EeEQJYarj+w85ntcz7";
+  "sha384-ycJ6GAwiS15LoUPipwJOrWTvkUHl/YqELValBwI5I4awP1EeEQJYarj+w85ntcz7";
 script.crossOrigin = "anonymous";
 script.addEventListener("load", () => {
-    for (const element of document.querySelectorAll("[data-math-style]")) {
-        katex.render(element.textContent, element, {
-            displayMode: element.dataset.mathStyle === "display",
-            throwOnError: false,
-        });
-    }
+  for (const element of document.querySelectorAll("[data-math-style]")) {
+    katex.render(element.textContent, element, {
+      displayMode: element.dataset.mathStyle === "display",
+      throwOnError: false,
+    });
+  }
 });
 document.head.append(script);
 ```
@@ -520,8 +520,8 @@ automatically link manpage citations in your documentation:
 
 ```json
 {
-    "man(1)": "https://man7.org/linux/man-pages/man1/man.1.html",
-    "bash(1)": "https://man7.org/linux/man-pages/man1/bash.1.html"
+  "man(1)": "https://man7.org/linux/man-pages/man1/man.1.html",
+  "bash(1)": "https://man7.org/linux/man-pages/man1/bash.1.html"
 }
 ```
 
@@ -661,13 +661,49 @@ conversion.
 ### Nix Library Documentation
 
 Set `nixdoc_inputs` to generate `lib.html` from RFC 145-style comments attached
-to static attribute bindings. Directories are scanned recursively for `.nix`
-files.
+to static attribute bindings. Each input may be a Nix file or a directory;
+directories are scanned recursively for `.nix` files.
 
 ```toml
 nixdoc_inputs = ["lib", "src/helpers.nix"]
 revision = "main"
 ```
+
+Write documentation immediately before the binding with a `/** ... */` block.
+NDG renders the description and the conventional level-one sections `Type`,
+`Arguments` (or `Args`), `Example`/`Examples`, `Note`/`Notes`,
+`Warning`/`Warnings`/`Caution`, and `Deprecated`:
+
+````nix
+{
+  /**
+    Return the input unchanged.
+
+    # Type
+
+    ```
+    identity :: a -> a
+    ```
+
+    # Arguments
+
+    - [value] The value to return.
+
+    # Example
+
+    ```nix
+    identity 1
+    ```
+  */
+  identity = value: value;
+}
+````
+
+Section bodies use CommonMark. In particular, headings inside fenced code blocks
+remain part of the example rather than starting a new section. Other level-one
+sections are accepted by the parser but are not currently rendered in
+`lib.html`. Parser diagnostics such as an unclosed code fence are logged as
+warnings with their byte range in the normalized comment.
 
 Nixdoc support is enabled in default builds. To omit `ndg-nixdoc`, `rnix`, and
 the parser dependencies, build with explicit features and leave out `nixdoc`:
@@ -678,11 +714,11 @@ cargo build -p ndg --no-default-features --features commonmark-ndg
 
 The extractor currently documents only statically named attribute bindings.
 Dynamic attribute paths are skipped, syntax errors are handled using `rnix`'s
-error-tolerant syntax tree, and comments that the `nixdoc` parser rejects remain
-available only as raw comments. Treat generated library references as output to
-review, especially for malformed or highly dynamic Nix sources. This feature
-uses a [tiny in-house crate](https://crates.io/crates/nixdoc) which has an
-unfortunate name collision with the "official" `nixdoc` tool. The parser is
+error-tolerant syntax tree, and comments that the `nixdoc` 0.3 parser rejects
+remain available only as raw comments. Treat generated library references as
+output to review, especially for malformed or highly dynamic Nix sources. This
+feature uses a [tiny in-house crate](https://crates.io/crates/nixdoc) which has
+an unfortunate name collision with the "official" `nixdoc` tool. The parser is
 entirely in-house and acts as a library. `ndg-nixdoc` and by extension, ndg,
 does not call `nixdoc` as a CLI tool.
 
@@ -804,7 +840,7 @@ Each template can use these variables as needed. For example, in the
 ```html
 <!DOCTYPE html>
 <html lang="en">
-    <head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
@@ -814,7 +850,7 @@ Each template can use these variables as needed. For example, in the
     <script defer src="{{ search_js_path }}"></script>
     {% endif %}
   </head>
-    <body>
+  <body>
     <header>
       <h1><a href="{{ index_path }}">{{ title }}</a></h1>
       {% if generate_search %}
@@ -1012,26 +1048,26 @@ CLI, module evaluation is done for you automatically.
 >
 > ```json
 > {
->     "vim.withRuby": {
->         "declarations": [
->             {
->                 "name": "<nvf/modules/wrapper/environment/options.nix>",
->                 "url": "https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"
->             }
->         ],
->         "default": {
->             "_type": "literalExpression",
->             "text": "true"
->         },
->         "description": "Whether to enable Ruby support in the Neovim wrapper.\n.",
->         "example": {
->             "_type": "literalExpression",
->             "text": "true"
->         },
->         "loc": ["vim", "withRuby"],
->         "readOnly": false,
->         "type": "boolean"
->     }
+>   "vim.withRuby": {
+>     "declarations": [
+>       {
+>         "name": "<nvf/modules/wrapper/environment/options.nix>",
+>         "url": "https://github.com/NotAShelf/nvf/blob/main/modules/wrapper/environment/options.nix"
+>       }
+>     ],
+>     "default": {
+>       "_type": "literalExpression",
+>       "text": "true"
+>     },
+>     "description": "Whether to enable Ruby support in the Neovim wrapper.\n.",
+>     "example": {
+>       "_type": "literalExpression",
+>       "text": "true"
+>     },
+>     "loc": ["vim", "withRuby"],
+>     "readOnly": false,
+>     "type": "boolean"
+>   }
 > }
 > ```
 
