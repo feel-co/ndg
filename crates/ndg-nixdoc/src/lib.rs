@@ -175,6 +175,42 @@ mod tests {
   }
 
   #[test]
+  fn commonmark_headings_in_examples_do_not_split_sections() {
+    let dir = tempdir().expect("create temporary directory");
+    let path = dir.path().join("lib.nix");
+    fs::write(
+      &path,
+      r"{
+  /**
+    Run an example containing a Nix comment.
+
+    # Example
+
+    ```nix
+    # This remains part of the example.
+    identity 1
+    ```
+
+    # Type
+
+    ```
+    identity :: a -> a
+    ```
+  */
+  identity = value: value;
+}",
+    )
+    .expect("write Nix source");
+
+    let entries = extract_from_file(&path).expect("extract documentation");
+    let doc = entries[0].doc.as_ref().expect("parse doc comment");
+
+    assert_eq!(doc.examples.len(), 1);
+    assert!(doc.examples[0].code.contains("# This remains"));
+    assert_eq!(doc.type_sig.as_deref(), Some("identity :: a -> a"));
+  }
+
+  #[test]
   fn directory_extraction_is_recursive_and_ignores_other_files() {
     let dir = tempdir().expect("create temporary directory");
     let nested = dir.path().join("nested");

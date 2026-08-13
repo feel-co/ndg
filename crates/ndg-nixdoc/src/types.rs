@@ -122,11 +122,16 @@ fn parse_doc_comment(
     },
   };
 
-  for warn in &parsed.warnings {
+  for diagnostic in parsed.diagnostics() {
     log::warn!(
-      "ndg-nixdoc: doc comment warning for `{}` in `{}`: {warn:?}",
+      "ndg-nixdoc: doc comment diagnostic for `{}` in `{}` at bytes {}..{}: \
+       {:?}: {}",
       attr_path.join("."),
       file_path.display(),
+      diagnostic.span.start,
+      diagnostic.span.end,
+      diagnostic.code,
+      diagnostic.message,
     );
   }
 
