@@ -1788,7 +1788,7 @@ h6:hover .copy-link {
   text-overflow: ellipsis;
 }
 
-.toc-list details[open] summary::before {
+.toc-list details[open] > summary::before {
   transform: rotate(90deg);
   color: var(--link-color);
 }
