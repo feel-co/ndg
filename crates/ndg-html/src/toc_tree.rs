@@ -94,7 +94,7 @@ fn render_node(
 
   let safe_label = encode_text(&node.label);
   let safe_title = encode_text(&node.title);
-  let count = count_leaves(node);
+  let count = usize::from(node.leaf_html.is_some()) + node.children.len();
   let open = if indent <= default_open_depth || node.open {
     " open"
   } else {
@@ -120,9 +120,4 @@ fn render_node(
     html,
     "{spaces}    </ul>\n{spaces}  </details>\n{spaces}</li>"
   );
-}
-
-fn count_leaves(node: &TocNode) -> usize {
-  usize::from(node.leaf_html.is_some())
-    + node.children.iter().map(count_leaves).sum::<usize>()
 }

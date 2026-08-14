@@ -11,7 +11,14 @@ use ndg_config::{
   matchers::OptionNameMatch,
   meta::{FaviconEntry, MetaConfig},
   search::SearchConfig,
-  sidebar::{OptionsConfig, OptionsMatch, SidebarConfig, SidebarOrdering},
+  sidebar::{
+    OptionsConfig,
+    OptionsMatch,
+    PathMatch,
+    SidebarConfig,
+    SidebarMatch,
+    SidebarOrdering,
+  },
 };
 use ndg_html::{options::process_options, template};
 use ndg_manpage::types::NixOption;
@@ -146,6 +153,35 @@ fn render_options_page_can_render_nested_toc() {
   assert!(html.contains(">enable"));
   assert!(html.contains(">package"));
   assert!(html.contains("<span>beets</span>"));
+}
+
+#[test]
+fn nested_options_toc_counts_immediate_children() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  config.sidebar = Some(SidebarConfig {
+    options: Some(OptionsConfig {
+      nested: true,
+      ..Default::default()
+    }),
+    ..Default::default()
+  });
+  let mut options = IndexMap::new();
+  for name in [
+    "rum.desktops.hyprland.enable",
+    "rum.desktops.hyprland.package",
+    "rum.desktops.niri.enable",
+  ] {
+    options.insert(name.to_string(), create_basic_option(name, "desc"));
+  }
+
+  let html =
+    template::render_options(&config, &options).expect("render nested TOC");
+
+  assert!(html.contains(
+    "title=\"rum.desktops\"><span>rum.desktops</span><span \
+     class=\"toc-count\">2</span>"
+  ));
 }
 
 #[test]
@@ -960,6 +996,88 @@ fn sidebar_groups_regular_items_but_keeps_special_items_flat() {
     .expect("guides group");
   assert!(index < group);
   assert!(html.contains("<span class=\"sidebar-dir-count\">1</span>"));
+}
+
+#[test]
+fn sidebar_custom_ordering_applies_to_special_files() {
+  let temp_dir = TempDir::new().expect("create temp dir");
+  let input_dir = temp_dir.path();
+  fs::write(input_dir.join("index.md"), "# Index\n").expect("write index");
+  fs::write(input_dir.join("README.md"), "# Readme\n").expect("write readme");
+
+  let mut config = minimal_config();
+  config.input_dir = Some(input_dir.to_path_buf());
+  config.sidebar = Some(SidebarConfig {
+    ordering: SidebarOrdering::Custom,
+    matches: vec![
+      SidebarMatch {
+        path: Some(PathMatch {
+          exact: Some("index.md".to_string()),
+          ..Default::default()
+        }),
+        position: Some(2),
+        ..Default::default()
+      },
+      SidebarMatch {
+        path: Some(PathMatch {
+          exact: Some("README.md".to_string()),
+          ..Default::default()
+        }),
+        position: Some(1),
+        ..Default::default()
+      },
+    ],
+    ..Default::default()
+  });
+
+  let html = template::render(
+    &config,
+    "<p>Test content</p>",
+    "Test Page",
+    &[],
+    Path::new("test.html"),
+    None,
+  )
+  .expect("render page");
+  let readme = html.find(">Readme</a>").expect("readme link");
+  let index = html.find(">Index</a>").expect("index link");
+  assert!(readme < index);
+}
+
+#[test]
+fn sidebar_navigation_escapes_titles_and_urls() {
+  let temp_dir = TempDir::new().expect("create temp dir");
+  let input_dir = temp_dir.path();
+  let file_name = "guide\".md";
+  fs::write(input_dir.join(file_name), "# Guide\n").expect("write guide");
+
+  let mut config = minimal_config();
+  config.input_dir = Some(input_dir.to_path_buf());
+  config.sidebar = Some(SidebarConfig {
+    matches: vec![SidebarMatch {
+      path: Some(PathMatch {
+        exact: Some(file_name.to_string()),
+        ..Default::default()
+      }),
+      new_title: Some("<script>alert(1)</script>".to_string()),
+      ..Default::default()
+    }],
+    ..Default::default()
+  });
+
+  let html = template::render(
+    &config,
+    "<p>Test content</p>",
+    "Test Page",
+    &[],
+    Path::new("test.html"),
+    None,
+  )
+  .expect("render page");
+
+  assert!(html.contains("href=\"guide&quot;.html\""));
+  assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+  assert!(!html.contains("><script>alert(1)</script></a>"));
 }
 
 // Regression test for bug where included files appeared in sidebar navigation.

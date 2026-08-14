@@ -6,7 +6,7 @@ use std::{
 };
 
 use color_eyre::eyre::{Context, Result, bail};
-use html_escape::encode_text;
+use html_escape::{encode_double_quoted_attribute, encode_text};
 use indexmap::IndexMap;
 use ndg_commonmark::Header;
 use ndg_config::{Config, sidebar::SidebarOrdering};
@@ -1198,18 +1198,12 @@ struct NavItem {
 /// Render a single navigation item as a `<li>` element, with optional
 /// numbering.
 fn render_nav_item(output: &mut String, item: &NavItem) {
+  let path = encode_double_quoted_attribute(&item.path);
+  let title = encode_text(&item.title);
   if let Some(num) = item.number {
-    let _ = writeln!(
-      output,
-      "<li><a href=\"{}\">{num}. {}</a></li>",
-      item.path, item.title
-    );
+    let _ = writeln!(output, "<li><a href=\"{path}\">{num}. {title}</a></li>",);
   } else {
-    let _ = writeln!(
-      output,
-      "<li><a href=\"{}\">{}</a></li>",
-      item.path, item.title
-    );
+    let _ = writeln!(output, "<li><a href=\"{path}\">{title}</a></li>",);
   }
 }
 
@@ -1257,6 +1251,7 @@ fn render_grouped(output: &mut String, items: Vec<NavItem>, show_counts: bool) {
         |first| first.to_uppercase().collect::<String>() + chars.as_str(),
       )
     };
+    let label = encode_text(&label);
     let count = group_items.len();
     let count_badge = if show_counts {
       format!("<span class=\"sidebar-dir-count\">{count}</span>")
@@ -1499,31 +1494,34 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
             ndg_utils::markdown::extract_page_title(path, &html_path);
 
           // Apply sidebar configuration to special files if available
-          let display_title = if let Some(sidebar_config) = &config.sidebar {
-            let path_str = rel_doc_path.to_string_lossy();
-            if let Some(matched_rule) =
-              sidebar_config.find_match(&path_str, &page_title)
-            {
-              matched_rule
-                .get_title()
-                .map_or_else(|| page_title.clone(), String::from)
+          let (display_title, position) =
+            if let Some(sidebar_config) = &config.sidebar {
+              let path_str = rel_doc_path.to_string_lossy();
+              if let Some(matched_rule) =
+                sidebar_config.find_match(&path_str, &page_title)
+              {
+                let title = matched_rule
+                  .get_title()
+                  .map_or_else(|| page_title.clone(), String::from);
+                let position = matched_rule.get_position();
+                (title, position)
+              } else {
+                (page_title, None)
+              }
             } else {
-              page_title
-            }
-          } else {
-            page_title
-          };
+              (page_title, None)
+            };
 
           Some(NavItem {
-            path:     target_path,
-            title:    display_title,
-            rel_dir:  html_path
+            path: target_path,
+            title: display_title,
+            rel_dir: html_path
               .parent()
               .and_then(|p| p.to_str())
               .unwrap_or("")
               .to_string(),
-            position: None,
-            number:   None,
+            position,
+            number: None,
           })
         })
         .collect();
@@ -1535,8 +1533,15 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
             special_nav_items.sort_by(|a, b| a.title.cmp(&b.title));
           },
           SidebarOrdering::Custom => {
-            // Custom ordering uses position from matches
-            special_nav_items.sort_by_key(|item| item.position);
+            // Sort by position first, then alphabetically.
+            special_nav_items.sort_by(|a, b| {
+              match (a.position, b.position) {
+                (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => a.title.cmp(&b.title),
+              }
+            });
           },
           SidebarOrdering::Filesystem => {
             // Filesystem ordering keeps the order from directory iteration
