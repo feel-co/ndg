@@ -296,6 +296,10 @@ rum.programs
     └── enable
 ```
 
+Each dropdown badge counts its immediate rendered children. For example, the
+`rum.programs` badge above is `2` because opening it shows `alacritty` and
+`beets`; it does not count all descendant options.
+
 #### `nested_depth`
 
 Limits how many child dropdown levels are created below each category.
