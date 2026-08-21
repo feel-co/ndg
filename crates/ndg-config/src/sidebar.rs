@@ -411,6 +411,11 @@ pub struct OptionsConfig {
   #[config(key = "nested_depth")]
   pub nested_depth: usize,
 
+  /// When nested, render one-child categories as dropdowns instead of direct
+  /// links.
+  #[config(key = "collapse_singletons")]
+  pub collapse_singletons: bool,
+
   /// Ordering algorithm for options.
   #[config(key = "ordering")]
   pub ordering: SidebarOrdering,
@@ -422,11 +427,12 @@ pub struct OptionsConfig {
 impl Default for OptionsConfig {
   fn default() -> Self {
     Self {
-      depth:        2,
-      nested:       false,
-      nested_depth: 0,
-      ordering:     SidebarOrdering::default(),
-      matches:      Vec::new(),
+      depth:               2,
+      nested:              false,
+      nested_depth:        0,
+      collapse_singletons: false,
+      ordering:            SidebarOrdering::default(),
+      matches:             Vec::new(),
     }
   }
 }
@@ -976,6 +982,7 @@ position = 1
   fn test_options_config_default() {
     let config = OptionsConfig::default();
     assert_eq!(config.depth, 2);
+    assert!(!config.collapse_singletons);
     assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
     assert!(config.matches.is_empty());
   }
