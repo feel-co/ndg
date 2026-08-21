@@ -21,6 +21,7 @@ pub(crate) struct OptionsTocModel<'a> {
   pub(crate) input_order:           FxHashMap<String, usize>,
   pub(crate) group_input_order:     FxHashMap<String, usize>,
   pub(crate) nested_depth:          usize,
+  pub(crate) collapse_singletons:   bool,
   pub(crate) ordering:              SidebarOrdering,
 }
 
@@ -33,6 +34,8 @@ impl<'a> OptionsTocModel<'a> {
     let default_depth = sidebar_options.map_or(2, |options| options.depth);
     let nested_depth =
       sidebar_options.map_or(0, |options| options.nested_depth);
+    let collapse_singletons =
+      sidebar_options.is_some_and(|options| options.collapse_singletons);
     let ordering = sidebar_options
       .map_or(SidebarOrdering::Alphabetical, |options| options.ordering);
     let input_order = input_order.cloned().unwrap_or_else(|| {
@@ -84,6 +87,7 @@ impl<'a> OptionsTocModel<'a> {
       input_order,
       group_input_order,
       nested_depth,
+      collapse_singletons,
       ordering,
     }
   }
@@ -176,7 +180,8 @@ impl OptionsTocGenerator for NestedOptionsTocGenerator {
           .filter(|option| option.name != **parent)
           .count();
         child_count == 0
-          || (!model.direct_parent_options.contains_key(*parent)
+          || (!model.collapse_singletons
+            && !model.direct_parent_options.contains_key(*parent)
             && child_count == 1)
       });
     let mut html = String::new();
@@ -186,7 +191,10 @@ impl OptionsTocGenerator for NestedOptionsTocGenerator {
     {
       let parent_option = model.direct_parent_options.get(parent).copied();
       let child_options = model.child_options(parent, options);
-      if parent_option.is_none() && child_options.len() == 1 {
+      if !model.collapse_singletons
+        && parent_option.is_none()
+        && child_options.len() == 1
+      {
         let option = child_options[0];
         render_option_toc_link(
           &mut html,

@@ -190,6 +190,8 @@ max_heading_level = 3
 # nested = false
 # Maximum child nesting depth below each category, or 0 for unlimited.
 # nested_depth = 0
+# When nested, keep one-child categories as dropdowns instead of direct links.
+# collapse_singletons = false
 
 # Ordering algorithm for options: "alphabetical", "custom", or "filesystem"
 # ordering = "alphabetical"

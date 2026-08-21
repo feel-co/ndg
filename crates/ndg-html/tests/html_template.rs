@@ -253,6 +253,32 @@ fn nested_options_toc_renders_direct_links_first_and_honors_ordering() {
 }
 
 #[test]
+fn nested_options_toc_can_collapse_singleton_categories() {
+  let mut config = minimal_config();
+  config.module_options = Some("dummy.json".into());
+  config.sidebar = Some(SidebarConfig {
+    options: Some(OptionsConfig {
+      nested: true,
+      collapse_singletons: true,
+      ..Default::default()
+    }),
+    ..Default::default()
+  });
+  let mut options = IndexMap::new();
+  let name = "rum.environment.hideWarning";
+  options.insert(name.to_string(), create_basic_option(name, "desc"));
+
+  let html =
+    template::render_options(&config, &options).expect("render nested TOC");
+
+  assert!(html.contains("title=\"rum.environment\""));
+  assert!(html.contains(">hideWarning</a>"));
+  assert!(!html.contains(
+    "title=\"rum.environment.hideWarning\">rum.environment.hideWarning</a>"
+  ));
+}
+
+#[test]
 fn custom_option_order_uses_the_lowest_position_in_each_group() {
   let mut options = IndexMap::new();
   for name in [

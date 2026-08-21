@@ -300,6 +300,18 @@ Each dropdown badge counts its immediate rendered children. For example, the
 `rum.programs` badge above is `2` because opening it shows `alacritty` and
 `beets`; it does not count all descendant options.
 
+#### `collapse_singletons`
+
+When `nested = true`, controls whether categories with one child are rendered as
+dropdowns.
+
+- **Type**: Boolean
+- **Default**: `false`
+
+By default, a category with no option of its own and exactly one child is
+rendered as a direct link using the option's full name. Set this to `true` to
+render that category as a one-item dropdown instead.
+
 #### `nested_depth`
 
 Limits how many child dropdown levels are created below each category.
