@@ -57,7 +57,7 @@ nixdoc = "0.3.0"
 rayon      = "1.12.0"
 regex      = "1.12.4"
 rnix       = "0.14.0"
-rowan      = "0.16.1"
+rowan      = "0.17.0"
 serde      = { version = "1.0.228", features = [ "derive" ] }
 serde_json = { version = "1.0.150", default-features = false, features = [ "preserve_order" ] }
 serde_path_to_error = "0.1.20"
@@ -71,15 +71,15 @@ html-escape   = "0.2.13"
 html5ever     = "0.39.0"
 indexmap      = { version = "2.14.0", features = [ "serde" ] }
 kuchikikiki   = "0.12.0"
-lightningcss  = { version = "=1.0.0-alpha.71", default-features = false }
+lightningcss  = { version = "=1.0.0-alpha.72", default-features = false }
 lopdf         = { version = "0.44.0", default-features = false, features = [ "chrono", "jiff", "rayon" ] }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.141.0"
-oxc_codegen   = { version = "0.141.0", default-features = false }
-oxc_minifier  = "0.141.0"
-oxc_parser    = "0.141.0"
-oxc_span      = "0.141.0"
+oxc_allocator = "0.144.0"
+oxc_codegen   = { version = "0.144.0", default-features = false }
+oxc_minifier  = "0.144.0"
+oxc_parser    = "0.144.0"
+oxc_span      = "0.144.0"
 printpdf      = "0.12.4"
 
 
