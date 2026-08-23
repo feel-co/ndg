@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Controls how custom assets from the assets directory are copied.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct AssetsConfig {
   /// Follow symbolic links when copying assets
   ///

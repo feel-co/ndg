@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration for search functionality
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct SearchConfig {
   /// Whether search functionality is enabled
   #[config(key = "enable")]
@@ -76,6 +76,38 @@ impl Default for SearchConfig {
 }
 
 impl SearchConfig {
+  /// Validate search limits and score multipliers.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error when a heading level is outside `1..=6` or a score
+  /// multiplier is negative or non-finite.
+  pub fn validate(&self) -> Result<(), String> {
+    if !(1..=6).contains(&self.max_heading_level) {
+      return Err(format!(
+        "`search.max_heading_level` is {}; expected a value from 1 through 6",
+        self.max_heading_level
+      ));
+    }
+
+    for (field, value) in [
+      ("boost_title", self.boost_title),
+      ("boost_content", self.boost_content),
+      ("boost_anchor", self.boost_anchor),
+      ("boost", self.boost),
+    ] {
+      if let Some(value) = value
+        && (!value.is_finite() || value < 0.0)
+      {
+        return Err(format!(
+          "`search.{field}` is {value}; expected a finite, non-negative number"
+        ));
+      }
+    }
+
+    Ok(())
+  }
+
   /// Get the effective title boost value
   #[must_use]
   pub fn get_title_boost(&self) -> f32 {
@@ -174,5 +206,31 @@ mod tests {
     assert!(config.enable);
     assert_eq!(config.max_heading_level, 5);
     assert_eq!(config.min_word_length, 4);
+  }
+
+  #[test]
+  fn test_search_config_validate_rejects_heading_level_out_of_range() {
+    let config = SearchConfig {
+      max_heading_level: 7,
+      ..Default::default()
+    };
+
+    let error = config.validate().expect_err("heading level 7 must fail");
+
+    assert!(error.contains("search.max_heading_level"));
+    assert!(error.contains("1 through 6"));
+  }
+
+  #[test]
+  fn test_search_config_validate_rejects_invalid_boost() {
+    let config = SearchConfig {
+      boost: Some(f32::INFINITY),
+      ..Default::default()
+    };
+
+    let error = config.validate().expect_err("infinite boost must fail");
+
+    assert!(error.contains("search.boost"));
+    assert!(error.contains("finite"));
   }
 }

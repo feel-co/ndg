@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// - JavaScript: `oxc_minifier` - Production-grade JavaScript minification with
 ///   17+ optimization passes
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct PostprocessConfig {
   /// Whether to minify HTML output
   #[config(key = "minify_html")]
@@ -42,7 +42,7 @@ pub struct PostprocessConfig {
 ///
 /// These control `minify-html` behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct HtmlMinifyOptions {
   /// Remove HTML comments
   ///
@@ -63,7 +63,7 @@ impl Default for HtmlMinifyOptions {
 ///
 /// These control `lightningcss` behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct CssMinifyOptions {
   /// Enable minification
   ///
@@ -93,7 +93,7 @@ impl Default for CssMinifyOptions {
 ///
 /// These control `oxc_minifier` behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct JsMinifyOptions {
   /// Enable compression optimizations
   ///

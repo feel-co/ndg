@@ -1,3 +1,5 @@
+use std::path::{Component, Path};
+
 use ndg_macros::Configurable;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +11,7 @@ const fn default_true() -> bool {
 
 /// Filters applied to module options before rendering options documentation.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct OptionsConfig {
   /// Optional filtering configuration for module options.
   #[config(nested)]
@@ -37,7 +39,7 @@ impl OptionsConfig {
 
 /// Filters applied to module options before rendering options documentation.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct FilterConfig {
   /// Include only options whose names start with this prefix.
   #[config(key = "prefix", allow_empty)]
@@ -139,7 +141,7 @@ fn default_pages_root() -> String {
 
 /// Configuration for splitting option documentation across generated pages.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct OptionsPagesConfig {
   /// Whether multi-page option documentation is enabled.
   #[config(key = "enabled")]
@@ -177,7 +179,32 @@ impl OptionsPagesConfig {
   ///
   /// Returns an error if any regex pattern is invalid.
   pub fn validate(&mut self) -> Result<(), String> {
+    if self.depth == 0 {
+      return Err(
+        "`options.pages.depth` must be greater than zero".to_string(),
+      );
+    }
+
+    let root = Path::new(&self.root);
+    if self.root.is_empty()
+      || root
+        .components()
+        .any(|component| !matches!(component, Component::Normal(_)))
+    {
+      return Err(format!(
+        "invalid `options.pages.root` value '{}'; expected a relative output \
+         directory without `.` or `..` components",
+        self.root
+      ));
+    }
+
     for (idx, m) in self.matches.iter_mut().enumerate() {
+      if m.depth == Some(0) {
+        return Err(format!(
+          "`options.pages.matches[{}].depth` must be greater than zero",
+          idx + 1
+        ));
+      }
       m.compile_regexes()
         .map_err(|e| format!("Options page match #{}: {}", idx + 1, e))?;
     }
@@ -194,6 +221,7 @@ impl OptionsPagesConfig {
 
 /// Matching rule for custom option page routing.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(deny_unknown_fields)]
 pub struct OptionsPageMatch {
   /// Option name matching criteria.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -359,5 +387,33 @@ position = 10
     assert!(pages.matches[0].matches("foo.bar.baz.quz.enable"));
     assert!(!pages.matches[0].matches("foo.bar.bazzz.enable"));
     assert!(!pages.matches[0].matches("foo.bar.other.enable"));
+  }
+
+  #[test]
+  fn test_options_pages_rejects_unsafe_output_root() {
+    let mut pages = OptionsPagesConfig {
+      root: "../outside".to_string(),
+      ..Default::default()
+    };
+
+    let error = pages.validate().expect_err("parent traversal must fail");
+
+    assert!(error.contains("`options.pages.root`"));
+    assert!(error.contains(".."));
+  }
+
+  #[test]
+  fn test_options_pages_rejects_zero_match_depth() {
+    let mut pages = OptionsPagesConfig {
+      matches: vec![OptionsPageMatch {
+        depth: Some(0),
+        ..Default::default()
+      }],
+      ..Default::default()
+    };
+
+    let error = pages.validate().expect_err("zero depth must fail");
+
+    assert!(error.contains("matches[1].depth"));
   }
 }

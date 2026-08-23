@@ -38,6 +38,9 @@ pub struct NixOption {
   /// Paths to files where the option is defined
   pub defined_in: Vec<(String, Option<String>)>,
 
+  /// Rendered Markdown describing packages related to this option.
+  pub related_packages: Option<String>,
+
   /// Whether this option is internal
   pub internal: bool,
 

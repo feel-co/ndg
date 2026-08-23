@@ -60,6 +60,7 @@ rnix       = "0.14.0"
 rowan      = "0.16.1"
 serde      = { version = "1.0.228", features = [ "derive" ] }
 serde_json = { version = "1.0.150", default-features = false, features = [ "preserve_order" ] }
+serde_path_to_error = "0.1.20"
 tendril    = "0.5.0"
 tera       = { version = "2.0.0", default-features = false }
 thiserror  = "2.0.18"
@@ -68,7 +69,7 @@ walkdir    = "2.5.0"
 
 html-escape   = "0.2.13"
 html5ever     = "0.39.0"
-indexmap      = "2.14.0"
+indexmap      = { version = "2.14.0", features = [ "serde" ] }
 kuchikikiki   = "0.12.0"
 lightningcss  = { version = "=1.0.0-alpha.71", default-features = false }
 lopdf         = { version = "0.44.0", default-features = false, features = [ "chrono", "jiff", "rayon" ] }

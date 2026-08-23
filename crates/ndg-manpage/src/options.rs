@@ -8,10 +8,17 @@ use ndg_commonmark::{
   process_role_markup,
   utils::never_matching_regex,
 };
-use ndg_utils::json::extract_value;
+use ndg_utils::{
+  json::extract_value,
+  options::{
+    DocumentationText,
+    NixOptionDocument,
+    OptionLocation,
+    parse_options_json,
+  },
+};
 use rayon::prelude::*;
 use regex::Regex;
-use serde_json::{self, Value};
 
 use crate::{
   escape::{
@@ -127,30 +134,24 @@ pub fn generate_manpage(
     format!("Failed to read options file: {}", options_path.display())
   })?;
 
-  let options_data: Value = serde_json::from_str(&json_content)
-    .wrap_err("Failed to parse options JSON")?;
+  let options_data = parse_options_json(&json_content).wrap_err_with(|| {
+    format!(
+      "Failed to validate options JSON at {}",
+      options_path.display()
+    )
+  })?;
 
   // Extract options
   let mut options = Vec::new();
 
-  if let Value::Object(map) = options_data {
-    // Process options in parallel for large option sets
-    let options_vec: Vec<_> = map.into_iter().collect();
-
-    let parsed_options: Vec<_> = options_vec
+  // Process options in parallel for large option sets
+  let options_vec: Vec<_> = options_data.into_iter().collect();
+  options.extend(
+    options_vec
       .par_iter()
-      .filter_map(|(key, value)| {
-        if let Value::Object(option_data) = value {
-          let option = parse_option(key, option_data);
-          Some(option)
-        } else {
-          None
-        }
-      })
-      .collect();
-
-    options.extend(parsed_options);
-  }
+      .map(|(key, option)| parse_option(key, option))
+      .collect::<Vec<_>>(),
+  );
 
   // Sort options by name
   options.sort_by(|a, b| a.name.cmp(&b.name));
@@ -319,36 +320,32 @@ fn process_raw_type(s: &str) -> String {
 }
 
 /// Parse a single option from JSON data
-fn parse_option(
-  key: &str,
-  option_data: &serde_json::Map<String, Value>,
-) -> NixOption {
+fn parse_option(key: &str, option_data: &NixOptionDocument) -> NixOption {
   let mut option = NixOption {
-    name:            key.to_string(),
-    type_name:       String::new(),
-    description:     String::new(),
-    default:         None,
-    default_text:    None,
-    example:         None,
-    example_text:    None,
-    declared_in:     None,
-    declared_in_url: None,
-    defined_in:      Vec::new(),
-    internal:        false,
-    read_only:       false,
+    name:             key.to_string(),
+    type_name:        option_data.type_name.clone(),
+    description:      option_data
+      .description
+      .as_ref()
+      .map_or_else(String::new, |text| text.text().to_string()),
+    default:          None,
+    default_text:     None,
+    example:          None,
+    example_text:     None,
+    declared_in:      None,
+    declared_in_url:  option_data.declaration_url.clone(),
+    defined_in:       Vec::new(),
+    related_packages: option_data
+      .related_packages
+      .as_ref()
+      .map(DocumentationText::text)
+      .map(ToOwned::to_owned),
+    internal:         option_data.is_hidden(),
+    read_only:        option_data.read_only,
   };
 
-  // Process fields from the option data
-  if let Some(Value::String(type_name)) = option_data.get("type") {
-    option.type_name.clone_from(type_name);
-  }
-
-  if let Some(Value::String(desc)) = option_data.get("description") {
-    option.description.clone_from(desc);
-  }
-
   // Handle default values
-  if let Some(default_val) = option_data.get("default") {
+  if let Some(default_val) = &option_data.default {
     if let Some(extracted_value) = extract_value(default_val, false) {
       option.default_text = Some(extracted_value);
     } else {
@@ -356,12 +353,16 @@ fn parse_option(
     }
   }
 
-  if let Some(Value::String(text)) = option_data.get("defaultText") {
-    option.default_text = Some(text.clone());
+  if let Some(default_text) = &option_data.default_text {
+    if let Some(extracted_value) = extract_value(default_text, false) {
+      option.default_text = Some(extracted_value);
+    } else {
+      option.default = Some(default_text.clone());
+    }
   }
 
   // Handle example values
-  if let Some(example_val) = option_data.get("example") {
+  if let Some(example_val) = &option_data.example {
     if let Some(extracted_value) = extract_value(example_val, false) {
       option.example_text = Some(extracted_value);
     } else {
@@ -369,39 +370,32 @@ fn parse_option(
     }
   }
 
-  if let Some(Value::String(text)) = option_data.get("exampleText") {
-    option.example_text = Some(text.clone());
+  if let Some(example_text) = &option_data.example_text {
+    if let Some(extracted_value) = extract_value(example_text, false) {
+      option.example_text = Some(extracted_value);
+    } else {
+      option.example = Some(example_text.clone());
+    }
   }
 
-  // Read-only status
-  if let Some(Value::Bool(read_only)) = option_data.get("readOnly") {
-    option.read_only = *read_only;
-  }
-
-  // Internal status
-  if let Some(Value::Bool(internal)) = option_data.get("internal") {
-    option.internal = *internal;
-  }
-
-  if let Some(Value::Bool(visible)) = option_data.get("visible")
-    && !visible
-  {
-    option.internal = true;
-  }
-
-  // File where option is declared
-  if let Some(Value::Array(files)) = option_data.get("declarations")
-    && let Some(Value::String(file)) = files.first()
-  {
-    option.declared_in = Some(file.clone());
-  }
-
-  // URL for the declaration
-  if let Some(Value::String(url)) = option_data.get("declarationURL") {
-    option.declared_in_url = Some(url.clone());
+  if let Some(location) = option_data.declarations.first() {
+    let (display, url) = option_location(location);
+    option.declared_in = display;
+    if url.is_some() {
+      option.declared_in_url = url;
+    }
   }
 
   option
+}
+
+fn option_location(
+  location: &OptionLocation,
+) -> (Option<String>, Option<String>) {
+  match location {
+    OptionLocation::Path(path) => (Some(path.clone()), None),
+    OptionLocation::Link { name, url } => (name.clone(), url.clone()),
+  }
 }
 
 /// Process description text for troff format

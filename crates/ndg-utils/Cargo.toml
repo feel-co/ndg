@@ -30,6 +30,7 @@ fs_extra.workspace      = true
 grass.workspace         = true
 html-escape.workspace   = true
 indicatif.workspace     = true
+indexmap.workspace      = true
 lightningcss.workspace  = true
 log.workspace           = true
 minify-html.workspace   = true
@@ -43,6 +44,8 @@ regex.workspace         = true
 rustc-hash.workspace    = true
 serde.workspace         = true
 serde_json.workspace    = true
+serde_path_to_error.workspace = true
+thiserror.workspace     = true
 toml.workspace          = true
 walkdir.workspace       = true
 

@@ -42,7 +42,7 @@ pub const DEFAULT_TAB_STYLE: &str = "none";
 /// search, syntax highlighting, and more. Fields are typically loaded from a
 /// TOML or JSON config file, but can also be set via CLI arguments.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct Config {
   /// Input directory containing markdown files.
   #[config(key = "input_dir", allow_empty)]
@@ -273,6 +273,49 @@ impl Config {
     self.index.as_ref().is_none_or(|i| i.generate_fallback)
   }
 
+  /// Validate configuration values and compile configured match patterns.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error naming the invalid field and accepted values.
+  pub fn validate(&mut self) -> Result<(), ConfigError> {
+    self.validate_values().map_err(ConfigError::Config)
+  }
+
+  fn validate_values(&mut self) -> Result<(), String> {
+    if self.jobs == Some(0) {
+      return Err("`jobs` must be greater than zero".to_string());
+    }
+
+    if !matches!(self.tab_style.as_str(), "none" | "warn" | "normalize") {
+      return Err(format!(
+        "invalid `tab_style` value '{}'; expected `none`, `warn`, or \
+         `normalize`",
+        self.tab_style
+      ));
+    }
+
+    if let Some(search) = &self.search {
+      search.validate()?;
+    }
+
+    if let Some(sidebar) = &mut self.sidebar {
+      sidebar.validate()?;
+    }
+
+    if let Some(options) = &mut self.options {
+      options.validate()?;
+    }
+
+    Ok(())
+  }
+
+  fn validate_from(&mut self, origin: String) -> Result<(), ConfigError> {
+    self
+      .validate_values()
+      .map_err(|message| ConfigError::Validation { origin, message })
+  }
+
   /// Load configuration from a file (TOML or JSON).
   ///
   /// # Arguments
@@ -283,60 +326,63 @@ impl Config {
   ///
   /// Returns an error if the file cannot be read or parsed, or if the format is
   /// unsupported.
-  #[expect(
-    clippy::option_if_let_else,
-    reason = "Clearer with explicit match on extension"
-  )]
   pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
     fn inner(path: &Path) -> Result<Config, ConfigError> {
-      let content = fs::read_to_string(path).map_err(|e| {
-        ConfigError::Config(format!(
-          "Failed to read config file: {}: {}",
-          path.display(),
-          e
-        ))
+      let content = fs::read_to_string(path).map_err(|source| {
+        ConfigError::Read {
+          path: path.to_path_buf(),
+          source,
+        }
       })?;
 
-      match path.extension().and_then(|ext| ext.to_str()) {
+      let mut config = match path.extension().and_then(|ext| ext.to_str()) {
         Some(ext) => {
           match ext.to_lowercase().as_str() {
             "json" => {
-              serde_json::from_str(&content)
-                .map_err(ConfigError::from)
-                .map_err(|e| {
-                  ConfigError::Config(format!(
-                    "Failed to parse JSON config from {}: {}",
-                    path.display(),
-                    e
-                  ))
-                })
+              let mut deserializer =
+                serde_json::Deserializer::from_str(&content);
+              let config: Config = serde_path_to_error::deserialize(
+                &mut deserializer,
+              )
+              .map_err(|source| {
+                ConfigError::Json {
+                  path: path.to_path_buf(),
+                  source,
+                }
+              })?;
+              deserializer.end().map_err(|source| {
+                ConfigError::JsonSyntax {
+                  path: path.to_path_buf(),
+                  source,
+                }
+              })?;
+              config
             },
             "toml" => {
-              toml::from_str(&content)
-                .map_err(ConfigError::from)
-                .map_err(|e| {
-                  ConfigError::Config(format!(
-                    "Failed to parse TOML config from {}: {}",
-                    path.display(),
-                    e
-                  ))
-                })
+              toml::from_str(&content).map_err(|source| {
+                ConfigError::TomlFile {
+                  path: path.to_path_buf(),
+                  source,
+                }
+              })?
             },
             _ => {
-              Err(ConfigError::Config(format!(
-                "Unsupported config file format: {}",
-                path.display()
-              )))
+              return Err(ConfigError::UnsupportedFormat {
+                path: path.to_path_buf(),
+              });
             },
           }
         },
         None => {
-          Err(ConfigError::Config(format!(
-            "Config file has no extension: {}",
-            path.display()
-          )))
+          return Err(ConfigError::MissingExtension {
+            path: path.to_path_buf(),
+          });
         },
-      }
+      };
+
+      config
+        .validate_from(format!("configuration file '{}'", path.display()))?;
+      Ok(config)
     }
 
     inner(path.as_ref())
@@ -361,24 +407,11 @@ impl Config {
     let mut config = if !config_files.is_empty() {
       // Config file(s) explicitly specified via CLI
       // Load and merge them in order
-      let mut merged_config =
-        Self::from_file(&config_files[0]).map_err(|e| {
-          ConfigError::Config(format!(
-            "Failed to load config from {}: {}",
-            config_files[0].display(),
-            e
-          ))
-        })?;
+      let mut merged_config = Self::from_file(&config_files[0])?;
 
       // Merge additional config files if provided
       for config_path in &config_files[1..] {
-        let additional_config = Self::from_file(config_path).map_err(|e| {
-          ConfigError::Config(format!(
-            "Failed to load config from {}: {}",
-            config_path.display(),
-            e
-          ))
-        })?;
+        let additional_config = Self::from_file(config_path)?;
         merged_config.merge(additional_config);
       }
 
@@ -393,13 +426,7 @@ impl Config {
         "Using discovered config file: {}",
         discovered_config.display()
       );
-      Self::from_file(&discovered_config).map_err(|e| {
-        ConfigError::Config(format!(
-          "Failed to load discovered config from {}: {}",
-          discovered_config.display(),
-          e
-        ))
-      })?
+      Self::from_file(&discovered_config)?
     } else {
       Self::default()
     };
@@ -409,23 +436,12 @@ impl Config {
       config.apply_overrides(config_overrides)?;
     }
 
-    // Validate and compile sidebar configuration if present
-    if let Some(ref mut sidebar) = config.sidebar {
-      sidebar.validate().map_err(|e| {
-        ConfigError::Config(format!(
-          "Sidebar configuration validation failed: {e}"
-        ))
-      })?;
-    }
-
-    // Validate and compile options configuration if present
-    if let Some(ref mut options) = config.options {
-      options.validate().map_err(|e| {
-        ConfigError::Config(format!(
-          "Options configuration validation failed: {e}"
-        ))
-      })?;
-    }
+    let origin = if config_overrides.is_empty() {
+      "merged configuration".to_string()
+    } else {
+      "`--config` command-line overrides".to_string()
+    };
+    config.validate_from(origin)?;
 
     Ok(config)
   }
@@ -461,14 +477,29 @@ impl Config {
     overrides: &[String],
   ) -> Result<(), ConfigError> {
     for override_str in overrides {
-      let (key, value) = override_str.split_once('=').ok_or_else(|| {
-        ConfigError::Config(format!(
-          "Invalid config override format: '{override_str}'. Expected \
-           KEY=VALUE"
-        ))
-      })?;
+      let result = (|| {
+        let (key, value) = override_str.split_once('=').ok_or_else(|| {
+          ConfigError::Config(
+            "Expected KEY=VALUE with a non-empty configuration key".to_string(),
+          )
+        })?;
 
-      self.apply_override(key.trim(), value.trim())?;
+        if key.trim().is_empty() {
+          return Err(ConfigError::Config(
+            "Expected KEY=VALUE with a non-empty configuration key".to_string(),
+          ));
+        }
+
+        self.apply_override(key.trim(), value.trim())?;
+        self.validate_values().map_err(ConfigError::Config)
+      })();
+
+      result.map_err(|source| {
+        ConfigError::Override {
+          value:  override_str.clone(),
+          source: Box::new(source),
+        }
+      })?;
     }
 
     Ok(())
@@ -874,6 +905,8 @@ mod tests {
     reason = "Fine in tests"
   )]
 
+  use tempfile::TempDir;
+
   use super::*;
 
   #[test]
@@ -1257,5 +1290,62 @@ mod tests {
 
     config.apply_override("jobs", "4").unwrap();
     assert_eq!(config.jobs, Some(4));
+  }
+
+  #[test]
+  fn test_config_file_rejects_unknown_nested_key_with_source() {
+    let temp = TempDir::new().expect("create temporary directory");
+    let path = temp.path().join("ndg.json");
+    fs::write(&path, r#"{"search":{"max_heading_levle":4}}"#)
+      .expect("write config");
+
+    let error = Config::from_file(&path).expect_err("unknown key must fail");
+    let message = error.to_string();
+
+    assert!(message.contains(&path.display().to_string()));
+    assert!(message.contains("search"));
+    assert!(message.contains("max_heading_levle"));
+    assert!(message.contains("unknown field"));
+  }
+
+  #[test]
+  fn test_config_file_reports_validation_origin() {
+    let temp = TempDir::new().expect("create temporary directory");
+    let path = temp.path().join("ndg.toml");
+    fs::write(&path, "jobs = 0\n").expect("write config");
+
+    let error = Config::from_file(&path).expect_err("zero jobs must fail");
+    let message = error.to_string();
+
+    assert!(message.contains(&path.display().to_string()));
+    assert!(message.contains("`jobs` must be greater than zero"));
+  }
+
+  #[test]
+  fn test_config_validate_rejects_silent_fallback_values() {
+    let mut config = Config {
+      tab_style: "quietly-ignore".to_string(),
+      ..Default::default()
+    };
+
+    let error = config.validate().expect_err("unknown tab style must fail");
+
+    assert!(error.to_string().contains("`tab_style`"));
+    assert!(error.to_string().contains("normalize"));
+  }
+
+  #[test]
+  fn test_config_override_validation_reports_exact_argument() {
+    let mut config = Config::default();
+    let overrides = ["jobs=0".to_string()];
+
+    let error = config
+      .apply_overrides(&overrides)
+      .expect_err("zero jobs override must fail");
+    let message = error.to_string();
+
+    assert!(message.contains("--config"));
+    assert!(message.contains("jobs=0"));
+    assert!(message.contains("`jobs` must be greater than zero"));
   }
 }

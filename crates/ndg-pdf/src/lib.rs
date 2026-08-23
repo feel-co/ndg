@@ -7,7 +7,10 @@ use std::{
 use color_eyre::eyre::{Context, Result};
 use html_escape::decode_html_entities;
 use ndg_commonmark::{MarkdownProcessor, ProcessorPreset, create_processor};
-use ndg_utils::json::extract_value;
+use ndg_utils::{
+  json::extract_value,
+  options::{DocumentationText, parse_options_json},
+};
 use printpdf::{
   BuiltinFont,
   Color,
@@ -46,8 +49,12 @@ pub fn generate_pdf(
   let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
     format!("Failed to read options file: {}", options_path.display())
   })?;
-  let options_data: Value = serde_json::from_str(&json_content)
-    .wrap_err("Failed to parse options JSON")?;
+  let options_data = parse_options_json(&json_content).wrap_err_with(|| {
+    format!(
+      "Failed to validate options JSON at {}",
+      options_path.display()
+    )
+  })?;
 
   let document_title = title.unwrap_or("Module Options");
   let output_file = output_path.map_or_else(
@@ -60,14 +67,8 @@ pub fn generate_pdf(
     Path::to_path_buf,
   );
 
-  let entries: Vec<(String, Value)> = match options_data {
-    Value::Object(map) => {
-      let mut v: Vec<_> = map.into_iter().collect();
-      v.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
-      v
-    },
-    _ => Vec::new(),
-  };
+  let mut entries: Vec<_> = options_data.into_iter().collect();
+  entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
 
   let mut blocks = vec![
     Block::Heading {
@@ -82,19 +83,8 @@ pub fn generate_pdf(
     blocks.push(blank_paragraph());
   }
 
-  for (name, value) in entries {
-    let Some(option_data) = value.as_object() else {
-      continue;
-    };
-    if option_data
-      .get("internal")
-      .and_then(Value::as_bool)
-      .unwrap_or(false)
-      || option_data
-        .get("visible")
-        .and_then(Value::as_bool)
-        .is_some_and(|visible| !visible)
-    {
+  for (name, option_data) in entries {
+    if option_data.is_hidden() {
       continue;
     }
 
@@ -103,27 +93,28 @@ pub fn generate_pdf(
       content: vec![Inline::Text(name)],
     });
 
-    if let Some(type_name) = option_data.get("type").and_then(Value::as_str) {
-      push_labeled_blocks(
-        &mut blocks,
-        "Type",
-        parse_markdown_blocks(type_name),
-      );
-    }
+    push_labeled_blocks(
+      &mut blocks,
+      "Type",
+      parse_markdown_blocks(&option_data.type_name),
+    );
 
-    if let Some(description) =
-      extract_text_field(option_data.get("description"))
+    if let Some(description) = option_data
+      .description
+      .as_ref()
+      .map(DocumentationText::text)
     {
       push_labeled_blocks(
         &mut blocks,
         "Description",
-        parse_markdown_blocks(&description),
+        parse_markdown_blocks(description),
       );
     }
 
-    if let Some(default_text) =
-      extract_option_value(option_data, "defaultText", "default")
-    {
+    if let Some(default_text) = extract_option_value(
+      option_data.default_text.as_ref(),
+      option_data.default.as_ref(),
+    ) {
       push_labeled_blocks(
         &mut blocks,
         "Default",
@@ -131,9 +122,10 @@ pub fn generate_pdf(
       );
     }
 
-    if let Some(example_text) =
-      extract_option_value(option_data, "exampleText", "example")
-    {
+    if let Some(example_text) = extract_option_value(
+      option_data.example_text.as_ref(),
+      option_data.example.as_ref(),
+    ) {
       push_labeled_blocks(
         &mut blocks,
         "Example",
@@ -171,31 +163,17 @@ fn push_labeled_blocks(
   blocks.extend(body);
 }
 
-fn extract_text_field(value: Option<&Value>) -> Option<String> {
-  match value {
-    Some(Value::String(text)) => Some(text.clone()),
-    Some(Value::Object(obj))
-      if obj.get("_type").and_then(Value::as_str) == Some("literalMD") =>
-    {
-      obj
-        .get("text")
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-    },
-    _ => None,
-  }
-}
-
 fn extract_option_value(
-  option_data: &serde_json::Map<String, Value>,
-  preferred_key: &str,
-  fallback_key: &str,
+  preferred: Option<&Value>,
+  fallback: Option<&Value>,
 ) -> Option<String> {
-  if let Some(Value::String(text)) = option_data.get(preferred_key) {
-    return Some(text.clone());
+  if let Some(preferred) = preferred
+    && let Some(text) = extract_value(preferred, false)
+  {
+    return Some(text);
   }
 
-  let value = option_data.get(fallback_key)?;
+  let value = fallback?;
 
   // literalExpression values are Nix code and must be shown as code blocks,
   // matching the block-level treatment in the HTML renderer.

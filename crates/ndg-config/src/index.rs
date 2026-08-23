@@ -6,7 +6,7 @@
 #[derive(
   Debug, Clone, serde::Serialize, serde::Deserialize, ndg_macros::Configurable,
 )]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct IndexConfig {
   /// Whether to use `README.md` as the homepage when `index.md` is not
   /// present.

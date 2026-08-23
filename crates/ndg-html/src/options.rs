@@ -5,9 +5,13 @@ use indexmap::IndexMap;
 use log::debug;
 use ndg_config::Config;
 use ndg_manpage::types::NixOption;
-use ndg_utils::{json::extract_value, markdown::create_processor, postprocess};
+use ndg_utils::{
+  json::extract_value,
+  markdown::create_processor,
+  options::{OptionLocation, parse_options_json},
+  postprocess,
+};
 use rustc_hash::{FxHashMap, FxHashSet};
-use serde_json::{self, Value};
 
 use crate::{option_page_render, option_pages, template};
 
@@ -26,27 +30,23 @@ use crate::{option_page_render, option_pages, template};
 /// # Errors
 ///
 /// Returns an error if the file cannot be read, parsed, or written.
-#[expect(
-  clippy::cognitive_complexity,
-  reason = "Main processing logic with multiple steps"
-)]
 pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   // Read options JSON
   let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
     format!("Failed to read options file: {}", options_path.display())
   })?;
 
-  let options_data: Value =
-    serde_json::from_str(&json_content).wrap_err_with(|| {
-      format!("Failed to parse options JSON at {}", options_path.display())
-    })?;
+  let options_data = parse_options_json(&json_content).wrap_err_with(|| {
+    format!(
+      "Failed to validate options JSON at {}",
+      options_path.display()
+    )
+  })?;
 
   // First pass: collect all option names for validation
   let mut valid_options = FxHashSet::default();
-  if let Value::Object(ref map) = options_data {
-    for key in map.keys() {
-      valid_options.insert(key.clone());
-    }
+  for key in options_data.keys() {
+    valid_options.insert(key.clone());
   }
 
   // Create processor once with validation enabled
@@ -55,174 +55,121 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   // Extract options
   let mut options: IndexMap<String, NixOption> = IndexMap::default();
 
-  if let Value::Object(map) = options_data {
-    for (key, value) in map {
-      if let Value::Object(option_data) = &value {
-        let mut description_text = String::new();
-        let mut option = NixOption {
-          name:            key.clone(),
-          type_name:       String::new(),
-          description:     String::new(),
-          default:         None,
-          default_text:    None,
-          example:         None,
-          example_text:    None,
-          declared_in:     None,
-          declared_in_url: None,
-          defined_in:      Vec::new(),
-          internal:        false,
-          read_only:       false,
+  for (key, option_data) in options_data {
+    let description_text = option_data
+      .description
+      .as_ref()
+      .map_or_else(String::new, |text| text.text().to_string());
+    let description = option_data.description.as_ref().map_or_else(
+      String::new,
+      |description| {
+        let markdown = if description.is_literal_markdown() {
+          description.text().to_string()
+        } else {
+          escape_html_in_markdown(description.text())
         };
+        processor.render(&markdown).html
+      },
+    );
+    let related_packages = option_data.related_packages.as_ref().map(|text| {
+      let markdown = if text.is_literal_markdown() {
+        text.text().to_string()
+      } else {
+        escape_html_in_markdown(text.text())
+      };
+      processor.render(&markdown).html
+    });
 
-        // Process fields from the option data
-        if let Some(Value::String(type_name)) = option_data.get("type") {
-          option.type_name.clone_from(type_name);
-        }
+    let internal = option_data.is_hidden();
+    let read_only = option_data.read_only;
+    let mut option = NixOption {
+      name: key.clone(),
+      type_name: option_data.type_name,
+      description,
+      declared_in_url: option_data.declaration_url,
+      related_packages,
+      internal,
+      read_only,
+      ..Default::default()
+    };
 
-        if let Some(desc) = option_data.get("description") {
-          let desc_text = match desc {
-            Value::String(s) => s.clone(),
-            Value::Object(obj)
-              if obj.get("_type").and_then(|t| t.as_str())
-                == Some("literalMD") =>
-            {
-              obj
-                .get("text")
-                .and_then(|t| t.as_str())
-                .unwrap_or("")
-                .to_string()
-            },
-            _ => String::new(),
-          };
-          description_text.clone_from(&desc_text);
-          // Only escape HTML for plain string descriptions, not literalMD
-          let processed_desc = if let Value::Object(obj) = desc {
-            if obj.get("_type").and_then(|t| t.as_str()) == Some("literalMD") {
-              desc_text
-            } else {
-              escape_html_in_markdown(&desc_text)
-            }
-          } else {
-            escape_html_in_markdown(&desc_text)
-          };
-          let result = processor.render(&processed_desc);
-          option.description = result.html;
-        }
-
-        // Handle default values
-        if let Some(default_val) = option_data.get("default") {
-          if let Some(extracted_value) = extract_value(default_val, true) {
-            option.default_text = Some(extracted_value);
-          } else {
-            option.default = Some(default_val.clone());
-          }
-        }
-
-        if let Some(Value::String(text)) = option_data.get("defaultText") {
-          option.default_text = Some(text.clone());
-        }
-
-        // Handle example values
-        if let Some(example_val) = option_data.get("example") {
-          if let Some(extracted_value) = extract_value(example_val, true) {
-            option.example_text = Some(extracted_value);
-          } else {
-            option.example = Some(example_val.clone());
-          }
-        }
-
-        if let Some(Value::String(text)) = option_data.get("exampleText") {
-          option.example_text = Some(text.clone());
-        }
-
-        // Process declarations with location handling
-        if let Some(Value::Array(decls)) = option_data.get("declarations")
-          && !decls.is_empty()
-        {
-          let (display, url) = format_location(&decls[0], &config.revision);
-          option.declared_in = display;
-          option.declared_in_url = url;
-        }
-
-        // Process definitions with location handling
-        if let Some(Value::Array(defs)) = option_data.get("definitions")
-          && !defs.is_empty()
-        {
-          for def in defs {
-            let (display, url) = format_location(def, &config.revision);
-            if let Some(display) = display {
-              option.defined_in.push((display, url));
-            }
-          }
-        }
-
-        // Read-only status
-        if let Some(Value::Bool(read_only)) = option_data.get("readOnly") {
-          option.read_only = *read_only;
-        }
-
-        // Internal status
-        if let Some(Value::Bool(internal)) = option_data.get("internal") {
-          option.internal = *internal;
-        }
-
-        if let Some(Value::Bool(visible)) = option_data.get("visible")
-          && !visible
-        {
-          option.internal = true;
-        }
-
-        let has_default =
-          option.default.is_some() || option.default_text.is_some();
-        let has_description = !description_text.trim().is_empty();
-        if let Some(filter) = config
-          .options
-          .as_ref()
-          .and_then(|options| options.filter.as_ref())
-          && !filter.matches(
-            &option.name,
-            &option.type_name,
-            &description_text,
-            has_default,
-            has_description,
-            option.internal,
-          )
-        {
-          continue;
-        }
-
-        // Use loc as fallback if no declaration
-        if option.declared_in.is_none()
-          && let Some(Value::Array(loc_data)) = option_data.get("loc")
-          && !loc_data.is_empty()
-        {
-          // For loc data, join the parts to form a path
-          let parts: Vec<String> = loc_data
-            .iter()
-            .filter_map(|v| {
-              if let Value::String(s) = v {
-                Some(s.clone())
-              } else {
-                None
-              }
-            })
-            .collect();
-
-          if !parts.is_empty() {
-            option.declared_in = Some(parts.join("."));
-            debug!("Set declared_in from loc: {}", parts.join("."));
-          }
-        }
-
-        // Always ensure a fallback for declared_in
-        if option.declared_in.is_none() {
-          option.declared_in = Some("configuration.nix".to_string());
-          debug!("Using fallback declared_in for {key}");
-        }
-
-        options.insert(key, option);
+    if let Some(default) = option_data.default {
+      if let Some(extracted_value) = extract_value(&default, true) {
+        option.default_text = Some(extracted_value);
+      } else {
+        option.default = Some(default);
       }
     }
+
+    if let Some(default_text) = option_data.default_text {
+      if let Some(extracted_value) = extract_value(&default_text, true) {
+        option.default_text = Some(extracted_value);
+      } else {
+        option.default = Some(default_text);
+      }
+    }
+
+    if let Some(example) = option_data.example {
+      if let Some(extracted_value) = extract_value(&example, true) {
+        option.example_text = Some(extracted_value);
+      } else {
+        option.example = Some(example);
+      }
+    }
+
+    if let Some(example_text) = option_data.example_text {
+      if let Some(extracted_value) = extract_value(&example_text, true) {
+        option.example_text = Some(extracted_value);
+      } else {
+        option.example = Some(example_text);
+      }
+    }
+
+    if let Some(declaration) = option_data.declarations.first() {
+      let (display, url) = format_location(declaration, &config.revision);
+      option.declared_in = display;
+      if url.is_some() {
+        option.declared_in_url = url;
+      }
+    }
+
+    for definition in &option_data.definitions {
+      let (display, url) = format_location(definition, &config.revision);
+      if let Some(display) = display {
+        option.defined_in.push((display, url));
+      }
+    }
+
+    let has_default = option.default.is_some() || option.default_text.is_some();
+    let has_description = !description_text.trim().is_empty();
+    if let Some(filter) = config
+      .options
+      .as_ref()
+      .and_then(|options| options.filter.as_ref())
+      && !filter.matches(
+        &option.name,
+        &option.type_name,
+        &description_text,
+        has_default,
+        has_description,
+        option.internal,
+      )
+    {
+      continue;
+    }
+
+    if option.declared_in.is_none() && !option_data.loc.is_empty() {
+      let location = option_data.loc.join(".");
+      debug!("Set declared_in from loc: {location}");
+      option.declared_in = Some(location);
+    }
+
+    if option.declared_in.is_none() {
+      option.declared_in = Some("configuration.nix".to_string());
+      debug!("Using fallback declared_in for {key}");
+    }
+
+    options.insert(key, option);
   }
 
   let input_order = options
@@ -325,12 +272,12 @@ fn write_options_html(
 ///
 /// A tuple of (display string, URL).
 fn format_location(
-  loc_value: &Value,
+  location: &OptionLocation,
   revision: &str,
 ) -> (Option<String>, Option<String>) {
-  match loc_value {
+  match location {
     // Handle string path
-    Value::String(path) => {
+    OptionLocation::Path(path) => {
       let path_str = path.as_str();
 
       if path_str.starts_with('/') {
@@ -357,26 +304,7 @@ fn format_location(
     },
 
     // Handle object with name and url
-    Value::Object(obj) => {
-      let display = if let Some(Value::String(name)) = obj.get("name") {
-        Some(html_escape::encode_text(name).to_string())
-      } else {
-        None
-      };
-
-      let url = obj.get("url").and_then(|u| {
-        if let Value::String(url_str) = u {
-          Some(url_str.clone())
-        } else {
-          None
-        }
-      });
-
-      (display, url)
-    },
-
-    // For other values, return None
-    _ => (None, None),
+    OptionLocation::Link { name, url } => (name.clone(), url.clone()),
   }
 }
 

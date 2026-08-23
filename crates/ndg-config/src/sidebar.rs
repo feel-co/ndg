@@ -6,6 +6,7 @@ use crate::matchers::{MatchField, OptionNameMatch, deserialize_match_field};
 
 /// Configuration for sidebar behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
+#[serde(deny_unknown_fields)]
 #[expect(
   clippy::struct_excessive_bools,
   reason = "Config mirrors TOML flags; replacing bools would be a breaking \
@@ -262,6 +263,7 @@ impl<'de> Deserialize<'de> for TitleMatch {
 
 /// Pattern-based matching rule for sidebar items.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(deny_unknown_fields)]
 pub struct SidebarMatch {
   /// Path matching criteria.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -396,7 +398,7 @@ impl SidebarMatch {
 
 /// Configuration for options sidebar behavior.
 #[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct OptionsConfig {
   /// Depth of parent categories in options TOC.
   #[config(key = "depth")]
@@ -447,6 +449,12 @@ impl OptionsConfig {
   ///
   /// Returns an error if any regex pattern is invalid.
   pub fn validate(&mut self) -> Result<(), String> {
+    if self.depth == 0 {
+      return Err(
+        "`sidebar.options.depth` must be greater than zero".to_string(),
+      );
+    }
+
     for (idx, m) in self.matches.iter_mut().enumerate() {
       m.compile_regexes()
         .map_err(|e| format!("Options match #{}: {}", idx + 1, e))?;
@@ -463,6 +471,7 @@ impl OptionsConfig {
 
 /// Matching rule for options.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(deny_unknown_fields)]
 pub struct OptionsMatch {
   /// Option name matching criteria.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -1128,7 +1137,7 @@ name = "programs.neovim.enable"
 position = 1
 "#;
 
-    let config: OptionsConfig = toml::from_str(&format!("[options]\n{toml}"))
+    let config: OptionsConfig = toml::from_str(toml)
       .expect("Failed to parse options TOML with shorthand name");
     assert_eq!(config.matches.len(), 1);
 

@@ -25,6 +25,7 @@ fn default_rel() -> String {
 /// rel   = "apple-touch-icon"
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FaviconEntry {
   /// Path to the favicon file on disk. The file is copied to the root of the
   /// output directory.
@@ -72,7 +73,7 @@ impl FaviconEntry {
 /// Contains `OpenGraph` tags, additional meta tags, and favicon entries to be
 /// injected into the HTML `<head>` element.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct MetaConfig {
   /// `OpenGraph` tags (e.g., `{"og:title": "...", "og:image": "..."}`)
   pub opengraph: Option<FxHashMap<String, String>>,

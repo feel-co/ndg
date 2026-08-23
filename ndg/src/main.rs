@@ -130,6 +130,9 @@ fn main() -> Result<()> {
   let project_root = project_root(&cli.config_files);
   let mut config = Config::load(&cli.config_files, &cli.config_overrides)?;
   merge_cli_into_config(&mut config, &cli);
+  config
+    .validate()
+    .wrap_err("Invalid configuration after applying command-line arguments")?;
 
   #[cfg(not(feature = "nixdoc"))]
   if !config.nixdoc_inputs.is_empty() {

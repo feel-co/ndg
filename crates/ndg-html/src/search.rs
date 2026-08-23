@@ -3,12 +3,11 @@ use std::{fs, path::PathBuf, sync::OnceLock};
 use color_eyre::eyre::{Context, Result};
 use log::info;
 use ndg_config::Config;
-use ndg_utils::{html, postprocess};
+use ndg_utils::{html, options::parse_options_json, postprocess};
 use rayon::prelude::*;
 use regex::Regex;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::{option_pages, template, template::sanitize_option_id};
 
@@ -219,28 +218,36 @@ pub fn generate_search_index(
 
   // Process options if available
   let mut options_count = 0;
-  if let Some(options_path) = &config.module_options
-    && let Ok(options_content) = fs::read_to_string(options_path)
-    && let Ok(options_data) = serde_json::from_str::<Value>(&options_content)
-    && let Some(options_obj) = options_data.as_object()
-  {
-    for (key, option_value) in options_obj {
-      let raw_description =
-        option_description_text(option_value.get("description"));
-      let type_name = option_value["type"].as_str().unwrap_or("");
-      let has_default = option_value.get("default").is_some()
-        || option_value.get("defaultText").is_some();
+  if let Some(options_path) = &config.module_options {
+    let options_content =
+      fs::read_to_string(options_path).wrap_err_with(|| {
+        format!("Failed to read options file: {}", options_path.display())
+      })?;
+    let options_data =
+      parse_options_json(&options_content).wrap_err_with(|| {
+        format!(
+          "Failed to validate options JSON at {}",
+          options_path.display()
+        )
+      })?;
+
+    for (key, option_value) in options_data {
+      let raw_description = option_value
+        .description
+        .as_ref()
+        .map_or_else(String::new, |text| text.text().to_string());
+      let has_default =
+        option_value.default.is_some() || option_value.default_text.is_some();
       let has_description = !raw_description.trim().is_empty();
-      let internal = option_value["internal"].as_bool().unwrap_or(false)
-        || option_value["visible"].as_bool() == Some(false);
+      let internal = option_value.is_hidden();
 
       if let Some(filter) = config
         .options
         .as_ref()
         .and_then(|options| options.filter.as_ref())
         && !filter.matches(
-          key,
-          type_name,
+          &key,
+          &option_value.type_name,
           &raw_description,
           has_default,
           has_description,
@@ -262,8 +269,8 @@ pub fn generate_search_index(
         content: plain_description,
         path: format!(
           "{}#{}",
-          option_pages::option_page_path(config, key),
-          sanitize_option_id(key)
+          option_pages::option_page_path(config, &key),
+          sanitize_option_id(&key)
         ),
         tokens,
         title_tokens,
@@ -310,23 +317,6 @@ pub fn generate_search_index(
   );
 
   Ok(())
-}
-
-fn option_description_text(description: Option<&Value>) -> String {
-  match description {
-    Some(Value::String(text)) => text.clone(),
-    Some(Value::Object(object))
-      if object.get("_type").and_then(|value| value.as_str())
-        == Some("literalMD") =>
-    {
-      object
-        .get("text")
-        .and_then(|value| value.as_str())
-        .unwrap_or("")
-        .to_string()
-    },
-    _ => String::new(),
-  }
 }
 
 /// Create the search page HTML and write it to the output directory.
