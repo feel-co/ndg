@@ -1362,28 +1362,6 @@ mark {
   }
 }
 
-/* Options Styling */
-.option {
-  scroll-margin-top: 80px;
-  padding: var(--space-6);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  margin: var(--space-6) 0;
-  background-color: var(--sidebar-bg);
-  transition:
-    background-color var(--transition),
-    border-color var(--transition);
-  box-shadow: var(--shadow-sm);
-  min-width: 0;
-}
-
-.option:target,
-.option.highlight {
-  border-color: var(--link-color);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-  animation: highlight-pulse 1.5s ease;
-}
-
 @keyframes highlight-pulse {
   0% {
     background-color: rgba(59, 130, 246, 0.1);
@@ -1407,6 +1385,9 @@ mark {
   width: 24px;
   height: 24px;
   margin-left: var(--space-2);
+  padding: 0;
+  border: 0;
+  background-color: transparent;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'%3E%3C/path%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'%3E%3C/path%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
@@ -1561,6 +1542,14 @@ h6:hover .copy-link {
   .option,
   .lib-entry {
     padding: var(--space-4);
+  }
+
+  .option-type,
+  .option-default,
+  .option-example,
+  .option-declared {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
   }
 
   /* Mobile search styles */
@@ -1837,19 +1826,25 @@ h6:hover .copy-link {
 }
 
 /* Option styling */
+.options-page .content {
+  max-width: 960px;
+}
+
 .option {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 20rem;
   scroll-margin-top: 80px;
   padding: var(--space-6);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-left: 3px solid var(--primary-500);
+  border-radius: var(--radius-lg);
   margin: var(--space-6) 0;
-  background-color: var(--sidebar-bg);
+  background-color: var(--bg-surface);
   transition:
-    opacity var(--transition-fast),
-    transform var(--transition-fast),
     background-color var(--transition),
     border-color var(--transition);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  min-width: 0;
 }
 
 .option:target,
@@ -1861,6 +1856,7 @@ h6:hover .copy-link {
 
 .option-name {
   margin-top: 0;
+  margin-bottom: var(--space-3);
   display: flex;
   align-items: center;
   max-width: 100%;
@@ -1883,27 +1879,102 @@ h6:hover .copy-link {
 }
 
 .option-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   color: var(--text-muted);
-  font-style: italic;
   margin-bottom: var(--space-3);
 }
 
+.option-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.option-facts {
+  margin: 0 0 var(--space-4);
+}
+
 .option-type {
-  margin-bottom: var(--space-3);
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
   max-width: 100%;
   overflow-x: auto;
+}
+
+.option-type dt,
+.option-type dd {
+  margin: 0;
+}
+
+.option-type dt,
+.option-label,
+.option-defined {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .option-description {
   margin-bottom: var(--space-4);
 }
 
+.option-description > :first-child,
+.option-related > :first-child {
+  margin-top: 0;
+}
+
+.option-description > :last-child,
+.option-related > :last-child {
+  margin-bottom: 0;
+}
+
 .option-default,
 .option-example,
 .option-declared {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
   margin-top: var(--space-3);
   max-width: 100%;
   overflow-x: auto;
+}
+
+.option-example pre {
+  margin: 0;
+}
+
+.option-defined-list {
+  margin: var(--space-2) 0 0;
+}
+
+.option-related {
+  margin-top: var(--space-5, 1.25rem);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-color);
+}
+
+.option-related-title {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .no-js .copy-link,

@@ -357,6 +357,7 @@ function reconcileFilteredItems({
   matches,
   data,
   reduceMotion,
+  animateChanges,
   isCurrentRun,
 }) {
   const visibleElements = new Set(matches.map((item) => item.element));
@@ -364,7 +365,11 @@ function reconcileFilteredItems({
 
   for (const item of data) {
     if (visibleElements.has(item.element)) continue;
-    if (reduceMotion.matches || !container.contains(item.element)) {
+    if (
+      !animateChanges ||
+      reduceMotion.matches ||
+      !container.contains(item.element)
+    ) {
       hiddenContainer.content.appendChild(item.element);
     } else {
       item.element.classList.add("filter-leaving");
@@ -385,7 +390,7 @@ function reconcileFilteredItems({
     let reference = container.firstChild;
     for (const item of matches) {
       const wasHidden = !container.contains(item.element);
-      if (wasHidden && !reduceMotion.matches) {
+      if (wasHidden && animateChanges && !reduceMotion.matches) {
         item.element.classList.add("filter-entering");
         entering.push(item.element);
       }
@@ -406,7 +411,7 @@ function reconcileFilteredItems({
     }
   };
 
-  if (leaving.length > 0) {
+  if (leaving.length > 0 && animateChanges) {
     setTimeout(updateVisibleItems, 160);
   } else {
     updateVisibleItems();
@@ -433,8 +438,9 @@ function setupListFilter({
 
   const isMobile =
     window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-  const items = Array.from(document.querySelectorAll(itemSelector));
+  const items = Array.from(container.querySelectorAll(itemSelector));
   const totalCount = items.length;
+  const animateChanges = totalCount <= 100;
   const originalOrder = items.slice();
   const data = items.map((element, index) => {
     const name = element.querySelector(nameSelector)?.textContent ?? "";
@@ -469,6 +475,7 @@ function setupListFilter({
       matches,
       data,
       reduceMotion,
+      animateChanges,
       isCurrentRun: () => currentRun === filterRun,
     });
 
@@ -498,7 +505,8 @@ function setupListFilter({
 
   if (input.value) applyFilter();
   if (isMobile && totalCount > 50) {
-    requestIdleCallback(() => {
+    const scheduleIdle = window.requestIdleCallback ?? setTimeout;
+    scheduleIdle(() => {
       const height = items[0]?.offsetHeight ?? 0;
       if (height > 0) {
         items.forEach((item) => {
@@ -617,7 +625,9 @@ document.addEventListener("DOMContentLoaded", function () {
   // Make headings clickable for anchor links
   const content = document.querySelector(".content");
   if (content) {
-    const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6");
+    const headings = content.querySelectorAll(
+      "h1:not(.option-name), h2:not(.option-name), h3:not(.option-name), h4:not(.option-name), h5:not(.option-name), h6:not(.option-name)",
+    );
 
     headings.forEach(function (heading) {
       // Generate a valid, unique ID for each heading
@@ -694,37 +704,35 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Copy link functionality
-  document.querySelectorAll(".copy-link").forEach(function (copyLink) {
-    copyLink.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
+  // One delegated handler avoids attaching a listener to every option card.
+  content?.addEventListener("click", function (event) {
+    if (!(event.target instanceof Element)) return;
+    const copyLink = event.target.closest(".copy-link");
+    if (!copyLink) return;
 
-      // Get option ID from parent element
-      const option = copyLink.closest(".option");
-      const optionId = option.id;
+    event.preventDefault();
+    event.stopPropagation();
 
-      // Create URL with hash
-      const url = new URL(window.location.href);
-      url.hash = optionId;
+    const option = copyLink.closest(".option");
+    if (!option) return;
 
-      // Copy to clipboard
-      navigator.clipboard
-        .writeText(url.toString())
-        .then(function () {
-          // Show feedback
-          const feedback = copyLink.nextElementSibling;
-          feedback.style.display = "inline";
+    const url = new URL(window.location.href);
+    url.hash = option.id;
 
-          // Hide after 2 seconds
-          setTimeout(function () {
-            feedback.style.display = "none";
-          }, 2000);
-        })
-        .catch(function (err) {
-          console.error("Could not copy link: ", err);
-        });
-    });
+    navigator.clipboard
+      .writeText(url.toString())
+      .then(function () {
+        const feedback = copyLink.nextElementSibling;
+        if (!feedback) return;
+        feedback.style.display = "inline";
+
+        setTimeout(function () {
+          feedback.style.display = "none";
+        }, 2000);
+      })
+      .catch(function (err) {
+        console.error("Could not copy link: ", err);
+      });
   });
 
   // Handle initial hash navigation
