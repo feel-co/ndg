@@ -56,9 +56,19 @@ changes.
 - Options sidebars now support recursive child grouping with
   `sidebar.options.nested` and `sidebar.options.nested_depth`, allowing large
   option trees to render as nested dropdowns instead of a flat category list.
+- New `sidebar.options.collapse_singletons` option (default `false`) controls
+  whether nested option categories that own no option and contain a single child
+  render as one-item dropdowns instead of direct links.
 
 ### Changed
 
+- Options TOC ordering now fully honors `sidebar.options.ordering`. `filesystem`
+  preserves the input order of the options data instead of falling back to
+  alphabetical, and `custom` sorts option groups by the lowest matched member
+  `position`. Direct option links are always rendered before collapsible groups,
+  with the configured ordering applied within each section.
+- Absolute paths in `{=include=}` directives are no longer accepted. Include
+  paths must now be relative and stay within the markdown source directory.
 - HTML generation now processes Markdown pages in parallel and caches rendered
   results in `.ndg-cache/markdown` for faster repeated builds; `ndg init`
   ignores this generated cache automatically.
@@ -91,6 +101,17 @@ changes.
 - Stale search responses are now dropped when the user continues typing while a
   worker search is in flight, preventing outdated results from rendering over
   newer matches.
+- Nested options TOC count badges now display a category's immediate child count
+  rather than the total number of descendant options.
+- Custom sidebar ordering (`sidebar.ordering = "custom"` with `position`
+  matches) now applies to special files (`index.md`, `README.md`, `404.html`),
+  which were previously always sorted alphabetically.
+- Sidebar navigation now HTML-escapes page titles and URLs, so custom
+  `new_title` values containing markup are rendered literally instead of being
+  injected into the page.
+- `html:into-file` include output paths are now validated to stay within the
+  output directory; paths containing parent-traversal or absolute components
+  fail with an error instead of writing outside the output root.
 
 ## [2.9.0]
 
