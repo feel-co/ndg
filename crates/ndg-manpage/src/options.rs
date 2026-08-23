@@ -18,6 +18,7 @@ use ndg_utils::{
     DocumentedValue,
     NixOptionDocument,
     OptionLocation,
+    compare_option_locs,
     parse_options_json,
   },
 };
@@ -157,7 +158,10 @@ pub fn generate_manpage(
       .collect::<Vec<_>>(),
   );
 
-  options.sort_by(|left, right| left.name.cmp(&right.name));
+  options.sort_by(|left, right| {
+    compare_option_locs(&left.loc, &right.loc)
+      .then_with(|| left.name.cmp(&right.name))
+  });
 
   // Generate the manpage
   let manpage_title = title.unwrap_or("Module Options");
@@ -336,6 +340,7 @@ fn parse_option(key: &str, option_data: &NixOptionDocument) -> NixOption {
       .map_or_else(String::new, |text| text.text().to_string()),
     default:          option_data.default.clone(),
     example:          option_data.example.clone(),
+    loc:              option_data.loc.clone(),
     declared_in:      None,
     declared_in_url:  option_data.declaration_url.clone(),
     defined_in:       Vec::new(),

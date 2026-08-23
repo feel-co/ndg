@@ -10,6 +10,7 @@ use ndg_commonmark::{MarkdownProcessor, ProcessorPreset, create_processor};
 use ndg_utils::options::{
   DocumentedValue,
   DocumentationText,
+  compare_option_locs,
   parse_options_json,
 };
 use printpdf::{
@@ -68,7 +69,10 @@ pub fn generate_pdf(
   );
 
   let mut entries: Vec<_> = options_data.into_iter().collect();
-  entries.sort_unstable_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b));
+  entries.sort_unstable_by(|(name_a, option_a), (name_b, option_b)| {
+    compare_option_locs(&option_a.loc, &option_b.loc)
+      .then_with(|| name_a.cmp(name_b))
+  });
 
   let mut blocks = vec![
     Block::Heading {

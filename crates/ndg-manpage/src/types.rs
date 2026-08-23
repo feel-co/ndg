@@ -23,6 +23,9 @@ pub struct NixOption {
   /// Option example value.
   pub example: Option<DocumentedValue>,
 
+  /// Option attribute path as separate components.
+  pub loc: Vec<String>,
+
   /// Path to the file where the option is declared
   pub declared_in: Option<String>,
 

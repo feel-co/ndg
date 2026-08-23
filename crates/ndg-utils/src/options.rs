@@ -1,5 +1,7 @@
 //! Typed representation of the JSON emitted by `nixosOptionsDoc`.
 
+use std::cmp::Ordering;
+
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer};
 use thiserror::Error;
@@ -149,6 +151,35 @@ where
   D: Deserializer<'de>,
 {
   DocumentedValue::deserialize(deserializer).map(Some)
+}
+
+/// Compare option locations using `nixos-render-docs` ordering.
+///
+/// Components beginning with `enable` sort first, followed by components
+/// beginning with `package`, then all other components alphabetically.
+#[must_use]
+pub fn compare_option_locs(
+  left: &[String],
+  right: &[String],
+) -> Ordering {
+  fn priority(component: &str) -> u8 {
+    if component.starts_with("enable") {
+      0
+    } else if component.starts_with("package") {
+      1
+    } else {
+      2
+    }
+  }
+
+  left
+    .iter()
+    .map(|component| (priority(component), component))
+    .cmp(
+      right
+        .iter()
+        .map(|component| (priority(component), component)),
+    )
 }
 
 /// A declaration or definition location.
@@ -422,4 +453,25 @@ mod tests {
     assert!(message.contains("literalMD"));
   }
 
+  #[test]
+  fn test_compare_option_locs_matches_nixos_render_docs_priority() {
+    let mut locations = [
+      vec!["services".to_string(), "zebra".to_string()],
+      vec!["services".to_string(), "package".to_string()],
+      vec!["services".to_string(), "enableFeature".to_string()],
+      vec!["programs".to_string(), "alpha".to_string()],
+    ];
+
+    locations.sort_by(|left, right| compare_option_locs(left, right));
+
+    assert_eq!(
+      locations,
+      [
+        vec!["programs".to_string(), "alpha".to_string()],
+        vec!["services".to_string(), "enableFeature".to_string()],
+        vec!["services".to_string(), "package".to_string()],
+        vec!["services".to_string(), "zebra".to_string()],
+      ]
+    );
+  }
 }

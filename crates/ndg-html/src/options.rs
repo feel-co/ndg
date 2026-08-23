@@ -8,7 +8,7 @@ use ndg_config::Config;
 use ndg_manpage::types::NixOption;
 use ndg_utils::{
   markdown::create_processor,
-  options::{OptionLocation, parse_options_json},
+  options::{OptionLocation, compare_option_locs, parse_options_json},
   postprocess,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -84,6 +84,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
       description,
       default: option_data.default,
       example: option_data.example,
+      loc: option_data.loc.clone(),
       declared_in_url: option_data.declaration_url,
       related_packages,
       internal,
@@ -144,21 +145,10 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     .map(|(index, name)| (name.clone(), index))
     .collect();
 
-  // Sort options by priority (enable > package > other), with secondary
-  // alphabetical sort within each priority group.
+  // Match nixos-render-docs' component-wise option ordering.
   let mut sorted: Vec<_> = options.into_iter().collect();
-  sorted.sort_by(|(name_a, _), (name_b, _)| {
-    let priority = |name: &str| {
-      if name.starts_with("enable") {
-        0
-      } else if name.starts_with("package") {
-        1
-      } else {
-        2
-      }
-    };
-    priority(name_a)
-      .cmp(&priority(name_b))
+  sorted.sort_by(|(name_a, option_a), (name_b, option_b)| {
+    compare_option_locs(&option_a.loc, &option_b.loc)
       .then_with(|| name_a.cmp(name_b))
   });
   let customized_options = sorted.into_iter().collect();
