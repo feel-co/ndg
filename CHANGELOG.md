@@ -37,6 +37,12 @@ changes.
 
 ### Added
 
+- Configuration files now reject unknown keys and validate value ranges, regex
+  patterns, output paths, and enum-like string values with errors that identify
+  the source file or command-line override.
+- Module option JSON now uses a shared typed `nixosOptionsDoc` parser across
+  HTML, search, manpage, and PDF output. Option pages also render the upstream
+  `relatedPackages` field.
 - Comrak Markdown syntax extensions are now configurable via the new
   `[markdown]` configuration section. Supports 24 extensions including tables,
   task lists, footnotes, strikethrough, math (code/dollar/LaTeX), alerts,
@@ -76,9 +82,13 @@ changes.
   sidebar with backdrop, close button, Escape handling, and cloned site
   navigation instead of the previous floating action button and draggable bottom
   sheet.
+- Minor CSS improvements :)
 
 ### Fixed
 
+- Large option pages no longer attach click handlers and generated heading IDs
+  to every option name. Filtering also skips transition delays for lists above
+  100 entries.
 - Markdown documentation builds now detect duplicate rendered anchor IDs and
   report the colliding anchors instead of producing pages with broken or
   ambiguous navigation.
