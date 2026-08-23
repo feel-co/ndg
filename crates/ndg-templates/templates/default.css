@@ -426,6 +426,7 @@ header {
   box-sizing: border-box;
   transition: transform var(--transition);
   font-size: 0.875rem;
+  scrollbar-gutter: stable;
 
   h2 {
     font-size: 0.875rem;
@@ -468,7 +469,6 @@ header {
       color: var(--link-color);
       background-color: var(--sidebar-active);
       font-weight: 600;
-      box-shadow: inset 2px 0 0 var(--brand);
     }
   }
 
@@ -1544,12 +1544,13 @@ h6:hover .copy-link {
     padding: var(--space-4);
   }
 
-  .option-type,
-  .option-default,
-  .option-example,
-  .option-declared {
+  .option-details {
     grid-template-columns: 1fr;
     gap: var(--space-1);
+  }
+
+  .option-details dd + dt {
+    margin-top: var(--space-2);
   }
 
   /* Mobile search styles */
@@ -1674,7 +1675,7 @@ h6:hover .copy-link {
   padding-left: 0;
   margin: var(--space-6) 0;
   transition: border-color var(--transition);
-  background-color: var(--sidebar-bg);
+  background-color: transparent;
   padding: var(--space-2) 0;
 }
 
@@ -1784,8 +1785,9 @@ h6:hover .copy-link {
 
 /* Count badge */
 .toc-count {
-  background-color: var(--primary-600);
-  color: white;
+  background-color: var(--bg-surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
   border-radius: 999px;
   font-size: 0.7rem;
   font-weight: 600;
@@ -1797,6 +1799,7 @@ h6:hover .copy-link {
   justify-content: center;
   margin-left: auto;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Status badges */
@@ -1836,15 +1839,22 @@ h6:hover .copy-link {
   scroll-margin-top: 80px;
   padding: var(--space-6);
   border: 1px solid var(--border-color);
-  border-left: 3px solid var(--primary-500);
   border-radius: var(--radius-lg);
   margin: var(--space-6) 0;
   background-color: var(--bg-surface);
   transition:
     background-color var(--transition),
-    border-color var(--transition);
-  box-shadow: var(--shadow-md);
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  box-shadow: var(--shadow-sm);
   min-width: 0;
+}
+
+@media (hover: hover) {
+  .option:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+  }
 }
 
 .option:target,
@@ -1871,6 +1881,9 @@ h6:hover .copy-link {
   color: var(--heading-color);
   text-decoration: none;
   white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  letter-spacing: -0.035em;
 }
 
 .option-anchor:hover {
@@ -1901,27 +1914,22 @@ h6:hover .copy-link {
   text-transform: uppercase;
 }
 
-.option-facts {
-  margin: 0 0 var(--space-4);
-}
-
-.option-type {
+.option-details {
   display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: var(--space-3);
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
   align-items: baseline;
+  margin: 0;
   max-width: 100%;
-  overflow-x: auto;
 }
 
-.option-type dt,
-.option-type dd {
+.option-details dt,
+.option-details dd {
   margin: 0;
 }
 
-.option-type dt,
-.option-label,
-.option-defined {
+.option-details dt,
+.option-related-title {
   color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 650;
@@ -1930,7 +1938,7 @@ h6:hover .copy-link {
 }
 
 .option-description {
-  margin-bottom: var(--space-4);
+  margin-block-end: var(--space-4);
 }
 
 .option-description > :first-child,
@@ -1943,24 +1951,36 @@ h6:hover .copy-link {
   margin-bottom: 0;
 }
 
-.option-default,
-.option-example,
-.option-declared {
-  display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: var(--space-3);
-  align-items: baseline;
-  margin-top: var(--space-3);
-  max-width: 100%;
-  overflow-x: auto;
+.option-value {
+  min-width: 0;
 }
 
-.option-example pre {
+.option-value > code,
+.option-source-list code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.875rem;
+  letter-spacing: normal;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.option-value pre {
   margin: 0;
+  max-width: 100%;
 }
 
-.option-defined-list {
-  margin: var(--space-2) 0 0;
+.option-source-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option-sources {
+  margin-top: var(--space-5);
 }
 
 .option-related {
@@ -1971,10 +1991,6 @@ h6:hover .copy-link {
 
 .option-related-title {
   margin: 0 0 var(--space-2);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .no-js .copy-link,
@@ -2201,12 +2217,6 @@ h6:hover .copy-link {
   font-weight: 500;
 }
 
-.parent-option::before {
-  content: "•";
-  display: inline-block;
-  margin-right: var(--space-2);
-}
-
 /* Responsive Design */
 @media (max-width: 800px) {
   .sidebar,
@@ -2294,14 +2304,11 @@ h6:hover .copy-link {
 
 /* Sidebar Sections */
 .sidebar-section {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
-/* Divider between sections */
 .sidebar-section + .sidebar-section {
-  border-top: 1px solid var(--border-color);
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
+  margin-top: 0;
 }
 
 /* Only target direct child summary (section headers like "Documents", "Contents") */
@@ -2326,6 +2333,10 @@ h6:hover .copy-link {
 .sidebar-section > summary:hover {
   background-color: var(--sidebar-hover);
   color: var(--text-color);
+}
+
+.sidebar-section[open] > summary {
+  color: var(--heading-color);
 }
 
 .sidebar-section > summary::before {

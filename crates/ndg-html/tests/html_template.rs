@@ -1739,6 +1739,9 @@ fn render_options_mkoption_parity() {
       type_name: "string".to_string(),
       default_text: Some("`example.com`".to_string()),
       example_text: Some("`server.example.com`".to_string()),
+      related_packages: Some(
+        "<ul><li><code>pkgs.nginx</code></li></ul>".to_string(),
+      ),
       declared_in: Some("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix".to_string()),
       declared_in_url: Some("https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/services/web-servers/nginx.nix".to_string()),
       defined_in: vec![
@@ -1781,9 +1784,24 @@ fn render_options_mkoption_parity() {
     "example value must strip literalExpression backticks"
   );
 
-  // 4. Declared in with hyperlink
+  // 4. Content follows nixos-render-docs' information order.
+  let description = html.find("option-description").expect("description");
+  let option_type = html.find("<dt>Type</dt>").expect("type");
+  let default = html.find("<dt>Default</dt>").expect("default");
+  let example = html.find("<dt>Example</dt>").expect("example");
+  let related = html.find("Related packages").expect("related packages");
+  let declared = html.find("<dt>Declared in</dt>").expect("declaration");
+  let defined = html.find("<dt>Defined in</dt>").expect("definition");
+  assert!(description < option_type);
+  assert!(option_type < default);
+  assert!(default < example);
+  assert!(example < related);
+  assert!(related < declared);
+  assert!(declared < defined);
+
+  // 5. Declared in with hyperlink
   assert!(
-    html.contains(">Declared in</span>"),
+    html.contains("<dt>Declared in</dt>"),
     "must show the 'Declared in' label"
   );
   assert!(
@@ -1792,10 +1810,13 @@ fn render_options_mkoption_parity() {
     "declared_in path must be present"
   );
 
-  // 5. Defined in section with multiple entries
-  assert!(html.contains("Defined in:"), "must show 'Defined in' label");
+  // 6. Defined in section with multiple entries
   assert!(
-    html.contains("<ul class=\"option-defined-list\">"),
+    html.contains("<dt>Defined in</dt>"),
+    "must show 'Defined in' label"
+  );
+  assert!(
+    html.contains("<ul class=\"option-source-list\">"),
     "defined_in must use unordered list"
   );
   assert!(
@@ -1810,7 +1831,7 @@ fn render_options_mkoption_parity() {
     "second defined_in entry must be present"
   );
 
-  // 6. No raw angle brackets in id/href
+  // 7. No raw angle brackets in id/href
   assert!(
     !html.contains("id=\"option-services-nginx-virtualHosts-<name>"),
     "raw '<' must not appear in id attribute"

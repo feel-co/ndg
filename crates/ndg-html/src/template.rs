@@ -1790,19 +1790,22 @@ pub(crate) fn generate_options_html(
       );
     }
 
-    // Option type
-    let _ = writeln!(
-      options_html,
-      "  <dl class=\"option-facts\"><div \
-       class=\"option-type\"><dt>Type</dt><dd><code>{}</code></dd></div></dl>",
-      encode_text(&option.type_name)
-    );
+    // Match nixos-render-docs' content order by leading with the description.
+    if !option.description.trim().is_empty() {
+      let _ = writeln!(
+        options_html,
+        "  <div class=\"option-description\">{}</div>",
+        option.description
+      );
+    }
 
-    // Option description
+    // Keep the core facts in one definition list so every label shares the
+    // same alignment and reading order.
+    let _ = writeln!(options_html, "  <dl class=\"option-details\">");
     let _ = writeln!(
       options_html,
-      "  <div class=\"option-description\">{}</div>",
-      option.description
+      "    <dt>Type</dt><dd class=\"option-value\"><code>{}</code></dd>",
+      encode_text(&option.type_name)
     );
 
     // Add default value if available
@@ -1811,53 +1814,7 @@ pub(crate) fn generate_options_html(
     // Add example if available
     add_example_value(&mut options_html, option);
 
-    // Option declared in - now with hyperlink support
-    if let Some(declared_in) = &option.declared_in {
-      // Writing to String is infallible
-      if let Some(url) = &option.declared_in_url {
-        let safe_url = html_escape::encode_double_quoted_attribute(url);
-        let safe_display = encode_text(declared_in);
-        let _ = writeln!(
-          options_html,
-          "  <div class=\"option-declared\"><span \
-           class=\"option-label\">Declared in</span><code><a \
-           href=\"{safe_url}\" target=\"_blank\" rel=\"noopener \
-           noreferrer\">{safe_display}</a></code></div>"
-        );
-      } else {
-        let safe_display = encode_text(declared_in);
-        let _ = writeln!(
-          options_html,
-          "  <div class=\"option-declared\"><span \
-           class=\"option-label\">Declared \
-           in</span><code>{safe_display}</code></div>"
-        );
-      }
-    }
-
-    // Option defined in; list all definition locations
-    if !option.defined_in.is_empty() {
-      let _ = writeln!(
-        options_html,
-        "  <div class=\"option-defined\">Defined in:</div>"
-      );
-      let _ = writeln!(options_html, "  <ul class=\"option-defined-list\">");
-      for (display, url) in &option.defined_in {
-        let safe_display = encode_text(display);
-        if let Some(url) = url {
-          let safe_url = html_escape::encode_double_quoted_attribute(url);
-          let _ = writeln!(
-            options_html,
-            "    <li><code><a href=\"{safe_url}\" target=\"_blank\" \
-             rel=\"noopener noreferrer\">{safe_display}</a></code></li>"
-          );
-        } else {
-          let _ =
-            writeln!(options_html, "    <li><code>{safe_display}</code></li>");
-        }
-      }
-      let _ = writeln!(options_html, "  </ul>");
-    }
+    let _ = writeln!(options_html, "  </dl>");
 
     if let Some(related_packages) = &option.related_packages {
       let _ = writeln!(
@@ -1868,11 +1825,65 @@ pub(crate) fn generate_options_html(
       );
     }
 
+    add_source_locations(&mut options_html, option);
+
     // Close option div
     options_html.push_str("</div>\n");
   }
 
   options_html
+}
+
+/// Add source locations to options HTML.
+fn add_source_locations(html: &mut String, option: &NixOption) {
+  if option.declared_in.is_none() && option.defined_in.is_empty() {
+    return;
+  }
+
+  let _ = writeln!(html, "  <dl class=\"option-details option-sources\">");
+
+  if let Some(declared_in) = &option.declared_in {
+    let safe_display = encode_text(declared_in);
+    if let Some(url) = &option.declared_in_url {
+      let safe_url = html_escape::encode_double_quoted_attribute(url);
+      let _ = writeln!(
+        html,
+        "    <dt>Declared in</dt><dd class=\"option-value\"><code><a \
+         href=\"{safe_url}\" target=\"_blank\" rel=\"noopener \
+         noreferrer\">{safe_display}</a></code></dd>"
+      );
+    } else {
+      let _ = writeln!(
+        html,
+        "    <dt>Declared in</dt><dd \
+         class=\"option-value\"><code>{safe_display}</code></dd>"
+      );
+    }
+  }
+
+  if !option.defined_in.is_empty() {
+    let _ = writeln!(
+      html,
+      "    <dt>Defined in</dt><dd class=\"option-value\"><ul \
+       class=\"option-source-list\">"
+    );
+    for (display, url) in &option.defined_in {
+      let safe_display = encode_text(display);
+      if let Some(url) = url {
+        let safe_url = html_escape::encode_double_quoted_attribute(url);
+        let _ = writeln!(
+          html,
+          "      <li><code><a href=\"{safe_url}\" target=\"_blank\" \
+           rel=\"noopener noreferrer\">{safe_display}</a></code></li>"
+        );
+      } else {
+        let _ = writeln!(html, "      <li><code>{safe_display}</code></li>");
+      }
+    }
+    let _ = writeln!(html, "    </ul></dd>");
+  }
+
+  let _ = writeln!(html, "  </dl>");
 }
 
 /// Add default value to options HTML
@@ -1891,15 +1902,13 @@ fn add_default_value(html: &mut String, option: &NixOption) {
     // Writing to String is infallible
     let _ = writeln!(
       html,
-      "  <div class=\"option-default\"><span \
-       class=\"option-label\">Default</span><code>{}</code></div>",
+      "    <dt>Default</dt><dd class=\"option-value\"><code>{}</code></dd>",
       html_escape::encode_text(clean_default)
     );
   } else if let Some(default_val) = &option.default {
     let _ = writeln!(
       html,
-      "  <div class=\"option-default\"><span \
-       class=\"option-label\">Default</span><code>{}</code></div>",
+      "    <dt>Default</dt><dd class=\"option-value\"><code>{}</code></dd>",
       html_escape::encode_text(&default_val.to_string()),
     );
   }
@@ -1924,15 +1933,14 @@ fn add_example_value(html: &mut String, option: &NixOption) {
     if inner.contains('\n') {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\"><span \
-         class=\"option-label\">Example</span><pre><code>{safe}</code></pre></\
-         div>"
+        "    <dt>Example</dt><dd \
+         class=\"option-value\"><pre><code>{safe}</code></pre></dd>"
       );
     } else {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\"><span \
-         class=\"option-label\">Example</span><code>{safe}</code></div>"
+        "    <dt>Example</dt><dd \
+         class=\"option-value\"><code>{safe}</code></dd>"
       );
     }
   } else if let Some(example_val) = &option.example {
@@ -1941,15 +1949,14 @@ fn add_example_value(html: &mut String, option: &NixOption) {
     if example_str.contains('\n') {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\"><span \
-         class=\"option-label\">Example</span><pre><code>{safe}</code></pre></\
-         div>"
+        "    <dt>Example</dt><dd \
+         class=\"option-value\"><pre><code>{safe}</code></pre></dd>"
       );
     } else {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\"><span \
-         class=\"option-label\">Example</span><code>{safe}</code></div>"
+        "    <dt>Example</dt><dd \
+         class=\"option-value\"><code>{safe}</code></dd>"
       );
     }
   }
