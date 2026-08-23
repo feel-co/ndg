@@ -2,6 +2,7 @@ use std::{fmt::Write, path::Path};
 
 use color_eyre::eyre::Result;
 use html_escape::encode_text;
+use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
 use ndg_utils::html::calculate_root_relative_path;
 use rustc_hash::FxHashMap;
@@ -26,11 +27,15 @@ pub fn render_option_page(
   page: &OptionPage,
   pages: &[OptionPage],
   input_order: &FxHashMap<String, usize>,
+  processor: &MarkdownProcessor,
 ) -> Result<String> {
   let root_path = Path::new(&page.path);
   let mut options_html = generate_option_page_header(page, root_path);
-  options_html
-    .push_str(&template::generate_options_html(&page.options, config));
+  options_html.push_str(&template::generate_options_html(
+    &page.options,
+    config,
+    processor,
+  ));
   let options_toc = template::render_options_toc_with_order(
     config,
     &page.options,
@@ -62,12 +67,14 @@ pub fn render_option_page(
 pub fn render_options_index(
   config: &Config,
   page_set: &OptionPageSet,
+  processor: &MarkdownProcessor,
 ) -> Result<String> {
   let mut options_html = generate_options_index_html(&page_set.pages);
   if !page_set.root_options.is_empty() {
     options_html.push_str(&template::generate_options_html(
       &page_set.root_options,
       config,
+      processor,
     ));
   }
   let toc_html = generate_options_index_toc(&page_set.pages);

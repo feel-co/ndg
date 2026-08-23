@@ -22,7 +22,9 @@ use ndg_config::{
 };
 use ndg_html::{options::process_options, template};
 use ndg_manpage::types::NixOption;
+use ndg_utils::options::DocumentedValue;
 use rustc_hash::FxHashMap;
+use serde_json::json;
 use tempfile::TempDir;
 
 /// Checks for highlighted code HTML
@@ -56,15 +58,23 @@ fn create_detailed_option(
   name: &str,
   description: &str,
   type_name: &str,
-  default_text: Option<&str>,
-  example_text: Option<&str>,
+  default_expression: Option<&str>,
+  example_expression: Option<&str>,
 ) -> NixOption {
   NixOption {
     name: name.to_string(),
     description: description.to_string(),
     type_name: type_name.to_string(),
-    default_text: default_text.map(std::string::ToString::to_string),
-    example_text: example_text.map(std::string::ToString::to_string),
+    default: default_expression.map(|text| {
+      DocumentedValue::LiteralExpression {
+        text: text.to_string(),
+      }
+    }),
+    example: example_expression.map(|text| {
+      DocumentedValue::LiteralExpression {
+        text: text.to_string(),
+      }
+    }),
     ..Default::default()
   }
 }
@@ -333,7 +343,10 @@ fn filesystem_option_order_uses_json_order() {
   let options_path = temp.path().join("options.json");
   fs::write(
     &options_path,
-    r#"{"rum.zeta":{"type":"unspecified"},"rum.alpha":{"type":"unspecified"}}"#,
+    r#"{
+  "rum.zeta": {"loc": ["rum", "zeta"], "type": "unspecified"},
+  "rum.alpha": {"loc": ["rum", "alpha"], "type": "unspecified"}
+}"#,
   )
   .expect("write options");
 
@@ -372,6 +385,7 @@ fn process_options_renders_related_packages_from_nixos_options_doc() {
   "services.example.enable": {
     "type": "boolean",
     "description": "Whether to enable example.",
+    "loc": ["services", "example", "enable"],
     "relatedPackages": "- [`pkgs.example`](https://example.test/package)"
   }
 }"#,
@@ -398,6 +412,7 @@ fn process_options_reports_invalid_field_path() {
     r#"{
   "services.example.enable": {
     "type": "boolean",
+    "loc": ["services", "example", "enable"],
     "readOnly": "sometimes"
   }
 }"#,
@@ -1723,38 +1738,54 @@ fn render_options_declared_in_escapes_angle_brackets() {
   );
 }
 
-// Regression test for mkOption formatting parity with nixos-render-docs.
-// Verifies option IDs, literalMD handling, defined_by, and raw markdown.
+// Regression test for current nixosOptionsDoc parsing and rendering.
 #[test]
 fn render_options_mkoption_parity() {
-  let mut config = minimal_config();
-  config.module_options = Some("dummy.json".into());
-
-  let mut options = IndexMap::new();
-  options.insert(
-    "services.nginx.virtualHosts.<name>.serverName".to_string(),
-    NixOption {
-      name: "services.nginx.virtualHosts.<name>.serverName".to_string(),
-      description: "<p>Server name <strong>with markdown</strong></p>".to_string(),
-      type_name: "string".to_string(),
-      default_text: Some("`example.com`".to_string()),
-      example_text: Some("`server.example.com`".to_string()),
-      related_packages: Some(
-        "<ul><li><code>pkgs.nginx</code></li></ul>".to_string(),
-      ),
-      declared_in: Some("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix".to_string()),
-      declared_in_url: Some("https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/services/web-servers/nginx.nix".to_string()),
-      defined_in: vec![
-        ("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix".to_string(), Some("https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/services/web-servers/nginx.nix".to_string())),
-        ("<nixpkgs>/nixos/modules/services/web-servers/default.nix".to_string(), None),
+  let temp_dir = TempDir::new().expect("temp dir");
+  let options_file = temp_dir.path().join("options.json");
+  let options_json = json!({
+    "services.nginx.virtualHosts.<name>.serverName": {
+      "type": "string",
+      "description": {
+        "_type": "mdDoc",
+        "text": "Server name **with markdown**"
+      },
+      "default": {
+        "_type": "literalExpression",
+        "text": "\"`example.com`\""
+      },
+      "example": {
+        "_type": "literalMD",
+        "text": "`server.example.com`"
+      },
+      "relatedPackages": "- `pkgs.nginx`",
+      "declarations": [
+        "nixos/modules/services/web-servers/nginx.nix"
       ],
-      internal: false,
-      read_only: false,
-      ..Default::default()
-    },
-  );
+      "definitions": [
+        "nixos/modules/services/web-servers/nginx.nix",
+        "nixos/modules/services/web-servers/default.nix"
+      ],
+      "loc": [
+        "services",
+        "nginx",
+        "virtualHosts",
+        "<name>",
+        "serverName"
+      ],
+      "internal": false,
+      "readOnly": false
+    }
+  });
+  fs::write(&options_file, options_json.to_string())
+    .expect("write options JSON");
 
-  let html = template::render_options(&config, &options).expect("render");
+  let mut config = minimal_config();
+  config.output_dir = temp_dir.path().to_path_buf();
+  config.module_options = Some(options_file.clone());
+  process_options(&config, &options_file).expect("process options");
+  let html = fs::read_to_string(temp_dir.path().join("options.html"))
+    .expect("read options HTML");
 
   // 1. Option ID sanitization: must match nixos-render-docs XML ID format
   // < and > become _, not -
@@ -1768,20 +1799,24 @@ fn render_options_mkoption_parity() {
     "anchor href must match sanitized id: #{expected_id}"
   );
 
-  // 2. literalMD handling: description should be rendered as raw markdown HTML
+  // 2. mdDoc descriptions are rendered as Markdown.
   assert!(
     html.contains("<strong>with markdown</strong>"),
-    "literalMD description must render markdown as HTML"
+    "mdDoc description must render Markdown as HTML"
   );
 
-  // 3. Default/example values: literalExpression backticks stripped
+  // 3. Documented values retain their type through the rendering pipeline.
   assert!(
-    html.contains("<code>example.com</code>"),
-    "default value must strip literalExpression backticks"
+    html.contains("class=\"language-nix\""),
+    "literalExpression must render as a Nix code block"
+  );
+  assert!(
+    html.contains("\"`example.com`\""),
+    "literalExpression text, including backticks, must be preserved"
   );
   assert!(
     html.contains("<code>server.example.com</code>"),
-    "example value must strip literalExpression backticks"
+    "literalMD must render as Markdown"
   );
 
   // 4. Content follows nixos-render-docs' information order.
@@ -1806,7 +1841,7 @@ fn render_options_mkoption_parity() {
   );
   assert!(
     html
-      .contains("&lt;nixpkgs&gt;/nixos/modules/services/web-servers/nginx.nix"),
+      .contains("&lt;nixpkgs/nixos/modules/services/web-servers/nginx.nix&gt;"),
     "declared_in path must be present"
   );
 
@@ -1821,12 +1856,12 @@ fn render_options_mkoption_parity() {
   );
   assert!(
     html
-      .contains("&lt;nixpkgs&gt;/nixos/modules/services/web-servers/nginx.nix"),
+      .contains("&lt;nixpkgs/nixos/modules/services/web-servers/nginx.nix&gt;"),
     "first defined_in entry must be present"
   );
   assert!(
     html.contains(
-      "&lt;nixpkgs&gt;/nixos/modules/services/web-servers/default.nix"
+      "&lt;nixpkgs/nixos/modules/services/web-servers/default.nix&gt;"
     ),
     "second defined_in entry must be present"
   );
@@ -1840,6 +1875,36 @@ fn render_options_mkoption_parity() {
     !html.contains("href=\"#option-services-nginx-virtualHosts-<name>"),
     "raw '<' must not appear in href attribute"
   );
+}
+
+#[test]
+fn process_options_reports_file_option_and_field_for_schema_error() {
+  let temp_dir = TempDir::new().expect("temp dir");
+  let options_file = temp_dir.path().join("invalid-options.json");
+  let options_json = json!({
+    "services.example.enable": {
+      "type": "boolean",
+      "loc": ["services", "example", "enable"],
+      "default": {
+        "_type": "literalDocBook",
+        "text": "<literal>false</literal>"
+      }
+    }
+  });
+  fs::write(&options_file, options_json.to_string())
+    .expect("write options JSON");
+
+  let mut config = minimal_config();
+  config.output_dir = temp_dir.path().to_path_buf();
+  let error = process_options(&config, &options_file)
+    .expect_err("unsupported documented value type");
+  let report = format!("{error:?}");
+
+  assert!(report.contains(&options_file.display().to_string()));
+  assert!(report.contains("services.example.enable.default"));
+  assert!(report.contains("literalDocBook"));
+  assert!(report.contains("literalExpression"));
+  assert!(report.contains("literalMD"));
 }
 
 // When `declared_in_url` contains an ampersand (valid in URLs, but must be

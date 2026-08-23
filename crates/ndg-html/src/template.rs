@@ -8,16 +8,17 @@ use std::{
 use color_eyre::eyre::{Context, Result, bail};
 use html_escape::{encode_double_quoted_attribute, encode_text};
 use indexmap::IndexMap;
-use ndg_commonmark::Header;
+use ndg_commonmark::{Header, MarkdownProcessor};
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
 use ndg_templates as templates;
 use ndg_utils::{
   html::{calculate_root_relative_path, generate_asset_paths},
-  markdown::PageFrontmatter,
+  markdown::{PageFrontmatter, create_processor},
+  options::DocumentedValue,
 };
 use regex::Regex;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
 use tera::Tera;
 
@@ -598,15 +599,18 @@ pub fn render_options(
   config: &Config,
   options: &IndexMap<String, NixOption>,
 ) -> Result<String> {
-  render_options_with_order(config, options, None)
+  let valid_options: FxHashSet<_> = options.keys().cloned().collect();
+  let processor = create_processor(config, Some(valid_options))?;
+  render_options_with_order(config, options, None, &processor)
 }
 
 pub(crate) fn render_options_with_order(
   config: &Config,
   options: &IndexMap<String, NixOption>,
   input_order: Option<&FxHashMap<String, usize>>,
+  processor: &MarkdownProcessor,
 ) -> Result<String> {
-  let options_html = generate_options_html(options, config);
+  let options_html = generate_options_html(options, config, processor);
   let options_toc =
     render_options_toc_with_order(config, options, input_order)?;
   render_options_body(
@@ -1738,6 +1742,7 @@ fn sanitize_option_id_legacy(name: &str) -> String {
 pub(crate) fn generate_options_html(
   options: &IndexMap<String, NixOption>,
   config: &Config,
+  processor: &MarkdownProcessor,
 ) -> String {
   let generate_compat = config.generate_compatibility_anchors();
   let mut options_html = String::with_capacity(options.len() * 500); // rough capacity estimate, average ~500 bytes per option
@@ -1809,10 +1814,20 @@ pub(crate) fn generate_options_html(
     );
 
     // Add default value if available
-    add_default_value(&mut options_html, option);
+    add_documented_value(
+      &mut options_html,
+      "Default",
+      option.default.as_ref(),
+      processor,
+    );
 
     // Add example if available
-    add_example_value(&mut options_html, option);
+    add_documented_value(
+      &mut options_html,
+      "Example",
+      option.example.as_ref(),
+      processor,
+    );
 
     let _ = writeln!(options_html, "  </dl>");
 
@@ -1886,80 +1901,39 @@ fn add_source_locations(html: &mut String, option: &NixOption) {
   let _ = writeln!(html, "  </dl>");
 }
 
-/// Add default value to options HTML
-fn add_default_value(html: &mut String, option: &NixOption) {
-  if let Some(default_text) = &option.default_text {
-    // Remove surrounding backticks if present (from literalExpression)
-    let clean_default = if default_text.starts_with('`')
-      && default_text.ends_with('`')
-      && default_text.len() > 2
-    {
-      &default_text[1..default_text.len() - 1]
-    } else {
-      default_text
-    };
+/// Add a documented default or example value to options HTML.
+fn add_documented_value(
+  html: &mut String,
+  label: &str,
+  value: Option<&DocumentedValue>,
+  processor: &MarkdownProcessor,
+) {
+  let Some(value) = value else {
+    return;
+  };
 
-    // Writing to String is infallible
-    let _ = writeln!(
-      html,
-      "    <dt>Default</dt><dd class=\"option-value\"><code>{}</code></dd>",
-      html_escape::encode_text(clean_default)
-    );
-  } else if let Some(default_val) = &option.default {
-    let _ = writeln!(
-      html,
-      "    <dt>Default</dt><dd class=\"option-value\"><code>{}</code></dd>",
-      html_escape::encode_text(&default_val.to_string()),
-    );
-  }
+  let rendered = match value {
+    DocumentedValue::LiteralExpression { text } => {
+      let fence = "`".repeat(longest_backtick_run(text).max(2) + 1);
+      processor
+        .render(&format!("{fence}nix\n{text}\n{fence}"))
+        .html
+    },
+    DocumentedValue::LiteralMarkdown { text } => processor.render(text).html,
+  };
+
+  let _ = writeln!(
+    html,
+    "    <dt>{label}</dt><dd class=\"option-value\">{rendered}</dd>"
+  );
 }
 
-/// Add example value to options HTML
-fn add_example_value(html: &mut String, option: &NixOption) {
-  if let Some(example_text) = &option.example_text {
-    // Strip surrounding backticks (literalExpression wrapper) before escaping,
-    // so the backtick positions are checked on the original text.
-    let inner: &str = if example_text.starts_with('`')
-      && example_text.ends_with('`')
-      && example_text.len() > 2
-    {
-      &example_text[1..example_text.len() - 1]
-    } else {
-      example_text
-    };
-
-    let safe = encode_text(inner);
-
-    if inner.contains('\n') {
-      let _ = writeln!(
-        html,
-        "    <dt>Example</dt><dd \
-         class=\"option-value\"><pre><code>{safe}</code></pre></dd>"
-      );
-    } else {
-      let _ = writeln!(
-        html,
-        "    <dt>Example</dt><dd \
-         class=\"option-value\"><code>{safe}</code></dd>"
-      );
-    }
-  } else if let Some(example_val) = &option.example {
-    let example_str = example_val.to_string();
-    let safe = encode_text(&example_str);
-    if example_str.contains('\n') {
-      let _ = writeln!(
-        html,
-        "    <dt>Example</dt><dd \
-         class=\"option-value\"><pre><code>{safe}</code></pre></dd>"
-      );
-    } else {
-      let _ = writeln!(
-        html,
-        "    <dt>Example</dt><dd \
-         class=\"option-value\"><code>{safe}</code></dd>"
-      );
-    }
-  }
+fn longest_backtick_run(value: &str) -> usize {
+  value
+    .split(|character| character != '`')
+    .map(str::len)
+    .max()
+    .unwrap_or(0)
 }
 
 /// Build the `OpenGraph` HTML string, handling `og:image` local paths by

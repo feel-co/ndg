@@ -2,7 +2,6 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer};
-use serde_json::Value;
 use thiserror::Error;
 
 /// A complete `nixosOptionsDoc` JSON document keyed by option name.
@@ -25,20 +24,12 @@ pub struct NixOptionDocument {
   pub description: Option<DocumentationText>,
 
   /// Rendered default value.
-  #[serde(default, deserialize_with = "deserialize_present_value")]
-  pub default: Option<Value>,
-
-  /// Legacy textual default value.
-  #[serde(default, deserialize_with = "deserialize_present_value")]
-  pub default_text: Option<Value>,
+  #[serde(default, deserialize_with = "deserialize_documented_value")]
+  pub default: Option<DocumentedValue>,
 
   /// Rendered example value.
-  #[serde(default, deserialize_with = "deserialize_present_value")]
-  pub example: Option<Value>,
-
-  /// Legacy textual example value.
-  #[serde(default, deserialize_with = "deserialize_present_value")]
-  pub example_text: Option<Value>,
+  #[serde(default, deserialize_with = "deserialize_documented_value")]
+  pub example: Option<DocumentedValue>,
 
   /// Locations that declare the option.
   #[serde(default)]
@@ -49,7 +40,6 @@ pub struct NixOptionDocument {
   pub definitions: Vec<OptionLocation>,
 
   /// Option attribute path as separate components.
-  #[serde(default)]
   pub loc: Vec<String>,
 
   /// Whether the option is internal.
@@ -70,16 +60,7 @@ pub struct NixOptionDocument {
 
   /// Markdown links for packages related to this option.
   #[serde(default)]
-  pub related_packages: Option<DocumentationText>,
-}
-
-fn deserialize_present_value<'de, D>(
-  deserializer: D,
-) -> Result<Option<Value>, D::Error>
-where
-  D: Deserializer<'de>,
-{
-  Value::deserialize(deserializer).map(Some)
+  pub related_packages: Option<String>,
 }
 
 impl NixOptionDocument {
@@ -101,8 +82,8 @@ pub enum DocumentationText {
   /// Plain Markdown text.
   Plain(String),
 
-  /// Text wrapped by a Nix documentation literal helper.
-  Literal(LiteralText),
+  /// Markdown wrapped by `lib.mdDoc`.
+  Markdown(MarkdownDocumentation),
 }
 
 impl DocumentationText {
@@ -110,27 +91,64 @@ impl DocumentationText {
   #[must_use]
   pub fn text(&self) -> &str {
     match self {
-      Self::Plain(text) => text,
-      Self::Literal(literal) => &literal.text,
+      Self::Plain(text)
+      | Self::Markdown(MarkdownDocumentation::Markdown { text }) => text,
     }
   }
 
-  /// Return whether the text is explicitly marked as literal Markdown.
+  /// Return whether the text came from an explicit `mdDoc` wrapper.
   #[must_use]
-  pub fn is_literal_markdown(&self) -> bool {
-    matches!(self, Self::Literal(literal) if literal.kind == "literalMD")
+  pub const fn is_markdown_documentation(&self) -> bool {
+    matches!(self, Self::Markdown(_))
   }
 }
 
-/// Structured documentation literal produced by Nixpkgs helpers.
+/// Structured Markdown documentation produced by `lib.mdDoc`.
 #[derive(Debug, Clone, Deserialize)]
-pub struct LiteralText {
-  /// Literal helper name, such as `literalMD` or `literalExpression`.
-  #[serde(rename = "_type")]
-  pub kind: String,
+#[serde(
+  tag = "_type",
+  deny_unknown_fields,
+  expecting = "an mdDoc object with a string `text` field"
+)]
+pub enum MarkdownDocumentation {
+  /// Markdown documentation.
+  #[serde(rename = "mdDoc")]
+  Markdown {
+    /// Markdown contents.
+    text: String,
+  },
+}
 
-  /// Literal contents.
-  pub text: String,
+/// A rendered option value emitted by `nixosOptionsDoc`.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(
+  tag = "_type",
+  deny_unknown_fields,
+  expecting = "a literalExpression or literalMD object with a string `text` field"
+)]
+pub enum DocumentedValue {
+  /// Verbatim Nix source rendered as a Nix code block.
+  #[serde(rename = "literalExpression")]
+  LiteralExpression {
+    /// Nix expression source.
+    text: String,
+  },
+
+  /// Markdown rendered as documentation content.
+  #[serde(rename = "literalMD")]
+  LiteralMarkdown {
+    /// Markdown contents.
+    text: String,
+  },
+}
+
+fn deserialize_documented_value<'de, D>(
+  deserializer: D,
+) -> Result<Option<DocumentedValue>, D::Error>
+where
+  D: Deserializer<'de>,
+{
+  DocumentedValue::deserialize(deserializer).map(Some)
 }
 
 /// A declaration or definition location.
@@ -227,7 +245,7 @@ mod tests {
       {"name": "module.nix", "url": "https://example.test/module.nix"}
     ],
     "default": {"_type": "literalExpression", "text": "false"},
-    "description": {"_type": "literalMD", "text": "Enable **example**."},
+    "description": {"_type": "mdDoc", "text": "Enable **example**."},
     "example": {"_type": "literalExpression", "text": "true"},
     "loc": ["services", "example", "enable"],
     "readOnly": false,
@@ -244,32 +262,63 @@ mod tests {
     assert_eq!(option.type_name, "boolean");
     assert_eq!(option.declarations.len(), 2);
     assert_eq!(option.loc, ["services", "example", "enable"]);
-    assert!(
-      option
-        .description
-        .as_ref()
-        .is_some_and(DocumentationText::is_literal_markdown)
+    assert_eq!(
+      option.description.as_ref().map(DocumentationText::text),
+      Some("Enable **example**.")
     );
     assert_eq!(
       option
         .related_packages
-        .as_ref()
-        .map(DocumentationText::text),
+        .as_deref(),
       Some("- [`pkgs.example`](https://example.test)")
+    );
+    assert_eq!(
+      option.default,
+      Some(DocumentedValue::LiteralExpression {
+        text: "false".to_string()
+      })
     );
   }
 
   #[test]
-  fn test_options_parser_preserves_explicit_null_default() {
-    let input = r#"{"services.example.package":{"default":null,"type":"null or package"}}"#;
+  fn test_options_parser_accepts_normalized_null_default() {
+    let input = r#"{
+  "services.example.package": {
+    "default": {"_type": "literalExpression", "text": "null"},
+    "loc": ["services", "example", "package"],
+    "type": "null or package"
+  }
+}"#;
 
     let document = parse_options_json(input).expect("valid options JSON");
     let option = document
       .get("services.example.package")
       .expect("option entry");
 
-    assert_eq!(option.default, Some(Value::Null));
+    assert_eq!(
+      option.default,
+      Some(DocumentedValue::LiteralExpression {
+        text: "null".to_string()
+      })
+    );
     assert!(option.example.is_none());
+  }
+
+  #[test]
+  fn test_options_parser_rejects_json_null_default() {
+    let input = r#"{
+  "services.example.package": {
+    "default": null,
+    "loc": ["services", "example", "package"],
+    "type": "null or package"
+  }
+}"#;
+
+    let error = parse_options_json(input).expect_err("raw null default");
+    let message = error.to_string();
+
+    assert!(message.contains("services.example.package.default"));
+    assert!(message.contains("null"));
   }
 
   #[test]
@@ -293,7 +342,12 @@ mod tests {
 
   #[test]
   fn test_options_parser_rejects_missing_type() {
-    let input = r#"{"services.example.enable":{"readOnly":false}}"#;
+    let input = r#"{
+  "services.example.enable": {
+    "loc": ["services", "example", "enable"],
+    "readOnly": false
+  }
+}"#;
 
     let error = parse_options_json(input).expect_err("missing type");
     let message = error.to_string();
@@ -301,4 +355,71 @@ mod tests {
     assert!(message.contains("services.example.enable"));
     assert!(message.contains("type"));
   }
+
+  #[test]
+  fn test_options_parser_rejects_missing_loc() {
+    let input = r#"{"services.example.enable":{"type":"boolean"}}"#;
+
+    let error = parse_options_json(input).expect_err("missing loc");
+    let message = error.to_string();
+
+    assert!(message.contains("services.example.enable"));
+    assert!(message.contains("loc"));
+  }
+
+  #[test]
+  fn test_options_parser_rejects_unknown_documented_value_type() {
+    let input = r#"{
+  "services.example.enable": {
+    "default": {"_type": "literalDocBook", "text": "<literal>false</literal>"},
+    "loc": ["services", "example", "enable"],
+    "type": "boolean"
+  }
+}"#;
+
+    let error = parse_options_json(input).expect_err("unknown default type");
+    let message = error.to_string();
+
+    assert!(message.contains("services.example.enable.default"));
+    assert!(message.contains("literalDocBook"));
+    assert!(message.contains("literalExpression"));
+    assert!(message.contains("literalMD"));
+  }
+
+  #[test]
+  fn test_options_parser_rejects_documented_value_without_text() {
+    let input = r#"{
+  "services.example.enable": {
+    "example": {"_type": "literalExpression"},
+    "loc": ["services", "example", "enable"],
+    "type": "boolean"
+  }
+}"#;
+
+    let error = parse_options_json(input).expect_err("missing example text");
+    let message = error.to_string();
+
+    assert!(message.contains("services.example.enable.example"));
+    assert!(message.contains("text"));
+  }
+
+  #[test]
+  fn test_options_parser_rejects_raw_default_value() {
+    let input = r#"{
+  "services.example.enable": {
+    "default": false,
+    "loc": ["services", "example", "enable"],
+    "type": "boolean"
+  }
+}"#;
+
+    let error = parse_options_json(input).expect_err("raw default");
+    let message = error.to_string();
+
+    assert!(message.contains("services.example.enable.default"));
+    assert!(message.contains("boolean"));
+    assert!(message.contains("literalExpression"));
+    assert!(message.contains("literalMD"));
+  }
+
 }

@@ -25,7 +25,8 @@ fn test_search_widget_path_resolution() {
       "test.option": {
           "type": "string",
           "description": "A test option for search widget",
-          "default": "default"
+          "default": {"_type": "literalExpression", "text": "\"default\""},
+          "loc": ["test", "option"]
       }
   });
 
@@ -93,7 +94,8 @@ fn test_search_widget_at_root_level() {
       "root.option": {
           "type": "string",
           "description": "A root level option for search widget",
-          "default": "default"
+          "default": {"_type": "literalExpression", "text": "\"default\""},
+          "loc": ["root", "option"]
       }
   });
   fs::write(&options_file, options_data.to_string())

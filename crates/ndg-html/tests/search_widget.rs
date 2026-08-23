@@ -29,12 +29,14 @@ fn option_data() -> serde_json::Value {
       "hjem.users.<name>.clobberFiles": {
           "type": "boolean",
           "description": "Files to clobber when creating home directory",
-          "default": false
+          "default": {"_type": "literalExpression", "text": "false"},
+          "loc": ["hjem", "users", "<name>", "clobberFiles"]
       },
       "system.<config>.path": {
           "type": "string",
           "description": "System configuration path",
-          "default": "/etc/config"
+          "default": {"_type": "literalExpression", "text": "\"/etc/config\""},
+          "loc": ["system", "<config>", "path"]
       }
   })
 }
@@ -44,22 +46,26 @@ fn split_option_data() -> serde_json::Value {
       "enable": {
           "type": "boolean",
           "description": "Root option",
-          "default": false
+          "default": {"_type": "literalExpression", "text": "false"},
+          "loc": ["enable"]
       },
       "foo.bar.enable": {
           "type": "boolean",
           "description": "Enable foo bar",
-          "default": false
+          "default": {"_type": "literalExpression", "text": "false"},
+          "loc": ["foo", "bar", "enable"]
       },
       "foo.bar.package": {
           "type": "package",
           "description": "Foo bar package",
-          "default": null
+          "default": {"_type": "literalExpression", "text": "null"},
+          "loc": ["foo", "bar", "package"]
       },
       "foo.bar.baz.quz.enable": {
           "type": "boolean",
           "description": "Enable deep quz",
-          "default": true
+          "default": {"_type": "literalExpression", "text": "true"},
+          "loc": ["foo", "bar", "baz", "quz", "enable"]
       }
   })
 }

@@ -1,6 +1,5 @@
 pub mod assets;
 pub mod html;
-pub mod json;
 pub mod markdown;
 pub mod options;
 pub mod output;

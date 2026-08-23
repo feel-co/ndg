@@ -44,7 +44,11 @@ fn test_pdf_semantic_markdown_rendering() {
       "_type": "literalExpression",
       "text": "null"
     },
-    "exampleText": "`hjem.linker = pkgs.my-linker;`"
+    "example": {
+      "_type": "literalExpression",
+      "text": "hjem.linker = pkgs.my-linker;"
+    },
+    "loc": ["hjem", "linker"]
   }
 }
 "#;
@@ -78,6 +82,7 @@ fn test_pdf_stress_with_large_blocks() {
     r#"{{
   "services.massive": {{
     "type": "attrs",
+    "loc": ["services", "massive"],
     "description": ":::{{.warning}}\nLong warning block start.\n{}\n:::\n\n```nix\n{}\n```"
   }}
 }}"#,

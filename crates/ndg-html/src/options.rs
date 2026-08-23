@@ -3,10 +3,10 @@ use std::{fs, path::Path};
 use color_eyre::eyre::{Context, Result};
 use indexmap::IndexMap;
 use log::debug;
+use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
 use ndg_manpage::types::NixOption;
 use ndg_utils::{
-  json::extract_value,
   markdown::create_processor,
   options::{OptionLocation, parse_options_json},
   postprocess,
@@ -63,7 +63,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     let description = option_data.description.as_ref().map_or_else(
       String::new,
       |description| {
-        let markdown = if description.is_literal_markdown() {
+        let markdown = if description.is_markdown_documentation() {
           description.text().to_string()
         } else {
           escape_html_in_markdown(description.text())
@@ -71,14 +71,10 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
         processor.render(&markdown).html
       },
     );
-    let related_packages = option_data.related_packages.as_ref().map(|text| {
-      let markdown = if text.is_literal_markdown() {
-        text.text().to_string()
-      } else {
-        escape_html_in_markdown(text.text())
-      };
-      processor.render(&markdown).html
-    });
+    let related_packages = option_data
+      .related_packages
+      .as_ref()
+      .map(|text| processor.render(text).html);
 
     let internal = option_data.is_hidden();
     let read_only = option_data.read_only;
@@ -86,44 +82,14 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
       name: key.clone(),
       type_name: option_data.type_name,
       description,
+      default: option_data.default,
+      example: option_data.example,
       declared_in_url: option_data.declaration_url,
       related_packages,
       internal,
       read_only,
       ..Default::default()
     };
-
-    if let Some(default) = option_data.default {
-      if let Some(extracted_value) = extract_value(&default, true) {
-        option.default_text = Some(extracted_value);
-      } else {
-        option.default = Some(default);
-      }
-    }
-
-    if let Some(default_text) = option_data.default_text {
-      if let Some(extracted_value) = extract_value(&default_text, true) {
-        option.default_text = Some(extracted_value);
-      } else {
-        option.default = Some(default_text);
-      }
-    }
-
-    if let Some(example) = option_data.example {
-      if let Some(extracted_value) = extract_value(&example, true) {
-        option.example_text = Some(extracted_value);
-      } else {
-        option.example = Some(example);
-      }
-    }
-
-    if let Some(example_text) = option_data.example_text {
-      if let Some(extracted_value) = extract_value(&example_text, true) {
-        option.example_text = Some(extracted_value);
-      } else {
-        option.example = Some(example_text);
-      }
-    }
 
     if let Some(declaration) = option_data.declarations.first() {
       let (display, url) = format_location(declaration, &config.revision);
@@ -140,7 +106,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
       }
     }
 
-    let has_default = option.default.is_some() || option.default_text.is_some();
+    let has_default = option.default.is_some();
     let has_description = !description_text.trim().is_empty();
     if let Some(filter) = config
       .options
@@ -198,12 +164,18 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   let customized_options = sorted.into_iter().collect();
 
   if option_pages::pages_enabled(config) {
-    write_split_options(config, &customized_options, &input_order)?;
+    write_split_options(
+      config,
+      &customized_options,
+      &input_order,
+      &processor,
+    )?;
   } else {
     let html = template::render_options_with_order(
       config,
       &customized_options,
       Some(&input_order),
+      &processor,
     )?;
     write_options_html(config, "options.html", html)?;
   }
@@ -215,9 +187,11 @@ fn write_split_options(
   config: &Config,
   options: &IndexMap<String, NixOption>,
   input_order: &FxHashMap<String, usize>,
+  processor: &MarkdownProcessor,
 ) -> Result<()> {
   let page_set = option_pages::build_option_pages(config, options);
-  let index_html = option_page_render::render_options_index(config, &page_set)?;
+  let index_html =
+    option_page_render::render_options_index(config, &page_set, processor)?;
   write_options_html(config, "options.html", index_html)?;
 
   for page in &page_set.pages {
@@ -226,6 +200,7 @@ fn write_split_options(
       page,
       &page_set.pages,
       input_order,
+      processor,
     )?;
     write_options_html(config, &page.path, html)?;
   }

@@ -1,4 +1,9 @@
-use std::{fs, io::Write, path::Path, sync::LazyLock};
+use std::{
+  fs,
+  io::{self, Write},
+  path::Path,
+  sync::LazyLock,
+};
 
 use color_eyre::eyre::{Context, Result};
 use log::{error, info};
@@ -9,9 +14,8 @@ use ndg_commonmark::{
   utils::never_matching_regex,
 };
 use ndg_utils::{
-  json::extract_value,
   options::{
-    DocumentationText,
+    DocumentedValue,
     NixOptionDocument,
     OptionLocation,
     parse_options_json,
@@ -153,8 +157,7 @@ pub fn generate_manpage(
       .collect::<Vec<_>>(),
   );
 
-  // Sort options by name
-  options.sort_by(|a, b| a.name.cmp(&b.name));
+  options.sort_by(|left, right| left.name.cmp(&right.name));
 
   // Generate the manpage
   let manpage_title = title.unwrap_or("Module Options");
@@ -223,36 +226,12 @@ pub fn generate_manpage(
       process_raw_type(&option.type_name)
     )?;
 
-    // Default value if present
-    if let Some(default_text) = &option.default_text {
-      writeln!(file, ".sp")?;
-      writeln!(file, "\\fIDefault:\\fR {}", process_value(default_text))?;
-    } else if let Some(default_val) = &option.default {
-      writeln!(file, ".sp")?;
-      writeln!(
-        file,
-        "\\fIDefault:\\fR {}",
-        process_value(&default_val.to_string())
-      )?;
+    if let Some(default) = &option.default {
+      write_documented_value(&mut file, "Default", default)?;
     }
 
-    // Example if present
-    if let Some(example_text) = &option.example_text {
-      writeln!(file, ".sp")?;
-      writeln!(file, "\\fIExample:\\fR")?;
-      writeln!(file, ".sp")?;
-      writeln!(file, ".RS 4")?;
-      writeln!(file, ".nf")?;
-      writeln!(file, "{}", process_example(example_text))?;
-      writeln!(file, ".fi")?;
-      writeln!(file, ".RE")?;
-    } else if let Some(example_val) = &option.example {
-      writeln!(file, ".sp")?;
-      writeln!(
-        file,
-        "\\fIExample:\\fR {}",
-        process_value(&example_val.to_string())
-      )?;
+    if let Some(example) = &option.example {
+      write_documented_value(&mut file, "Example", example)?;
     }
 
     // Declaration source if available
@@ -319,6 +298,33 @@ fn process_raw_type(s: &str) -> String {
   s.replace("\\en\"", "\\en\\[u201D]")
 }
 
+fn write_documented_value(
+  file: &mut impl Write,
+  label: &str,
+  value: &DocumentedValue,
+) -> io::Result<()> {
+  writeln!(file, ".sp")?;
+  writeln!(file, "\\fI{label}:\\fR")?;
+
+  match value {
+    DocumentedValue::LiteralExpression { text } => {
+      writeln!(file, ".sp")?;
+      writeln!(file, ".RS 4")?;
+      writeln!(file, ".nf")?;
+      writeln!(file, "{}", process_literal_expression(text))?;
+      writeln!(file, ".fi")?;
+      writeln!(file, ".RE")
+    },
+    DocumentedValue::LiteralMarkdown { text } => {
+      writeln!(file, "{}", process_description(text))
+    },
+  }
+}
+
+fn process_literal_expression(text: &str) -> String {
+  escape_leading_dots(&man_escape(text))
+}
+
 /// Parse a single option from JSON data
 fn parse_option(key: &str, option_data: &NixOptionDocument) -> NixOption {
   let mut option = NixOption {
@@ -328,55 +334,17 @@ fn parse_option(key: &str, option_data: &NixOptionDocument) -> NixOption {
       .description
       .as_ref()
       .map_or_else(String::new, |text| text.text().to_string()),
-    default:          None,
-    default_text:     None,
-    example:          None,
-    example_text:     None,
+    default:          option_data.default.clone(),
+    example:          option_data.example.clone(),
     declared_in:      None,
     declared_in_url:  option_data.declaration_url.clone(),
     defined_in:       Vec::new(),
     related_packages: option_data
       .related_packages
-      .as_ref()
-      .map(DocumentationText::text)
-      .map(ToOwned::to_owned),
+      .clone(),
     internal:         option_data.is_hidden(),
     read_only:        option_data.read_only,
   };
-
-  // Handle default values
-  if let Some(default_val) = &option_data.default {
-    if let Some(extracted_value) = extract_value(default_val, false) {
-      option.default_text = Some(extracted_value);
-    } else {
-      option.default = Some(default_val.clone());
-    }
-  }
-
-  if let Some(default_text) = &option_data.default_text {
-    if let Some(extracted_value) = extract_value(default_text, false) {
-      option.default_text = Some(extracted_value);
-    } else {
-      option.default = Some(default_text.clone());
-    }
-  }
-
-  // Handle example values
-  if let Some(example_val) = &option_data.example {
-    if let Some(extracted_value) = extract_value(example_val, false) {
-      option.example_text = Some(extracted_value);
-    } else {
-      option.example = Some(example_val.clone());
-    }
-  }
-
-  if let Some(example_text) = &option_data.example_text {
-    if let Some(extracted_value) = extract_value(example_text, false) {
-      option.example_text = Some(extracted_value);
-    } else {
-      option.example = Some(example_text.clone());
-    }
-  }
 
   if let Some(location) = option_data.declarations.first() {
     let (display, url) = option_location(location);
@@ -701,61 +669,6 @@ fn process_inline_code(text: &str) -> String {
       .replace("<code>", "\\fR\\(oq")
       .replace("</code>", "\\(cq\\fP")
   })
-}
-
-/// Process option values (for defaults and examples)
-fn process_value(text: &str) -> String {
-  // Pre-check for troff formatting codes to preserve them
-  let text = preserve_existing_formatting(text);
-
-  // Process roles and inline code in values
-  let with_roles = process_roles(&text);
-  let with_code = process_inline_code(&with_roles);
-
-  // Strip any residual HTML wrappers from renderer
-  let without_wrappers = with_code
-    .replace("<html><head></head><body>", "")
-    .replace("</body></html>", "")
-    .replace("<html>", "")
-    .replace("</html>", "")
-    .replace("<body>", "")
-    .replace("</body>", "")
-    .replace("<p>", "")
-    .replace("</p>", "");
-
-  // Restore formatting codes
-  let with_formatting_restored = restore_formatting(&without_wrappers);
-
-  // Escape any troff special characters and ensure leading dots are safe
-  escape_leading_dots(&selective_man_escape(&with_formatting_restored))
-}
-
-/// Process example text for troff format
-fn process_example(text: &str) -> String {
-  // Pre-check for troff formatting codes to preserve them
-  let text = preserve_existing_formatting(text);
-
-  // Process roles, prompts, and code in example text
-  let with_roles = process_roles(&text);
-  let with_prompts = process_command_prompts(&with_roles);
-  let with_repl = process_repl_prompts(&with_prompts);
-
-  // Strip any residual HTML wrappers
-  let without_wrappers = with_repl
-    .replace("<html><head></head><body>", "")
-    .replace("</body></html>", "")
-    .replace("<html>", "")
-    .replace("</html>", "")
-    .replace("<body>", "")
-    .replace("</body>", "")
-    .replace("<p>", "")
-    .replace("</p>", "");
-
-  // Restore formatting codes
-  let with_formatting_restored = restore_formatting(&without_wrappers);
-
-  // Return the processed example
-  escape_leading_dots(&selective_man_escape(&with_formatting_restored))
 }
 
 /// Ensure no leading dots in any line of text

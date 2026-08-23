@@ -1,4 +1,4 @@
-use serde_json::Value;
+use ndg_utils::options::DocumentedValue;
 
 /// Represents a NixOS configuration option.
 ///
@@ -17,17 +17,11 @@ pub struct NixOption {
   /// Option description
   pub description: String,
 
-  /// Option default value (JSON)
-  pub default: Option<Value>,
+  /// Option default value.
+  pub default: Option<DocumentedValue>,
 
-  /// Option default value as text
-  pub default_text: Option<String>,
-
-  /// Option example value (JSON)
-  pub example: Option<Value>,
-
-  /// Option example value as text
-  pub example_text: Option<String>,
+  /// Option example value.
+  pub example: Option<DocumentedValue>,
 
   /// Path to the file where the option is declared
   pub declared_in: Option<String>,

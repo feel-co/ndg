@@ -7,9 +7,10 @@ use std::{
 use color_eyre::eyre::{Context, Result};
 use html_escape::decode_html_entities;
 use ndg_commonmark::{MarkdownProcessor, ProcessorPreset, create_processor};
-use ndg_utils::{
-  json::extract_value,
-  options::{DocumentationText, parse_options_json},
+use ndg_utils::options::{
+  DocumentedValue,
+  DocumentationText,
+  parse_options_json,
 };
 use printpdf::{
   BuiltinFont,
@@ -31,7 +32,6 @@ use printpdf::{
   WindingOrder,
 };
 use rustc_hash::FxHashMap;
-use serde_json::Value;
 
 /// Generate a PDF document from Nix module options JSON.
 ///
@@ -68,7 +68,7 @@ pub fn generate_pdf(
   );
 
   let mut entries: Vec<_> = options_data.into_iter().collect();
-  entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+  entries.sort_unstable_by(|(name_a, _), (name_b, _)| name_a.cmp(name_b));
 
   let mut blocks = vec![
     Block::Heading {
@@ -93,12 +93,6 @@ pub fn generate_pdf(
       content: vec![Inline::Text(name)],
     });
 
-    push_labeled_blocks(
-      &mut blocks,
-      "Type",
-      parse_markdown_blocks(&option_data.type_name),
-    );
-
     if let Some(description) = option_data
       .description
       .as_ref()
@@ -111,25 +105,25 @@ pub fn generate_pdf(
       );
     }
 
-    if let Some(default_text) = extract_option_value(
-      option_data.default_text.as_ref(),
-      option_data.default.as_ref(),
-    ) {
+    push_labeled_blocks(
+      &mut blocks,
+      "Type",
+      parse_markdown_blocks(&option_data.type_name),
+    );
+
+    if let Some(default) = option_data.default.as_ref() {
       push_labeled_blocks(
         &mut blocks,
         "Default",
-        parse_markdown_blocks(&default_text),
+        documented_value_blocks(default),
       );
     }
 
-    if let Some(example_text) = extract_option_value(
-      option_data.example_text.as_ref(),
-      option_data.example.as_ref(),
-    ) {
+    if let Some(example) = option_data.example.as_ref() {
       push_labeled_blocks(
         &mut blocks,
         "Example",
-        parse_markdown_blocks(&example_text),
+        documented_value_blocks(example),
       );
     }
 
@@ -163,37 +157,13 @@ fn push_labeled_blocks(
   blocks.extend(body);
 }
 
-fn extract_option_value(
-  preferred: Option<&Value>,
-  fallback: Option<&Value>,
-) -> Option<String> {
-  if let Some(preferred) = preferred
-    && let Some(text) = extract_value(preferred, false)
-  {
-    return Some(text);
+fn documented_value_blocks(value: &DocumentedValue) -> Vec<Block> {
+  match value {
+    DocumentedValue::LiteralExpression { text } => {
+      vec![Block::FencedCode(text.clone())]
+    },
+    DocumentedValue::LiteralMarkdown { text } => parse_markdown_blocks(text),
   }
-
-  let value = fallback?;
-
-  // literalExpression values are Nix code and must be shown as code blocks,
-  // matching the block-level treatment in the HTML renderer.
-  if let Value::Object(obj) = value {
-    match obj.get("_type").and_then(Value::as_str) {
-      Some("literalExpression") => {
-        let text = obj.get("text").and_then(Value::as_str).unwrap_or("");
-        return Some(format!("```\n{text}\n```"));
-      },
-      Some("literalMD") => {
-        return obj
-          .get("text")
-          .and_then(Value::as_str)
-          .map(ToOwned::to_owned);
-      },
-      _ => {},
-    }
-  }
-
-  extract_value(value, false)
 }
 
 fn blank_paragraph() -> Block {

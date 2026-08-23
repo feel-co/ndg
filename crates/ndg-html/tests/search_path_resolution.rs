@@ -34,7 +34,8 @@ fn test_search_path_resolution_from_subdirectory() {
       "test.option": {
           "type": "string",
           "description": "A test option",
-          "default": "default"
+          "default": {"_type": "literalExpression", "text": "\"default\""},
+          "loc": ["test", "option"]
       }
   });
   fs::write(&options_file, options_data.to_string())
@@ -86,7 +87,8 @@ fn test_search_path_resolution_from_root() {
       "root.option": {
           "type": "string",
           "description": "A root level option",
-          "default": "default"
+          "default": {"_type": "literalExpression", "text": "\"default\""},
+          "loc": ["root", "option"]
       }
   });
   fs::write(&options_file, options_data.to_string())

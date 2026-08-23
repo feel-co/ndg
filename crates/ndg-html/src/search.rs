@@ -236,8 +236,7 @@ pub fn generate_search_index(
         .description
         .as_ref()
         .map_or_else(String::new, |text| text.text().to_string());
-      let has_default =
-        option_value.default.is_some() || option_value.default_text.is_some();
+      let has_default = option_value.default.is_some();
       let has_description = !raw_description.trim().is_empty();
       let internal = option_value.is_hidden();
 
