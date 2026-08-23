@@ -331,8 +331,11 @@ fn custom_option_order_uses_the_lowest_position_in_each_group() {
 fn filesystem_option_order_uses_json_order() {
   let temp = TempDir::new().expect("create temp dir");
   let options_path = temp.path().join("options.json");
-  fs::write(&options_path, r#"{"rum.zeta": {}, "rum.alpha": {}}"#)
-    .expect("write options");
+  fs::write(
+    &options_path,
+    r#"{"rum.zeta":{"type":"unspecified"},"rum.alpha":{"type":"unspecified"}}"#,
+  )
+  .expect("write options");
 
   let mut config = minimal_config();
   config.output_dir = temp.path().join("output");
@@ -357,6 +360,59 @@ fn filesystem_option_order_uses_json_order() {
   let alpha_body = html.find("id=\"option-rum.alpha\"").expect("alpha body");
   let zeta_body = html.find("id=\"option-rum.zeta\"").expect("zeta body");
   assert!(alpha_body < zeta_body);
+}
+
+#[test]
+fn process_options_renders_related_packages_from_nixos_options_doc() {
+  let temp = TempDir::new().expect("create temp dir");
+  let options_path = temp.path().join("options.json");
+  fs::write(
+    &options_path,
+    r#"{
+  "services.example.enable": {
+    "type": "boolean",
+    "description": "Whether to enable example.",
+    "relatedPackages": "- [`pkgs.example`](https://example.test/package)"
+  }
+}"#,
+  )
+  .expect("write options");
+
+  let mut config = minimal_config();
+  config.output_dir = temp.path().join("output");
+  process_options(&config, &options_path).expect("process options");
+
+  let html = fs::read_to_string(config.output_dir.join("options.html"))
+    .expect("read options page");
+  assert!(html.contains("Related packages"));
+  assert!(html.contains("pkgs.example"));
+  assert!(html.contains("https://example.test/package"));
+}
+
+#[test]
+fn process_options_reports_invalid_field_path() {
+  let temp = TempDir::new().expect("create temp dir");
+  let options_path = temp.path().join("options.json");
+  fs::write(
+    &options_path,
+    r#"{
+  "services.example.enable": {
+    "type": "boolean",
+    "readOnly": "sometimes"
+  }
+}"#,
+  )
+  .expect("write options");
+
+  let mut config = minimal_config();
+  config.output_dir = temp.path().join("output");
+  let error =
+    process_options(&config, &options_path).expect_err("invalid options JSON");
+  let message = format!("{error:#}");
+
+  assert!(message.contains(&options_path.display().to_string()));
+  assert!(message.contains("services.example.enable"));
+  assert!(message.contains("readOnly"));
 }
 
 #[test]
@@ -1643,11 +1699,8 @@ fn render_options_type_name_is_html_escaped() {
   );
 }
 
-// `declared_in` is the human-readable path shown in the "Declared in:" line.
-// It is rendered as text content inside `<code>`, so angle brackets and
-// ampersands must be preserved as-is.
 #[test]
-fn render_options_declared_in_preserves_angle_brackets() {
+fn render_options_declared_in_escapes_angle_brackets() {
   let mut config = minimal_config();
   config.module_options = Some("dummy.json".into());
   let mut options = IndexMap::new();
@@ -1661,12 +1714,12 @@ fn render_options_declared_in_preserves_angle_brackets() {
   let html = template::render_options(&config, &options).expect("render");
 
   assert!(
-    html.contains("<modules>"),
-    "raw '<modules>' must appear in declared_in output"
+    !html.contains("<modules>"),
+    "raw '<modules>' must not become an HTML element"
   );
   assert!(
-    !html.contains("&lt;modules&gt;"),
-    "angle brackets in declared_in must not be escaped"
+    html.contains("&lt;modules&gt;"),
+    "angle brackets in declared_in must render as text"
   );
 }
 
@@ -1730,11 +1783,12 @@ fn render_options_mkoption_parity() {
 
   // 4. Declared in with hyperlink
   assert!(
-    html.contains("Declared in:"),
-    "must show 'Declared in' label"
+    html.contains(">Declared in</span>"),
+    "must show the 'Declared in' label"
   );
   assert!(
-    html.contains("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix"),
+    html
+      .contains("&lt;nixpkgs&gt;/nixos/modules/services/web-servers/nginx.nix"),
     "declared_in path must be present"
   );
 
@@ -1745,11 +1799,14 @@ fn render_options_mkoption_parity() {
     "defined_in must use unordered list"
   );
   assert!(
-    html.contains("<nixpkgs>/nixos/modules/services/web-servers/nginx.nix"),
+    html
+      .contains("&lt;nixpkgs&gt;/nixos/modules/services/web-servers/nginx.nix"),
     "first defined_in entry must be present"
   );
   assert!(
-    html.contains("<nixpkgs>/nixos/modules/services/web-servers/default.nix"),
+    html.contains(
+      "&lt;nixpkgs&gt;/nixos/modules/services/web-servers/default.nix"
+    ),
     "second defined_in entry must be present"
   );
 

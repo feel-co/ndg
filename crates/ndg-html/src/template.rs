@@ -1201,9 +1201,9 @@ fn render_nav_item(output: &mut String, item: &NavItem) {
   let path = encode_double_quoted_attribute(&item.path);
   let title = encode_text(&item.title);
   if let Some(num) = item.number {
-    let _ = writeln!(output, "<li><a href=\"{path}\">{num}. {title}</a></li>",);
+    let _ = writeln!(output, "<li><a href=\"{path}\">{num}. {title}</a></li>");
   } else {
-    let _ = writeln!(output, "<li><a href=\"{path}\">{title}</a></li>",);
+    let _ = writeln!(output, "<li><a href=\"{path}\">{title}</a></li>");
   }
 }
 
@@ -1764,8 +1764,9 @@ pub(crate) fn generate_options_html(
     let _ = write!(
       options_html,
       "  <h3 class=\"option-name\">\n    <a href=\"#{}\" \
-       class=\"option-anchor\">{}</a>\n    <span class=\"copy-link\" \
-       title=\"Copy link to this option\"></span>\n    <span \
+       class=\"option-anchor\">{}</a>\n    <button type=\"button\" \
+       class=\"copy-link\" aria-label=\"Copy link to this option\" \
+       title=\"Copy link to this option\"></button>\n    <span \
        class=\"copy-feedback\">Link copied!</span>\n  </h3>\n",
       option_id,
       encode_text(&option.name)
@@ -1774,10 +1775,10 @@ pub(crate) fn generate_options_html(
     // Option metadata (internal/readOnly)
     let mut metadata = Vec::new();
     if option.internal {
-      metadata.push("internal");
+      metadata.push("<span class=\"option-badge\">internal</span>");
     }
     if option.read_only {
-      metadata.push("read-only");
+      metadata.push("<span class=\"option-badge\">read-only</span>");
     }
 
     if !metadata.is_empty() {
@@ -1785,14 +1786,15 @@ pub(crate) fn generate_options_html(
       let _ = writeln!(
         options_html,
         "  <div class=\"option-metadata\">{}</div>",
-        metadata.join(", ")
+        metadata.join("")
       );
     }
 
     // Option type
     let _ = writeln!(
       options_html,
-      "  <div class=\"option-type\">Type: <code>{}</code></div>",
+      "  <dl class=\"option-facts\"><div \
+       class=\"option-type\"><dt>Type</dt><dd><code>{}</code></dd></div></dl>",
       encode_text(&option.type_name)
     );
 
@@ -1814,17 +1816,21 @@ pub(crate) fn generate_options_html(
       // Writing to String is infallible
       if let Some(url) = &option.declared_in_url {
         let safe_url = html_escape::encode_double_quoted_attribute(url);
+        let safe_display = encode_text(declared_in);
         let _ = writeln!(
           options_html,
-          "  <div class=\"option-declared\">Declared in: <code><a \
-           href=\"{safe_url}\" \
-           target=\"_blank\">{declared_in}</a></code></div>"
+          "  <div class=\"option-declared\"><span \
+           class=\"option-label\">Declared in</span><code><a \
+           href=\"{safe_url}\" target=\"_blank\" rel=\"noopener \
+           noreferrer\">{safe_display}</a></code></div>"
         );
       } else {
+        let safe_display = encode_text(declared_in);
         let _ = writeln!(
           options_html,
-          "  <div class=\"option-declared\">Declared in: \
-           <code>{declared_in}</code></div>"
+          "  <div class=\"option-declared\"><span \
+           class=\"option-label\">Declared \
+           in</span><code>{safe_display}</code></div>"
         );
       }
     }
@@ -1837,18 +1843,29 @@ pub(crate) fn generate_options_html(
       );
       let _ = writeln!(options_html, "  <ul class=\"option-defined-list\">");
       for (display, url) in &option.defined_in {
+        let safe_display = encode_text(display);
         if let Some(url) = url {
           let safe_url = html_escape::encode_double_quoted_attribute(url);
           let _ = writeln!(
             options_html,
-            "    <li><code><a href=\"{safe_url}\" \
-             target=\"_blank\">{display}</a></code></li>"
+            "    <li><code><a href=\"{safe_url}\" target=\"_blank\" \
+             rel=\"noopener noreferrer\">{safe_display}</a></code></li>"
           );
         } else {
-          let _ = writeln!(options_html, "    <li><code>{display}</code></li>");
+          let _ =
+            writeln!(options_html, "    <li><code>{safe_display}</code></li>");
         }
       }
       let _ = writeln!(options_html, "  </ul>");
+    }
+
+    if let Some(related_packages) = &option.related_packages {
+      let _ = writeln!(
+        options_html,
+        "  <section class=\"option-related\"><div \
+         class=\"option-related-title\">Related \
+         packages</div>{related_packages}</section>"
+      );
     }
 
     // Close option div
@@ -1874,13 +1891,15 @@ fn add_default_value(html: &mut String, option: &NixOption) {
     // Writing to String is infallible
     let _ = writeln!(
       html,
-      "  <div class=\"option-default\">Default: <code>{}</code></div>",
+      "  <div class=\"option-default\"><span \
+       class=\"option-label\">Default</span><code>{}</code></div>",
       html_escape::encode_text(clean_default)
     );
   } else if let Some(default_val) = &option.default {
     let _ = writeln!(
       html,
-      "  <div class=\"option-default\">Default: <code>{}</code></div>",
+      "  <div class=\"option-default\"><span \
+       class=\"option-label\">Default</span><code>{}</code></div>",
       html_escape::encode_text(&default_val.to_string()),
     );
   }
@@ -1905,13 +1924,15 @@ fn add_example_value(html: &mut String, option: &NixOption) {
     if inner.contains('\n') {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\">Example: \
-         <pre><code>{safe}</code></pre></div>"
+        "  <div class=\"option-example\"><span \
+         class=\"option-label\">Example</span><pre><code>{safe}</code></pre></\
+         div>"
       );
     } else {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\">Example: <code>{safe}</code></div>"
+        "  <div class=\"option-example\"><span \
+         class=\"option-label\">Example</span><code>{safe}</code></div>"
       );
     }
   } else if let Some(example_val) = &option.example {
@@ -1920,13 +1941,15 @@ fn add_example_value(html: &mut String, option: &NixOption) {
     if example_str.contains('\n') {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\">Example: \
-         <pre><code>{safe}</code></pre></div>"
+        "  <div class=\"option-example\"><span \
+         class=\"option-label\">Example</span><pre><code>{safe}</code></pre></\
+         div>"
       );
     } else {
       let _ = writeln!(
         html,
-        "  <div class=\"option-example\">Example: <code>{safe}</code></div>"
+        "  <div class=\"option-example\"><span \
+         class=\"option-label\">Example</span><code>{safe}</code></div>"
       );
     }
   }
