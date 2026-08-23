@@ -65,8 +65,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -101,7 +101,7 @@
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 36px;
+  min-height: 44px;
   box-sizing: border-box;
   padding: 0 var(--space-3);
   border: 1px solid transparent;
@@ -132,6 +132,30 @@
   padding: var(--space-3) var(--space-4) var(--space-6);
 }
 
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li {
+  margin-bottom: var(--space-1);
+}
+
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li > a {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li > a:hover,
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li > a.active {
+  background-color: var(--sidebar-hover);
+  color: var(--link-color);
+}
+
 body.mobile-sidebar-open {
   overflow: hidden;
 }
@@ -146,12 +170,12 @@ body.mobile-sidebar-open {
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: var(--bg-surface);
     color: var(--header-text);
     font: inherit;
     cursor: pointer;
@@ -161,13 +185,13 @@ body.mobile-sidebar-open {
   }
 
   .mobile-sidebar-toggle:hover {
-    background-color: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.2);
+    background-color: var(--sidebar-hover);
+    border-color: var(--border-strong);
   }
 
   .mobile-sidebar-toggle[aria-expanded="true"] {
-    background-color: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.26);
+    background-color: var(--sidebar-active);
+    border-color: var(--border-strong);
   }
 
   .no-js .mobile-sidebar-container {
@@ -177,5 +201,12 @@ body.mobile-sidebar-open {
   .no-js .mobile-sidebar-toggle,
   .no-js .mobile-sidebar-backdrop {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-sidebar-backdrop,
+  .mobile-sidebar-container {
+    transition: none;
   }
 }

@@ -33,20 +33,10 @@ function createMobileElements() {
     </svg>
   `;
 
-  function updateMobileToggleVisibility() {
-    const header = document.querySelector("header");
-    if (window.innerWidth > 800) {
-      if (mobileToggle.parentNode) {
-        mobileToggle.parentNode.removeChild(mobileToggle);
-      }
-    } else {
-      if (header && !header.contains(mobileToggle)) {
-        header.insertBefore(mobileToggle, header.firstChild);
-      }
-    }
+  const header = document.querySelector("header");
+  if (header) {
+    header.insertBefore(mobileToggle, header.firstChild);
   }
-  updateMobileToggleVisibility();
-  window.addEventListener("resize", updateMobileToggleVisibility);
 
   const mobileBackdrop = document.createElement("div");
   mobileBackdrop.className = "mobile-sidebar-backdrop";
@@ -59,6 +49,7 @@ function createMobileElements() {
   mobileContainer.setAttribute("aria-modal", "true");
   mobileContainer.setAttribute("aria-labelledby", "mobile-sidebar-title");
   mobileContainer.setAttribute("aria-hidden", "true");
+  mobileContainer.inert = true;
   mobileContainer.innerHTML = `
     <div class="mobile-sidebar-header">
       <h2 id="mobile-sidebar-title">Menu</h2>
@@ -275,6 +266,7 @@ function initMobileNavigation() {
     return;
 
   const openMobileSidebar = () => {
+    mobileSidebarContainer.inert = false;
     mobileSidebarContainer.classList.add("active");
     mobileSidebarBackdrop.hidden = false;
     mobileSidebarBackdrop.classList.add("active");
@@ -284,12 +276,16 @@ function initMobileNavigation() {
     mobileSidebarClose?.focus();
   };
 
-  const closeMobileSidebar = () => {
+  const closeMobileSidebar = (restoreFocus = true) => {
     mobileSidebarContainer.classList.remove("active");
     mobileSidebarBackdrop.classList.remove("active");
     mobileSidebarToggle.setAttribute("aria-expanded", "false");
     mobileSidebarContainer.setAttribute("aria-hidden", "true");
+    mobileSidebarContainer.inert = true;
     document.body.classList.remove("mobile-sidebar-open");
+    if (restoreFocus) {
+      mobileSidebarToggle.focus();
+    }
     setTimeout(() => {
       if (!mobileSidebarBackdrop.classList.contains("active")) {
         mobileSidebarBackdrop.hidden = true;
@@ -306,24 +302,160 @@ function initMobileNavigation() {
     }
   });
 
-  mobileSidebarBackdrop.addEventListener("click", closeMobileSidebar);
-  mobileSidebarClose?.addEventListener("click", closeMobileSidebar);
+  mobileSidebarBackdrop.addEventListener("click", () => closeMobileSidebar());
+  mobileSidebarClose?.addEventListener("click", () => closeMobileSidebar());
   mobileSidebarLinks.forEach((link) => {
-    link.addEventListener("click", closeMobileSidebar);
+    link.addEventListener("click", () => closeMobileSidebar(false));
   });
   window.addEventListener("resize", () => {
     if (window.innerWidth > 800) {
-      closeMobileSidebar();
+      closeMobileSidebar(false);
     }
   });
 
   document.addEventListener("keydown", (event) => {
-    if (
-      event.key === "Escape" &&
-      mobileSidebarContainer.classList.contains("active")
-    ) {
+    if (!mobileSidebarContainer.classList.contains("active")) return;
+
+    if (event.key === "Escape") {
+      event.preventDefault();
       closeMobileSidebar();
+      return;
     }
+
+    if (event.key !== "Tab") return;
+
+    const focusable = Array.from(
+      mobileSidebarContainer.querySelectorAll(
+        'a[href], button:not([disabled]), summary, input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => element.getClientRects().length > 0);
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+}
+
+function isEditableTarget(target) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  );
+}
+
+function setupGlobalShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key !== "/" ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      isEditableTarget(event.target)
+    ) {
+      return;
+    }
+
+    const input =
+      document.getElementById("options-filter") ??
+      document.getElementById("search-page-input") ??
+      document.getElementById("search-input");
+    if (!input) return;
+
+    event.preventDefault();
+    input.focus();
+  });
+}
+
+function setupNavbarKeyboardNavigation() {
+  document.querySelectorAll(".header-nav").forEach((nav) => {
+    nav.addEventListener("keydown", (event) => {
+      if (!(event.target instanceof HTMLAnchorElement)) return;
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        return;
+      }
+
+      const links = Array.from(nav.querySelectorAll("a[href]"));
+      const currentIndex = links.indexOf(event.target);
+      if (currentIndex < 0 || links.length === 0) return;
+
+      event.preventDefault();
+      let nextIndex = currentIndex;
+      if (event.key === "ArrowLeft") {
+        nextIndex = (currentIndex - 1 + links.length) % links.length;
+      } else if (event.key === "ArrowRight") {
+        nextIndex = (currentIndex + 1) % links.length;
+      } else if (event.key === "Home") {
+        nextIndex = 0;
+      } else if (event.key === "End") {
+        nextIndex = links.length - 1;
+      }
+      links[nextIndex].focus();
+    });
+  });
+}
+
+function setupOptionKeyboardNavigation() {
+  const input = document.getElementById("options-filter");
+  const container = document.querySelector(
+    ".options-index-list, .options-container",
+  );
+  if (!input || !container) return;
+
+  const optionLinks = () =>
+    Array.from(
+      container.querySelectorAll(".option .option-anchor, .option-page-row"),
+    );
+  const focusOption = (link) => {
+    link.focus({ preventScroll: true });
+    link
+      .closest(".option, .option-page-row")
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  };
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown") return;
+    const first = optionLinks()[0];
+    if (!first) return;
+    event.preventDefault();
+    focusOption(first);
+  });
+
+  container.addEventListener("keydown", (event) => {
+    if (!(event.target instanceof HTMLAnchorElement)) return;
+    if (!["ArrowUp", "ArrowDown", "Home", "End", "Escape"].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    if (event.key === "Escape") {
+      input.focus();
+      return;
+    }
+
+    const links = optionLinks();
+    const currentIndex = links.indexOf(event.target);
+    if (currentIndex < 0 || links.length === 0) return;
+
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowUp") {
+      nextIndex = Math.max(0, currentIndex - 1);
+    } else if (event.key === "ArrowDown") {
+      nextIndex = Math.min(links.length - 1, currentIndex + 1);
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = links.length - 1;
+    }
+
+    focusOption(links[nextIndex]);
   });
 }
 
@@ -550,6 +682,8 @@ document.addEventListener("DOMContentLoaded", function () {
     createMobileElements();
   }
   initMobileNavigation();
+  setupGlobalShortcuts();
+  setupNavbarKeyboardNavigation();
 
   // Initialize scroll spy for page TOC
   initScrollSpy();
@@ -606,6 +740,17 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   if (sidebarToggle) {
+    const syncSidebarToggle = () => {
+      const isCollapsed =
+        document.documentElement.classList.contains("sidebar-collapsed");
+      sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
+      sidebarToggle.setAttribute(
+        "aria-label",
+        isCollapsed ? "Expand sidebar" : "Collapse sidebar",
+      );
+    };
+    syncSidebarToggle();
+
     sidebarToggle.addEventListener("click", function () {
       // Toggle on both elements for consistency
       document.documentElement.classList.toggle("sidebar-collapsed");
@@ -614,6 +759,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Use documentElement to check state and save to localStorage
       const isCollapsed =
         document.documentElement.classList.contains("sidebar-collapsed");
+      syncSidebarToggle();
       try {
         localStorage.setItem("sidebar-collapsed", isCollapsed);
       } catch {
@@ -769,6 +915,7 @@ document.addEventListener("DOMContentLoaded", function () {
     nameSelector: optionsIndexList ? ".option-page-title" : ".option-name",
     noun: optionsIndexList ? "option groups" : "options",
   });
+  setupOptionKeyboardNavigation();
 
   setupListFilter({
     inputId: "lib-filter",

@@ -47,7 +47,7 @@
         </div>
         {{ navbar_html|safe }} {% if generate_search %}
         <div class="search-container js-only">
-          <input type="text" id="search-input" aria-label="Search" placeholder="Search..." />
+          <input type="text" id="search-input" aria-label="Search" placeholder="Search..." autocomplete="off" />
           <div id="search-results" class="search-results"></div>
         </div>
         {% endif %}
@@ -57,11 +57,12 @@
         <button
           type="button"
           class="sidebar-toggle js-only"
-          aria-label="Toggle sidebar"
+          aria-label="Collapse sidebar"
           aria-expanded="true"
           aria-controls="sidebar"
         >
           <svg
+            aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             width="24"
