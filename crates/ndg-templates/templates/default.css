@@ -335,6 +335,17 @@ header {
   flex: 1;
 }
 
+.js .layout {
+  box-sizing: border-box;
+  padding-left: 300px;
+  transition: padding-left var(--transition);
+}
+
+.sidebar-collapsed .layout,
+.sidebar-collapsed-init .layout {
+  padding-left: 0;
+}
+
 .no-js .js-only {
   display: none !important;
 }
@@ -1576,6 +1587,11 @@ h6:hover .copy-link {
 
   .layout {
     display: block !important;
+    padding-left: 0 !important;
+  }
+
+  .option {
+    content-visibility: visible;
   }
 
   body {
@@ -1780,6 +1796,8 @@ h6:hover .copy-link {
 }
 
 .option {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 20rem;
   scroll-margin-top: 80px;
   padding: var(--space-6);
   border: 1px solid var(--border-color);
@@ -1792,6 +1810,10 @@ h6:hover .copy-link {
     box-shadow var(--transition-fast);
   box-shadow: var(--shadow-sm);
   min-width: 0;
+}
+
+.options-container.options-revealed .option {
+  content-visibility: visible;
 }
 
 @media (hover: hover) {

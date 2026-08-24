@@ -82,23 +82,6 @@ function createMobileElements() {
   document.body.appendChild(mobileBackdrop);
   document.body.appendChild(mobileContainer);
   document.body.appendChild(mobileSearchPopup);
-
-  // Immediately populate mobile sidebar content if desktop sidebar exists
-  const desktopSidebar = document.querySelector(".sidebar");
-  const mobileSidebarContent = mobileContainer.querySelector(
-    ".mobile-sidebar-content",
-  );
-  if (desktopSidebar && mobileSidebarContent) {
-    mobileSidebarContent.innerHTML = desktopSidebar.innerHTML;
-  }
-
-  const headerNav = document.querySelector(".header-nav ul");
-  const mobileSiteNav = mobileContainer.querySelector(
-    ".mobile-sidebar-site-nav",
-  );
-  if (headerNav && mobileSiteNav) {
-    mobileSiteNav.innerHTML = headerNav.outerHTML;
-  }
 }
 
 // Highlight search terms on target pages
@@ -260,12 +243,12 @@ function initMobileNavigation() {
     ".mobile-sidebar-backdrop",
   );
   const mobileSidebarClose = document.querySelector(".mobile-sidebar-close");
-  const mobileSidebarLinks = mobileSidebarContainer?.querySelectorAll("a") ?? [];
 
   if (!mobileSidebarToggle || !mobileSidebarContainer || !mobileSidebarBackdrop)
     return;
 
   const openMobileSidebar = () => {
+    refreshMobileNavigation();
     mobileSidebarContainer.inert = false;
     mobileSidebarContainer.classList.add("active");
     mobileSidebarBackdrop.hidden = false;
@@ -304,8 +287,10 @@ function initMobileNavigation() {
 
   mobileSidebarBackdrop.addEventListener("click", () => closeMobileSidebar());
   mobileSidebarClose?.addEventListener("click", () => closeMobileSidebar());
-  mobileSidebarLinks.forEach((link) => {
-    link.addEventListener("click", () => closeMobileSidebar(false));
+  mobileSidebarContainer.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("a")) {
+      closeMobileSidebar(false);
+    }
   });
   window.addEventListener("resize", () => {
     if (window.innerWidth > 800) {
@@ -430,7 +415,9 @@ function setupOptionKeyboardNavigation() {
 
   container.addEventListener("keydown", (event) => {
     if (!(event.target instanceof HTMLAnchorElement)) return;
-    if (!["ArrowUp", "ArrowDown", "Home", "End", "Escape"].includes(event.key)) {
+    if (
+      !["ArrowUp", "ArrowDown", "Home", "End", "Escape"].includes(event.key)
+    ) {
       return;
     }
 
@@ -459,9 +446,30 @@ function setupOptionKeyboardNavigation() {
   });
 }
 
-function setupOptionTocNavigation() {
-  if (!document.body.classList.contains("options-page")) return;
+let optionScrollRequest = 0;
 
+function scrollToOption(element) {
+  const request = ++optionScrollRequest;
+  const container = element?.closest(".options-container");
+  container?.classList.add("options-revealed");
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (request !== optionScrollRequest || !element?.isConnected) return;
+      element.scrollIntoView({
+        behavior: "instant",
+        block: "start",
+      });
+      requestAnimationFrame(() => {
+        if (request === optionScrollRequest) {
+          container?.classList.remove("options-revealed");
+        }
+      });
+    });
+  });
+}
+
+function setupOptionTocNavigation() {
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
     const link = event.target.closest('a[href^="#"]');
@@ -479,7 +487,7 @@ function setupOptionTocNavigation() {
 
     event.preventDefault();
     history.pushState(null, "", link.hash);
-    target.scrollIntoView({ behavior: "instant", block: "start" });
+    scrollToOption(target);
   });
 }
 
@@ -660,17 +668,6 @@ function setupListFilter({
   });
 
   if (input.value) applyFilter();
-  if (isMobile && totalCount > 50) {
-    const scheduleIdle = window.requestIdleCallback ?? setTimeout;
-    scheduleIdle(() => {
-      const height = items[0]?.offsetHeight ?? 0;
-      if (height > 0) {
-        items.forEach((item) => {
-          item.style.containIntrinsicSize = `0 ${height}px`;
-        });
-      }
-    });
-  }
 }
 
 // Mark the current top-nav item active by matching the URL, so it works for
@@ -678,6 +675,9 @@ function setupListFilter({
 function markActiveNav() {
   const normalize = (p) => p.replace(/index\.html$/, "").replace(/\/$/, "");
   const here = normalize(window.location.pathname);
+  document
+    .querySelectorAll(".header-nav li.active")
+    .forEach((item) => item.classList.remove("active"));
   document.querySelectorAll(".header-nav a[href]").forEach((link) => {
     const linkPath = normalize(
       new URL(link.getAttribute("href"), window.location.href).pathname,
@@ -688,7 +688,25 @@ function markActiveNav() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", function () {
+function refreshMobileNavigation() {
+  const mobileContainer = document.querySelector(".mobile-sidebar-container");
+  if (!mobileContainer || mobileContainer.dataset.populated === "true") return;
+
+  const sidebar = document.querySelector(".sidebar");
+  const mobileContent = document.querySelector(".mobile-sidebar-content");
+  if (sidebar && mobileContent) {
+    mobileContent.innerHTML = sidebar.innerHTML;
+  }
+
+  const headerNav = document.querySelector(".header-nav ul");
+  const mobileSiteNav = document.querySelector(".mobile-sidebar-site-nav");
+  if (headerNav && mobileSiteNav) {
+    mobileSiteNav.innerHTML = headerNav.outerHTML;
+  }
+  mobileContainer.dataset.populated = "true";
+}
+
+function initializePage() {
   // Apply sidebar state immediately before DOM rendering
   try {
     if (localStorage.getItem("sidebar-collapsed") === "true") {
@@ -842,7 +860,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Find all footnote references and create a footnotes section
     const footnoteRefs = content.querySelectorAll('a[href^="#fn"]');
-    if (footnoteRefs.length > 0) {
+    if (footnoteRefs.length > 0 && footnoteContainer) {
       const footnotesDiv = document.createElement("div");
       footnotesDiv.className = "footnotes";
 
@@ -906,26 +924,20 @@ document.addEventListener("DOMContentLoaded", function () {
       });
   });
 
-  // Handle initial hash navigation
-  function scrollToElement(element) {
-    if (element) {
-      const offset = element.getBoundingClientRect().top + window.scrollY - 80;
-      window.scrollTo({
-        top: offset,
-        behavior: "smooth",
-      });
-    }
-  }
-
   if (window.location.hash) {
     const targetElement = document.getElementById(
       decodeURIComponent(window.location.hash.slice(1)),
     );
     if (targetElement) {
-      setTimeout(() => scrollToElement(targetElement), 0);
-      // Add highlight class for options page
       if (targetElement.classList.contains("option")) {
+        setTimeout(() => scrollToOption(targetElement), 100);
         targetElement.classList.add("highlight");
+      } else {
+        setTimeout(() => {
+          const offset =
+            targetElement.getBoundingClientRect().top + window.scrollY - 80;
+          window.scrollTo({ top: offset, behavior: "smooth" });
+        }, 0);
       }
     }
   }
@@ -965,4 +977,8 @@ document.addEventListener("DOMContentLoaded", function () {
       highlightTextInContent(content, queryTerms);
     }
   }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initializePage();
 });
