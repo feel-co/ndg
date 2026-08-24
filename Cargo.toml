@@ -70,15 +70,15 @@ html-escape   = "0.2.13"
 html5ever     = "0.39.0"
 indexmap      = { version = "2.14.0", features = [ "serde" ] }
 kuchikikiki   = "0.12.0"
-lightningcss  = { version = "=1.0.0-alpha.71", default-features = false }
+lightningcss  = { version = "=1.0.0-alpha.72", default-features = false }
 lopdf         = { version = "0.44.0", default-features = false, features = [ "chrono", "jiff", "rayon" ] }
 markup5ever   = "0.39.0"
 minify-html   = "0.18.1"
-oxc_allocator = "0.141.0"
-oxc_codegen   = { version = "0.141.0", default-features = false }
-oxc_minifier  = "0.141.0"
-oxc_parser    = "0.141.0"
-oxc_span      = "0.141.0"
+oxc_allocator = "0.144.0"
+oxc_codegen   = { version = "0.144.0", default-features = false }
+oxc_minifier  = "0.144.0"
+oxc_parser    = "0.144.0"
+oxc_span      = "0.144.0"
 printpdf      = "0.12.4"
 
 
