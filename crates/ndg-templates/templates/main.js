@@ -459,6 +459,30 @@ function setupOptionKeyboardNavigation() {
   });
 }
 
+function setupOptionTocNavigation() {
+  if (!document.body.classList.contains("options-page")) return;
+
+  document.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) return;
+    const link = event.target.closest('a[href^="#"]');
+    if (
+      !link ||
+      !link.closest('.options-page [data-section="toc"] .toc-list')
+    ) {
+      return;
+    }
+
+    const target = document.getElementById(
+      decodeURIComponent(link.hash.slice(1)),
+    );
+    if (!target) return;
+
+    event.preventDefault();
+    history.pushState(null, "", link.hash);
+    target.scrollIntoView({ behavior: "instant", block: "start" });
+  });
+}
+
 function getFilterMatches(searchTerm, originalOrder, data) {
   if (searchTerm === "") {
     return originalOrder.map((element, index) => ({ element, index }));
@@ -684,6 +708,7 @@ document.addEventListener("DOMContentLoaded", function () {
   initMobileNavigation();
   setupGlobalShortcuts();
   setupNavbarKeyboardNavigation();
+  setupOptionTocNavigation();
 
   // Initialize scroll spy for page TOC
   initScrollSpy();
