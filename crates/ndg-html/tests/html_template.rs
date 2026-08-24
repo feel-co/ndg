@@ -1738,6 +1738,33 @@ fn render_options_declared_in_escapes_angle_brackets() {
   );
 }
 
+#[test]
+fn render_literal_expression_has_no_extra_trailing_line() {
+  let mut options = IndexMap::new();
+  options.insert(
+    "test.example".to_string(),
+    create_detailed_option(
+      "test.example",
+      "desc",
+      "list of string",
+      None,
+      Some("[\n  \"one\"\n  \"two\"\n]"),
+    ),
+  );
+
+  for highlight_code in [false, true] {
+    let mut config = minimal_config();
+    config.highlight_code = highlight_code;
+    let html = template::render_options(&config, &options).expect("render");
+
+    assert!(
+      !html.contains("\n</code></pre>") && !html.contains("<br></code></pre>"),
+      "literalExpression must not gain a trailing line when highlighting is \
+       {highlight_code}"
+    );
+  }
+}
+
 // Regression test for current nixosOptionsDoc parsing and rendering.
 #[test]
 fn render_options_mkoption_parity() {

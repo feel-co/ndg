@@ -1915,9 +1915,11 @@ fn add_documented_value(
   let rendered = match value {
     DocumentedValue::LiteralExpression { text } => {
       let fence = "`".repeat(longest_backtick_run(text).max(2) + 1);
-      processor
+      let mut rendered = processor
         .render(&format!("{fence}nix\n{text}\n{fence}"))
-        .html
+        .html;
+      remove_fence_newline(&mut rendered);
+      rendered
     },
     DocumentedValue::LiteralMarkdown { text } => processor.render(text).html,
   };
@@ -1926,6 +1928,20 @@ fn add_documented_value(
     html,
     "    <dt>{label}</dt><dd class=\"option-value\">{rendered}</dd>"
   );
+}
+
+fn remove_fence_newline(html: &mut String) {
+  let Some(code_end) = html.find("</code>") else {
+    return;
+  };
+  let trailing_len = if html[..code_end].ends_with("<br>") {
+    "<br>".len()
+  } else if html[..code_end].ends_with('\n') {
+    1
+  } else {
+    return;
+  };
+  html.replace_range(code_end - trailing_len..code_end, "");
 }
 
 fn longest_backtick_run(value: &str) -> usize {
