@@ -126,7 +126,8 @@ pub enum MarkdownDocumentation {
 #[serde(
   tag = "_type",
   deny_unknown_fields,
-  expecting = "a literalExpression or literalMD object with a string `text` field"
+  expecting = "a literalExpression or literalMD object with a string `text` \
+               field"
 )]
 pub enum DocumentedValue {
   /// Verbatim Nix source rendered as a Nix code block.
@@ -158,10 +159,7 @@ where
 /// Components beginning with `enable` sort first, followed by components
 /// beginning with `package`, then all other components alphabetically.
 #[must_use]
-pub fn compare_option_locs(
-  left: &[String],
-  right: &[String],
-) -> Ordering {
+pub fn compare_option_locs(left: &[String], right: &[String]) -> Ordering {
   fn priority(component: &str) -> u8 {
     if component.starts_with("enable") {
       0
@@ -298,15 +296,13 @@ mod tests {
       Some("Enable **example**.")
     );
     assert_eq!(
-      option
-        .related_packages
-        .as_deref(),
+      option.related_packages.as_deref(),
       Some("- [`pkgs.example`](https://example.test)")
     );
     assert_eq!(
       option.default,
       Some(DocumentedValue::LiteralExpression {
-        text: "false".to_string()
+        text: "false".to_string(),
       })
     );
   }
@@ -329,7 +325,7 @@ mod tests {
     assert_eq!(
       option.default,
       Some(DocumentedValue::LiteralExpression {
-        text: "null".to_string()
+        text: "null".to_string(),
       })
     );
     assert!(option.example.is_none());
@@ -464,14 +460,11 @@ mod tests {
 
     locations.sort_by(|left, right| compare_option_locs(left, right));
 
-    assert_eq!(
-      locations,
-      [
-        vec!["programs".to_string(), "alpha".to_string()],
-        vec!["services".to_string(), "enableFeature".to_string()],
-        vec!["services".to_string(), "package".to_string()],
-        vec!["services".to_string(), "zebra".to_string()],
-      ]
-    );
+    assert_eq!(locations, [
+      vec!["programs".to_string(), "alpha".to_string()],
+      vec!["services".to_string(), "enableFeature".to_string()],
+      vec!["services".to_string(), "package".to_string()],
+      vec!["services".to_string(), "zebra".to_string()],
+    ]);
   }
 }

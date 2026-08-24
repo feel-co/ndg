@@ -13,14 +13,12 @@ use ndg_commonmark::{
   process_role_markup,
   utils::never_matching_regex,
 };
-use ndg_utils::{
-  options::{
-    DocumentedValue,
-    NixOptionDocument,
-    OptionLocation,
-    compare_option_locs,
-    parse_options_json,
-  },
+use ndg_utils::options::{
+  DocumentedValue,
+  NixOptionDocument,
+  OptionLocation,
+  compare_option_locs,
+  parse_options_json,
 };
 use rayon::prelude::*;
 use regex::Regex;
@@ -344,9 +342,7 @@ fn parse_option(key: &str, option_data: &NixOptionDocument) -> NixOption {
     declared_in:      None,
     declared_in_url:  option_data.declaration_url.clone(),
     defined_in:       Vec::new(),
-    related_packages: option_data
-      .related_packages
-      .clone(),
+    related_packages: option_data.related_packages.clone(),
     internal:         option_data.is_hidden(),
     read_only:        option_data.read_only,
   };

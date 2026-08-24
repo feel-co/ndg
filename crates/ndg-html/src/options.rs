@@ -154,12 +154,7 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   let customized_options = sorted.into_iter().collect();
 
   if option_pages::pages_enabled(config) {
-    write_split_options(
-      config,
-      &customized_options,
-      &input_order,
-      &processor,
-    )?;
+    write_split_options(config, &customized_options, &input_order, &processor)?;
   } else {
     let html = template::render_options_with_order(
       config,

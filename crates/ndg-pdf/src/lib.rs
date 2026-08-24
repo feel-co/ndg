@@ -8,8 +8,8 @@ use color_eyre::eyre::{Context, Result};
 use html_escape::decode_html_entities;
 use ndg_commonmark::{MarkdownProcessor, ProcessorPreset, create_processor};
 use ndg_utils::options::{
-  DocumentedValue,
   DocumentationText,
+  DocumentedValue,
   compare_option_locs,
   parse_options_json,
 };
