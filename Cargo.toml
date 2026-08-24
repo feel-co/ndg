@@ -5,7 +5,7 @@ resolver        = "3"
 
 [workspace.package]
 license      = "MPL-2.0"
-rust-version = "1.95.0"
+rust-version = "1.97.0"
 version      = "2.9.0"
 edition      = "2024"
 repository   = "https://github.com/feel-co/ndg"
@@ -55,16 +55,16 @@ grass  = { version = "0.13.4", default-features = false }
 nixdoc = "0.3.0"
 nixon  = "0.1.0"
 
-rayon      = "1.12.0"
-regex      = "1.12.4"
-serde      = { version = "1.0.228", features = [ "derive" ] }
-serde_json = { version = "1.0.150", default-features = false, features = [ "preserve_order" ] }
+rayon               = "1.12.0"
+regex               = "1.12.4"
+serde               = { version = "1.0.228", features = [ "derive" ] }
+serde_json          = { version = "1.0.150", default-features = false, features = [ "preserve_order" ] }
 serde_path_to_error = "0.1.20"
-tendril    = "0.5.0"
-tera       = { version = "2.0.0", default-features = false }
-thiserror  = "2.0.18"
-toml       = { version = "1.1.2", default-features = false, features = [ "parse", "serde" ] }
-walkdir    = "2.5.0"
+tendril             = "0.5.0"
+tera                = { version = "2.0.0", default-features = false }
+thiserror           = "2.0.18"
+toml                = { version = "1.1.2", default-features = false, features = [ "parse", "serde" ] }
+walkdir             = "2.5.0"
 
 html-escape   = "0.2.13"
 html5ever     = "0.39.0"
@@ -88,10 +88,10 @@ tower-http = { version = "0.7.0", default-features = false }
 
 proc-macro2 = "1.0.106"
 quote       = "1.0.46"
-syn         = { version = "3.0.3", features = ["full", "derive"] }
+syn         = { version = "3.0.3", features = [ "full", "derive" ] }
 
+blake3    = "1.8.3"
 criterion = { version = "0.8.2", features = [ "html_reports" ], default-features = false }
-blake3 = "1.8.3"
 tempfile  = "3.27.0"
 
 # See:
