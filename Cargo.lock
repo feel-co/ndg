@@ -112,7 +112,7 @@ dependencies = [
  "log",
  "ouroboros",
  "pathfinder_geometry",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "tinyvec",
  "ucd-trie",
  "unicode-canonical-combining-class",
@@ -764,7 +764,7 @@ dependencies = [
  "jetscii",
  "phf 0.13.1",
  "phf_codegen 0.13.1",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "smallvec",
  "typed-arena",
 ]
@@ -827,12 +827,6 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
-
-[[package]]
-name = "countme"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7704b5fdd17b18ae31c4c1da5a2e0305a2bf17b5249300a9ee9ed7b72114c636"
 
 [[package]]
 name = "cow-utils"
@@ -2265,7 +2259,7 @@ dependencies = [
  "open",
  "rayon",
  "regex",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
  "tempfile",
@@ -2286,7 +2280,7 @@ dependencies = [
  "log",
  "markup5ever",
  "regex",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
  "syntastica",
@@ -2311,7 +2305,7 @@ dependencies = [
  "ndg-macros",
  "ndg-templates",
  "regex",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -2337,7 +2331,7 @@ dependencies = [
  "ndg-utils",
  "rayon",
  "regex",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
  "tempfile",
@@ -2365,7 +2359,7 @@ dependencies = [
  "ndg-utils",
  "rayon",
  "regex",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
  "tempfile",
@@ -2377,8 +2371,7 @@ version = "2.9.0"
 dependencies = [
  "log",
  "nixdoc",
- "rnix",
- "rowan",
+ "nixon",
  "serde",
  "tempfile",
  "thiserror 2.0.20",
@@ -2394,7 +2387,7 @@ dependencies = [
  "ndg-commonmark",
  "ndg-utils",
  "printpdf",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde_json",
  "tempfile",
 ]
@@ -2403,7 +2396,7 @@ dependencies = [
 name = "ndg-templates"
 version = "2.9.0"
 dependencies = [
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -2430,7 +2423,7 @@ dependencies = [
  "oxc_span 0.141.0",
  "rayon",
  "regex",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -2456,6 +2449,12 @@ dependencies = [
  "serde",
  "thiserror 2.0.20",
 ]
+
+[[package]]
+name = "nixon"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbc01ab3221f79cd97d781b3c237a864bb18d9a2bd4c2ef100ef2470db8be1aa"
 
 [[package]]
 name = "nom"
@@ -2636,7 +2635,7 @@ checksum = "abb7a1163a5501f935f8722d839b576491b749c695e7a066aa0b8df988b806df"
 dependencies = [
  "flate2",
  "postcard",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -2650,7 +2649,7 @@ checksum = "373741e2febe6df186995b668f295e46fd402ee12f312ea2fda8b3b6312c0885"
 dependencies = [
  "miniz_oxide 0.9.1",
  "postcard",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "thiserror 2.0.20",
 ]
@@ -2717,7 +2716,7 @@ dependencies = [
  "bumpalo",
  "hashbrown 0.16.1",
  "oxc_data_structures 0.95.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -2729,7 +2728,7 @@ dependencies = [
  "allocator-api2",
  "hashbrown 0.17.1",
  "oxc_data_structures 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -2833,7 +2832,7 @@ dependencies = [
  "oxc_sourcemap",
  "oxc_span 0.95.0",
  "oxc_syntax 0.95.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -2854,7 +2853,7 @@ dependencies = [
  "oxc_span 0.141.0",
  "oxc_str",
  "oxc_syntax 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -2866,7 +2865,7 @@ dependencies = [
  "cow-utils",
  "oxc-browserslist 2.3.1",
  "oxc_syntax 0.95.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
 ]
 
@@ -2879,7 +2878,7 @@ dependencies = [
  "cow-utils",
  "oxc-browserslist 3.0.9",
  "oxc_syntax 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
 ]
 
@@ -2996,7 +2995,7 @@ dependencies = [
  "oxc_semantic 0.95.0",
  "oxc_span 0.95.0",
  "oxc_syntax 0.95.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -3015,7 +3014,7 @@ dependencies = [
  "oxc_span 0.141.0",
  "oxc_str",
  "oxc_syntax 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -3040,7 +3039,7 @@ dependencies = [
  "oxc_span 0.95.0",
  "oxc_syntax 0.95.0",
  "oxc_traverse 0.95.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -3066,7 +3065,7 @@ dependencies = [
  "oxc_str",
  "oxc_syntax 0.141.0",
  "oxc_traverse 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -3088,7 +3087,7 @@ dependencies = [
  "oxc_regular_expression 0.95.0",
  "oxc_span 0.95.0",
  "oxc_syntax 0.95.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "seq-macro",
 ]
 
@@ -3112,7 +3111,7 @@ dependencies = [
  "oxc_span 0.141.0",
  "oxc_str",
  "oxc_syntax 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "seq-macro",
 ]
 
@@ -3128,7 +3127,7 @@ dependencies = [
  "oxc_diagnostics 0.95.0",
  "oxc_span 0.95.0",
  "phf 0.13.1",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "unicode-id-start",
 ]
 
@@ -3145,7 +3144,7 @@ dependencies = [
  "oxc_span 0.141.0",
  "oxc_str",
  "phf 0.14.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "unicode-id-start",
 ]
 
@@ -3166,7 +3165,7 @@ dependencies = [
  "oxc_span 0.95.0",
  "oxc_syntax 0.95.0",
  "phf 0.13.1",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "self_cell",
 ]
 
@@ -3188,7 +3187,7 @@ dependencies = [
  "oxc_span 0.141.0",
  "oxc_str",
  "oxc_syntax 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "self_cell",
  "smallvec",
 ]
@@ -3201,7 +3200,7 @@ checksum = "6d378eb8bad20e89d66276aebab51f6a5408571092cac94abdd3eabb773713d6"
 dependencies = [
  "base64-simd 0.8.0",
  "json-escape-simd",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "serde",
  "serde_json",
 ]
@@ -3300,7 +3299,7 @@ dependencies = [
  "oxc_semantic 0.95.0",
  "oxc_span 0.95.0",
  "oxc_syntax 0.95.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -3319,7 +3318,7 @@ dependencies = [
  "oxc_span 0.141.0",
  "oxc_str",
  "oxc_syntax 0.141.0",
- "rustc-hash 2.1.2",
+ "rustc-hash",
 ]
 
 [[package]]
@@ -3367,7 +3366,7 @@ dependencies = [
  "phf 0.11.3",
  "phf_codegen 0.11.3",
  "precomputed-hash",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "smallvec",
 ]
 
@@ -4104,31 +4103,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "rnix"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c163bd17372eecdf10d351c34584b7de7c1a33be4e92a32f3fb3f5a7fe3f579b"
-dependencies = [
- "rowan",
-]
-
-[[package]]
 name = "roff"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "323c417e1d9665a65b263ec744ba09030cfb277e9daa0b018a4ab62e57bc8189"
-
-[[package]]
-name = "rowan"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "417a3a9f582e349834051b8a10c8d71ca88da4211e4093528e36b9845f6b5f21"
-dependencies = [
- "countme",
- "hashbrown 0.14.5",
- "rustc-hash 1.1.0",
- "text-size",
-]
 
 [[package]]
 name = "roxmltree"
@@ -4164,12 +4142,6 @@ name = "rustc-demangle"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
-
-[[package]]
-name = "rustc-hash"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
@@ -4270,7 +4242,7 @@ dependencies = [
  "phf 0.13.1",
  "phf_codegen 0.13.1",
  "precomputed-hash",
- "rustc-hash 2.1.2",
+ "rustc-hash",
  "servo_arc",
  "smallvec",
 ]
@@ -4852,12 +4824,6 @@ checksum = "38ea62bd58771b570262e11ffa274fa9eda9986bd886e6e3a1f7f42afef8024c"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "text-size"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f18aa187839b2bdb1ad2fa35ead8c4c2976b64e4363c386d45ac0f7ee85c9233"
 
 [[package]]
 name = "textwrap"
