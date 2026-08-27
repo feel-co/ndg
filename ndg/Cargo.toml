@@ -34,28 +34,23 @@ nrd = [ "commonmark-nixpkgs" ]
 serve = [ "dep:axum", "dep:tokio", "dep:tower-http" ]
 
 [dependencies]
-ndg-commonmark.workspace = true
-ndg-config.workspace     = true
-ndg-html.workspace       = true
-ndg-manpage.workspace    = true
-ndg-pdf.workspace        = true
-ndg-utils.workspace      = true
+ndg-config.workspace  = true
+ndg-html.workspace    = true
+ndg-manpage.workspace = true
+ndg-pdf.workspace     = true
+ndg-utils.workspace   = true
 
 clap.workspace                = true
 clap-verbosity-flag.workspace = true
 color-eyre.workspace          = true
 comrak.workspace              = true
 env_logger.workspace          = true
-html-escape.workspace         = true
-indicatif.workspace           = true
-jiff.workspace                = true
 log.workspace                 = true
 num_cpus.workspace            = true
 open.workspace                = true
 rayon.workspace               = true
 regex.workspace               = true
 rustc-hash                    = "2.1.2"
-serde.workspace               = true
 serde_json.workspace          = true
 tera.workspace                = true
 thiserror.workspace           = true
@@ -66,8 +61,9 @@ tokio      = { workspace = true, optional = true, features = [ "rt-multi-thread"
 tower-http = { workspace = true, optional = true, features = [ "fs" ] }
 
 [dev-dependencies]
-criterion.workspace = true
-tempfile.workspace  = true
+criterion.workspace      = true
+ndg-commonmark.workspace = true
+tempfile.workspace       = true
 
 [[bench]]
 harness = false

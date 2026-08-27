@@ -26,7 +26,6 @@ ndg-templates.workspace  = true
 
 blake3.workspace              = true
 color-eyre.workspace          = true
-fs_extra.workspace            = true
 grass.workspace               = true
 html-escape.workspace         = true
 indexmap.workspace            = true
@@ -40,7 +39,6 @@ oxc_minifier.workspace        = true
 oxc_parser.workspace          = true
 oxc_span.workspace            = true
 rayon.workspace               = true
-regex.workspace               = true
 rustc-hash.workspace          = true
 serde.workspace               = true
 serde_json.workspace          = true

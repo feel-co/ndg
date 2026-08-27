@@ -15,7 +15,6 @@ publish                = false
 log.workspace       = true
 nixdoc.workspace    = true
 nixon.workspace     = true
-serde.workspace     = true
 thiserror.workspace = true
 walkdir.workspace   = true
 

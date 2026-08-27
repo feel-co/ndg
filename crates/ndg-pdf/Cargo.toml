@@ -23,7 +23,6 @@ ndg-commonmark.workspace = true
 ndg-utils.workspace      = true
 printpdf.workspace       = true
 rustc-hash.workspace     = true
-serde_json.workspace     = true
 
 [lints]
 workspace = true
