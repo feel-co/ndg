@@ -17,6 +17,19 @@ if (typeof window.requestIdleCallback === "undefined") {
   };
 }
 
+let pageController;
+
+function beginPageLifecycle() {
+  pageController?.abort();
+  pageController = new AbortController();
+  return pageController.signal;
+}
+
+function schedulePageTask(signal, callback, delay) {
+  const timeout = setTimeout(callback, delay);
+  signal.addEventListener("abort", () => clearTimeout(timeout), { once: true });
+}
+
 // Create mobile elements if they don't exist
 function createMobileElements() {
   const mobileToggle = document.createElement("button");
@@ -85,7 +98,7 @@ function createMobileElements() {
 }
 
 // Highlight search terms on target pages
-function highlightTextInContent(container, terms) {
+function highlightTextInContent(container, terms, signal) {
   if (!container || !terms || terms.length === 0) return;
 
   // Create a case-insensitive regex pattern
@@ -122,17 +135,21 @@ function highlightTextInContent(container, terms) {
   highlightNode(container);
 
   // Scroll to first highlight after a brief delay
-  setTimeout(() => {
-    const firstHighlight = container.querySelector(".search-highlight");
-    if (firstHighlight) {
-      firstHighlight.scrollIntoView({ behavior: "smooth", block: "center" });
-      firstHighlight.classList.add("search-highlight-active");
-    }
-  }, 100);
+  schedulePageTask(
+    signal,
+    () => {
+      const firstHighlight = container.querySelector(".search-highlight");
+      if (firstHighlight) {
+        firstHighlight.scrollIntoView({ behavior: "smooth", block: "center" });
+        firstHighlight.classList.add("search-highlight-active");
+      }
+    },
+    100,
+  );
 }
 
 // Initialize scroll spy
-function initScrollSpy() {
+function initScrollSpy(signal) {
   const pageToc = document.querySelector(".page-toc");
   if (!pageToc) return;
 
@@ -211,27 +228,38 @@ function initScrollSpy() {
   }
 
   // Scroll event handler
-  let ticking = false;
+  let frame = 0;
   function onScroll() {
-    if (!ticking) {
-      requestAnimationFrame(() => {
+    if (!frame) {
+      frame = requestAnimationFrame(() => {
         updateActiveLink();
-        ticking = false;
+        frame = 0;
       });
-      ticking = true;
     }
   }
 
-  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("scroll", onScroll, { passive: true, signal });
 
   // Also update on hash change (direct link navigation)
-  window.addEventListener("hashchange", () => {
-    requestAnimationFrame(updateActiveLink);
-  });
+  window.addEventListener(
+    "hashchange",
+    () => {
+      requestAnimationFrame(updateActiveLink);
+    },
+    { signal },
+  );
 
   // Set initial active state after a small delay to ensure
   // browser has completed any hash-based scrolling
-  setTimeout(updateActiveLink, 100);
+  const timeout = setTimeout(updateActiveLink, 100);
+  signal.addEventListener(
+    "abort",
+    () => {
+      clearTimeout(timeout);
+      cancelAnimationFrame(frame);
+    },
+    { once: true },
+  );
 }
 
 function initMobileNavigation() {
@@ -387,7 +415,7 @@ function setupNavbarKeyboardNavigation() {
   });
 }
 
-function setupOptionKeyboardNavigation() {
+function setupOptionKeyboardNavigation(signal) {
   const input = document.getElementById("options-filter");
   const container = document.querySelector(
     ".options-index-list, .options-container",
@@ -405,45 +433,53 @@ function setupOptionKeyboardNavigation() {
       ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
 
-  input.addEventListener("keydown", (event) => {
-    if (event.key !== "ArrowDown") return;
-    const first = optionLinks()[0];
-    if (!first) return;
-    event.preventDefault();
-    focusOption(first);
-  });
+  input.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "ArrowDown") return;
+      const first = optionLinks()[0];
+      if (!first) return;
+      event.preventDefault();
+      focusOption(first);
+    },
+    { signal },
+  );
 
-  container.addEventListener("keydown", (event) => {
-    if (!(event.target instanceof HTMLAnchorElement)) return;
-    if (
-      !["ArrowUp", "ArrowDown", "Home", "End", "Escape"].includes(event.key)
-    ) {
-      return;
-    }
+  container.addEventListener(
+    "keydown",
+    (event) => {
+      if (!(event.target instanceof HTMLAnchorElement)) return;
+      if (
+        !["ArrowUp", "ArrowDown", "Home", "End", "Escape"].includes(event.key)
+      ) {
+        return;
+      }
 
-    event.preventDefault();
-    if (event.key === "Escape") {
-      input.focus();
-      return;
-    }
+      event.preventDefault();
+      if (event.key === "Escape") {
+        input.focus();
+        return;
+      }
 
-    const links = optionLinks();
-    const currentIndex = links.indexOf(event.target);
-    if (currentIndex < 0 || links.length === 0) return;
+      const links = optionLinks();
+      const currentIndex = links.indexOf(event.target);
+      if (currentIndex < 0 || links.length === 0) return;
 
-    let nextIndex = currentIndex;
-    if (event.key === "ArrowUp") {
-      nextIndex = Math.max(0, currentIndex - 1);
-    } else if (event.key === "ArrowDown") {
-      nextIndex = Math.min(links.length - 1, currentIndex + 1);
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = links.length - 1;
-    }
+      let nextIndex = currentIndex;
+      if (event.key === "ArrowUp") {
+        nextIndex = Math.max(0, currentIndex - 1);
+      } else if (event.key === "ArrowDown") {
+        nextIndex = Math.min(links.length - 1, currentIndex + 1);
+      } else if (event.key === "Home") {
+        nextIndex = 0;
+      } else if (event.key === "End") {
+        nextIndex = links.length - 1;
+      }
 
-    focusOption(links[nextIndex]);
-  });
+      focusOption(links[nextIndex]);
+    },
+    { signal },
+  );
 }
 
 let optionScrollRequest = 0;
@@ -582,13 +618,10 @@ function reconcileFilteredItems({
   }
 }
 
-function setupListFilter({
-  inputId,
-  containerSelector,
-  itemSelector,
-  nameSelector,
-  noun,
-}) {
+function setupListFilter(
+  { inputId, containerSelector, itemSelector, nameSelector, noun },
+  signal,
+) {
   const input = document.getElementById(inputId);
   const container = document.querySelector(containerSelector);
   if (!input || !container) return;
@@ -656,16 +689,32 @@ function setupListFilter({
     timeout = setTimeout(applyFilter, isMobile ? 200 : 100);
   };
 
-  input.addEventListener("input", debounce);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      input.value = "";
-      applyFilter();
-    }
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && input.value) applyFilter();
-  });
+  input.addEventListener("input", debounce, { signal });
+  input.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Escape") {
+        input.value = "";
+        applyFilter();
+      }
+    },
+    { signal },
+  );
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (!document.hidden && input.value) applyFilter();
+    },
+    { signal },
+  );
+  signal.addEventListener(
+    "abort",
+    () => {
+      clearTimeout(timeout);
+      hiddenContainer.remove();
+    },
+    { once: true },
+  );
 
   if (input.value) applyFilter();
 }
@@ -688,9 +737,159 @@ function markActiveNav() {
   });
 }
 
+function clientPageName(url) {
+  const name = new URL(url, window.location.href).pathname.split("/").pop();
+  return name === "" ? "index.html" : name;
+}
+
+function isOptionsPageUrl(url) {
+  const target = new URL(url, window.location.href);
+  return (
+    target.origin === window.location.origin &&
+    clientPageName(target) === "options.html"
+  );
+}
+
+function isPlainNavigationClick(event) {
+  return (
+    !event.defaultPrevented &&
+    event.button === 0 &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    !event.altKey &&
+    event.target instanceof Element
+  );
+}
+
+async function loadClientPage(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const markup = await response.text();
+  return new DOMParser().parseFromString(markup, "text/html");
+}
+
+function replaceClientPage(next, url, push, scrollX, scrollY) {
+  const currentSidebar = document.querySelector(".sidebar");
+  const currentContent = document.querySelector(".content");
+  const nextSidebar = next.querySelector(".sidebar");
+  const nextContent = next.querySelector(".content");
+  if (
+    [currentSidebar, currentContent, nextSidebar, nextContent].some(
+      (item) => !item,
+    )
+  ) {
+    throw new Error("page is missing its sidebar or content");
+  }
+
+  if (push) {
+    history.replaceState(
+      Object.assign({}, history.state, {
+        ndgClientPage: true,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+      }),
+      "",
+      window.location.href,
+    );
+    history.pushState({ ndgClientPage: true, scrollX: 0, scrollY: 0 }, "", url);
+  }
+
+  const collapsed =
+    document.documentElement.classList.contains("sidebar-collapsed");
+  document.title = next.title;
+  document.body.className = next.body.className;
+  if (collapsed) document.body.classList.add("sidebar-collapsed");
+
+  currentSidebar.replaceWith(nextSidebar);
+  currentContent.replaceWith(nextContent);
+  document.querySelector(".page-toc")?.remove();
+  const nextPageToc = next.querySelector(".page-toc");
+  if (nextPageToc) {
+    document.querySelector(".container > footer")?.before(nextPageToc);
+  }
+
+  initializePage();
+  refreshMobileNavigation();
+  requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
+}
+
+function transitionClientPage(update) {
+  if (!document.startViewTransition) {
+    update();
+    return Promise.resolve();
+  }
+  return document.startViewTransition(update).updateCallbackDone;
+}
+
+function setupClientNavigation() {
+  history.scrollRestoration = "manual";
+  history.replaceState(
+    Object.assign({}, history.state, {
+      ndgClientPage: true,
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    }),
+    "",
+    window.location.href,
+  );
+
+  let navigating = false;
+  const navigate = async (url, push, scrollX, scrollY) => {
+    if (navigating) return;
+    navigating = true;
+    try {
+      const next = await loadClientPage(url);
+      await transitionClientPage(() =>
+        replaceClientPage(next, url, push, scrollX, scrollY),
+      );
+    } catch {
+      window.location.assign(url);
+    } finally {
+      navigating = false;
+    }
+  };
+
+  document.addEventListener("click", (event) => {
+    if (!isPlainNavigationClick(event)) return;
+    const link = event.target.closest("a[href]");
+    if (!link || link.target || link.hasAttribute("download")) return;
+
+    const url = new URL(link.href, window.location.href);
+    if (
+      !isOptionsPageUrl(url) ||
+      clientPageName(window.location.href) === "options.html"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    navigate(url.href, true, 0, 0);
+  });
+
+  window.addEventListener("popstate", (event) => {
+    if (!event.state?.ndgClientPage) {
+      window.location.assign(window.location.href);
+      return;
+    }
+    if (!isOptionsPageUrl(window.location.href)) {
+      history.scrollRestoration = "auto";
+      window.location.reload();
+      return;
+    }
+    const scrollX = Number.isFinite(event.state.scrollX)
+      ? event.state.scrollX
+      : 0;
+    const scrollY = Number.isFinite(event.state.scrollY)
+      ? event.state.scrollY
+      : 0;
+    navigate(window.location.href, false, scrollX, scrollY);
+  });
+}
+
 function refreshMobileNavigation() {
   const mobileContainer = document.querySelector(".mobile-sidebar-container");
-  if (!mobileContainer || mobileContainer.dataset.populated === "true") return;
+  if (!mobileContainer) return;
 
   const sidebar = document.querySelector(".sidebar");
   const mobileContent = document.querySelector(".mobile-sidebar-content");
@@ -703,33 +902,16 @@ function refreshMobileNavigation() {
   if (headerNav && mobileSiteNav) {
     mobileSiteNav.innerHTML = headerNav.outerHTML;
   }
-  mobileContainer.dataset.populated = "true";
 }
 
 function initializePage() {
-  // Apply sidebar state immediately before DOM rendering
-  try {
-    if (localStorage.getItem("sidebar-collapsed") === "true") {
-      document.documentElement.classList.add("sidebar-collapsed");
-      document.body.classList.add("sidebar-collapsed");
-    }
-  } catch {
-    // localStorage unavailable
-  }
+  const signal = beginPageLifecycle();
 
   // Highlight the active nav item before the mobile nav is cloned from it.
   markActiveNav();
 
-  if (!document.querySelector(".mobile-sidebar-toggle")) {
-    createMobileElements();
-  }
-  initMobileNavigation();
-  setupGlobalShortcuts();
-  setupNavbarKeyboardNavigation();
-  setupOptionTocNavigation();
-
   // Initialize scroll spy for page TOC
-  initScrollSpy();
+  initScrollSpy(signal);
 
   // Template container for collapsed sidebar content (prevents Ctrl+F from finding hidden content)
   const sidebarHiddenContainer = document.createElement("template");
@@ -767,6 +949,9 @@ function initializePage() {
       });
 
       observer.observe(details, { attributes: true });
+      signal.addEventListener("abort", () => observer.disconnect(), {
+        once: true,
+      });
 
       // Initial state check
       if (!details.hasAttribute("open")) {
@@ -794,21 +979,25 @@ function initializePage() {
     };
     syncSidebarToggle();
 
-    sidebarToggle.addEventListener("click", function () {
-      // Toggle on both elements for consistency
-      document.documentElement.classList.toggle("sidebar-collapsed");
-      document.body.classList.toggle("sidebar-collapsed");
+    sidebarToggle.addEventListener(
+      "click",
+      function () {
+        // Toggle on both elements for consistency
+        document.documentElement.classList.toggle("sidebar-collapsed");
+        document.body.classList.toggle("sidebar-collapsed");
 
-      // Use documentElement to check state and save to localStorage
-      const isCollapsed =
-        document.documentElement.classList.contains("sidebar-collapsed");
-      syncSidebarToggle();
-      try {
-        localStorage.setItem("sidebar-collapsed", isCollapsed);
-      } catch {
-        // localStorage unavailable
-      }
-    });
+        // Use documentElement to check state and save to localStorage
+        const isCollapsed =
+          document.documentElement.classList.contains("sidebar-collapsed");
+        syncSidebarToggle();
+        try {
+          localStorage.setItem("sidebar-collapsed", isCollapsed);
+        } catch {
+          // localStorage unavailable
+        }
+      },
+      { signal },
+    );
   }
 
   // Make headings clickable for anchor links
@@ -840,17 +1029,21 @@ function initializePage() {
       }
 
       // Make the entire heading clickable
-      heading.addEventListener("click", function () {
-        const id = this.id;
-        history.pushState(null, null, "#" + id);
+      heading.addEventListener(
+        "click",
+        function () {
+          const id = this.id;
+          history.pushState(null, null, "#" + id);
 
-        // Scroll with offset
-        const offset = this.getBoundingClientRect().top + window.scrollY - 80;
-        window.scrollTo({
-          top: offset,
-          behavior: "smooth",
-        });
-      });
+          // Scroll with offset
+          const offset = this.getBoundingClientRect().top + window.scrollY - 80;
+          window.scrollTo({
+            top: offset,
+            behavior: "smooth",
+          });
+        },
+        { signal },
+      );
     });
   }
 
@@ -894,35 +1087,39 @@ function initializePage() {
   }
 
   // One delegated handler avoids attaching a listener to every option card.
-  content?.addEventListener("click", function (event) {
-    if (!(event.target instanceof Element)) return;
-    const copyLink = event.target.closest(".copy-link");
-    if (!copyLink) return;
+  content?.addEventListener(
+    "click",
+    function (event) {
+      if (!(event.target instanceof Element)) return;
+      const copyLink = event.target.closest(".copy-link");
+      if (!copyLink) return;
 
-    event.preventDefault();
-    event.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
 
-    const option = copyLink.closest(".option");
-    if (!option) return;
+      const option = copyLink.closest(".option");
+      if (!option) return;
 
-    const url = new URL(window.location.href);
-    url.hash = option.id;
+      const url = new URL(window.location.href);
+      url.hash = option.id;
 
-    navigator.clipboard
-      .writeText(url.toString())
-      .then(function () {
-        const feedback = copyLink.nextElementSibling;
-        if (!feedback) return;
-        feedback.style.display = "inline";
+      navigator.clipboard
+        .writeText(url.toString())
+        .then(function () {
+          const feedback = copyLink.nextElementSibling;
+          if (!feedback) return;
+          feedback.style.display = "inline";
 
-        setTimeout(function () {
-          feedback.style.display = "none";
-        }, 2000);
-      })
-      .catch(function (err) {
-        console.error("Could not copy link: ", err);
-      });
-  });
+          setTimeout(function () {
+            feedback.style.display = "none";
+          }, 2000);
+        })
+        .catch(function (err) {
+          console.error("Could not copy link: ", err);
+        });
+    },
+    { signal },
+  );
 
   if (window.location.hash) {
     const targetElement = document.getElementById(
@@ -930,37 +1127,47 @@ function initializePage() {
     );
     if (targetElement) {
       if (targetElement.classList.contains("option")) {
-        setTimeout(() => scrollToOption(targetElement), 100);
+        schedulePageTask(signal, () => scrollToOption(targetElement), 100);
         targetElement.classList.add("highlight");
       } else {
-        setTimeout(() => {
-          const offset =
-            targetElement.getBoundingClientRect().top + window.scrollY - 80;
-          window.scrollTo({ top: offset, behavior: "smooth" });
-        }, 0);
+        schedulePageTask(
+          signal,
+          () => {
+            const offset =
+              targetElement.getBoundingClientRect().top + window.scrollY - 80;
+            window.scrollTo({ top: offset, behavior: "smooth" });
+          },
+          0,
+        );
       }
     }
   }
 
   const optionsIndexList = document.querySelector(".options-index-list");
-  setupListFilter({
-    inputId: "options-filter",
-    containerSelector: optionsIndexList
-      ? ".options-index-list"
-      : ".options-container",
-    itemSelector: optionsIndexList ? ".option-page-row" : ".option",
-    nameSelector: optionsIndexList ? ".option-page-title" : ".option-name",
-    noun: optionsIndexList ? "option groups" : "options",
-  });
-  setupOptionKeyboardNavigation();
+  setupListFilter(
+    {
+      inputId: "options-filter",
+      containerSelector: optionsIndexList
+        ? ".options-index-list"
+        : ".options-container",
+      itemSelector: optionsIndexList ? ".option-page-row" : ".option",
+      nameSelector: optionsIndexList ? ".option-page-title" : ".option-name",
+      noun: optionsIndexList ? "option groups" : "options",
+    },
+    signal,
+  );
+  setupOptionKeyboardNavigation(signal);
 
-  setupListFilter({
-    inputId: "lib-filter",
-    containerSelector: ".lib-container",
-    itemSelector: ".lib-entry",
-    nameSelector: ".lib-entry-name",
-    noun: "functions",
-  });
+  setupListFilter(
+    {
+      inputId: "lib-filter",
+      containerSelector: ".lib-container",
+      itemSelector: ".lib-entry",
+      nameSelector: ".lib-entry-name",
+      noun: "functions",
+    },
+    signal,
+  );
 
   // URL-based search highlighting
   const urlParams = new URLSearchParams(window.location.search);
@@ -974,11 +1181,21 @@ function initializePage() {
       .filter((term) => term.length >= 2); // min 2 chars like search engine
 
     if (queryTerms.length > 0) {
-      highlightTextInContent(content, queryTerms);
+      highlightTextInContent(content, queryTerms, signal);
     }
   }
 }
 
+function initializeGlobalBehavior() {
+  if (!document.querySelector(".mobile-sidebar-toggle")) createMobileElements();
+  initMobileNavigation();
+  setupGlobalShortcuts();
+  setupNavbarKeyboardNavigation();
+  setupOptionTocNavigation();
+  setupClientNavigation();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  initializeGlobalBehavior();
   initializePage();
 });

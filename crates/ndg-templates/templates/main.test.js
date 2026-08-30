@@ -4,19 +4,84 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function loadMain(requestAnimationFrame) {
+function loadMain(requestAnimationFrame, browser = {}) {
   const window = {
     requestIdleCallback() {},
     cancelIdleCallback() {},
   };
-  const document = { addEventListener() {} };
+  const document = browser.document ?? { addEventListener() {} };
   return new Function(
     "window",
     "document",
     "requestAnimationFrame",
-    `${source}; return { scrollToOption };`,
-  )(window, document, requestAnimationFrame);
+    "fetch",
+    "DOMParser",
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage };`,
+  )(window, document, requestAnimationFrame, browser.fetch, browser.DOMParser);
 }
+
+Deno.test("client navigation parses only a complete response", async () => {
+  let finishResponse;
+  let parsedMarkup;
+  const fetch = () =>
+    Promise.resolve({
+      ok: true,
+      text: () =>
+        new Promise((resolve) => {
+          finishResponse = resolve;
+        }),
+    });
+  class DOMParser {
+    parseFromString(markup) {
+      parsedMarkup = markup;
+      return { markup };
+    }
+  }
+  const { loadClientPage } = loadMain(() => {}, { fetch, DOMParser });
+
+  const loading = loadClientPage("options.html");
+  await Promise.resolve();
+  await Promise.resolve();
+  assert(parsedMarkup === undefined, "partial markup must not be parsed");
+
+  finishResponse("<html>complete</html>");
+  const page = await loading;
+  assert(
+    parsedMarkup === "<html>complete</html>",
+    "complete markup must be parsed",
+  );
+  assert(page.markup === parsedMarkup, "the parsed page must be returned");
+});
+
+Deno.test(
+  "client navigation keeps the old view until replacement",
+  async () => {
+    let finishTransition;
+    let replaced = false;
+    const document = {
+      addEventListener() {},
+      startViewTransition(callback) {
+        return {
+          updateCallbackDone: new Promise((resolve) => {
+            finishTransition = () => {
+              callback();
+              resolve();
+            };
+          }),
+        };
+      },
+    };
+    const { transitionClientPage } = loadMain(() => {}, { document });
+
+    const transitioned = transitionClientPage(() => {
+      replaced = true;
+    });
+    assert(!replaced, "replacement must wait for the captured old view");
+    finishTransition();
+    await transitioned;
+    assert(replaced, "replacement must run inside the transition callback");
+  },
+);
 
 Deno.test("option scrolling reveals contained cards before aligning", () => {
   const frames = [];

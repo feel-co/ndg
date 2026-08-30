@@ -514,7 +514,8 @@ class SearchKeyboardNav {
             this.navigationPending = false;
           }, 100);
 
-          window.location.href = url.toString();
+          link.href = url.toString();
+          link.click();
         } else {
           // Clear flag before click to allow navigation
           setTimeout(() => {
