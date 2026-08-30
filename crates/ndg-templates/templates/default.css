@@ -2223,6 +2223,18 @@ h6:hover .copy-link {
   padding-bottom: 0 !important;
 }
 
+.options-chunk-status,
+.options-chunk-noscript,
+.options-chunk-error {
+  color: var(--text-muted);
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+
+.options-chunk-error {
+  color: var(--admonition-danger-color);
+}
+
 /* Search result styles */
 .search-result-page {
   font-weight: 600;

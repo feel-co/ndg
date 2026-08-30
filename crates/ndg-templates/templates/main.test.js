@@ -5,7 +5,7 @@ function assert(condition, message) {
 }
 
 function loadMain(requestAnimationFrame, browser = {}) {
-  const window = {
+  const window = browser.window ?? {
     requestIdleCallback() {},
     cancelIdleCallback() {},
   };
@@ -16,9 +16,138 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "requestAnimationFrame",
     "fetch",
     "DOMParser",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage };`,
-  )(window, document, requestAnimationFrame, browser.fetch, browser.DOMParser);
+    "IntersectionObserver",
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading };`,
+  )(
+    window,
+    document,
+    requestAnimationFrame,
+    browser.fetch,
+    browser.DOMParser,
+    browser.IntersectionObserver,
+  );
 }
+
+Deno.test("scrolling loads one option chunk at a time", async () => {
+  const requested = [];
+  let observe;
+  class IntersectionObserver {
+    constructor(callback) {
+      observe = callback;
+    }
+    observe() {}
+    disconnect() {}
+  }
+  const chunks = [0, 1].map((index) => ({
+    dataset: { src: `chunk-${index}.html` },
+    removeAttribute() {},
+    set innerHTML(_html) {},
+  }));
+  const status = { textContent: "", remove() {} };
+  const loader = {
+    querySelector: () => status,
+    querySelectorAll: () => chunks,
+  };
+  const document = {
+    addEventListener() {},
+    getElementById: () => ({
+      textContent: JSON.stringify({ option_chunks: {} }),
+    }),
+    querySelector: () => loader,
+  };
+  const window = {
+    IntersectionObserver,
+    location: { hash: "" },
+    addEventListener() {},
+    requestIdleCallback() {},
+    cancelIdleCallback() {},
+  };
+  const fetch = (url) => {
+    requested.push(url);
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(url) });
+  };
+  const { setupOptionChunkLoading } = loadMain(() => {}, {
+    document,
+    fetch,
+    IntersectionObserver,
+    window,
+  });
+
+  setupOptionChunkLoading(new AbortController().signal);
+  observe([{ isIntersecting: true }]);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert(requested.join(",") === "chunk-0.html", "only the next chunk loads");
+
+  observe([{ isIntersecting: true }]);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert(
+    requested.join(",") === "chunk-0.html,chunk-1.html",
+    "the following intersection loads the following chunk",
+  );
+});
+
+Deno.test("deep option anchors load every preceding chunk", async () => {
+  const requested = [];
+  let targetAvailable = false;
+  const targetClasses = new Set();
+  const target = {
+    isConnected: true,
+    classList: {
+      add: (name) => targetClasses.add(name),
+      contains: (name) => name === "option",
+    },
+    closest: () => ({ classList: { add() {}, remove() {} } }),
+    scrollIntoView() {},
+  };
+  const chunks = [0, 1].map((index) => ({
+    dataset: { src: `chunk-${index}.html` },
+    classList: { add() {} },
+    removeAttribute() {},
+    set innerHTML(_html) {
+      if (index === 1) targetAvailable = true;
+    },
+  }));
+  const status = { textContent: "", remove() {} };
+  const loader = {
+    querySelector: () => status,
+    querySelectorAll: () => chunks,
+  };
+  const manifest = {
+    textContent: JSON.stringify({ option_chunks: { "option-deep": 1 } }),
+  };
+  const document = {
+    addEventListener() {},
+    getElementById(id) {
+      if (id === "options-chunk-manifest") return manifest;
+      return id === "option-deep" && targetAvailable ? target : null;
+    },
+    querySelector: () => loader,
+  };
+  const window = {
+    location: { hash: "#option-deep" },
+    addEventListener() {},
+    requestIdleCallback() {},
+    cancelIdleCallback() {},
+  };
+  const fetch = (url) => {
+    requested.push(url);
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(url) });
+  };
+  const { setupOptionChunkLoading } = loadMain(() => {}, {
+    document,
+    fetch,
+    window,
+  });
+
+  const loading = setupOptionChunkLoading(new AbortController().signal);
+  await loading.hashReady;
+
+  assert(
+    requested.join(",") === "chunk-0.html,chunk-1.html",
+    "a deep anchor must load every preceding chunk to keep its position stable",
+  );
+  assert(targetClasses.has("highlight"), "the deep option must be highlighted");
+});
 
 Deno.test("client navigation parses only a complete response", async () => {
   let finishResponse;

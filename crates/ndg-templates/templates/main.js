@@ -527,6 +527,117 @@ function setupOptionTocNavigation() {
   });
 }
 
+function setupOptionChunkLoading(signal) {
+  const manifestElement = document.getElementById("options-chunk-manifest");
+  const loader = document.querySelector(".options-chunk-loader");
+  if (!manifestElement || !loader) return null;
+
+  const status = loader.querySelector(".options-chunk-status");
+  const chunks = Array.from(loader.querySelectorAll("[data-options-chunk]"));
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestElement.textContent);
+  } catch {
+    if (status)
+      status.textContent = "The remaining options could not be loaded.";
+    return null;
+  }
+
+  const requests = new Map();
+  const loadedChunks = new Set();
+  let nextChunk = 0;
+
+  const updateStatus = () => {
+    const loaded = loadedChunks.size;
+    if (!status) return;
+    if (loaded === chunks.length) {
+      status.remove();
+    } else {
+      status.textContent = `Loaded ${loaded + 1} of ${chunks.length + 1} option chunks.`;
+    }
+  };
+
+  const loadChunk = (index) => {
+    if (!Number.isInteger(index) || !chunks[index]) return Promise.resolve();
+    if (requests.has(index)) return requests.get(index);
+
+    const chunk = chunks[index];
+    const request = fetch(chunk.dataset.src, { signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+      })
+      .then((html) => {
+        chunk.innerHTML = html;
+        chunk.removeAttribute("data-src");
+        loadedChunks.add(index);
+        updateStatus();
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        chunk.classList.add("options-chunk-error");
+        chunk.textContent = "This option chunk could not be loaded.";
+        if (status) status.textContent = "Some options could not be loaded.";
+        throw error;
+      });
+    requests.set(index, request);
+    return request;
+  };
+
+  const loadAll = () => Promise.all(chunks.map((_, index) => loadChunk(index)));
+  const loadThrough = (index) =>
+    Promise.all(chunks.slice(0, index + 1).map((_, i) => loadChunk(i)));
+
+  const revealHashTarget = async () => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    const chunkIndex = manifest.option_chunks?.[id];
+    try {
+      if (Number.isInteger(chunkIndex)) await loadThrough(chunkIndex);
+    } catch {
+      return;
+    }
+    if (signal.aborted) return;
+    const target = document.getElementById(id);
+    if (!target?.classList.contains("option")) return;
+    target.classList.add("highlight");
+    scrollToOption(target);
+  };
+
+  const loadNext = () => {
+    while (requests.has(nextChunk)) nextChunk += 1;
+    if (nextChunk >= chunks.length) return Promise.resolve();
+    const index = nextChunk;
+    nextChunk += 1;
+    return loadChunk(index);
+  };
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadNext().catch(() => {});
+        }
+      },
+      { rootMargin: "1000px" },
+    );
+    observer.observe(status ?? loader);
+    signal.addEventListener("abort", () => observer.disconnect(), {
+      once: true,
+    });
+  } else {
+    window.requestIdleCallback(() => void loadAll().catch(() => {}));
+  }
+
+  window.addEventListener("hashchange", () => void revealHashTarget(), {
+    signal,
+  });
+  const hashReady = window.location.hash
+    ? revealHashTarget()
+    : Promise.resolve();
+
+  return { hashReady, loadAll };
+}
+
 function getFilterMatches(searchTerm, originalOrder, data) {
   if (searchTerm === "") {
     return originalOrder.map((element, index) => ({ element, index }));
@@ -619,7 +730,7 @@ function reconcileFilteredItems({
 }
 
 function setupListFilter(
-  { inputId, containerSelector, itemSelector, nameSelector, noun },
+  { inputId, containerSelector, itemSelector, nameSelector, noun, prepare },
   signal,
 ) {
   const input = document.getElementById(inputId);
@@ -635,27 +746,45 @@ function setupListFilter(
 
   const isMobile =
     window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-  const items = Array.from(container.querySelectorAll(itemSelector));
-  const totalCount = items.length;
-  const animateChanges = totalCount <= 100;
-  const originalOrder = items.slice();
-  const data = items.map((element, index) => {
-    const name = element.querySelector(nameSelector)?.textContent ?? "";
-    return {
-      element,
-      index,
-      name: name.toLowerCase(),
-      searchText:
-        `${element.id || ""} ${element.textContent || ""}`.toLowerCase(),
-    };
-  });
+  let filterData = prepare ? null : collectFilterData();
 
   let lastTerm = "";
   let timeout = null;
   let filterRun = 0;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  const applyFilter = () => {
+  function collectFilterData() {
+    const items = Array.from(container.querySelectorAll(itemSelector));
+    return {
+      totalCount: items.length,
+      animateChanges: items.length <= 100,
+      originalOrder: items,
+      data: items.map((element, index) => {
+        const name = element.querySelector(nameSelector)?.textContent ?? "";
+        return {
+          element,
+          index,
+          name: name.toLowerCase(),
+          searchText:
+            `${element.id || ""} ${element.textContent || ""}`.toLowerCase(),
+        };
+      }),
+    };
+  }
+
+  const applyFilter = async () => {
+    if (!filterData && prepare) {
+      try {
+        await prepare();
+      } catch {
+        return;
+      }
+      if (signal.aborted) return;
+      filterData = collectFilterData();
+    }
+    if (!filterData) return;
+
+    const { totalCount, animateChanges, originalOrder, data } = filterData;
     const searchTerm = input.value.toLowerCase().trim();
     if (lastTerm === searchTerm) return;
     lastTerm = searchTerm;
@@ -686,7 +815,7 @@ function setupListFilter(
 
   const debounce = () => {
     clearTimeout(timeout);
-    timeout = setTimeout(applyFilter, isMobile ? 200 : 100);
+    timeout = setTimeout(() => void applyFilter(), isMobile ? 200 : 100);
   };
 
   input.addEventListener("input", debounce, { signal });
@@ -695,7 +824,7 @@ function setupListFilter(
     (e) => {
       if (e.key === "Escape") {
         input.value = "";
-        applyFilter();
+        void applyFilter();
       }
     },
     { signal },
@@ -703,7 +832,7 @@ function setupListFilter(
   document.addEventListener(
     "visibilitychange",
     () => {
-      if (!document.hidden && input.value) applyFilter();
+      if (!document.hidden && input.value) void applyFilter();
     },
     { signal },
   );
@@ -716,7 +845,7 @@ function setupListFilter(
     { once: true },
   );
 
-  if (input.value) applyFilter();
+  if (input.value) void applyFilter();
 }
 
 // Mark the current top-nav item active by matching the URL, so it works for
@@ -902,6 +1031,80 @@ function refreshMobileNavigation() {
   if (headerNav && mobileSiteNav) {
     mobileSiteNav.innerHTML = headerNav.outerHTML;
   }
+}
+
+function setupOptionsFilter(signal, optionChunks) {
+  const optionsIndexList = document.querySelector(".options-index-list");
+  let config = {
+    inputId: "options-filter",
+    containerSelector: ".options-container",
+    itemSelector: ".option",
+    nameSelector: ".option-name",
+    noun: "options",
+    prepare: optionChunks?.loadAll,
+  };
+  if (optionsIndexList) {
+    config = {
+      inputId: "options-filter",
+      containerSelector: ".options-index-list",
+      itemSelector: ".option-page-row",
+      nameSelector: ".option-page-title",
+      noun: "option groups",
+    };
+  }
+  setupListFilter(config, signal);
+  setupOptionKeyboardNavigation(signal);
+}
+
+function setupOptionsPage(signal, content) {
+  const optionChunks = setupOptionChunkLoading(signal);
+
+  if (window.location.hash) {
+    const targetElement = document.getElementById(
+      decodeURIComponent(window.location.hash.slice(1)),
+    );
+    if (targetElement) {
+      if (targetElement.classList.contains("option")) {
+        schedulePageTask(signal, () => scrollToOption(targetElement), 100);
+        targetElement.classList.add("highlight");
+      } else {
+        schedulePageTask(
+          signal,
+          () => {
+            const offset =
+              targetElement.getBoundingClientRect().top + window.scrollY - 80;
+            window.scrollTo({ top: offset, behavior: "smooth" });
+          },
+          0,
+        );
+      }
+    }
+  }
+
+  setupOptionsFilter(signal, optionChunks);
+
+  const highlightQuery = new URLSearchParams(window.location.search).get(
+    "highlight",
+  );
+  if (!highlightQuery || !content) return;
+
+  const queryTerms = highlightQuery
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter((term) => term.length >= 2);
+  if (queryTerms.length === 0) return;
+
+  const ready = optionChunks
+    ? window.location.hash
+      ? optionChunks.hashReady
+      : optionChunks.loadAll()
+    : Promise.resolve();
+  void ready
+    .then(() => {
+      if (!signal.aborted) highlightTextInContent(content, queryTerms, signal);
+    })
+    .catch(() => {});
 }
 
 function initializePage() {
@@ -1121,42 +1324,7 @@ function initializePage() {
     { signal },
   );
 
-  if (window.location.hash) {
-    const targetElement = document.getElementById(
-      decodeURIComponent(window.location.hash.slice(1)),
-    );
-    if (targetElement) {
-      if (targetElement.classList.contains("option")) {
-        schedulePageTask(signal, () => scrollToOption(targetElement), 100);
-        targetElement.classList.add("highlight");
-      } else {
-        schedulePageTask(
-          signal,
-          () => {
-            const offset =
-              targetElement.getBoundingClientRect().top + window.scrollY - 80;
-            window.scrollTo({ top: offset, behavior: "smooth" });
-          },
-          0,
-        );
-      }
-    }
-  }
-
-  const optionsIndexList = document.querySelector(".options-index-list");
-  setupListFilter(
-    {
-      inputId: "options-filter",
-      containerSelector: optionsIndexList
-        ? ".options-index-list"
-        : ".options-container",
-      itemSelector: optionsIndexList ? ".option-page-row" : ".option",
-      nameSelector: optionsIndexList ? ".option-page-title" : ".option-name",
-      noun: optionsIndexList ? "option groups" : "options",
-    },
-    signal,
-  );
-  setupOptionKeyboardNavigation(signal);
+  setupOptionsPage(signal, content);
 
   setupListFilter(
     {
@@ -1168,22 +1336,6 @@ function initializePage() {
     },
     signal,
   );
-
-  // URL-based search highlighting
-  const urlParams = new URLSearchParams(window.location.search);
-  const highlightQuery = urlParams.get("highlight");
-  if (highlightQuery && content) {
-    // Simple tokenizer that doesn't depend on search engine
-    const queryTerms = highlightQuery
-      .toLowerCase()
-      .trim()
-      .split(/\s+/)
-      .filter((term) => term.length >= 2); // min 2 chars like search engine
-
-    if (queryTerms.length > 0) {
-      highlightTextInContent(content, queryTerms, signal);
-    }
-  }
 }
 
 function initializeGlobalBehavior() {

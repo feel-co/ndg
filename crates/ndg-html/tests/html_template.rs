@@ -401,6 +401,55 @@ fn process_options_renders_related_packages_from_nixos_options_doc() {
   assert!(html.contains("Related packages"));
   assert!(html.contains("pkgs.example"));
   assert!(html.contains("https://example.test/package"));
+  assert!(!html.contains("options-chunk-manifest"));
+}
+
+#[test]
+fn large_options_page_loads_option_chunks_without_changing_anchor_urls() {
+  let temp = TempDir::new().expect("create temp dir");
+  let options_path = temp.path().join("options.json");
+  let mut options = serde_json::Map::new();
+  for index in 0..101 {
+    let suffix = format!("option{index:03}");
+    options.insert(
+      format!("test.{suffix}"),
+      json!({
+        "type": "boolean",
+        "description": format!("Description {index}"),
+        "loc": ["test", suffix],
+      }),
+    );
+  }
+  fs::write(
+    &options_path,
+    serde_json::Value::Object(options).to_string(),
+  )
+  .expect("write options");
+
+  let mut config = minimal_config();
+  config.output_dir = temp.path().join("output");
+  process_options(&config, &options_path).expect("process options");
+
+  let html = fs::read_to_string(config.output_dir.join("options.html"))
+    .expect("read options page");
+  assert!(html.contains("id=\"option-test.option000\""));
+  assert!(!html.contains("id=\"option-test.option100\""));
+  assert!(html.contains("id=\"options-chunk-manifest\""));
+  assert!(html.contains("\"option-test.option100\":0"));
+  assert!(html.contains("href=\"options-full.html\""));
+
+  let chunk = fs::read_to_string(
+    config.output_dir.join("assets/options-chunk-0001.html"),
+  )
+  .expect("read deferred option chunk");
+  assert!(chunk.contains("id=\"option-test.option100\""));
+  assert!(chunk.contains("href=\"#option-test.option100\""));
+
+  let fallback =
+    fs::read_to_string(config.output_dir.join("options-full.html"))
+      .expect("read no-JavaScript fallback");
+  assert!(fallback.contains("id=\"option-test.option000\""));
+  assert!(fallback.contains("id=\"option-test.option100\""));
 }
 
 #[test]

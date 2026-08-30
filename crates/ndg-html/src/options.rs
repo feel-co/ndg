@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fmt::Write, fs, path::Path};
 
 use color_eyre::eyre::{Context, Result};
 use indexmap::IndexMap;
@@ -12,8 +12,16 @@ use ndg_utils::{
   postprocess,
 };
 use rustc_hash::{FxHashMap, FxHashSet};
+use serde::Serialize;
 
 use crate::{option_page_render, option_pages, template};
+
+const OPTIONS_PER_CHUNK: usize = 100;
+
+#[derive(Serialize)]
+struct OptionsChunkManifest {
+  option_chunks: IndexMap<String, usize>,
+}
 
 /// Process options from a JSON file and generate the options documentation
 /// page.
@@ -153,19 +161,128 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   });
   let customized_options = sorted.into_iter().collect();
 
-  if option_pages::pages_enabled(config) {
-    write_split_options(config, &customized_options, &input_order, &processor)?;
-  } else {
-    let html = template::render_options_with_order(
-      config,
-      &customized_options,
-      Some(&input_order),
-      &processor,
-    )?;
-    write_options_html(config, "options.html", html)?;
-  }
+  write_options(config, &customized_options, &input_order, &processor)?;
 
   Ok(())
+}
+
+fn write_options(
+  config: &Config,
+  options: &IndexMap<String, NixOption>,
+  input_order: &FxHashMap<String, usize>,
+  processor: &MarkdownProcessor,
+) -> Result<()> {
+  if option_pages::pages_enabled(config) {
+    write_split_options(config, options, input_order, processor)
+  } else {
+    write_chunked_options(config, options, input_order, processor)
+  }
+}
+
+fn write_chunked_options(
+  config: &Config,
+  options: &IndexMap<String, NixOption>,
+  input_order: &FxHashMap<String, usize>,
+  processor: &MarkdownProcessor,
+) -> Result<()> {
+  if options.len() <= OPTIONS_PER_CHUNK {
+    let html = template::render_options_with_order(
+      config,
+      options,
+      Some(input_order),
+      processor,
+    )?;
+    return write_options_html(config, "options.html", html);
+  }
+
+  let option_refs: Vec<_> = options.iter().collect();
+  let mut full_options_html = String::new();
+  let mut rendered_chunks = Vec::new();
+  let mut option_chunks = IndexMap::new();
+
+  for (chunk_index, chunk) in option_refs.chunks(OPTIONS_PER_CHUNK).enumerate()
+  {
+    let chunk_options: IndexMap<_, _> = chunk
+      .iter()
+      .map(|(name, option)| ((*name).clone(), (*option).clone()))
+      .collect();
+    let chunk_html =
+      template::generate_options_html(&chunk_options, config, processor);
+    full_options_html.push_str(&chunk_html);
+
+    if chunk_index == 0 {
+      rendered_chunks.push(chunk_html);
+      continue;
+    }
+
+    let path = format!("assets/options-chunk-{chunk_index:04}.html");
+    for name in chunk_options.keys() {
+      option_chunks.insert(template::sanitize_option_id(name), chunk_index - 1);
+    }
+    write_options_html(config, &path, chunk_html)?;
+    rendered_chunks.push(path);
+  }
+
+  let options_html =
+    generate_chunk_loader_html(rendered_chunks, option_chunks)?;
+  let options_toc = template::render_options_toc_with_order(
+    config,
+    options,
+    Some(input_order),
+  )?;
+  let fallback_html = template::render_options_body(
+    config,
+    Path::new("options-full.html"),
+    &format!("{} Options", config.title),
+    "Options",
+    &full_options_html,
+    &options_toc,
+    template::OptionsSidebarHtml::default(),
+  )?;
+  write_options_html(config, "options-full.html", fallback_html)?;
+  let html = template::render_options_body(
+    config,
+    Path::new("options.html"),
+    &format!("{} Options", config.title),
+    "Options",
+    &options_html,
+    &options_toc,
+    template::OptionsSidebarHtml::default(),
+  )?;
+  write_options_html(config, "options.html", html)
+}
+
+fn generate_chunk_loader_html(
+  mut chunks: Vec<String>,
+  option_chunks: IndexMap<String, usize>,
+) -> Result<String> {
+  let first_chunk = chunks.remove(0);
+  let manifest =
+    serde_json::to_string(&OptionsChunkManifest { option_chunks })?;
+  let mut html = first_chunk;
+  html.push_str("<div class=\"options-chunk-loader\">\n");
+  for (index, path) in chunks.into_iter().enumerate() {
+    let _ = writeln!(
+      html,
+      "  <div class=\"options-chunk\" data-options-chunk=\"{index}\" \
+       data-src=\"{path}\"></div>"
+    );
+  }
+  html.push_str(
+    "  <p class=\"options-chunk-status\" role=\"status\">More options load as \
+     you scroll.</p>\n</div>\n",
+  );
+  let _ = writeln!(
+    html,
+    "<script type=\"application/json\" \
+     id=\"options-chunk-manifest\">{manifest}</script>"
+  );
+  html.push_str(
+    "<noscript><p class=\"options-chunk-noscript\"><a \
+     href=\"options-full.html\">Open the complete options \
+     page</a>.</p></noscript>\n",
+  );
+  Ok(html)
 }
 
 fn write_split_options(
