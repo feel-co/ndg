@@ -37,7 +37,9 @@
       (typeof text === "string" ? text : "")
         .toLowerCase()
         .match(/\b[a-zA-Z0-9_-]+\b/g) || [];
-    const stopwords = new Set(searchConfig.stopwords.map((w) => w.toLowerCase()));
+    const stopwords = new Set(
+      searchConfig.stopwords.map((w) => w.toLowerCase()),
+    );
     return Array.from(
       new Set(
         words.filter(
@@ -104,7 +106,8 @@
     }
     score = Math.min(1.0, score + boundaryBonus);
 
-    const lengthPenalty = Math.abs(query.length - n) / Math.max(query.length, m);
+    const lengthPenalty =
+      Math.abs(query.length - n) / Math.max(query.length, m);
     score -= lengthPenalty * 0.2;
     return Math.max(0, Math.min(1.0, score));
   };
@@ -193,7 +196,8 @@
     return {
       exactText: lowerText === rawQuery || normalizedText === normalizedQuery,
       exactPhrase:
-        lowerText.includes(rawQuery) || normalizedText.includes(normalizedQuery),
+        lowerText.includes(rawQuery) ||
+        normalizedText.includes(normalizedQuery),
       matchedTerms,
       allTerms:
         searchTerms.length > 0 && matchedTerms.length === searchTerms.length,
@@ -218,7 +222,11 @@
       .filter((p) => p.trim());
 
   const findContainingSection = (doc, matchIndex) => {
-    if (!doc?.content || !Array.isArray(doc.anchors) || doc.anchors.length === 0) {
+    if (
+      !doc?.content ||
+      !Array.isArray(doc.anchors) ||
+      doc.anchors.length === 0
+    ) {
       return null;
     }
 
@@ -263,7 +271,9 @@
       } else if (
         sectionStart !== -1 &&
         Array.isArray(doc.anchors) &&
-        doc.anchors.some((a) => normalizeForComparison(a.text) === normalizedPara)
+        doc.anchors.some(
+          (a) => normalizeForComparison(a.text) === normalizedPara,
+        )
       ) {
         sectionEnd = i;
         break;
@@ -406,7 +416,9 @@
       .sort((a, b) => {
         if (a.bestRank !== b.bestRank) return a.bestRank - b.bestRank;
         if (b.pageScore !== a.pageScore) return b.pageScore - a.pageScore;
-        return Number(isOptionDocument(a.doc)) - Number(isOptionDocument(b.doc));
+        return (
+          Number(isOptionDocument(a.doc)) - Number(isOptionDocument(b.doc))
+        );
       })
       .slice(0, limit);
   };

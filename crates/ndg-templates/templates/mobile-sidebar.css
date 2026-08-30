@@ -150,8 +150,16 @@
   text-decoration: none;
 }
 
-.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li > a:hover,
-.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li > a.active {
+.mobile-sidebar-content
+  .sidebar-section-content
+  > ul:not(.toc-list)
+  > li
+  > a:hover,
+.mobile-sidebar-content
+  .sidebar-section-content
+  > ul:not(.toc-list)
+  > li
+  > a.active {
   background-color: var(--sidebar-hover);
   color: var(--link-color);
 }

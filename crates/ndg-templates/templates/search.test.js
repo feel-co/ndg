@@ -115,7 +115,11 @@ Deno.test("exact title match outscores partial title match", async () => {
 
   const results = await engine.search("sidebar");
   assertGreater(results.length, 0, "should return results");
-  assertEquals(results[0].doc.title, "Sidebar", "exact title match should rank first");
+  assertEquals(
+    results[0].doc.title,
+    "Sidebar",
+    "exact title match should rank first",
+  );
 });
 
 Deno.test("document without search term is excluded from results", async () => {
@@ -172,7 +176,11 @@ Deno.test("substring search finds hyphenated identifiers", async () => {
   ]);
 
   const results = await engine.search("redis");
-  assertEquals(results.length, 1, "partial identifier search should return result");
+  assertEquals(
+    results.length,
+    1,
+    "partial identifier search should return result",
+  );
   assertEquals(results[0].doc.title, "Hooks");
 });
 
@@ -204,47 +212,56 @@ Deno.test("multi-word section heading outranks option matches", async () => {
   assertEquals(results[0].matchingAnchors[0].text, "What is nvf");
 });
 
-Deno.test("exact section phrase outranks partial nvf page and anchor matches", async () => {
-  await loadDocs([
-    {
-      id: "configuring",
-      title: "Configuring nvf",
-      content: "DAG entries in nvf\nConfiguration details.",
-      path: "configuring.html",
-      anchors: [
-        { id: "dag-entries", text: "DAG entries in nvf", level: 3, tokens: [] },
-      ],
-    },
-    {
-      id: "hacking",
-      title: "Hacking nvf",
-      content: "Developer documentation for nvf.",
-      path: "hacking.html",
-      anchors: [],
-    },
-    {
-      id: "option",
-      title: "Option: vim.additionalRuntimePaths",
-      content: "What is used by nvf at runtime.",
-      path: "options.html#vim.additionalRuntimePaths",
-      anchors: [],
-    },
-    {
-      id: "intro",
-      title: "Introduction",
-      content: "What is nvf\nnvf is a highly modular configuration framework.",
-      path: "index.html",
-      anchors: [
-        { id: "what-is-nvf", text: "What is nvf", level: 3, tokens: [] },
-      ],
-    },
-  ]);
+Deno.test(
+  "exact section phrase outranks partial nvf page and anchor matches",
+  async () => {
+    await loadDocs([
+      {
+        id: "configuring",
+        title: "Configuring nvf",
+        content: "DAG entries in nvf\nConfiguration details.",
+        path: "configuring.html",
+        anchors: [
+          {
+            id: "dag-entries",
+            text: "DAG entries in nvf",
+            level: 3,
+            tokens: [],
+          },
+        ],
+      },
+      {
+        id: "hacking",
+        title: "Hacking nvf",
+        content: "Developer documentation for nvf.",
+        path: "hacking.html",
+        anchors: [],
+      },
+      {
+        id: "option",
+        title: "Option: vim.additionalRuntimePaths",
+        content: "What is used by nvf at runtime.",
+        path: "options.html#vim.additionalRuntimePaths",
+        anchors: [],
+      },
+      {
+        id: "intro",
+        title: "Introduction",
+        content:
+          "What is nvf\nnvf is a highly modular configuration framework.",
+        path: "index.html",
+        anchors: [
+          { id: "what-is-nvf", text: "What is nvf", level: 3, tokens: [] },
+        ],
+      },
+    ]);
 
-  const results = await engine.search("What is nvf", 8);
-  assertGreater(results.length, 0, "should return results");
-  assertEquals(results[0].doc.title, "Introduction");
-  assertEquals(results[0].matchingAnchors[0].text, "What is nvf");
-});
+    const results = await engine.search("What is nvf", 8);
+    assertGreater(results.length, 0, "should return results");
+    assertEquals(results[0].doc.title, "Introduction");
+    assertEquals(results[0].matchingAnchors[0].text, "What is nvf");
+  },
+);
 
 Deno.test("section anchor id can make a page a search candidate", async () => {
   await loadDocs([
@@ -298,68 +315,82 @@ Deno.test("section title ranks above option title partial match", async () => {
   assertEquals(results[0].matchingAnchors[0].text, "What is nvf");
 });
 
-Deno.test("multi-word page title is returned by widget-sized search", async () => {
-  await loadDocs([
-    {
-      id: "option",
-      title: "Option: nvf.enable",
-      content: "This option is used to enable nvf.",
-      path: "options.html#nvf.enable",
+Deno.test(
+  "multi-word page title is returned by widget-sized search",
+  async () => {
+    await loadDocs([
+      {
+        id: "option",
+        title: "Option: nvf.enable",
+        content: "This option is used to enable nvf.",
+        path: "options.html#nvf.enable",
+        anchors: [],
+      },
+      {
+        id: "page",
+        title: "What is nvf",
+        content: "An overview of the project.",
+        path: "index.html",
+        anchors: [],
+      },
+    ]);
+
+    const results = await engine.search("what is", 8);
+    assertGreater(results.length, 0, "should return results");
+    assertEquals(results[0].doc.title, "What is nvf");
+  },
+);
+
+Deno.test(
+  "options with irrelevant content don't displace title matches",
+  async () => {
+    const optionDocs = Array.from({ length: 20 }, (_, i) => ({
+      id: String(i),
+      title: `Option: hjem.users.systemd.paths.rule${i}`,
+      content: "Configure systemd path rules for user services.",
+      path: `options.html#rule${i}`,
       anchors: [],
-    },
-    {
-      id: "page",
-      title: "What is nvf",
-      content: "An overview of the project.",
-      path: "index.html",
-      anchors: [],
-    },
-  ]);
+    }));
 
-  const results = await engine.search("what is", 8);
-  assertGreater(results.length, 0, "should return results");
-  assertEquals(results[0].doc.title, "What is nvf");
-});
+    await loadDocs([
+      ...optionDocs,
+      {
+        id: "page",
+        title: "Sidebar",
+        content: "The sidebar provides navigation links.",
+        path: "sidebar.html",
+        anchors: [],
+      },
+    ]);
 
-Deno.test("options with irrelevant content don't displace title matches", async () => {
-  const optionDocs = Array.from({ length: 20 }, (_, i) => ({
-    id: String(i),
-    title: `Option: hjem.users.systemd.paths.rule${i}`,
-    content: "Configure systemd path rules for user services.",
-    path: `options.html#rule${i}`,
-    anchors: [],
-  }));
-
-  await loadDocs([
-    ...optionDocs,
-    {
-      id: "page",
-      title: "Sidebar",
-      content: "The sidebar provides navigation links.",
-      path: "sidebar.html",
-      anchors: [],
-    },
-  ]);
-
-  const results = await engine.search("sidebar");
-  assertGreater(results.length, 0, "should return results");
-  assertEquals(
-    results[0].doc.title,
-    "Sidebar",
-    "sidebar page should rank first even with many unrelated options",
-  );
-});
+    const results = await engine.search("sidebar");
+    assertGreater(results.length, 0, "should return results");
+    assertEquals(
+      results[0].doc.title,
+      "Sidebar",
+      "sidebar page should rank first even with many unrelated options",
+    );
+  },
+);
 
 Deno.test("empty query returns no results", async () => {
-  await loadDocs([{ id: "1", title: "Test", content: "test", path: "t.html", anchors: [] }]);
+  await loadDocs([
+    { id: "1", title: "Test", content: "test", path: "t.html", anchors: [] },
+  ]);
   const results = await engine.search("");
   assertEquals(results.length, 0);
 });
 
 Deno.test("single-character query returns no results", async () => {
-  await loadDocs([{ id: "1", title: "abc", content: "abc", path: "t.html", anchors: [] }]);
+  await loadDocs([
+    { id: "1", title: "abc", content: "abc", path: "t.html", anchors: [] },
+  ]);
   const results = await engine.search("a");
-  assertEquals(results.length, 0, "queries shorter than 2 chars should be rejected");
+  assertEquals(
+    results.length,
+    0,
+    "queries shorter than 2 chars should be rejected",
+  );
 });
 
 Deno.test("anchor match is returned for matching heading", async () => {
@@ -367,10 +398,16 @@ Deno.test("anchor match is returned for matching heading", async () => {
     {
       id: "1",
       title: "Installation",
-      content: "Getting Started\nInstall the package first.\nSidebar Setup\nConfigure the sidebar.",
+      content:
+        "Getting Started\nInstall the package first.\nSidebar Setup\nConfigure the sidebar.",
       path: "install.html",
       anchors: [
-        { id: "getting-started", text: "Getting Started", level: 2, tokens: [] },
+        {
+          id: "getting-started",
+          text: "Getting Started",
+          level: 2,
+          tokens: [],
+        },
         { id: "sidebar-setup", text: "Sidebar Setup", level: 2, tokens: [] },
       ],
     },
@@ -386,22 +423,25 @@ Deno.test("anchor match is returned for matching heading", async () => {
   );
 });
 
-Deno.test("two-character query still searches when min word length is higher", async () => {
-  await loadDocs([
-    {
-      id: "1",
-      title: "Terminal",
-      content: "Configure the terminal emulator.",
-      path: "term.html",
-      anchors: [],
-    },
-  ]);
-  engine.config = { ...engine.config, minWordLength: 3 };
+Deno.test(
+  "two-character query still searches when min word length is higher",
+  async () => {
+    await loadDocs([
+      {
+        id: "1",
+        title: "Terminal",
+        content: "Configure the terminal emulator.",
+        path: "term.html",
+        anchors: [],
+      },
+    ]);
+    engine.config = { ...engine.config, minWordLength: 3 };
 
-  const results = await engine.search("te");
-  assertEquals(results.length, 1, "visible two-character text should match");
-  assertEquals(results[0].doc.title, "Terminal");
-});
+    const results = await engine.search("te");
+    assertEquals(results.length, 1, "visible two-character text should match");
+    assertEquals(results[0].doc.title, "Terminal");
+  },
+);
 
 Deno.test("stopword-only phrase search can return visible title", async () => {
   await loadDocs([
@@ -416,6 +456,10 @@ Deno.test("stopword-only phrase search can return visible title", async () => {
   engine.config = { ...engine.config, stopwords: ["what", "is"] };
 
   const results = await engine.search("what is");
-  assertEquals(results.length, 1, "visible phrase should match even as stopwords");
+  assertEquals(
+    results.length,
+    1,
+    "visible phrase should match even as stopwords",
+  );
   assertEquals(results[0].doc.title, "What is");
 });

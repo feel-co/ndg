@@ -47,7 +47,10 @@ self.onmessage = function (e) {
     if (type === "tokenize") {
       respond(
         "tokens",
-        self.searchCore.tokenizeQuery(typeof data === "string" ? data : "", searchConfig),
+        self.searchCore.tokenizeQuery(
+          typeof data === "string" ? data : "",
+          searchConfig,
+        ),
       );
       return;
     }
@@ -60,7 +63,10 @@ self.onmessage = function (e) {
         return;
       }
 
-      if (data.documents !== undefined || data.preparedDocuments !== undefined) {
+      if (
+        data.documents !== undefined ||
+        data.preparedDocuments !== undefined
+      ) {
         setDocuments(data);
       }
 
