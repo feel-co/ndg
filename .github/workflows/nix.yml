@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: "Set up QEMU support"
         if: runner.arch == 'X64'
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@v4.1.0
         with:
           platforms: arm64
 
