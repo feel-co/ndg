@@ -12,9 +12,12 @@ use ndg_commonmark::{
   MarkdownOptionsBuilder,
   MarkdownProcessor,
   collect_markdown_files,
+  deduplicate_anchor_ids,
   processor::types::TabStyle,
+  validate_anchor_ids,
+  validate_rendered_anchor_ids,
 };
-use ndg_config::Config;
+use ndg_config::{Config, anchor::DuplicateAnchorPolicy};
 use rayon::prelude::*;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
@@ -268,16 +271,13 @@ fn process_markdown_files_impl(
         }
 
         let (frontmatter, content) = strip_frontmatter(&raw_content);
+        // Render without validation; duplicate-anchor policy (including
+        // `[sidebar.toc]` exclusions) is applied after cache lookup so cached
+        // and fresh renders behave identically.
         let result = base_processor
           .clone()
           .with_base_dir(base_dir)
-          .render_checked(&content)
-          .map_err(|e| {
-            color_eyre::eyre::eyre!(
-              "Duplicate anchor IDs in {}:\n{e}",
-              file_path.display()
-            )
-          })?;
+          .render(&content);
         if let Some((dir, processor_digest)) = &cache {
           write_cache(
             dir,
@@ -294,7 +294,13 @@ fn process_markdown_files_impl(
       .collect();
     progress.finish_with_message("Markdown processing complete");
 
-    let rendered = rendered?;
+    let mut rendered = rendered?;
+    // Apply duplicate-anchor policy per file. TOC-excluded headings are
+    // ignored for validation but keep their HTML IDs.
+    for (file_path, (_, result)) in files.iter().zip(rendered.iter_mut()) {
+      apply_anchor_policy(config, file_path, result)?;
+    }
+    let rendered = rendered;
     for (file_path, (_, result)) in files.iter().zip(&rendered) {
       let base_dir = file_path.parent().unwrap_or(input_dir.as_path());
 
@@ -441,6 +447,143 @@ fn process_markdown_files_impl(
   } else {
     info!("No input directory provided, skipping markdown processing");
     Ok(Vec::new())
+  }
+}
+
+/// Validate or deduplicate heading anchors for a single rendered page.
+///
+/// Headings matching `[sidebar.toc]` exclusions are ignored for duplicate
+/// validation but keep their HTML IDs. The configured
+/// `[anchor] on_duplicate` policy decides whether duplicates fail the build
+/// (`error`), log a warning (`warn`), or are made unique with `-1`, `-2`, ...
+/// suffixes (`deduplicate`).
+fn apply_anchor_policy(
+  config: &Config,
+  file_path: &Path,
+  result: &mut ndg_commonmark::MarkdownResult,
+) -> Result<()> {
+  let policy = config.duplicate_anchor_policy();
+  let has_excludes = config.sidebar.as_ref().is_some_and(|sidebar| {
+    !sidebar.toc.exclude.is_empty()
+      && result
+        .headers
+        .iter()
+        .any(|header| sidebar.toc.excludes(&header.text))
+  });
+
+  if !has_excludes {
+    match policy {
+      DuplicateAnchorPolicy::Error => {
+        validate_rendered_anchor_ids(&result.headers, &result.html).map_err(
+          |e| {
+            color_eyre::eyre::eyre!(
+              "Duplicate anchor IDs in {}:\n{e}",
+              file_path.display()
+            )
+          },
+        )?;
+        return Ok(());
+      },
+      DuplicateAnchorPolicy::Warn => {
+        if let Err(e) =
+          validate_rendered_anchor_ids(&result.headers, &result.html)
+        {
+          warn!("Duplicate anchor IDs in {}:\n{e}", file_path.display());
+        }
+        return Ok(());
+      },
+      DuplicateAnchorPolicy::Deduplicate => {
+        let renames =
+          deduplicate_anchor_ids(&mut result.headers, &mut result.html);
+        for (old, new) in &renames {
+          info!(
+            "Deduplicated anchor ID '{old}' -> '{new}' in {}",
+            file_path.display()
+          );
+        }
+        return Ok(());
+      },
+    }
+  }
+
+  // TOC exclusions present: validate only non-excluded headings, ignoring
+  // excluded IDs in the rendered HTML scan.
+  let Some(sidebar) = config.sidebar.as_ref() else {
+    return Ok(());
+  };
+  let excluded_ids: FxHashSet<String> = result
+    .headers
+    .iter()
+    .filter(|header| sidebar.toc.excludes(&header.text))
+    .map(|header| header.id.clone())
+    .collect();
+
+  let filtered: Vec<Header> = result
+    .headers
+    .iter()
+    .filter(|header| !sidebar.toc.excludes(&header.text))
+    .cloned()
+    .collect();
+
+  let validation = validate_anchor_ids(&filtered)
+    .map_err(|e| {
+      color_eyre::eyre::eyre!(
+        "Duplicate anchor IDs in {}:\n{e}",
+        file_path.display()
+      )
+    })
+    .and_then(|()| {
+      // Scan HTML for duplicates, ignoring excluded IDs.
+      let mut seen = FxHashSet::default();
+      let mut duplicate_ids = Vec::new();
+      let mut rest = result.html.as_str();
+      while let Some(start) = rest.find("id=\"") {
+        rest = &rest[start + 4..];
+        let Some(end) = rest.find('"') else {
+          break;
+        };
+        let id = &rest[..end];
+        if !id.is_empty()
+          && !excluded_ids.contains(id)
+          && !seen.insert(id.to_owned())
+          && !duplicate_ids.iter().any(|seen| seen == id)
+        {
+          duplicate_ids.push(id.to_owned());
+        }
+        rest = &rest[end + 1..];
+      }
+      if duplicate_ids.is_empty() {
+        Ok(())
+      } else {
+        Err(color_eyre::eyre::eyre!(
+          "Duplicate anchor IDs in {}: {}",
+          file_path.display(),
+          duplicate_ids.join(", ")
+        ))
+      }
+    });
+
+  match policy {
+    DuplicateAnchorPolicy::Error => validation,
+    DuplicateAnchorPolicy::Warn => {
+      if let Err(e) = validation {
+        warn!("{e:#}");
+      }
+      Ok(())
+    },
+    DuplicateAnchorPolicy::Deduplicate => {
+      if validation.is_err() {
+        let renames =
+          deduplicate_anchor_ids(&mut result.headers, &mut result.html);
+        for (old, new) in &renames {
+          info!(
+            "Deduplicated anchor ID '{old}' -> '{new}' in {}",
+            file_path.display()
+          );
+        }
+      }
+      Ok(())
+    },
   }
 }
 
@@ -886,5 +1029,191 @@ mod tests {
     };
 
     assert!(create_processor(&config, None).is_err());
+  }
+
+  fn duplicate_result() -> MarkdownResult {
+    MarkdownResult {
+      html:           "<h3 id=\"inputs\">Inputs</h3><h3 \
+                       id=\"inputs\">Inputs</h3>"
+        .to_string(),
+      headers:        vec![
+        Header {
+          text:  "Inputs".to_string(),
+          level: 3,
+          id:    "inputs".to_string(),
+        },
+        Header {
+          text:  "Inputs".to_string(),
+          level: 3,
+          id:    "inputs".to_string(),
+        },
+      ],
+      title:          None,
+      included_files: Vec::new(),
+    }
+  }
+
+  fn config_with_toc_exclude(policy: DuplicateAnchorPolicy) -> Config {
+    use ndg_config::{anchor::AnchorConfig, sidebar::SidebarTocConfig};
+    let mut sidebar = ndg_config::sidebar::SidebarConfig::default();
+    sidebar.toc = SidebarTocConfig {
+      exclude: vec![ndg_config::sidebar::TitleMatch {
+        exact:          None,
+        regex:          Some("^(Inputs|Type|Examples)$".to_string()),
+        compiled_regex: None,
+      }],
+    };
+    sidebar.validate().unwrap();
+    Config {
+      sidebar: Some(sidebar),
+      anchor: Some(AnchorConfig {
+        on_duplicate: policy,
+        ..Default::default()
+      }),
+      ..Config::default()
+    }
+  }
+
+  #[test]
+  fn toc_excluded_duplicates_pass_with_error_policy() {
+    let config = config_with_toc_exclude(DuplicateAnchorPolicy::Error);
+    let mut result = duplicate_result();
+    apply_anchor_policy(&config, Path::new("page.md"), &mut result).unwrap();
+  }
+
+  #[test]
+  fn non_excluded_duplicates_still_error() {
+    use ndg_config::sidebar::SidebarTocConfig;
+
+    let mut config = config_with_toc_exclude(DuplicateAnchorPolicy::Error);
+    // Only exclude "Examples", so "Inputs" duplicates must still fail.
+    let mut sidebar = config.sidebar.take().unwrap();
+    sidebar.toc = SidebarTocConfig {
+      exclude: vec![ndg_config::sidebar::TitleMatch {
+        exact:          Some("Examples".to_string()),
+        regex:          None,
+        compiled_regex: None,
+      }],
+    };
+    config.sidebar = Some(sidebar);
+    let mut result = duplicate_result();
+    assert!(
+      apply_anchor_policy(&config, Path::new("page.md"), &mut result).is_err()
+    );
+  }
+
+  #[test]
+  fn deduplicate_policy_makes_anchors_unique() {
+    let config = Config {
+      anchor: Some(ndg_config::anchor::AnchorConfig {
+        on_duplicate: DuplicateAnchorPolicy::Deduplicate,
+        ..Default::default()
+      }),
+      ..Config::default()
+    };
+    let mut result = duplicate_result();
+    apply_anchor_policy(&config, Path::new("page.md"), &mut result).unwrap();
+    assert_eq!(result.headers[0].id, "inputs");
+    assert_eq!(result.headers[1].id, "inputs-1");
+    assert!(result.html.contains("id=\"inputs-1\""));
+  }
+
+  #[test]
+  fn warn_policy_keeps_duplicates() {
+    let config = Config {
+      anchor: Some(ndg_config::anchor::AnchorConfig {
+        on_duplicate: DuplicateAnchorPolicy::Warn,
+        ..Default::default()
+      }),
+      ..Config::default()
+    };
+    let mut result = duplicate_result();
+    apply_anchor_policy(&config, Path::new("page.md"), &mut result).unwrap();
+    assert_eq!(result.headers[1].id, "inputs");
+  }
+
+  /// Replicates <https://github.com/feel-co/ndg/issues/272#issuecomment-5476940549>:
+  /// repeated `Inputs`/`Type`/`Examples` sections must fail by default, pass
+  /// when excluded from the TOC, and pass under `warn`/`deduplicate` policies.
+  #[test]
+  fn issue_272_duplicate_sections_end_to_end() {
+    use ndg_config::anchor::AnchorConfig;
+
+    const DOC: &str = "# Module\n\n### Inputs\n\nFirst.\n\n### \
+                       Type\n\nSecond.\n\n### Examples\n\nThird.\n\n### \
+                       Inputs\n\nFourth.\n\n### Type\n\nFifth.\n\n### \
+                       Examples\n\nSixth.\n";
+
+    fn run(
+      policy: Option<DuplicateAnchorPolicy>,
+      exclude: bool,
+    ) -> Result<usize> {
+      let temp = TempDir::new().unwrap();
+      let input = temp.path().join("docs");
+      fs::create_dir_all(&input).unwrap();
+      fs::write(input.join("module-schema.md"), DOC).unwrap();
+      let mut config = Config {
+        input_dir: Some(input),
+        anchor: policy.map(|on_duplicate| {
+          AnchorConfig {
+            on_duplicate,
+            ..Default::default()
+          }
+        }),
+        ..Config::default()
+      };
+      if exclude {
+        use ndg_config::sidebar::SidebarTocConfig;
+        let mut sidebar = ndg_config::sidebar::SidebarConfig::default();
+        sidebar.toc = SidebarTocConfig {
+          exclude: vec![ndg_config::sidebar::TitleMatch {
+            exact:          None,
+            regex:          Some("^(Inputs|Type|Examples)$".to_string()),
+            compiled_regex: None,
+          }],
+        };
+        sidebar.validate().unwrap();
+        config.sidebar = Some(sidebar);
+      }
+      process_markdown_files(&mut config, None)
+        .map(|pages| pages.iter().map(|page| page.headers.len()).sum())
+    }
+
+    assert!(run(None, false).is_err(), "duplicates must fail by default");
+    assert_eq!(
+      run(None, true).unwrap(),
+      7,
+      "TOC-excluded duplicates must no longer fail"
+    );
+    assert!(run(Some(DuplicateAnchorPolicy::Warn), false).is_ok());
+    let pages = {
+      let temp = TempDir::new().unwrap();
+      let input = temp.path().join("docs");
+      fs::create_dir_all(&input).unwrap();
+      fs::write(input.join("module-schema.md"), DOC).unwrap();
+      let mut config = Config {
+        input_dir: Some(input),
+        anchor: Some(AnchorConfig {
+          on_duplicate: DuplicateAnchorPolicy::Deduplicate,
+          ..Default::default()
+        }),
+        ..Config::default()
+      };
+      process_markdown_files(&mut config, None).unwrap()
+    };
+    let ids: Vec<&str> = pages[0]
+      .headers
+      .iter()
+      .map(|header| header.id.as_str())
+      .collect();
+    assert_eq!(ids, vec![
+      "module",
+      "inputs",
+      "type",
+      "examples",
+      "inputs-1",
+      "type-1",
+      "examples-1"
+    ]);
   }
 }
