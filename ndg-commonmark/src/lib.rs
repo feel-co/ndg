@@ -152,7 +152,9 @@ pub use crate::{
     Header,
     IncludedFile,
     MarkdownResult,
+    deduplicate_anchor_ids,
     validate_anchor_ids,
+    validate_rendered_anchor_ids,
   },
   utils::ManpageUrlsError,
 };
