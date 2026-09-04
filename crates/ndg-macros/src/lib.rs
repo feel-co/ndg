@@ -429,6 +429,16 @@ fn generate_value_assignment(
     };
   }
 
+  // DuplicateAnchorPolicy handling
+  if type_is(field_type, "DuplicateAnchorPolicy") {
+    return quote! {
+      self.#field_name = value.parse().map_err(|e: String| ConfigError::Config(format!(
+        "Invalid value for '{}': '{}' - {}",
+        stringify!(#field_name), value, e
+      )))?;
+    };
+  }
+
   // usize handling
   if type_is(field_type, "usize") {
     return quote! {

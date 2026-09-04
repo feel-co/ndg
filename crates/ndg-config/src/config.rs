@@ -259,6 +259,18 @@ impl Config {
       .is_some_and(|a| a.compatibility_anchors)
   }
 
+  /// Returns the configured duplicate heading anchor policy.
+  ///
+  /// Defaults to `Error` when no `anchor` configuration is present,
+  /// preserving the current fail-on-duplicate behaviour.
+  #[must_use]
+  pub fn duplicate_anchor_policy(&self) -> anchor::DuplicateAnchorPolicy {
+    self
+      .anchor
+      .as_ref()
+      .map_or(anchor::DuplicateAnchorPolicy::Error, |a| a.on_duplicate)
+  }
+
   /// Returns whether to use README.md as the homepage when index.md is not
   /// present.
   #[must_use]

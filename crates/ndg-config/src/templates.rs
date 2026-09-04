@@ -81,6 +81,14 @@ highlight_code = true
 # How to handle hard tabs in code blocks (one of "none", "warn", or "normalize")
 tab_style = "none"
 
+# Duplicate heading anchor handling (one of "error", "warn", or "deduplicate")
+# - "error": fail the build on duplicate anchors (default)
+# - "warn": log a warning and keep duplicate IDs
+# - "deduplicate": make anchors unique with deterministic -1, -2, ... suffixes
+# Headings matching [sidebar.toc] exclusions are ignored for validation.
+# [anchor]
+# on_duplicate = "error"
+
 # GitHub revision for linking to source files (defaults to 'local')
 revision = "main"
 
