@@ -45,6 +45,11 @@ changes.
   `relatedPackages` field.
 - Per-page table-of-contents entries can now be excluded by exact title or
   regular expression with `[sidebar.toc]` and `[[sidebar.toc.exclude]]`.
+  Excluded headings are also ignored for duplicate anchor validation.
+- Duplicate heading anchors are now configurable with
+  `[anchor] on_duplicate = "error" | "warn" | "deduplicate"` (default
+  `"error"`). `"deduplicate"` makes IDs unique with deterministic `-1`, `-2`,
+  ... suffixes.
 - Comrak Markdown syntax extensions are now configurable via the new
   `[markdown]` configuration section. Supports 24 extensions including tables,
   task lists, footnotes, strikethrough, math (code/dollar/LaTeX), alerts,
