@@ -600,7 +600,6 @@ impl MarkdownProcessor {
         MarkdownExtension::Subtext => options.extension.subtext = true,
         MarkdownExtension::Superscript => options.extension.superscript = true,
         MarkdownExtension::Table => options.extension.table = true,
-        MarkdownExtension::Tagfilter => options.extension.tagfilter = true,
         MarkdownExtension::Tasklist => options.extension.tasklist = true,
         MarkdownExtension::Underline => options.extension.underline = true,
         MarkdownExtension::WikilinksTitleAfterPipe => {

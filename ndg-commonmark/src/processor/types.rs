@@ -221,8 +221,6 @@ pub enum MarkdownExtension {
   Superscript,
   /// Tables.
   Table,
-  /// GFM tag filtering.
-  Tagfilter,
   /// Task lists.
   Tasklist,
   /// Underlined text using `__`.
@@ -258,7 +256,6 @@ impl FromStr for MarkdownExtension {
       "subtext" => Ok(Self::Subtext),
       "superscript" => Ok(Self::Superscript),
       "table" => Ok(Self::Table),
-      "tagfilter" => Ok(Self::Tagfilter),
       "tasklist" => Ok(Self::Tasklist),
       "underline" => Ok(Self::Underline),
       "wikilinks-title-after-pipe" => Ok(Self::WikilinksTitleAfterPipe),

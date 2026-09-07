@@ -127,7 +127,7 @@ let processor = MarkdownProcessor::new(options);
 - `DescriptionLists`, `Footnotes`, `Greentext`, `Highlight`, `Insert`
 - `InlineFootnotes`, `MathCode`, `MathDollars`, `MathLatex`
 - `MultilineBlockQuotes`, `Spoiler`, `Strikethrough`, `Subscript`, `Subtext`
-- `Superscript`, `Table`, `Tagfilter`, `Tasklist`, `Underline`
+- `Superscript`, `Table`, `Tasklist`, `Underline`
 - `WikilinksTitleAfterPipe`, `WikilinksTitleBeforePipe`
 
 Math extensions produce HTML annotated with `data-math-style`. Typeset those

@@ -428,7 +428,7 @@ Supported `markdown.extensions` values are:
 - `description-lists`, `footnotes`, `greentext`, `highlight`, `insert`
 - `inline-footnotes`, `math-code`, `math-dollars`, `math-latex`
 - `multiline-block-quotes`, `spoiler`, `strikethrough`, `subscript`, `subtext`
-- `superscript`, `table`, `tagfilter`, `tasklist`, `underline`
+- `superscript`, `table`, `tasklist`, `underline`
 - `wikilinks-title-after-pipe`, `wikilinks-title-before-pipe`
 
 ### Rendering math with KaTeX
