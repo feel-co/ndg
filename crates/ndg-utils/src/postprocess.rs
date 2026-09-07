@@ -141,12 +141,13 @@ pub fn process_js(content: &str, config: &PostprocessConfig) -> Result<String> {
   let js_opts = config.js_options();
 
   let minifier_options = MinifierOptions {
-    compress: if js_opts.compress {
+    mangle_properties: None,
+    compress:          if js_opts.compress {
       Some(CompressOptions::default())
     } else {
       None
     },
-    mangle:   if js_opts.mangle {
+    mangle:            if js_opts.mangle {
       Some(MangleOptions::default())
     } else {
       None
