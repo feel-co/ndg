@@ -112,10 +112,9 @@ their content remain in the rendered page. Exclusion entries use the same title
 matcher semantics as `sidebar.matches`: `exact` and `regex` are both supported,
 and both must match when specified together.
 
-Excluded headings are also ignored for duplicate anchor validation, so repeated
-section titles like `Inputs`, `Type`, or `Examples` no longer fail the build
-when excluded. Use `[anchor] on_duplicate = "warn"` or `"deduplicate"` to
-configure handling for remaining duplicates.
+Exclusions do not affect heading anchors or duplicate-anchor validation. For
+repeated section titles such as `Inputs`, `Type`, or `Examples`, configure
+`[anchor] on_duplicate = "deduplicate"` to create unique IDs.
 
 ## Pattern Matching
 

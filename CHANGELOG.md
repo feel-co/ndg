@@ -45,7 +45,9 @@ changes.
   `relatedPackages` field.
 - Per-page table-of-contents entries can now be excluded by exact title or
   regular expression with `[sidebar.toc]` and `[[sidebar.toc.exclude]]`.
-  Excluded headings are also ignored for duplicate anchor validation.
+  Exclusions affect navigation only; duplicate anchors still follow the
+  configured `[anchor] on_duplicate` policy. Use `"deduplicate"` for repeated
+  headings that need distinct deep links.
 - Duplicate heading anchors are now configurable with
   `[anchor] on_duplicate = "error" | "warn" | "deduplicate"` (default
   `"error"`). `"deduplicate"` makes IDs unique with deterministic `-1`, `-2`,
