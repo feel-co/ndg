@@ -82,15 +82,6 @@ jobs:
       - name: "Build packages"
         run: nix build -L .#packages.${{ matrix.system }}.${{ matrix.package }} -v
 
-      # We already have cachix, but this'll help re-use our Nix store
-      # inside the cache to achieve less wasted CI time. Unfortunately
-      # Nix *really* sucks for incremental builds :(
-      - name: Restore and save Nix store
-        uses: nix-community/cache-nix-action@v7
-        with:
-          # Restore and save a cache using this key
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/*.lock', '**/*.rs') }}
-
       # For debugging purposes, the default check is standalone so
       # it can be opened or served with zero overhead.
       - name: Upload doc artifacts
