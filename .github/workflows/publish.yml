@@ -2,6 +2,8 @@ name: Publish Crates
 
 on:
   workflow_dispatch:
+  # Tag and Release only runs from main or manual dispatch.
+  # zizmor: ignore[dangerous-triggers]
   workflow_run:
     workflows: ["Tag and Release"]
     types:
@@ -17,13 +19,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
 
       - name: Cache cargo registry and index
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
 
       - name: Publish ndg-commonmark
         run: |

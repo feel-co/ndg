@@ -2,8 +2,8 @@ name: NDG Documentation
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
+  # This workflow runs only after the trusted main-branch Cargo workflow.
+  # zizmor: ignore[dangerous-triggers]
   workflow_run:
     workflows: ["Build and Test with Cargo"]  # must match the `name:` of rust.yml exactly
     types:
@@ -25,20 +25,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@be39649afda95dbf70f87cce95f68b8d5797b296 # nightly
 
       - name: Restore Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
           cache-targets: true
           cache-on-failure: true
 
       - name: Cache NDG Binary
         id: cache-ndg
-        uses: actions/cache@v5.0.5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: target/release/ndg
           key: ndg-binary-${{ runner.os }}-${{ hashFiles('Cargo.lock', '**/Cargo.toml', 'ndg/src/**', 'ndg-commonmark/src/**') }}
@@ -80,9 +80,8 @@ jobs:
           echo '<meta http-equiv="Refresh" content="0; url=ndg_commonmark/" />' > ./deploy/api/index.html
 
       - name: Deploy Docs
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4
         with:
           folder: ./deploy
           branch: gh-pages
           clean: false # keep existing files, i.e., badges
-

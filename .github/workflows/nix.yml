@@ -16,11 +16,11 @@ jobs:
       files_changed: ${{ steps.changed-files.outputs.files }}
     steps:
       - name: "Checkout Repository"
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: "Get changed files"
         id: changed-files
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         with:
            filters: |
              files:
@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: "Set up QEMU support"
         if: runner.arch == 'X64'
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4
         with:
           platforms: arm64
 
@@ -61,7 +61,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y binfmt-support qemu-user-static
 
-      - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@b85815f71a6de0ddee80b8a80a98d43f4bcc66c7 # v31
         with:
           nix_path: nixpkgs=channel:nixos-unstable
           enable_kvm: true
@@ -71,13 +71,13 @@ jobs:
             extra-platforms = aarch64-linux armv7l-linux i686-linux
             extra-sandbox-paths = /usr/libexec/qemu-binfmt /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static /usr/bin/qemu-arm-static
 
-      - uses: cachix/cachix-action@v17
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: feel-co
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
 
       - name: "Checkout Repository"
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: "Build packages"
         run: nix build -L .#packages.${{ matrix.system }}.${{ matrix.package }} -v
@@ -85,7 +85,7 @@ jobs:
       # For debugging purposes, the default check is standalone so
       # it can be opened or served with zero overhead.
       - name: Upload doc artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: "ndg-checks-${{ matrix.system }}-default"
           path: result/share/doc/*

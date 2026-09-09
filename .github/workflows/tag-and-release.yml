@@ -2,6 +2,8 @@ name: Tag and Release
 
 on:
   workflow_dispatch:
+  # The triggering Cargo workflow is restricted to main.
+  # zizmor: ignore[dangerous-triggers]
   workflow_run:
     workflows: ["Build and Test with Cargo"]
     types:
@@ -9,21 +11,23 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   tag:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
     outputs:
       ndg_version: ${{ steps.read_version.outputs.ndg_version }}
       tag_exists: ${{ steps.check_version.outputs.tag_exists }}
       skip_workflow: ${{ steps.check_version.outputs.skip_workflow }}
     steps:
-      - uses: cachix/install-nix-action@master
+      - uses: cachix/install-nix-action@b85815f71a6de0ddee80b8a80a98d43f4bcc66c7 # v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         name: Checkout
       - name: Read version
         id: read_version
@@ -94,6 +98,8 @@ jobs:
     needs: tag
     if: needs.tag.outputs.skip_workflow != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       release_id: ${{ steps.create_release.outputs.id }}
@@ -111,7 +117,7 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@5113cdc90fd4d541c801c55356214017bf5ae34b # v3
         with:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           draft: false
@@ -145,16 +151,20 @@ jobs:
             cross: false
 
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           targets: ${{ matrix.target }}
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          lookup-only: true
 
       - name: Setup cross-compilation (Linux ARM64)
         if: matrix.cross && matrix.os == 'ubuntu-latest'
@@ -164,7 +174,7 @@ jobs:
 
       - name: Install cross
         if: matrix.cross
-        uses: taiki-e/install-action@v2.82.2
+        uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
         with:
           tool: cross
 
@@ -181,7 +191,7 @@ jobs:
           cp target/${{ matrix.target }}/release/ndg ${{ matrix.name }}
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@5113cdc90fd4d541c801c55356214017bf5ae34b # v3
         with:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           files: ${{ matrix.name }}
@@ -192,8 +202,10 @@ jobs:
     needs: [tag, create-release, build-release]
     if: always() && needs.tag.outputs.skip_workflow != 'true' && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
@@ -258,10 +270,10 @@ jobs:
     if: always() && needs.tag.outputs.skip_workflow != 'true' && needs.create-release.result == 'success' && (needs.build-release.result == 'success' || contains(needs.*.result, 'success'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Download Assets
-        uses: robinraju/release-downloader@v1
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1
         with:
           tag: ${{ needs.tag.outputs.ndg_version }}
           fileName: "ndg-*"
@@ -283,7 +295,7 @@ jobs:
           fi
 
       - name: Upload Checksums
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@5113cdc90fd4d541c801c55356214017bf5ae34b # v3
         with:
           tag_name: ${{ needs.tag.outputs.ndg_version }}
           files: SHA256SUMS
