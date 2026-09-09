@@ -6,11 +6,24 @@ input_dir = "ndg/docs"
 # Output directory for generated documentation
 output_dir = "build"
 
+# Path to options.json file (optional)
+# module_options = "options.json"
+
+# Nix files or directories containing RFC 145-style /** ... */ comments.
+# nixdoc_inputs = ["lib"]
+
 # Title for the documentation
 title = "NDG Documentation"
 
 # Footer text for the documentation
-footer_text = "Generated with NDG"
+footer_text = "Generated with"
+
+# Number of threads to use for parallel processing (defaults to number of CPU cores)
+# jobs = 4
+
+# Template customization
+# Path to custom template file
+# template_path = "templates/custom.html"
 
 # Path to template directory containing all template files
 template_dir = ".github/templates"
@@ -30,6 +43,37 @@ template_dir = ".github/templates"
 # Whether to generate anchors for headings
 generate_anchors = true
 
+# Whether to enable syntax highlighting for code blocks
+highlight_code = true
+
+# Path to user-defined Tree-sitter query overrides
+# syntax_queries_path = "queries"
+
+# How to handle hard tabs in code blocks (one of "none", "warn", or "normalize")
+tab_style = "normalize"
+
+# Duplicate heading anchor handling (one of "error", "warn", or "deduplicate")
+# [anchor]
+# on_duplicate = "error"
+
+# GitHub revision for linking to source files (defaults to 'local')
+revision = "main"
+
+# Markdown rendering options
+# [markdown]
+# extensions = ["math-dollars", "math-code", "math-latex"]
+
+# Index page configuration
+# [index]
+# use_readme = false
+# generate_fallback = true
+
+# OpenGraph tags to inject into the HTML head
+# opengraph = { og:title = "My Project", og:image = "https://example.com/image.png" }
+
+# Additional meta tags to inject into the HTML head
+# meta_tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
+
 # Search configuration
 [search]
 # Whether to generate a search index
@@ -37,44 +81,32 @@ enable = true
 
 # Maximum heading level to index
 max_heading_level = 3
-# Depth of parent categories in options TOC (configured in [sidebar.options])
-# depth = 2
 
-# Whether to enable syntax highlighting for code blocks
-highlight_code = true
+# Global module options configuration
+# [options.filter]
+# prefix = "services.nginx"
+# type = "boolean"
+# search = "enable"
+# has_default = false
+# has_description = false
+# include_internal = true
 
-# How to handle hard tabs in code blocks (one of "none", "warn", or "normalize")
-tab_style = "normalize"
-
-# GitHub revision for linking to source files (defaults to 'local')
-revision = "main"
-
-# OpenGraph and meta tags configuration
-# [meta]
-# OpenGraph tags to inject into the HTML head
-# opengraph = { og:title = "My Project", og:image = "https://example.com/image.png" }
-#
-# Additional meta tags to inject into the HTML head (description, keywords, etc.)
-# tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
+# [options.pages]
+# enabled = false
+# depth = 1
+# root = "options"
 
 # Sidebar configuration
 [sidebar]
-# Enable numbering for sidebar items
-numbered = true
-
-# Include special files in numbering sequence
 number_special_files = true
+numbered             = true
+ordering             = "custom"
 
-# Ordering algorithm for sidebar items: "alphabetical", "custom", or "filesystem"
-ordering = "custom"
-
-# Make index appear first
 [[sidebar.matches]]
 new_title = "Introduction"
 path      = "index.md"
 position  = 0
 
-# Order the rest of the documents with consistent titles
 [[sidebar.matches]]
 new_title = "Postprocessing"
 path      = "POSTPROCESSING.md"
@@ -95,62 +127,43 @@ new_title = "Templating Guide"
 path      = "TEMPLATING.md"
 position  = 4
 
-# Pattern-based sidebar matching rules
-# Rules are evaluated in order, and the first matching rule is applied.
-# All specified conditions are expected to match.
+# Exclude headings from generated per-page tables of contents.
+# [sidebar.toc]
+# [[sidebar.toc.exclude]]
+# regex = "^(Inputs|Type|Examples)$"
 
-# Simple exact path match (shorthand syntax)
+# Pattern-based sidebar matching rules
 # [[sidebar.matches]]
 # path = "getting-started.md"
 # position = 1
 
-# Exact title match with override (shorthand syntax)
 # [[sidebar.matches]]
 # title = "Release Notes"
 # new_title = "What's New"
 # position = 999
 
-# Regex patterns for more advanced matching (nested syntax required)
 # [[sidebar.matches]]
 # path.regex = "^api/.*\\.md$"
 # position = 50
 
-# Combined conditions (path regex & title regex)
-# [[sidebar.matches]]
-# path.regex = "^guides/.*\\.md$"
-# title.regex = "^Tutorial:.*"
-# position = 10
-
 # Options sidebar configuration
 # [sidebar.options]
-# Depth of parent categories in options TOC (defaults to root options_toc_depth)
 # depth = 2
-
-# Ordering algorithm for options: "alphabetical", "custom", or "filesystem"
+# nested = false
+# nested_depth = 0
+# collapse_singletons = false
 # ordering = "alphabetical"
 
-# Pattern-based options matching rules
-# Rules are evaluated in order, and the first matching rule is applied.
-
-# Hide internal options from the TOC
 # [[sidebar.options.matches]]
 # name.regex = "^myInternal\\..*"
 # hidden = true
 
-# Rename a category for display
 # [[sidebar.options.matches]]
 # name = "programs.git"
 # new_name = "Git Configuration"
 # position = 5
 
-# Set custom depth for specific options
 # [[sidebar.options.matches]]
 # name.regex = "^services\\..*"
 # depth = 3
 # position = 10
-
-# Basic exact name match (shorthand syntax)
-# [[sidebar.options.matches]]
-# name = "networking.firewall"
-# new_name = "Firewall Settings"
-# position = 1
