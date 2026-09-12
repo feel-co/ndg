@@ -53,8 +53,11 @@ highlight_code = true
 tab_style = "normalize"
 
 # Duplicate heading anchor handling (one of "error", "warn", or "deduplicate")
-# [anchor]
-# on_duplicate = "error"
+# Our docs epeat subsection titles across parallel sections (e.g,. sidebar.matches
+# vs sidebar.options.matches), so deduplicate anchors into unique IDs instead of
+# failing the build like an idiot.
+[anchor]
+on_duplicate = "deduplicate"
 
 # GitHub revision for linking to source files (defaults to 'local')
 revision = "main"
