@@ -42,10 +42,10 @@ clap_mangen = "0.3.3"
 color-eyre = "0.6.5"
 env_logger = "0.11.11"
 indicatif = { version = "0.18.6", features = [ "rayon" ] }
-jiff = "0.2.35"
+jiff = "0.2.37"
 log = "0.4.34"
 num_cpus = "1.17.0"
-open = "5.4.3"
+open = "5.4.4"
 rustc-hash = "2.1.3"
 
 comrak = { version = "0.55.0", default-features = false }
@@ -59,9 +59,9 @@ serde               = { version = "1.0.229", features = [ "derive" ] }
 serde_json          = { version = "1.0.151", default-features = false, features = [ "preserve_order" ] }
 serde_path_to_error = "0.1.20"
 tendril             = "0.5.1"
-tera                = { version = "2.3.0", default-features = false }
+tera                = { version = "2.4.0", default-features = false }
 thiserror           = "2.0.20"
-toml                = { version = "1.1.5", default-features = false, features = [ "parse", "serde" ] }
+toml                = { version = "1.1.6", default-features = false, features = [ "parse", "serde" ] }
 walkdir             = "2.5.0"
 
 html-escape   = "0.2.15"
