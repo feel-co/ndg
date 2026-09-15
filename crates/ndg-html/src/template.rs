@@ -248,6 +248,13 @@ fn build_common_context(
   // Insert non-overridable built-in variables AFTER user vars so they cannot
   // be shadowed by entries in [vars].
   ctx.insert("site_title", &config.title);
+  ctx.insert("site_authors", &config.authors);
+  ctx.insert("site_language", &config.language);
+  ctx.insert("site_text_direction", &config.text_direction);
+  ctx.insert("repository_url", &config.repository_url);
+  let code = config.code.clone().unwrap_or_default();
+  ctx.insert("code_copy_button", &code.copy_button);
+  ctx.insert("code_collapse_lines", &code.collapse_lines);
   ctx.insert("footer_text", &config.footer_text);
   ctx.insert("has_options", has_options);
   ctx.insert("generate_search", &config.is_search_enabled());
@@ -417,6 +424,17 @@ fn generate_meta_tags_html(
     .cloned()
     .unwrap_or_default();
 
+  if let Some(description) = &config.description {
+    merged
+      .entry("description".to_string())
+      .or_insert_with(|| description.clone());
+  }
+  if !config.authors.is_empty() {
+    merged
+      .entry("author".to_string())
+      .or_insert_with(|| config.authors.join(", "));
+  }
+
   if let Some(fm) = frontmatter {
     if let Some(ref desc) = fm.description {
       merged.insert("description".to_owned(), desc.clone());
@@ -470,6 +488,27 @@ pub fn render(
   headers: &[Header],
   rel_path: &Path,
   frontmatter: Option<&PageFrontmatter>,
+) -> Result<String> {
+  render_with_source(
+    config,
+    content,
+    title,
+    headers,
+    rel_path,
+    frontmatter,
+    None,
+  )
+}
+
+/// Render a document, retaining its source path for source-edit links.
+pub fn render_with_source(
+  config: &Config,
+  content: &str,
+  title: &str,
+  headers: &[Header],
+  rel_path: &Path,
+  frontmatter: Option<&PageFrontmatter>,
+  source_path: Option<&Path>,
 ) -> Result<String> {
   // Effective title: frontmatter wins over the caller-supplied value.
   let effective_title = frontmatter
@@ -534,10 +573,55 @@ pub fn render(
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
   tera_context.insert("page", &PageContext::from_frontmatter(frontmatter));
+  let edit_url = config.edit_url_template.as_ref().and_then(|template| {
+    source_path.map(|path| {
+      template.replace("{path}", &path.to_string_lossy().replace('\\', "/"))
+    })
+  });
+  tera_context.insert("edit_url", &edit_url);
 
   // Render the template
   let html = tera.render(&template_name, &tera_context)?;
   Ok(html)
+}
+
+/// Render all standalone Markdown pages into one printable document.
+///
+/// The caller supplies pages in navigation order. Included fragments are
+/// already represented by their owning page and must not be passed here.
+///
+/// # Errors
+///
+/// Returns an error if the normal document template cannot be rendered.
+pub fn render_print(
+  config: &Config,
+  pages: &[ndg_utils::markdown::ProcessedMarkdown],
+) -> Result<String> {
+  let mut content = String::new();
+  let page_class = if config.print_page_breaks() {
+    "print-chapter print-chapter-break"
+  } else {
+    "print-chapter"
+  };
+
+  for page in pages.iter().filter(|page| !page.is_included) {
+    let title = page.title.as_deref().unwrap_or(&config.title);
+    let _ = write!(
+      content,
+      "<article class=\"{page_class}\" aria-label=\"{}\">{} </article>\n",
+      html_escape::encode_double_quoted_attribute(title),
+      page.html_content
+    );
+  }
+
+  render(
+    config,
+    &content,
+    &format!("{} - Print", config.title),
+    &[],
+    Path::new("print.html"),
+    None,
+  )
 }
 
 /// Resolve the template name and content for a documentation page.
@@ -2040,13 +2124,17 @@ pub fn render_and_write(
   let rel_path = std::path::Path::new(&item.output_path);
   let output_path = ndg_utils::output_path(&config.output_dir, rel_path)?;
 
-  let html = render(
+  let html = render_with_source(
     config,
     &item.html_content,
     item.title.as_deref().unwrap_or(&config.title),
     &item.headers,
     rel_path,
     item.frontmatter.as_ref(),
+    config
+      .input_dir
+      .as_ref()
+      .and_then(|input_dir| item.source_path.strip_prefix(input_dir).ok()),
   )?;
 
   // Apply postprocessing if requested

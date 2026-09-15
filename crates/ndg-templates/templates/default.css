@@ -639,6 +639,16 @@ input:focus-visible,
   border-radius: var(--radius-sm);
 }
 
+.code-example-collapsed {
+  max-height: 24rem;
+  overflow: hidden;
+}
+
+.code-copy-button,
+.code-collapse-button {
+  margin: 0.25rem 0;
+}
+
 /* Code Styling */
 code {
   font-family: var(--font-mono);
@@ -1791,6 +1801,10 @@ h6:hover .copy-link {
 
 /* Print styles */
 @media print {
+  .print-chapter-break:not(:last-child) {
+    break-after: page;
+  }
+
   .sidebar,
   .sidebar-toggle,
   .search-container,

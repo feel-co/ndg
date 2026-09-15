@@ -1,11 +1,17 @@
 <!doctype html>
-<html lang="en" class="no-js">
+<html lang="{{ site_language }}" dir="{{ site_text_direction }}" class="no-js">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ title }}</title>
     {{ meta_tags_html | safe }} {{ opengraph_html | safe }}
     {{ favicon_links | safe }}
+    <script>
+      window.ndgCode = {
+        copyButton: {{ code_copy_button }},
+        collapseLines: {{ code_collapse_lines | default(value="null") }},
+      };
+    </script>
     <script>
       document.documentElement.classList.remove("no-js");
       document.documentElement.classList.add("js");
@@ -44,6 +50,13 @@
           <h1 class="site-title">
             <a href="{{ index_path }}">{{ site_title }}</a>
           </h1>
+
+          {% if repository_url %}
+          <a href="{{ repository_url }}" aria-label="Project repository">Repository</a>
+          {% endif %}
+          {% if edit_url %}
+          <a href="{{ edit_url }}">Edit this page</a>
+          {% endif %}
 
           {{ navbar_html|safe }}
         </div>

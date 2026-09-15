@@ -7,6 +7,7 @@ use color_eyre::eyre::{Context, Result, bail};
 use log::info;
 use ndg::{config, html, manpage, pdf, utils};
 use rayon::prelude::*;
+use regex::Regex;
 use rustc_hash::FxHashSet;
 
 mod cli;
@@ -42,6 +43,7 @@ fn main() -> Result<()> {
         output,
         format,
         force,
+        scaffold,
       } => {
         if output.exists() && !force {
           bail!(
@@ -68,6 +70,9 @@ fn main() -> Result<()> {
           },
         )?;
         update_gitignore(output)?;
+        if *scaffold {
+          create_scaffold(output)?;
+        }
 
         info!(
           "Configuration file created successfully. Edit it to customize your \
@@ -122,8 +127,8 @@ fn main() -> Result<()> {
         );
       },
 
-      // HTML and "all outputs" modes are handled below.
-      Commands::Html { .. } => {},
+      // HTML and configuration-backed maintenance modes are handled below.
+      Commands::Html { .. } | Commands::Clean | Commands::Check => {},
     }
   }
 
@@ -144,7 +149,8 @@ fn main() -> Result<()> {
 
   // Validate that at least one content source is provided. This check must
   // happen AFTER CLI merge so that CLI args are considered
-  if config.input_dir.is_none()
+  if !matches!(cli.command.as_ref(), Some(Commands::Clean))
+    && config.input_dir.is_none()
     && config.module_options.is_none()
     && (cfg!(not(feature = "nixdoc")) || config.nixdoc_inputs.is_empty())
   {
@@ -152,6 +158,15 @@ fn main() -> Result<()> {
       "Configuration error: At least one supported content source must be \
        provided."
     );
+  }
+
+  if matches!(cli.command.as_ref(), Some(Commands::Clean)) {
+    clean_documentation(&config, &project_root.join(".ndg-cache"))?;
+    return Ok(());
+  }
+  if matches!(cli.command.as_ref(), Some(Commands::Check)) {
+    check_documentation(&mut config)?;
+    return Ok(());
   }
 
   if output_mode.generate_html() {
@@ -217,6 +232,24 @@ fn update_gitignore(config_path: &Path) -> Result<()> {
     .wrap_err_with(|| format!("Failed to update {}", path.display()))
 }
 
+/// Create the minimal Markdown source tree used by the generated configuration.
+fn create_scaffold(config_path: &Path) -> Result<()> {
+  let root = config_path
+    .parent()
+    .filter(|path| !path.as_os_str().is_empty())
+    .unwrap_or_else(|| Path::new("."));
+  let docs_dir = root.join("docs");
+  fs::create_dir_all(&docs_dir)
+    .wrap_err_with(|| format!("Failed to create {}", docs_dir.display()))?;
+
+  let index = docs_dir.join("index.md");
+  if !index.exists() {
+    fs::write(&index, "# Documentation\n")
+      .wrap_err_with(|| format!("Failed to create {}", index.display()))?;
+  }
+  Ok(())
+}
+
 fn project_root(config_files: &[PathBuf]) -> PathBuf {
   config_files
     .first()
@@ -240,11 +273,105 @@ const fn output_mode(command: Option<&Commands>) -> OutputMode {
   match command {
     None => OutputMode::All,
     Some(
-      Commands::Html { .. } | Commands::Init { .. } | Commands::Export { .. },
+      Commands::Html { .. }
+      | Commands::Init { .. }
+      | Commands::Export { .. }
+      | Commands::Clean
+      | Commands::Check,
     ) => OutputMode::Html,
     Some(Commands::Man { .. }) => OutputMode::Man,
     Some(Commands::Pdf { .. }) => OutputMode::Pdf,
   }
+}
+
+/// Validate rendered Markdown and templates without producing output files.
+fn check_documentation(config: &mut Config) -> Result<()> {
+  config
+    .validate_paths()
+    .map_err(|error| color_eyre::eyre::eyre!("Configuration error: {error}"))?;
+  let processor = config
+    .input_dir
+    .is_some()
+    .then(|| utils::create_processor(config, None))
+    .transpose()?;
+  let mut documents =
+    utils::process_markdown_files(config, processor.as_ref())?;
+  let registry = utils::build_anchor_registry(&documents);
+  utils::apply_cross_page_link_rewrites(&mut documents, &registry);
+  validate_documents(config, &documents)?;
+  info!("Documentation validation succeeded");
+  Ok(())
+}
+
+fn validate_documents(
+  config: &Config,
+  documents: &[utils::markdown::ProcessedMarkdown],
+) -> Result<()> {
+  let outputs: FxHashSet<&str> = documents
+    .iter()
+    .filter(|document| !document.is_included)
+    .map(|document| document.output_path.as_str())
+    .collect();
+  let links = Regex::new(r##"(?:href|src)="([^"#?][^"]*)"##)
+    .expect("static link expression is valid");
+
+  for document in documents.iter().filter(|document| !document.is_included) {
+    if document
+      .html_content
+      .contains("<!-- ndg: could not include file:")
+    {
+      bail!("Unresolved include in {}", document.source_path.display());
+    }
+    html::template::render(
+      config,
+      &document.html_content,
+      document.title.as_deref().unwrap_or(&config.title),
+      &document.headers,
+      Path::new(&document.output_path),
+      document.frontmatter.as_ref(),
+    )?;
+
+    for capture in links.captures_iter(&document.html_content) {
+      let target = capture.get(1).expect("link capture exists").as_str();
+      if target.contains("://")
+        || target.starts_with("mailto:")
+        || target.starts_with("assets/")
+      {
+        continue;
+      }
+      let path = target.split('#').next().unwrap_or_default();
+      if path.ends_with(".html") && !outputs.contains(path) {
+        bail!(
+          "Broken internal link in {}: {}",
+          document.source_path.display(),
+          target
+        );
+      }
+    }
+  }
+  Ok(())
+}
+
+/// Remove only NDG's configured output directory and project-local cache.
+fn clean_documentation(config: &Config, cache_dir: &Path) -> Result<()> {
+  let current_dir = std::env::current_dir()?;
+  let output_dir = config.output_dir.canonicalize().ok();
+  if output_dir.as_ref().is_some_and(|path| path == &current_dir) {
+    bail!("Refusing to clean the current working directory");
+  }
+
+  for path in [&config.output_dir, cache_dir] {
+    if !path.exists() {
+      continue;
+    }
+    if !path.is_dir() {
+      bail!("Refusing to remove non-directory path: {}", path.display());
+    }
+    fs::remove_dir_all(path)
+      .wrap_err_with(|| format!("Failed to remove {}", path.display()))?;
+    info!("Removed {}", path.display());
+  }
+  Ok(())
 }
 
 impl OutputMode {
@@ -554,6 +681,17 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
     )?;
     fs::write(&index_path, html).wrap_err_with(|| {
       format!("Failed to write index.html to {}", index_path.display())
+    })?;
+  }
+
+  if config.print_enabled() && !processed_markdown.is_empty() {
+    let print_path = config.output_dir.join("print.html");
+    let print_html = html::template::render_print(config, &processed_markdown)?;
+    fs::write(&print_path, print_html).wrap_err_with(|| {
+      format!(
+        "Failed to write printable document to {}",
+        print_path.display()
+      )
     })?;
   }
 

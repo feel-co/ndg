@@ -49,6 +49,10 @@ pub enum Commands {
     /// Force overwrite if file already exists
     #[arg(short, long)]
     force: bool,
+
+    /// Create a starter input directory and homepage beside the configuration.
+    #[arg(long)]
+    scaffold: bool,
   },
 
   /// Export default templates to a directory for customization.
@@ -66,6 +70,12 @@ pub enum Commands {
     #[arg(short, long, action = clap::ArgAction::Append)]
     templates: Vec<String>,
   },
+
+  /// Remove generated output and the Markdown render cache.
+  Clean,
+
+  /// Validate documentation without writing generated output.
+  Check,
 
   /// Process documentation and generate HTML.
   Html {

@@ -1328,6 +1328,7 @@ function initializePage() {
   );
 
   setupOptionsPage(signal, content);
+  setupCodeExamples(signal, content);
 
   setupListFilter(
     {
@@ -1455,6 +1456,66 @@ function initializeGlobalBehavior() {
   setupOptionTocNavigation();
   setupClientNavigation();
   setupThemeToggle();
+}
+
+function setupCodeExamples(signal, content) {
+  const options = window.ndgCode || {};
+  const collapseLines = Number.isInteger(options.collapseLines)
+    ? options.collapseLines
+    : 0;
+
+  content?.querySelectorAll("pre > code").forEach(function (code) {
+    const pre = code.parentElement;
+    if (!pre || pre.dataset.ndgCodeReady) return;
+    pre.dataset.ndgCodeReady = "true";
+    pre.classList.add("code-example");
+
+    if (options.copyButton) {
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "code-copy-button";
+      copy.textContent = "Copy";
+      copy.addEventListener(
+        "click",
+        function () {
+          if (!navigator.clipboard?.writeText) {
+            copy.textContent = "Copy unavailable";
+            return;
+          }
+          navigator.clipboard.writeText(code.textContent || "").then(
+            function () {
+              copy.textContent = "Copied";
+              setTimeout(function () {
+                copy.textContent = "Copy";
+              }, 1500);
+            },
+            function () {
+              copy.textContent = "Copy failed";
+            },
+          );
+        },
+        { signal },
+      );
+      pre.before(copy);
+    }
+
+    if (collapseLines > 0 && code.textContent.split("\n").length > collapseLines) {
+      pre.classList.add("code-example-collapsed");
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "code-collapse-button";
+      toggle.textContent = "Show all code";
+      toggle.addEventListener(
+        "click",
+        function () {
+          const collapsed = pre.classList.toggle("code-example-collapsed");
+          toggle.textContent = collapsed ? "Show all code" : "Collapse code";
+        },
+        { signal },
+      );
+      pre.after(toggle);
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

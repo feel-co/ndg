@@ -10,12 +10,14 @@ use serde::{Deserialize, Serialize};
 use crate::{
   anchor,
   assets,
+  code,
   error::ConfigError,
   index,
   markdown,
   meta,
   options,
   postprocess,
+  print,
   search,
   sidebar,
 };
@@ -34,6 +36,12 @@ pub const DEFAULT_REVISION: &str = "local";
 
 /// Default tab style for code blocks.
 pub const DEFAULT_TAB_STYLE: &str = "none";
+
+/// Default language for generated HTML documents.
+pub const DEFAULT_LANGUAGE: &str = "en";
+
+/// Default text direction for generated HTML documents.
+pub const DEFAULT_TEXT_DIRECTION: &str = "ltr";
 
 /// Configuration for the NDG documentation generator.
 ///
@@ -100,6 +108,38 @@ pub struct Config {
   #[config(key = "title")]
   pub title: String,
 
+  /// Site-wide authors exposed to templates and HTML metadata.
+  #[serde(default)]
+  #[template(example = vec!["Your Name".to_string()])]
+  pub authors: Vec<String>,
+
+  /// Site-wide description used when a page does not provide one.
+  #[config(key = "description", allow_empty)]
+  #[template(example = "Documentation for My Project".to_string())]
+  pub description: Option<String>,
+
+  /// Primary language for generated HTML documents.
+  #[config(key = "language")]
+  pub language: String,
+
+  /// Text direction for generated HTML documents (`ltr` or `rtl`).
+  #[config(key = "text_direction")]
+  pub text_direction: String,
+
+  /// Presentation controls for code examples.
+  #[config(nested)]
+  pub code: Option<code::CodeConfig>,
+
+  /// Repository URL shown to templates and available for custom navigation.
+  #[config(key = "repository_url", allow_empty)]
+  #[template(example = "https://github.com/org/project".to_string())]
+  pub repository_url: Option<String>,
+
+  /// Per-page edit URL template. `{path}` expands to the Markdown source path.
+  #[config(key = "edit_url_template", allow_empty)]
+  #[template(example = "https://github.com/org/project/edit/main/docs/{path}".to_string())]
+  pub edit_url_template: Option<String>,
+
   /// Number of threads to use for parallel processing.
   #[config(key = "jobs", allow_empty)]
   #[template(example = 4usize)]
@@ -154,6 +194,10 @@ pub struct Config {
   /// Postprocessing configuration for HTML/CSS/JS minification
   #[config(nested)]
   pub postprocess: Option<postprocess::PostprocessConfig>,
+
+  /// Aggregate printable-document configuration.
+  #[config(nested)]
+  pub print: Option<print::PrintConfig>,
 
   /// Anchor configuration for option IDs and compatibility.
   #[config(nested)]
@@ -215,6 +259,13 @@ impl Default for Config {
       manpage_urls_path:     None,
       syntax_queries_path:   None,
       title:                 DEFAULT_TITLE.to_string(),
+      authors:               Vec::new(),
+      description:           None,
+      language:              DEFAULT_LANGUAGE.to_string(),
+      text_direction:        DEFAULT_TEXT_DIRECTION.to_string(),
+      code:                  None,
+      repository_url:        None,
+      edit_url_template:     None,
       jobs:                  None,
       generate_anchors:      true,
       search:                None,
@@ -228,6 +279,7 @@ impl Default for Config {
       meta:                  None,
       sidebar:               None,
       postprocess:           None,
+      print:                 None,
       anchor:                None,
       options:               None,
       nixdoc_inputs:         Vec::new(),
@@ -297,6 +349,18 @@ impl Config {
     self.index.as_ref().is_none_or(|i| i.generate_fallback)
   }
 
+  /// Returns whether to generate the aggregate printable document.
+  #[must_use]
+  pub fn print_enabled(&self) -> bool {
+    self.print.as_ref().is_none_or(|print| print.enable)
+  }
+
+  /// Returns whether printed chapters should begin on a new page.
+  #[must_use]
+  pub fn print_page_breaks(&self) -> bool {
+    self.print.as_ref().is_none_or(|print| print.page_break)
+  }
+
   /// Validate configuration values and compile configured match patterns.
   ///
   /// # Errors
@@ -316,6 +380,17 @@ impl Config {
         "invalid `tab_style` value '{}'; expected `none`, `warn`, or \
          `normalize`",
         self.tab_style
+      ));
+    }
+
+    if self.language.trim().is_empty() {
+      return Err("`language` must not be empty".to_string());
+    }
+
+    if !matches!(self.text_direction.as_str(), "ltr" | "rtl") {
+      return Err(format!(
+        "invalid `text_direction` value '{}'; expected `ltr` or `rtl`",
+        self.text_direction
       ));
     }
 

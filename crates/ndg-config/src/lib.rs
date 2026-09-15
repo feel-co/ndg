@@ -1,5 +1,6 @@
 pub mod anchor;
 pub mod assets;
+pub mod code;
 pub mod config;
 pub mod error;
 pub mod index;
@@ -8,6 +9,7 @@ pub mod matchers;
 pub mod meta;
 pub mod options;
 pub mod postprocess;
+pub mod print;
 pub mod search;
 pub mod sidebar;
 pub mod templates;
