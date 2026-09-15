@@ -31,8 +31,10 @@ jobs:
           filters: |
             files:
               - '.github/workflows/rust.yml'
+              - '.clippy.toml'
               - 'Cargo.toml'
               - 'Cargo.lock'
+              - 'crates/**'
               - 'ndg/**'
               - 'ndg-commonmark/**'
   build:
@@ -78,6 +80,29 @@ jobs:
         run: |
           cargo check -p ndg-commonmark --no-default-features --features syntect --lib
           cargo check -p ndg-commonmark --no-default-features --features ndg-flavored,syntect --all-targets
+
+  lint:
+    name: Format and lint
+    needs: changes
+    if: ${{ needs.changes.outputs.files_changed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   test:
     name: Test
