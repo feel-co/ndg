@@ -372,6 +372,12 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 
 **Metadata Options:**
 
+- `authors` - Site-wide authors exposed to templates and emitted as metadata
+- `description` - Site-wide description, overridden by page frontmatter
+- `language` / `text_direction` - Root HTML language and direction (`ltr` or
+  `rtl`)
+- `repository_url` / `edit_url_template` - Repository and per-page edit links;
+  `{path}` expands to the Markdown path relative to `input_dir`
 - `meta.opengraph` - Table of OpenGraph meta tags (e.g.,
   `{ "og:title" = "My Docs", "og:image" = "..." }`)
 - `meta.tags` - Table of additional HTML meta tags (e.g.,
@@ -421,6 +427,26 @@ description = "Complete guide to My Project"
 keywords = "documentation,nix,tutorial"
 author = "My Name"
 ```
+
+**Print and Code Output:**
+
+```toml
+[print]
+enable = true
+page_break = true
+
+[code]
+copy_button = true
+collapse_lines = 40
+```
+
+NDG writes an aggregate `print.html` for Markdown documentation. Long code
+blocks can be folded in the browser; copy buttons are enabled by default.
+
+Use `ndg check` to render Markdown and templates without writing output. It
+reports unresolved includes and broken generated-page links. `ndg clean` removes
+only the configured output directory and NDG's project-local cache.
+`ndg init --scaffold` also creates `docs/index.md`.
 
 Supported `markdown.extensions` values are:
 

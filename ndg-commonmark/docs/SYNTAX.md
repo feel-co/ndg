@@ -266,6 +266,15 @@ path/to/file2.md
 
 This is useful for creating modular documentation from multiple smaller files.
 
+An include opener may select an excerpt. `lines` is a one-based inclusive range
+applied after the optional markers; quote marker text containing whitespace.
+
+````markdown
+```{=include=} start-after="# Example" end-before="# Notes" lines=1..20
+examples/configuration.nix
+```
+````
+
 ### Autolinks
 
 URLs are automatically converted to clickable links even without explicit

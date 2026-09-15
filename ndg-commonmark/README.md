@@ -28,7 +28,8 @@ Features AST-based processing, syntax highlighting, and generous documentation.
   - {var}`$XDG_CONFIG_HOME`
   - {man}`nix.conf`
 - **Option References**: Automatic linking to NixOS option documentation
-- **File Includes**: Process `{=include=}` blocks for modular documentation
+- **File Includes**: Process `{=include=}` blocks for modular documentation,
+  including line ranges and marker-bounded excerpts
 - **Manpage Integration**: Automatic linking to system manuals using a `{man}`
   role and a manpage map.
 
