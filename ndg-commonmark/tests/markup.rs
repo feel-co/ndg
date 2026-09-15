@@ -1494,6 +1494,28 @@ fn test_include_auto_id_prefix_adds_heading_ids() {
 }
 
 #[test]
+fn include_slicing_selects_lines_and_named_regions() {
+  use std::fs;
+
+  use tempfile::tempdir;
+
+  let dir = tempdir().expect("create temp dir");
+  fs::write(
+    dir.path().join("example.nix"),
+    "before\n# start example\nfirst\nsecond\n# end example\nafter\n",
+  )
+  .expect("write include");
+
+  let md = "```{=include=} start-after=\"# start example\" end-before=\"# end \
+            example\" lines=2..2\nexample.nix\n```";
+  let (result, _) = ndg_commonmark::process_file_includes(md, dir.path(), 0)
+    .expect("slice include");
+
+  assert!(result.starts_with("second\n"));
+  assert!(!result.contains("first"));
+}
+
+#[test]
 fn test_absolute_file_include_is_rejected() {
   use std::fs;
 

@@ -67,6 +67,16 @@ struct IncludeDirective {
   custom_output:  Option<String>,
   include_type:   Option<String>,
   auto_id_prefix: Option<String>,
+  slice:          IncludeSlice,
+}
+
+/// Limits an include to a stable portion of its source file.
+#[cfg(feature = "nixpkgs")]
+#[derive(Default)]
+struct IncludeSlice {
+  lines:       Option<(usize, usize)>,
+  start_after: Option<String>,
+  end_before:  Option<String>,
 }
 
 #[cfg(feature = "nixpkgs")]
@@ -77,28 +87,67 @@ fn parse_include_directive(line: &str) -> IncludeDirective {
     .find(|part| {
       !part.starts_with("html:into-file=")
         && !part.starts_with("auto-id-prefix=")
+        && !part.starts_with("lines=")
+        && !part.starts_with("start-after=")
+        && !part.starts_with("end-before=")
     })
     .map(str::to_string);
 
   let custom_output = directive_value(line, "html:into-file=");
   let auto_id_prefix = directive_value(line, "auto-id-prefix=");
+  let lines = directive_value(line, "lines=").and_then(|value| {
+    let (start, end) = value.split_once("..")?;
+    Some((start.parse().ok()?, end.parse().ok()?))
+  });
 
   IncludeDirective {
     custom_output,
     include_type,
     auto_id_prefix,
+    slice: IncludeSlice {
+      lines,
+      start_after: directive_value(line, "start-after="),
+      end_before: directive_value(line, "end-before="),
+    },
   }
 }
 
 #[cfg(feature = "nixpkgs")]
 fn directive_value(line: &str, marker: &str) -> Option<String> {
-  line.find(marker).map(|start| {
-    let start = start + marker.len();
-    line[start..].find(' ').map_or_else(
-      || line[start..].trim().to_string(),
-      |end| line[start..start + end].to_string(),
-    )
-  })
+  let value = line.get(line.find(marker)? + marker.len()..)?.trim_start();
+  if let Some(quoted) = value.strip_prefix('"') {
+    return quoted.find('"').map(|end| quoted[..end].to_string());
+  }
+  Some(value.split_whitespace().next()?.to_string())
+}
+
+#[cfg(feature = "nixpkgs")]
+fn slice_include(content: &str, slice: &IncludeSlice) -> String {
+  let start = slice.start_after.as_deref().map_or(0, |marker| {
+    content.find(marker).map_or(0, |index| index + marker.len())
+  });
+  let remaining = content[start..]
+    .strip_prefix('\n')
+    .unwrap_or(&content[start..]);
+  let end = slice
+    .end_before
+    .as_deref()
+    .and_then(|marker| remaining.find(marker))
+    .unwrap_or(remaining.len());
+  let selected = &remaining[..end];
+
+  let Some((first, last)) = slice.lines else {
+    return selected.to_string();
+  };
+  if first == 0 || first > last {
+    return String::new();
+  }
+  selected
+    .lines()
+    .skip(first - 1)
+    .take(last - first + 1)
+    .collect::<Vec<_>>()
+    .join("\n")
 }
 
 #[cfg(feature = "nixpkgs")]
@@ -343,6 +392,7 @@ fn read_includes(
   base_dir: &Path,
   custom_output: Option<String>,
   auto_id_prefix: Option<String>,
+  slice: &IncludeSlice,
   included_files: &mut Vec<crate::types::IncludedFile>,
   depth: usize,
 ) -> Result<String, String> {
@@ -357,6 +407,7 @@ fn read_includes(
     log::info!("Including file: {}", full_path.display());
 
     if let Ok(content) = fs::read_to_string(&full_path) {
+      let content = slice_include(&content, slice);
       let file_dir = full_path.parent().unwrap_or(base_dir);
       let (processed_content, nested_includes) =
         process_file_includes(&content, file_dir, depth + 1)?;
@@ -489,6 +540,7 @@ pub fn process_file_includes(
           base_dir,
           directive.custom_output,
           directive.auto_id_prefix,
+          &directive.slice,
           &mut all_included_files,
           depth,
         )?
