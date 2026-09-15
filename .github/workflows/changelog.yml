@@ -28,13 +28,13 @@ jobs:
         run: |
           echo "CHANGELOG_REQUIRED=false" >> $GITHUB_ENV
 
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: fromJSON(env.CHANGELOG_REQUIRED)
 
       - name: Get changed files in the docs folder
         if: fromJSON(env.CHANGELOG_REQUIRED)
         id: changelog-changed
-        uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62 # v47
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           files: CHANGELOG.md
 
