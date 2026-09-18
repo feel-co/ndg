@@ -68,7 +68,7 @@ html-escape   = "0.2.15"
 indexmap      = { version = "2.14.2", features = [ "serde" ] }
 kuchikikiki   = "0.12.0"
 lightningcss  = { version = "=1.0.0-alpha.72", default-features = false }
-markup5ever   = "0.39.0"
+markup5ever   = "0.40.0"
 minify-html   = "0.18.1"
 oxc_allocator = "0.149.0"
 oxc_codegen   = { version = "0.149.0", default-features = false }
