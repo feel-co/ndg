@@ -1047,10 +1047,14 @@ impl MarkdownProcessor {
           .get(local_name!("href"))
           .map(std::string::ToString::to_string);
         let text_content = link_element.text_contents();
+        // An element such as an image is content, although it has no text
+        let has_element = link_element
+          .children()
+          .any(|child| child.as_element().is_some());
 
         if let Some(href_value) = href
           && href_value.starts_with('#')
-          && (text_content.trim().is_empty()
+          && ((text_content.trim().is_empty() && !has_element)
             || text_content.trim() == "{{ANCHOR}}")
         {
           // Clear placeholder text if present

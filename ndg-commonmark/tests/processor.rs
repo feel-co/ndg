@@ -374,3 +374,21 @@ Empty links: <a href=\"#sec-introduction\"></a> and <a \
      enable</a>"
   ));
 }
+
+#[test]
+fn keeps_anchor_link_around_image_without_text() {
+  let processor = processor();
+
+  let html = processor
+    .render(
+      "<a href=\"#fig-example\"><img src=\"example.png\" alt=\"Example\"></a>",
+    )
+    .html;
+
+  assert!(
+    html.contains(
+      "<a href=\"#fig-example\"><img src=\"example.png\" alt=\"Example\"></a>"
+    ),
+    "anchor link around an image should get no humanized text: {html}"
+  );
+}
