@@ -33,6 +33,15 @@ If adding a new entry, make sure that your changes are **under the correct tag**
 (or `[Unreleased]`) and that you document ONLY the critical, user-facing
 changes.
 
+## [Unreleased]
+
+### Fixed
+
+- An anchor link that holds only an element, such as
+  `<a href="#fig-example"><img src="example.png"></a>`, no longer gets humanized
+  text added after the element. Before, the processor treated it as an empty
+  auto-link and added text such as "Fig Example".
+
 ## [2.10.0]
 
 ### Added
