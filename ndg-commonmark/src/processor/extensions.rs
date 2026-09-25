@@ -1493,17 +1493,7 @@ fn parse_figure_block(
   };
 
   // Get title from next line (should start with #)
-  let title = if let Some(title_line) = lines.next() {
-    let trimmed_title = title_line.trim();
-    if let Some(this) = trimmed_title.strip_prefix('#') {
-      { this.trim_matches(char::is_whitespace) }.to_string()
-    } else {
-      // Put the line back if it's not a title
-      return None;
-    }
-  } else {
-    return None;
-  };
+  let title = lines.next()?.trim().strip_prefix('#')?.trim().to_string();
 
   // Collect figure content
   let mut content = String::new();

@@ -1,5 +1,6 @@
 use std::{
   fs,
+  io::{self, Write},
   path::{Path, PathBuf},
 };
 
@@ -65,10 +66,11 @@ fn generate_completions(output_dir: &Path) -> Result<()> {
   generate_to(shells::Zsh, &mut cmd, "ndg", &completions_dir)?;
   generate_to(shells::Fish, &mut cmd, "ndg", &completions_dir)?;
   generate_to(shells::PowerShell, &mut cmd, "ndg", &completions_dir)?;
-  println!(
+  writeln!(
+    io::stdout().lock(),
     "Shell completions generated in {}",
     completions_dir.display()
-  );
+  )?;
   Ok(())
 }
 
@@ -85,6 +87,10 @@ fn generate_manpage(output_dir: &Path) -> Result<()> {
   man
     .render(&mut file)
     .with_context(|| "Failed to render manpage")?;
-  println!("Manpage generated in {}", man_dir.display());
+  writeln!(
+    io::stdout().lock(),
+    "Manpage generated in {}",
+    man_dir.display()
+  )?;
   Ok(())
 }

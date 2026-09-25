@@ -1306,12 +1306,11 @@ mod tests {
 
   #[test]
   fn test_config_file_rejects_unknown_nested_key_with_source() {
-    let temp = TempDir::new().expect("create temporary directory");
+    let temp = TempDir::new().unwrap();
     let path = temp.path().join("ndg.json");
-    fs::write(&path, r#"{"search":{"max_heading_levle":4}}"#)
-      .expect("write config");
+    fs::write(&path, r#"{"search":{"max_heading_levle":4}}"#).unwrap();
 
-    let error = Config::from_file(&path).expect_err("unknown key must fail");
+    let error = Config::from_file(&path).unwrap_err();
     let message = error.to_string();
 
     assert!(message.contains(&path.display().to_string()));
@@ -1322,11 +1321,11 @@ mod tests {
 
   #[test]
   fn test_config_file_reports_validation_origin() {
-    let temp = TempDir::new().expect("create temporary directory");
+    let temp = TempDir::new().unwrap();
     let path = temp.path().join("ndg.toml");
-    fs::write(&path, "jobs = 0\n").expect("write config");
+    fs::write(&path, "jobs = 0\n").unwrap();
 
-    let error = Config::from_file(&path).expect_err("zero jobs must fail");
+    let error = Config::from_file(&path).unwrap_err();
     let message = error.to_string();
 
     assert!(message.contains(&path.display().to_string()));
@@ -1340,7 +1339,7 @@ mod tests {
       ..Default::default()
     };
 
-    let error = config.validate().expect_err("unknown tab style must fail");
+    let error = config.validate().unwrap_err();
 
     assert!(error.to_string().contains("`tab_style`"));
     assert!(error.to_string().contains("normalize"));
@@ -1351,9 +1350,7 @@ mod tests {
     let mut config = Config::default();
     let overrides = ["jobs=0".to_string()];
 
-    let error = config
-      .apply_overrides(&overrides)
-      .expect_err("zero jobs override must fail");
+    let error = config.apply_overrides(&overrides).unwrap_err();
     let message = error.to_string();
 
     assert!(message.contains("--config"));

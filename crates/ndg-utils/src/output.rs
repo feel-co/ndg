@@ -50,7 +50,7 @@ pub fn create_fallback_index(
 ) -> String {
   let mut content = format!(
     "<h1>{}</h1>\n<p>This is a fallback page created by ndg.</p>",
-    &config.title
+    config.title
   );
 
   // Add file listing if we have an input directory

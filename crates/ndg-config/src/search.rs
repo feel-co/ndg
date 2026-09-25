@@ -215,7 +215,7 @@ mod tests {
       ..Default::default()
     };
 
-    let error = config.validate().expect_err("heading level 7 must fail");
+    let error = config.validate().unwrap_err();
 
     assert!(error.contains("search.max_heading_level"));
     assert!(error.contains("1 through 6"));
@@ -228,7 +228,7 @@ mod tests {
       ..Default::default()
     };
 
-    let error = config.validate().expect_err("infinite boost must fail");
+    let error = config.validate().unwrap_err();
 
     assert!(error.contains("search.boost"));
     assert!(error.contains("finite"));
