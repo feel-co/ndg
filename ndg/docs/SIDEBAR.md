@@ -114,7 +114,9 @@ and both must match when specified together.
 
 Exclusions do not affect heading anchors or duplicate-anchor validation. For
 repeated section titles such as `Inputs`, `Type`, or `Examples`, configure
-`[anchor] on_duplicate = "deduplicate"` to create unique IDs.
+`[anchor] on_duplicate = "deduplicate"` to create unique IDs. Existing explicit
+IDs retain their names whereas generated suffixes skip them. The TOC and search
+index use the same deduplicated IDs as the rendered headings.
 
 ## Pattern Matching
 

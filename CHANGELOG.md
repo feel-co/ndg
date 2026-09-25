@@ -42,6 +42,11 @@ changes.
   text added after the element. Before, the processor treated it as an empty
   auto-link and added text such as "Fig Example".
 
+- `anchor.on_duplicate = "deduplicate"` now keeps generated heading IDs and
+  navigation links synchronized when non-heading anchors share their IDs, and
+  preserves explicitly assigned IDs that collide with generated suffixes
+  ([#286](https://github.com/feel-co/ndg/issues/286)).
+
 ## [2.10.0]
 
 ### Added
