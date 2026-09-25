@@ -65,9 +65,12 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
 
   features:
-    name: Feature configurations
+    name: Feature configuration (${{ matrix.backend }})
     needs: changes
     if: ${{ needs.changes.outputs.files_changed == 'true' }}
+    strategy:
+      matrix:
+        backend: [syntastica, syntect]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -76,10 +79,19 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@be39649afda95dbf70f87cce95f68b8d5797b296 # stable
 
-      - name: Check Syntect backend
-        run: |
-          cargo check -p ndg-commonmark --no-default-features --features syntect --lib
-          cargo check -p ndg-commonmark --no-default-features --features ndg-flavored,syntect --all-targets
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@4076c08d76dba979c11a7285295b0716c1d67908 # v2.87.15
+        with:
+          tool: cargo-nextest
+
+      - name: Check backend without Markdown extensions
+        run: cargo check -p ndg-commonmark --no-default-features --features ${{ matrix.backend }} --lib
+
+      - name: Test backend with NDG extensions
+        run: cargo nextest run -p ndg-commonmark --no-default-features --features ndg-flavored,${{ matrix.backend }}
 
   lint:
     name: Format and lint
@@ -102,7 +114,11 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: |
+          # All features would enable both mutually exclusive syntax backends.
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy -p ndg-commonmark --no-default-features --features ndg-flavored,syntastica --all-targets -- -D warnings
+          cargo clippy -p ndg-commonmark --no-default-features --features ndg-flavored,syntect --all-targets -- -D warnings
 
   test:
     name: Test
