@@ -1087,5 +1087,42 @@ mod tests {
       "type-1",
       "examples-1"
     ]);
+    validate_rendered_anchor_ids(&pages[0].headers, &pages[0].html_content)
+      .unwrap();
+  }
+
+  #[test]
+  fn deduplicate_keeps_toc_links_in_sync_with_rendered_ids_and_cache() {
+    let temp = TempDir::new().unwrap();
+    let input = temp.path().join("docs");
+    fs::create_dir_all(&input).unwrap();
+    fs::write(
+      input.join("page.md"),
+      "<span id=\"inputs\"></span>\n\n## Inputs\n\n## Inputs\n\n## Reserved \
+       {#inputs-1}\n",
+    )
+    .unwrap();
+    let mut config =
+      config_with_toc_exclude(DuplicateAnchorPolicy::Deduplicate);
+    config.input_dir = Some(input);
+    let cache = temp.path().join("cache");
+
+    for _ in 0..2 {
+      let pages =
+        process_markdown_files_with_cache(&mut config, None, &cache).unwrap();
+      let page = &pages[0];
+      assert_eq!(
+        page
+          .headers
+          .iter()
+          .map(|header| header.id.as_str())
+          .collect::<Vec<_>>(),
+        ["inputs-2", "inputs-3", "inputs-1"]
+      );
+      for id in ["inputs-2", "inputs-3", "inputs-1"] {
+        assert!(page.html_content.contains(&format!("id=\"{id}\"")));
+      }
+      validate_rendered_anchor_ids(&page.headers, &page.html_content).unwrap();
+    }
   }
 }

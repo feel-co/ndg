@@ -69,65 +69,53 @@ impl std::fmt::Display for DuplicateAnchorError {
 
 impl std::error::Error for DuplicateAnchorError {}
 
-/// Make all heading anchor IDs unique with deterministic `-1`, `-2`, etc.
-/// suffixes.
+/// Make all rendered anchor IDs unique with deterministic `-1`, `-2`, etc.
+/// suffixes, updating matching heading metadata for navigation and search.
 ///
-/// The first occurrence of an ID is kept as-is; subsequent occurrences get
-/// `"{id}-1"`, `"{id}-2"`, and so on (skipping IDs that already exist, e.g. an
-/// author-written `{#inputs-1}`). Empty IDs are ignored.
-///
-/// Both `headers` and the `id="..."` attributes in `html` are rewritten in
-/// document order so they stay in sync. Any remaining duplicate non-heading
-/// IDs in `html` are deduplicated with the same scheme.
+/// The first occurrence keeps its ID. Generated suffixes skip IDs already
+/// present anywhere in the document, preserving explicit anchors even when
+/// they occur after a duplicate.
 ///
 /// Returns a list of `(old_id, new_id)` renames for logging.
 pub fn deduplicate_anchor_ids(
   headers: &mut [Header],
   html: &mut String,
 ) -> Vec<(String, String)> {
+  use std::collections::VecDeque;
+
   use rustc_hash::{FxHashMap, FxHashSet};
 
-  let mut used: FxHashSet<String> = FxHashSet::default();
-  let mut next_suffix: FxHashMap<String, usize> = FxHashMap::default();
-  // (old_id, occurrence_index) -> new_id, to keep headers and HTML in sync.
-  let mut mapping: FxHashMap<(String, usize), String> = FxHashMap::default();
-  let mut header_occ: FxHashMap<String, usize> = FxHashMap::default();
-  let mut renames = Vec::new();
-
-  for header in headers.iter_mut() {
-    if header.id.is_empty() {
-      continue;
-    }
-    let old = header.id.clone();
-    let occ = header_occ.get(&old).copied().unwrap_or(0);
-    header_occ.insert(old.clone(), occ + 1);
-
-    if !used.contains(&old) {
-      used.insert(old.clone());
-      next_suffix.entry(old.clone()).or_insert(1);
-      mapping.insert((old.clone(), occ), old);
-      continue;
-    }
-
-    let mut suffix = next_suffix.get(&old).copied().unwrap_or(1);
-    let new_id = loop {
-      let candidate = format!("{old}-{suffix}");
-      suffix += 1;
-      if !used.contains(&candidate) {
-        break candidate;
-      }
+  let mut reserved = FxHashSet::default();
+  let mut rest = html.as_str();
+  let mut has_duplicates = false;
+  while let Some(start) = rest.find("id=\"") {
+    rest = &rest[start + 4..];
+    let Some(end) = rest.find('"') else {
+      break;
     };
-    next_suffix.insert(old.clone(), suffix);
-    used.insert(new_id.clone());
-    mapping.insert((old.clone(), occ), new_id.clone());
-    renames.push((old, new_id.clone()));
-    header.id = new_id;
+    if !reserved.insert(&rest[..end]) {
+      has_duplicates = true;
+    }
+    rest = &rest[end + 1..];
+  }
+  if !has_duplicates {
+    return Vec::new();
   }
 
-  // Rewrite `id="..."` attributes in document order to match the header
-  // mapping. IDs not present in the mapping (e.g. syntax-highlight extras)
-  // are deduplicated globally with the same suffix scheme.
-  let mut html_occ: FxHashMap<String, usize> = FxHashMap::default();
+  // Only actual headings and generated inline anchors correspond to Header
+  // entries. Raw HTML IDs must not consume a heading's occurrence.
+  let mut header_positions: FxHashMap<(String, u8), VecDeque<usize>> =
+    FxHashMap::default();
+  for (index, header) in headers.iter().enumerate() {
+    header_positions
+      .entry((header.id.clone(), header.level))
+      .or_default()
+      .push_back(index);
+  }
+
+  let mut used = FxHashSet::default();
+  let mut next_suffix: FxHashMap<&str, usize> = FxHashMap::default();
+  let mut renames = Vec::new();
   let mut result = String::with_capacity(html.len());
   let mut rest = html.as_str();
   while let Some(start) = rest.find("id=\"") {
@@ -139,35 +127,52 @@ pub fn deduplicate_anchor_ids(
       break;
     };
     let old = &rest[..end];
-    let occ = html_occ.get(old).copied().unwrap_or(0);
-    html_occ.insert(old.to_owned(), occ + 1);
+    let tag = result.rsplit('<').next().unwrap_or("");
+    let level = tag.as_bytes().get(0..2).and_then(|bytes| {
+      match bytes {
+        [b'h', digit @ b'1'..=b'6'] if tag.as_bytes().get(2) == Some(&b' ') => {
+          Some(digit - b'0')
+        },
+        _ => None,
+      }
+    });
+    let level = level.or_else(|| {
+      (tag.starts_with("span ")
+        && rest[end + 1..]
+          .split_once('>')
+          .is_some_and(|(attrs, _)| attrs.contains("nixos-anchor")))
+      .then_some(2)
+    });
 
-    if let Some(mapped) = mapping.get(&(old.to_owned(), occ)) {
-      result.push_str(mapped);
-    } else if used.contains(old) {
-      // Extra HTML-only duplicate: find the next free suffix.
-      let mut suffix = next_suffix.get(old).copied().unwrap_or(1);
-      let new_id = loop {
+    let new_id = if used.insert(old.to_owned()) {
+      None
+    } else {
+      let suffix = next_suffix.entry(old).or_insert(1);
+      let candidate = loop {
         let candidate = format!("{old}-{suffix}");
-        suffix += 1;
-        if !used.contains(&candidate) {
+        *suffix += 1;
+        if !reserved.contains(candidate.as_str()) && !used.contains(&candidate)
+        {
           break candidate;
         }
       };
-      next_suffix.insert(old.to_owned(), suffix);
-      used.insert(new_id.clone());
-      renames.push((old.to_owned(), new_id.clone()));
-      result.push_str(&new_id);
-    } else {
-      used.insert(old.to_owned());
-      next_suffix.entry(old.to_owned()).or_insert(1);
-      result.push_str(old);
+      used.insert(candidate.clone());
+      renames.push((old.to_owned(), candidate.clone()));
+      Some(candidate)
+    };
+    if let Some(level) = level
+      && let Some(index) = header_positions
+        .get_mut(&(old.to_owned(), level))
+        .and_then(VecDeque::pop_front)
+      && let Some(new_id) = &new_id
+    {
+      headers[index].id.clone_from(new_id);
     }
+    result.push_str(new_id.as_deref().unwrap_or(old));
     rest = &rest[end..];
   }
   result.push_str(rest);
   *html = result;
-
   renames
 }
 
@@ -417,5 +422,61 @@ mod tests {
     // Third header must skip the taken `x-1` and become `x-2`.
     assert_eq!(headers[2].id, "x-2");
     assert!(html.contains("id=\"x-2\""));
+  }
+
+  #[test]
+  fn test_deduplicate_preserves_heading_links_with_non_heading_collision() {
+    let mut headers = vec![
+      Header {
+        text:  "Inputs".to_string(),
+        level: 2,
+        id:    "inputs".to_string(),
+      },
+      Header {
+        text:  "Inputs".to_string(),
+        level: 2,
+        id:    "inputs".to_string(),
+      },
+      Header {
+        text:  "Reserved".to_string(),
+        level: 2,
+        id:    "inputs-1".to_string(),
+      },
+    ];
+    let mut html = String::from(
+      "<span id=\"inputs\"></span><h2 id=\"inputs\">Inputs</h2><h2 \
+       id=\"inputs\">Inputs</h2><h2 id=\"inputs-1\">Reserved</h2>",
+    );
+
+    deduplicate_anchor_ids(&mut headers, &mut html);
+    assert_eq!(
+      headers
+        .iter()
+        .map(|header| header.id.as_str())
+        .collect::<Vec<_>>(),
+      ["inputs-2", "inputs-3", "inputs-1"]
+    );
+    assert!(html.contains("<h2 id=\"inputs-2\">Inputs</h2>"));
+    assert!(html.contains("<h2 id=\"inputs-3\">Inputs</h2>"));
+    assert!(html.contains("<h2 id=\"inputs-1\">Reserved</h2>"));
+    validate_rendered_anchor_ids(&headers, &html).unwrap();
+  }
+
+  #[test]
+  fn test_deduplicate_updates_inline_anchor_metadata() {
+    let mut headers = vec![Header {
+      text:  "Inline anchor".to_string(),
+      level: 2,
+      id:    "shared".to_string(),
+    }];
+    let mut html = String::from(
+      "<span id=\"shared\"></span><span id=\"shared\" \
+       class=\"nixos-anchor\"></span>",
+    );
+
+    deduplicate_anchor_ids(&mut headers, &mut html);
+    assert_eq!(headers[0].id, "shared-1");
+    assert!(html.contains("<span id=\"shared-1\" class=\"nixos-anchor\">"));
+    validate_rendered_anchor_ids(&headers, &html).unwrap();
   }
 }
