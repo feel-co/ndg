@@ -1,7 +1,7 @@
 //! Syntect-based syntax highlighting backend enhanced with two-face.
 //!
 //! This module provides a syntax highlighter using the Syntect library,
-//! which uses Sublime Text's syntax definitions (TextMate grammars),
+//! which uses Sublime Text's syntax definitions (`TextMate` grammars),
 //! significantly enhanced with the two-face crate for extended
 //! syntax definitions and themes.
 
@@ -29,25 +29,26 @@ pub struct SyntectHighlighter {
 
 impl SyntectHighlighter {
   /// Create a new Syntect highlighter with the specified theme.
+  #[must_use]
   pub fn new(theme_name: Option<String>) -> Self {
     Self {
       theme_name: theme_name.unwrap_or_else(|| "InspiredGitHub".to_string()),
     }
   }
 
-  /// Get the syntect SyntaxSet.
+  /// Get the syntect `SyntaxSet`.
   fn syntax_set() -> &'static SyntaxSet {
     static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
     SYNTAX_SET.get_or_init(two_face::syntax::extra_newlines)
   }
 
-  /// Get the syntect ThemeSet with extended themes.
+  /// Get the syntect `ThemeSet` with extended themes.
   fn theme_set() -> &'static EmbeddedLazyThemeSet {
     static THEME_SET: OnceLock<EmbeddedLazyThemeSet> = OnceLock::new();
     THEME_SET.get_or_init(two_face::theme::extra)
   }
 
-  /// Get the default syntect ThemeSet for fallback themes.
+  /// Get the default syntect `ThemeSet` for fallback themes.
   fn default_theme_set() -> &'static ThemeSet {
     static DEFAULT_THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
     DEFAULT_THEME_SET.get_or_init(ThemeSet::load_defaults)
@@ -57,13 +58,13 @@ impl SyntectHighlighter {
   fn get_theme(&self, theme_name: Option<&str>) -> &'static Theme {
     let theme_set = Self::theme_set();
     let default_theme_set = Self::default_theme_set();
-    let name = if let Some(theme) = theme_name {
-      theme
-    } else if !self.theme_name.is_empty() {
-      &self.theme_name
-    } else {
-      "InspiredGitHub" // guaranteed fallback
-    };
+    let name = theme_name.unwrap_or_else(|| {
+      if self.theme_name.is_empty() {
+        "InspiredGitHub" // guaranteed fallback
+      } else {
+        &self.theme_name
+      }
+    });
 
     // Try to get theme from default syntect themes first
     if let Some(theme) = default_theme_set.themes.get(name) {
@@ -205,10 +206,16 @@ impl SyntaxHighlighter for SyntectHighlighter {
   }
 }
 
-/// Create a Syntect-based syntax manager with configuration
+/// Create a Syntect-based syntax manager with configuration.
+///
+/// # Errors
+///
+/// This constructor currently returns no errors.
 pub fn create_syntect_manager() -> SyntaxResult<SyntaxManager> {
   let highlighter = Box::new(SyntectHighlighter::default());
-  let mut config = SyntaxConfig::default();
-  config.default_theme = Some("InspiredGitHub".to_string());
+  let config = SyntaxConfig {
+    default_theme: Some("InspiredGitHub".to_string()),
+    ..SyntaxConfig::default()
+  };
   Ok(SyntaxManager::new(highlighter, config))
 }

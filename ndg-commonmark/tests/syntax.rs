@@ -1,4 +1,7 @@
-#![expect(clippy::expect_used, reason = "Fine in tests")]
+#![cfg_attr(
+  feature = "syntastica",
+  expect(clippy::expect_used, reason = "Fine in tests")
+)]
 
 #[cfg(feature = "syntastica")] use std::fs;
 
@@ -30,7 +33,7 @@ some code here
   let html = processor.render(markdown).html;
 
   assert!(html.contains("println"));
-  assert!(html.contains("color:rgb"));
+  assert!(html.contains("<span style="));
   assert!(html.contains("<code>fn main()</code>"));
   assert!(html.contains("some code here"));
 }
@@ -47,7 +50,7 @@ fn test_syntax_highlighting_disabled() {
     .html;
 
   assert!(html.contains("fn main"));
-  assert!(!html.contains("color:rgb"));
+  assert!(!html.contains("<span style="));
 }
 
 #[cfg(feature = "syntastica")]

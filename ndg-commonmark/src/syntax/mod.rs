@@ -61,7 +61,7 @@ pub fn create_default_manager(
 
   #[cfg(feature = "syntect")]
   {
-    return create_syntect_manager();
+    create_syntect_manager()
   }
 
   #[cfg(not(any(feature = "syntastica", feature = "syntect")))]
@@ -122,9 +122,8 @@ mod tests {
 
   #[cfg(feature = "syntect")]
   #[test]
-  fn test_nix_language_support() {
-    let manager = create_default_manager(None)
-      .expect("Failed to create default syntax manager");
+  fn test_nix_language_support() -> SyntaxResult<()> {
+    let manager = create_default_manager(None)?;
     let languages = manager.highlighter().supported_languages();
 
     // Verify that Nix is supported via two-face
@@ -156,6 +155,7 @@ pkgs.stdenv.mkDerivation rec {
       "Failed to highlight Nix code: {:?}",
       result.err()
     );
+    Ok(())
   }
 
   struct NoopHighlighter;
