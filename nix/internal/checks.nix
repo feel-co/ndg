@@ -6,7 +6,7 @@
   ndg-builder,
   nrd,
 }: let
-  sampleOptions = builtins.toJSON {
+  sampleOptions = pkgs.writers.writeJSON "options.json" {
     "services.frobnicator.types.<name>.enable" = {
       declarations = ["nixos/modules/services/frobnicator.nix"];
       description = "Whether to enable the frobnication of this (`<name>`) type.";
@@ -41,7 +41,7 @@ in {
     testScript = ''
       machine.start()
       machine.succeed("cat > /tmp/manpage-urls.json <<'JSON'\n{}\nJSON\n")
-      machine.succeed("cat > /tmp/options.json <<'JSON'\n${sampleOptions}\nJSON\n")
+      machine.succeed("cp ${sampleOptions} /tmp/options.json")
 
       machine.succeed("${nrd}/bin/nrd options commonmark --manpage-urls /tmp/manpage-urls.json --revision local /tmp/options.json /tmp/ndg-default.md")
       machine.succeed("${pkgs.nixos-render-docs}/bin/nixos-render-docs options commonmark --manpage-urls /tmp/manpage-urls.json --revision local /tmp/options.json /tmp/nrd-default.md")
