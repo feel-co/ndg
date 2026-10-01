@@ -22,6 +22,7 @@ in let
     publisher = "feel-co.org";
     zimIllustration = ./logo.png;
     source = "https://ndg.feel-co.org/";
+    extraConfig.anchor.on_duplicate = "deduplicate";
   };
 in
   pkgs.runCommandLocal "ndg-builder-docs" {} ''
