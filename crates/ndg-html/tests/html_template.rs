@@ -580,6 +580,30 @@ fn render_page_with_headers_toc() {
 }
 
 #[test]
+fn test_render_page_toc_matches_quoted_code_heading() {
+  let processor = MarkdownProcessor::new(MarkdownOptions {
+    highlight_code: false,
+    ..Default::default()
+  });
+  let markdown = "# `\"/anything-here/really\"`\n";
+  let result = processor.render(markdown);
+  let html = template::render(
+    &minimal_config(),
+    &result.html,
+    "Quoted path",
+    &result.headers,
+    Path::new("index.html"),
+    None,
+  )
+  .expect("render quoted code heading");
+
+  assert_eq!(processor.extract_headers(markdown).0, result.headers);
+  let id = &result.headers[0].id;
+  assert!(html.contains(&format!("<h1 id=\"{id}\">")));
+  assert!(html.contains(&format!("href=\"#{id}\"")));
+}
+
+#[test]
 fn render_page_toc_excludes_matching_headings() {
   let mut config = minimal_config();
   config.sidebar = Some(SidebarConfig {

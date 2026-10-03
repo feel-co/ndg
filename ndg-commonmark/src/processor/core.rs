@@ -1359,7 +1359,7 @@ pub fn extract_inline_text<'a>(node: &'a AstNode<'a>) -> String {
 /// `id` itself is intentionally left unchanged to preserve existing deep links.
 #[must_use]
 pub(crate) fn slugify_heading(text: &str) -> String {
-  utils::slugify(&html_escape::encode_text(text))
+  utils::slugify(&html_escape::encode_double_quoted_attribute(text))
 }
 
 /// Collect all markdown files from the input directory
