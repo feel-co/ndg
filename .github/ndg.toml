@@ -52,15 +52,15 @@ highlight_code = true
 # How to handle hard tabs in code blocks (one of "none", "warn", or "normalize")
 tab_style = "normalize"
 
+# GitHub revision for linking to source files (defaults to 'local')
+revision = "main"
+
 # Duplicate heading anchor handling (one of "error", "warn", or "deduplicate")
 # Our docs epeat subsection titles across parallel sections (e.g,. sidebar.matches
 # vs sidebar.options.matches), so deduplicate anchors into unique IDs instead of
 # failing the build like an idiot.
 [anchor]
 on_duplicate = "deduplicate"
-
-# GitHub revision for linking to source files (defaults to 'local')
-revision = "main"
 
 # Markdown rendering options
 # [markdown]
@@ -129,6 +129,16 @@ position  = 3
 new_title = "Templating Guide"
 path      = "TEMPLATING.md"
 position  = 4
+
+[[sidebar.matches]]
+new_title = "Syntax Reference"
+path      = "SYNTAX.md"
+position  = 5
+
+[[sidebar.matches]]
+new_title = "Syntax Highlighting"
+path      = "HIGHLIGHTING.md"
+position  = 6
 
 # Exclude headings from generated per-page tables of contents.
 # [sidebar.toc]

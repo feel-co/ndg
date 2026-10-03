@@ -63,6 +63,7 @@ jobs:
         run: |
           # We want to use NDG's readme in the index, so we should copy it
           cp -rvf ./ndg/README.md ./ndg/docs/index.md # index.md so it's the first entry
+          cp -R ./ndg-commonmark/docs/. ./ndg/docs/
 
           # Generate NDG's own documentation using NDG itself
           ./target/release/ndg --config-file .github/ndg.toml html
