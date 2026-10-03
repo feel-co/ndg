@@ -1,9 +1,9 @@
 # Ignore everything by default
 /*
 !/
+**/.ndg-cache/
 
 # Packages
-/ndg/.ndg-cache/
 !/ndg/
 !/ndg-commonmark/
 !/crates
