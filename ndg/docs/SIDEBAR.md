@@ -31,14 +31,16 @@ ordering = "alphabetical"
 
 ### `numbered`
 
-Controls whether sidebar items are numbered sequentially.
+Controls whether sidebar items are numbered within each sibling group.
 
 - **Type**: Boolean
 - **Default**: `false`
 
 When enabled, items display as "1. Title", "2. Title", etc. Special files
 (`index.md`, `README.md`) are excluded from numbering by default unless
-`number_special_files` is enabled.
+`number_special_files` is enabled. Sub-chapters use hierarchical numbers such as
+"2.1. Title" and "2.1.1. Title". Setting `numbered = false` removes the numbers
+without changing the hierarchy.
 
 **Example:**
 
@@ -82,7 +84,7 @@ Getting Started  # index.md - not numbered
 
 ### `ordering`
 
-Determines how sidebar items are sorted.
+Determines how sidebar items are sorted within each sibling group.
 
 - **Type**: String
 - **Default**: `"alphabetical"`
@@ -145,10 +147,11 @@ Each `[[sidebar.matches]]` entry supports:
 
 #### Action Fields
 
-| Field       | Type    | Description                                       |
-| ----------- | ------- | ------------------------------------------------- |
-| `new_title` | String  | Custom title to display in the sidebar            |
-| `position`  | Integer | Custom position (used when `ordering = "custom"`) |
+| Field       | Type    | Description                                |
+| ----------- | ------- | ------------------------------------------ |
+| `new_title` | String  | Custom title to display in the sidebar     |
+| `position`  | Integer | Sibling sort key for `ordering = "custom"` |
+| `parent`    | String  | Input-relative parent Markdown source path |
 
 ### Matching Logic
 
@@ -207,6 +210,96 @@ position = 2
 path = "api-reference.md"
 position = 3
 ```
+
+### Sub-chapters
+
+Set `parent` on a page's matching rule to nest it under another page. Both
+`path` and `parent` identify Markdown source paths relative to `input_dir`. They
+do not identify page titles or generated HTML URLs, even when an included file
+has a custom output path. Pages without a parent remain root items.
+
+For example, create these source files with the titles shown below:
+
+```plaintext
+docs/index.md                       # Introduction
+docs/getting-started.md             # Getting Started
+docs/installation.md                # Installation
+docs/usage.md                       # Usage
+docs/configuration.md               # Configuration
+docs/configuration/session.md       # Session Management
+docs/configuration/deep/advanced.md # Advanced
+docs/configuration/profiles.md      # Profiles
+```
+
+With `input_dir = "docs"`, configure their relationships as follows:
+
+```toml
+[sidebar]
+numbered = true
+ordering = "custom"
+
+[[sidebar.matches]]
+path = "getting-started.md"
+position = 1
+
+[[sidebar.matches]]
+path = "installation.md"
+position = 2
+
+[[sidebar.matches]]
+path = "usage.md"
+position = 3
+
+[[sidebar.matches]]
+path = "configuration.md"
+position = 4
+
+[[sidebar.matches]]
+path = "configuration/session.md"
+parent = "configuration.md"
+position = 1
+
+[[sidebar.matches]]
+path = "configuration/deep/advanced.md"
+parent = "configuration/session.md"
+position = 1
+
+[[sidebar.matches]]
+path = "configuration/profiles.md"
+parent = "configuration.md"
+position = 2
+```
+
+The sidebar renders clickable parent pages with indented sub-chapters:
+
+```plaintext
+Introduction
+1. Getting Started
+2. Installation
+3. Usage
+4. Configuration
+  4.1. Session Management
+    4.1.1. Advanced
+  4.2. Profiles
+```
+
+`position` is an integer sort key, not a displayed chapter number. Each sibling
+group has its own numbering sequence. Use `parent` to define the hierarchy;
+decimal positions such as `4.1` are invalid. The first matching rule controls
+the page's parent, title, and position, so put specific rules before broad
+rules.
+
+Special root pages such as `index.md` still appear first. A special page with a
+parent stays under that parent. Unless `number_special_files = true`, special
+pages have no number and do not consume a sibling number. Their descendants
+inherit the nearest numbered ancestor's prefix, or start at `1` beneath an
+unnumbered root.
+
+The parent must be a page that appears in navigation. Included fragments cannot
+be parents unless they produce their own standalone page. NDG reports an error
+for missing parents, self-parenting, and parent cycles. Explicit parents cannot
+be combined with `sidebar.group_by_dir = true`, which groups pages by directory
+instead of page relationships.
 
 ### Custom Titles
 

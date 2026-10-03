@@ -915,8 +915,8 @@ templating. If your use-case is not supported, feel free to request a feature!
 ### Sidebar Customization
 
 NDG allows you to customize the sidebar navigation through flexible
-configuration options. You can control item ordering, add numbering, and
-customize titles using pattern-based matching:
+configuration options. You can control item ordering, add numbering, define
+sub-chapters, and customize titles using pattern-based matching:
 
 ```toml
 [sidebar]
@@ -932,6 +932,11 @@ position = 1
 path = "installation.md"
 new_title = "📦 Installation"
 position = 2
+
+[[sidebar.matches]]
+path = "installation/requirements.md"
+parent = "installation.md"
+position = 1
 ```
 
 This enables features like:
@@ -940,6 +945,17 @@ This enables features like:
 - **Custom ordering** (alphabetical, custom position-based, or filesystem)
 - **Pattern-based title customization** using exact or regex matching
 - **Flexible positioning** for specific documentation items
+- **Sub-chapters** with clickable parents, indentation, and hierarchical numbers
+  such as `2.1` and `2.1.1`
+
+`parent` is a Markdown source path relative to `input_dir`, not a title or HTML
+URL. Integer `position` values order siblings; use `parent`, not decimal
+positions, to define the hierarchy. The first matching rule controls all of a
+page's sidebar settings. Disabling numbering keeps the nested structure.
+
+> [!NOTE]
+> Parents must be visible standalone pages. Missing parents, self-parenting, and
+> cycles are errors. Explicit parents cannot be combined with `group_by_dir`.
 
 For documentation generated from Nix module options, you can also customize the
 options sidebar to control visibility, naming, ordering, and depth of option
@@ -1389,7 +1405,8 @@ regular documentation pages.
      a fallback index listing all documents
 
 2. **Sidebar rendering** (both `index.md` and `README.md`):
-   - Always appear **first** in the sidebar navigation
+   - Appear **first** among root items; a special page with `parent` stays under
+     that parent
    - **Excluded from numbering by default** when `numbered = true` in sidebar
      config
    - Can be included in numbering by setting `number_special_files = true`

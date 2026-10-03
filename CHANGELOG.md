@@ -35,6 +35,15 @@ changes.
 
 ## [Unreleased]
 
+### Added
+
+- Document sidebars now support explicit sub-chapters through `parent` in
+  `[[sidebar.matches]]`. Parents remain clickable, integer positions order
+  siblings, and numbering follows the hierarchy, such as `4.1` and `4.1.1`.
+  Missing parents, self-parenting, cycles, and combining parents with
+  `sidebar.group_by_dir` report errors
+  ([#290](https://github.com/feel-co/ndg/issues/290)).
+
 ### Fixed
 
 - Pages now link each script in `script_paths` at `assets/<file name>`, where
