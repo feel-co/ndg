@@ -6,6 +6,7 @@
   - [Basic Markdown](#basic-markdown)
   - [Extended Syntax](#extended-syntax)
     - [Admonitions](#admonitions)
+      - [Nesting admonitions](#nesting-admonitions)
     - [Text Roles](#text-roles)
     - [Command and REPL Prompts](#command-and-repl-prompts)
     - [GitHub Callouts](#github-callouts)
@@ -89,6 +90,34 @@ This note has a custom ID and can be linked to with
 :::
 ```
 
+#### Nesting admonitions
+
+Fenced admonitions process block elements in their contents recursively. You can
+nest a GitHub-style callout inside a fenced admonition without writing HTML:
+
+```markdown
+::: {.example} This is an example.
+
+> [!NOTE]
+> With a nested note!
+
+:::
+```
+
+For nested fenced admonitions, use a longer fence for the outer block than for
+the inner block. A fence at least as long as the opening fence closes that
+block, so using the same length for both would close the outer block early.
+
+```markdown
+:::: {.example} Outer content.
+
+::: {.note} Inner content. :::
+
+More outer content.
+
+::::
+```
+
 ### Text Roles
 
 Text roles provide semantic markup for specific types of content. They use a
@@ -156,6 +185,10 @@ ndg supports GitHub-style callouts:
 
 These are converted to the same styled admonition blocks as the fenced
 admonition syntax.
+
+Callout type names currently require uppercase letters in NDG. Nesting one
+GitHub-style callout inside another is not supported; use a fenced outer
+admonition as shown in [Nesting admonitions](#nesting-admonitions).
 
 ### Headers with Anchors
 
