@@ -5,6 +5,22 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Fields, Type, parse_macro_input};
 
+mod template;
+
+/// Derive annotated TOML output from configuration fields and their defaults.
+///
+/// Uses field doc comments and Serde names, skips runtime-only fields, and
+/// writes values before nested tables. `#[template(nested)]` marks child tables
+/// or arrays of tables; `#[template(example = expression)]` supplies an example
+/// for absent optional values or empty arrays of tables.
+#[proc_macro_derive(ConfigTemplate, attributes(template))]
+pub fn derive_config_template(input: TokenStream) -> TokenStream {
+  let input = parse_macro_input!(input as DeriveInput);
+  template::expand(&input)
+    .unwrap_or_else(syn::Error::into_compile_error)
+    .into()
+}
+
 /// Attribute configuration for a field.
 #[derive(Default)]
 struct FieldConfig {
