@@ -38,7 +38,7 @@ in {
       virtualisation.diskSize = 512;
     };
 
-    testScript = ''
+    testScript = /* py */ ''
       machine.start()
       machine.succeed("cat > /tmp/manpage-urls.json <<'JSON'\n{}\nJSON\n")
       machine.succeed("cp ${sampleOptions} /tmp/options.json")
