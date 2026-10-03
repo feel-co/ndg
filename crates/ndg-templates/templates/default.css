@@ -397,6 +397,11 @@ header {
     margin: var(--space-3) 0;
   }
 
+  ul.sidebar-subchapters {
+    padding-inline-start: var(--space-4);
+    margin: var(--space-1) 0;
+  }
+
   li {
     margin-bottom: var(--space-1);
   }
