@@ -1306,6 +1306,90 @@ fn sidebar_navigation_escapes_titles_and_urls() {
   assert!(!html.contains("><script>alert(1)</script></a>"));
 }
 
+#[test]
+fn test_sidebar_subchapters_order_number_and_link_by_source_path() {
+  let temp = TempDir::new().expect("create temp dir");
+  for (path, title) in [
+    ("index.md", "Introduction"),
+    ("configuration.md", "Configuration"),
+    ("session.md", "Session Management"),
+    ("alpha.md", "Alpha"),
+    ("advanced.md", "Advanced"),
+  ] {
+    fs::write(temp.path().join(path), format!("# {title}\n"))
+      .expect("write chapter");
+  }
+  let mut config = minimal_config();
+  config.input_dir = Some(temp.path().to_path_buf());
+  config.sidebar = Some(serde_json::from_value(json!({
+    "numbered": true,
+    "ordering": "custom",
+    "matches": [
+      {"path": {"exact": "configuration.md"}, "position": 4},
+      {"path": {"exact": "session.md"}, "parent": "configuration.md", "position": 1},
+      {"path": {"exact": "alpha.md"}, "parent": "configuration.md", "position": 2},
+      {"path": {"exact": "advanced.md"}, "parent": "session.md"}
+    ]
+  })).expect("parse chapter rules"));
+  config.included_output_files.insert(
+    PathBuf::from("session.md"),
+    PathBuf::from("topics/session.html"),
+  );
+  let html = template::render(
+    &config,
+    "<p>Body</p>",
+    "Advanced",
+    &[],
+    Path::new("topics/advanced.html"),
+    None,
+  )
+  .expect("render chapters");
+  let hierarchy = regex::Regex::new(concat!(
+    r#"<li><a href="../configuration.html">1\. Configuration</a>\s*"#,
+    r#"<ul class="sidebar-subchapters">\s*"#,
+    r#"<li><a href="../topics/session.html">1\.1\. Session Management</a>\s*"#,
+    r#"<ul class="sidebar-subchapters">\s*"#,
+    r#"<li><a href="../advanced.html">1\.1\.1\. Advanced</a></li>\s*"#,
+    r#"</ul>\s*</li>\s*"#,
+    r#"<li><a href="../alpha.html">1\.2\. Alpha</a></li>\s*"#,
+    r#"</ul>\s*</li>"#,
+  ))
+  .expect("compile hierarchy assertion");
+  assert!(hierarchy.is_match(&html), "incorrect chapter hierarchy");
+  assert!(html.contains("href=\"../index.html\">Introduction</a>"));
+}
+
+#[test]
+fn test_sidebar_subchapters_reject_parent_cycles() {
+  let temp = TempDir::new().expect("create temp dir");
+  fs::write(temp.path().join("a.md"), "# A\n").expect("write A");
+  fs::write(temp.path().join("b.md"), "# B\n").expect("write B");
+  let mut config = minimal_config();
+  config.input_dir = Some(temp.path().to_path_buf());
+  config.sidebar = Some(
+    serde_json::from_value(json!({
+      "matches": [
+        {"path": {"exact": "a.md"}, "parent": "b.md"},
+        {"path": {"exact": "b.md"}, "parent": "a.md"}
+      ]
+    }))
+    .expect("parse cyclic rules"),
+  );
+  let error = template::render(
+    &config,
+    "<p>Body</p>",
+    "A",
+    &[],
+    Path::new("a.html"),
+    None,
+  )
+  .expect_err("reject parent cycle")
+  .to_string();
+  assert!(error.contains("cycle"), "{error}");
+  assert!(error.contains("a.md"), "{error}");
+  assert!(error.contains("b.md"), "{error}");
+}
+
 // Regression test for bug where included files appeared in sidebar navigation.
 // Included files should never appear as standalone entries in the sidebar
 // because they don't have their own HTML pages generated

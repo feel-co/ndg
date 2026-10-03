@@ -1,7 +1,9 @@
 use std::{
+  borrow::Cow,
+  cmp::Ordering,
   fmt::Write,
   fs,
-  path::Path,
+  path::{Path, PathBuf},
   sync::{Arc, LazyLock, RwLock},
 };
 
@@ -495,7 +497,7 @@ pub fn render(
     String::new()
   };
 
-  let doc_nav = generate_doc_nav(config, rel_path);
+  let doc_nav = generate_doc_nav(config, rel_path)?;
 
   // Check if options are available
   let has_options = if config.module_options.is_some() {
@@ -677,7 +679,7 @@ pub(crate) fn render_options_body(
   let tera = setup_tera_templates(config, "options", &options_template)?;
 
   // Generate document navigation and paths
-  let doc_nav = generate_doc_nav(config, root_path);
+  let doc_nav = generate_doc_nav(config, root_path)?;
   let custom_scripts = generate_custom_scripts(config, root_path)?;
   let asset_paths = generate_asset_paths(root_path);
   let root_prefix = calculate_root_relative_path(root_path);
@@ -748,7 +750,7 @@ pub fn render_lib(
 
   // Generate navigation and paths
   let root_path = Path::new("lib.html");
-  let doc_nav = generate_doc_nav(config, root_path);
+  let doc_nav = generate_doc_nav(config, root_path)?;
   let custom_scripts = generate_custom_scripts(config, root_path)?;
   let asset_paths = generate_asset_paths(root_path);
   let root_prefix = calculate_root_relative_path(root_path);
@@ -1058,7 +1060,7 @@ pub fn render_search(
 
   // Generate navigation and paths (search page is always at root)
   let root_path = Path::new("search.html");
-  let doc_nav = generate_doc_nav(config, root_path);
+  let doc_nav = generate_doc_nav(config, root_path)?;
   let custom_scripts = generate_custom_scripts(config, root_path)?;
 
   // Check if options are available
@@ -1194,25 +1196,81 @@ fn load_template_content(
   Ok(fallback.to_string())
 }
 
-/// Represents a navigation item with its metadata for rendering
+/// Represents a discovered source page and its navigation metadata.
 struct NavItem {
+  source:   PathBuf,
   path:     String,
   title:    String,
-  /// Parent directory relative to `input_dir` ().
-  rel_dir:  String, // empty string for root items
+  /// Output directory used by the existing directory grouping mode.
+  rel_dir:  String,
   position: Option<usize>,
   number:   Option<usize>,
+  special:  bool,
 }
 
-/// Render a single navigation item as a `<li>` element, with optional
-/// numbering.
-fn render_nav_item(output: &mut String, item: &NavItem) {
+fn render_nav_link(output: &mut String, item: &NavItem, prefix: &str) {
   let path = encode_double_quoted_attribute(&item.path);
   let title = encode_text(&item.title);
   if let Some(num) = item.number {
-    let _ = writeln!(output, "<li><a href=\"{path}\">{num}. {title}</a></li>");
+    let _ = write!(output, "<li><a href=\"{path}\">{prefix}{num}. {title}</a>");
   } else {
-    let _ = writeln!(output, "<li><a href=\"{path}\">{title}</a></li>");
+    let _ = write!(output, "<li><a href=\"{path}\">{title}</a>");
+  }
+}
+
+fn render_nav_item(output: &mut String, item: &NavItem) {
+  render_nav_link(output, item, "");
+  let _ = writeln!(output, "</li>");
+}
+
+/// Render with an explicit stack and one reusable ancestor-number buffer.
+fn render_hierarchy(
+  output: &mut String,
+  items: &[NavItem],
+  roots: &[usize],
+  children: &[Vec<usize>],
+) {
+  struct Frame<'a> {
+    siblings:   &'a [usize],
+    next:       usize,
+    prefix_len: usize,
+  }
+
+  let mut stack = vec![Frame {
+    siblings:   roots,
+    next:       0,
+    prefix_len: 0,
+  }];
+  let mut prefix = String::new();
+  while let Some(frame) = stack.last_mut() {
+    if frame.next == frame.siblings.len() {
+      let prefix_len = frame.prefix_len;
+      stack.pop();
+      prefix.truncate(prefix_len);
+      if !stack.is_empty() {
+        let _ = writeln!(output, "</ul></li>");
+      }
+      continue;
+    }
+
+    let index = frame.siblings[frame.next];
+    frame.next += 1;
+    let item = &items[index];
+    render_nav_link(output, item, &prefix);
+    if children[index].is_empty() {
+      let _ = writeln!(output, "</li>");
+    } else {
+      let prefix_len = prefix.len();
+      if let Some(number) = item.number {
+        let _ = write!(prefix, "{number}.");
+      }
+      let _ = writeln!(output, "\n<ul class=\"sidebar-subchapters\">");
+      stack.push(Frame {
+        siblings: &children[index],
+        next: 0,
+        prefix_len,
+      });
+    }
   }
 }
 
@@ -1221,33 +1279,31 @@ fn render_nav_item(output: &mut String, item: &NavItem) {
 /// Items at the root (empty `rel_dir`) are rendered flat. Items in a
 /// subdirectory are wrapped in a collapsible `<details>` element with a
 /// `<summary>` label derived from the directory name.
-fn render_grouped(output: &mut String, items: Vec<NavItem>, show_counts: bool) {
+fn render_grouped(
+  output: &mut String,
+  items: &[NavItem],
+  indices: &[usize],
+  show_counts: bool,
+) {
   use std::collections::BTreeMap;
 
-  // Separate root items from directory-grouped items.
-  let mut root_items: Vec<NavItem> = Vec::new();
-  // BTreeMap preserves directory insertion order (sorted by dir name).
-  let mut dir_groups: BTreeMap<String, Vec<NavItem>> = BTreeMap::new();
+  // BTreeMap preserves alphabetical directory ordering.
+  let mut dir_groups: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
 
-  for item in items {
+  for &index in indices {
+    let item = &items[index];
     if item.rel_dir.is_empty() {
-      root_items.push(item);
+      render_nav_item(output, item);
     } else {
       // Use only the first path component as the group label so that
       // `features/foo/bar.md` is still grouped under `features`.
-      let top_dir = std::path::Path::new(&item.rel_dir)
+      let top_dir = Path::new(&item.rel_dir)
         .components()
         .next()
         .and_then(|c| c.as_os_str().to_str())
-        .unwrap_or(&item.rel_dir)
-        .to_string();
-      dir_groups.entry(top_dir).or_default().push(item);
+        .unwrap_or(&item.rel_dir);
+      dir_groups.entry(top_dir).or_default().push(index);
     }
-  }
-
-  // Render root items flat.
-  for item in root_items {
-    render_nav_item(output, &item);
   }
 
   // Render each directory group as a collapsible block.
@@ -1256,7 +1312,7 @@ fn render_grouped(output: &mut String, items: Vec<NavItem>, show_counts: bool) {
     let label = {
       let mut chars = dir_name.chars();
       chars.next().map_or_else(
-        || dir_name.clone(),
+        || dir_name.to_owned(),
         |first| first.to_uppercase().collect::<String>() + chars.as_str(),
       )
     };
@@ -1273,317 +1329,261 @@ fn render_grouped(output: &mut String, items: Vec<NavItem>, show_counts: bool) {
        class=\"sidebar-dir-label\">{label}</span>{count_badge}</summary><ul>"
     );
 
-    for item in group_items {
-      render_nav_item(output, &item);
+    for index in group_items {
+      render_nav_item(output, &items[index]);
     }
 
     let _ = writeln!(output, "</ul></details></li>");
   }
 }
 
-struct DocumentNavigation {
-  special_items:     Vec<NavItem>,
-  regular_items:     Vec<NavItem>,
-  number_special:    bool,
-  show_group_counts: bool,
-}
-
-trait DocumentNavigationGenerator {
-  fn generate(&self, output: &mut String, navigation: DocumentNavigation);
-}
-
-struct FlatDocumentNavigationGenerator;
-
-impl DocumentNavigationGenerator for FlatDocumentNavigationGenerator {
-  fn generate(&self, output: &mut String, navigation: DocumentNavigation) {
-    let DocumentNavigation {
-      mut special_items,
-      regular_items,
-      number_special,
-      ..
-    } = navigation;
-    if number_special {
-      special_items.extend(regular_items);
-      for (index, item) in special_items.iter_mut().enumerate() {
-        item.number = Some(index + 1);
+/// Sort one sibling set, retaining the legacy special-first root order.
+fn order_nav_siblings(
+  items: &mut [NavItem],
+  siblings: &mut [usize],
+  ordering: SidebarOrdering,
+  numbered: bool,
+  number_special: bool,
+  roots: bool,
+) {
+  if roots || !matches!(ordering, SidebarOrdering::Filesystem) {
+    siblings.sort_by(|&a, &b| {
+      let a = &items[a];
+      let b = &items[b];
+      if roots {
+        let special_order = b.special.cmp(&a.special);
+        if !special_order.is_eq() {
+          return special_order;
+        }
       }
-      for item in special_items {
-        render_nav_item(output, &item);
+      match ordering {
+        SidebarOrdering::Alphabetical => a.title.cmp(&b.title),
+        SidebarOrdering::Custom => {
+          match (a.position, b.position) {
+            (Some(a), Some(b)) => a.cmp(&b),
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (None, None) => a.title.cmp(&b.title),
+          }
+        },
+        SidebarOrdering::Filesystem => Ordering::Equal,
       }
-      return;
-    }
-    for item in special_items.into_iter().chain(regular_items) {
-      render_nav_item(output, &item);
+    });
+  }
+
+  if numbered {
+    let mut number = 0;
+    for &index in siblings.iter() {
+      let item = &mut items[index];
+      if !item.special || number_special {
+        number += 1;
+        item.number = Some(number);
+      }
     }
   }
 }
 
-struct GroupedDocumentNavigationGenerator;
-
-impl DocumentNavigationGenerator for GroupedDocumentNavigationGenerator {
-  fn generate(&self, output: &mut String, navigation: DocumentNavigation) {
-    let DocumentNavigation {
-      mut special_items,
-      regular_items,
-      number_special,
-      show_group_counts,
-    } = navigation;
-    if number_special {
-      special_items.extend(regular_items);
-      for (index, item) in special_items.iter_mut().enumerate() {
-        item.number = Some(index + 1);
+/// Each parent edge is visited once; no recursive ancestor walking is needed.
+fn validate_nav_parents(
+  items: &[NavItem],
+  parents: &[Option<usize>],
+) -> Result<()> {
+  let mut states = vec![0_u8; items.len()];
+  let mut chain = Vec::with_capacity(items.len());
+  for start in 0..items.len() {
+    if states[start] != 0 {
+      continue;
+    }
+    let mut current = Some(start);
+    while let Some(index) = current {
+      match states[index] {
+        0 => {
+          states[index] = 1;
+          chain.push(index);
+          current = parents[index];
+        },
+        1 => {
+          let mut cycle = String::new();
+          for node in chain.iter().copied().skip_while(|&node| node != index) {
+            let _ = write!(cycle, "`{}` -> ", items[node].source.display());
+          }
+          let _ = write!(cycle, "`{}`", items[index].source.display());
+          bail!("sidebar parent cycle: {cycle}");
+        },
+        _ => break,
       }
-      render_grouped(output, special_items, show_group_counts);
-      return;
     }
-    for item in special_items {
-      render_nav_item(output, &item);
+    for &index in &chain {
+      states[index] = 2;
     }
-    render_grouped(output, regular_items, show_group_counts);
+    chain.clear();
   }
+  Ok(())
 }
 
-/// Generate the document navigation HTML
-fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
+/// Generate document navigation using source paths for parent identity and
+/// final output paths for links.
+fn generate_doc_nav(
+  config: &Config,
+  current_file_rel_path: &Path,
+) -> Result<String> {
+  let sidebar = config.sidebar.as_ref();
+  let group_by_dir = sidebar.is_some_and(|s| s.group_by_dir);
+  if group_by_dir
+    && sidebar.is_some_and(|s| s.matches.iter().any(|m| m.parent.is_some()))
+  {
+    bail!("sidebar group_by_dir cannot be combined with parent matches");
+  }
+
   let mut doc_nav = String::new();
   let root_prefix = calculate_root_relative_path(current_file_rel_path);
-
-  // Only process markdown files if input_dir is provided
   if let Some(input_dir) = &config.input_dir {
-    let entries: Vec<_> = walkdir::WalkDir::new(input_dir)
-      .follow_links(true)
-      .into_iter()
-      .filter_map(std::result::Result::ok)
-      .filter(|e| {
-        if !e.path().is_file()
-          || e.path().extension().is_none_or(|ext| ext != "md")
-        {
-          return false;
-        }
+    let mut items = Vec::new();
+    let mut requested_parents = Vec::new();
+    for entry in walkdir::WalkDir::new(input_dir).follow_links(true) {
+      let entry = entry.wrap_err_with(|| {
+        format!(
+          "failed to discover sidebar pages in {}",
+          input_dir.display()
+        )
+      })?;
+      let path = entry.path();
+      if !path.is_file() || path.extension().is_none_or(|ext| ext != "md") {
+        continue;
+      }
+      let source = path.strip_prefix(input_dir).wrap_err_with(|| {
+        format!(
+          "sidebar source {} is outside {}",
+          path.display(),
+          input_dir.display()
+        )
+      })?;
+      // Included fragments only become visible when they generate a page.
+      if config.included_files.contains_key(source)
+        && !config.included_output_files.contains_key(source)
+      {
+        continue;
+      }
 
-        // Filter out included fragments unless they produce their own page.
-        e.path().strip_prefix(input_dir).is_ok_and(|rel_path| {
-          !config.included_files.contains_key(rel_path)
-            || config.included_output_files.contains_key(rel_path)
-        })
-      })
-      .collect();
-
-    if !entries.is_empty() {
-      // Partition entries into special and regular
-      let mut special_entries = Vec::new();
-      let mut regular_entries = Vec::new();
-
-      for entry in &entries {
-        let path = entry.path();
-        if let Ok(rel_doc_path) = path.strip_prefix(input_dir) {
-          let file_name = rel_doc_path
-            .file_name()
-            .and_then(|n| n.to_str())
+      let html_path = config.included_output_files.get(source).map_or_else(
+        || Cow::Owned(source.with_extension("html")),
+        |output| Cow::Borrowed(output.as_path()),
+      );
+      let page_title =
+        ndg_utils::markdown::extract_page_title(path, &html_path);
+      let matched_rule = sidebar
+        .and_then(|s| s.find_match(&source.to_string_lossy(), &page_title));
+      let title = matched_rule
+        .and_then(|m| m.get_title())
+        .map_or(page_title, String::from);
+      let special = source
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+          name.eq_ignore_ascii_case("index.md")
+            || name.eq_ignore_ascii_case("readme.md")
+        });
+      items.push(NavItem {
+        source: source.to_path_buf(),
+        path: format!("{root_prefix}{}", html_path.to_string_lossy()),
+        title,
+        rel_dir: if group_by_dir {
+          html_path
+            .parent()
+            .and_then(Path::to_str)
             .unwrap_or("")
-            .to_ascii_lowercase();
-          if file_name == "index.md" || file_name == "readme.md" {
-            special_entries.push(entry);
-          } else {
-            regular_entries.push(entry);
-          }
+            .to_owned()
+        } else {
+          String::new()
+        },
+        position: matched_rule.and_then(|m| m.position),
+        number: None,
+        special,
+      });
+      requested_parents.push(matched_rule.and_then(|m| m.parent.as_deref()));
+    }
+
+    let source_indices: FxHashMap<&Path, usize> = items
+      .iter()
+      .enumerate()
+      .map(|(index, item)| (item.source.as_path(), index))
+      .collect();
+    let mut parents = Vec::with_capacity(items.len());
+    for (index, requested) in requested_parents.into_iter().enumerate() {
+      let parent = if let Some(source) = requested {
+        let Some(&parent) = source_indices.get(Path::new(source)) else {
+          bail!(
+            "sidebar source `{}` has parent `{source}`, which is not a \
+             visible Markdown source page",
+            items[index].source.display()
+          );
+        };
+        if parent == index {
+          bail!(
+            "sidebar source `{}` cannot be its own parent",
+            items[index].source.display()
+          );
         }
-      }
-
-      // Process regular entries with sidebar configuration
-      let mut nav_items: Vec<NavItem> = regular_entries
-        .iter()
-        .filter_map(|entry| {
-          let path = entry.path();
-          let rel_doc_path = path.strip_prefix(input_dir).ok()?;
-          let html_path = config
-            .included_output_files
-            .get(rel_doc_path)
-            .cloned()
-            .unwrap_or_else(|| {
-              let mut html_path = rel_doc_path.to_path_buf();
-              html_path.set_extension("html");
-              html_path
-            });
-
-          let target_path =
-            format!("{}{}", root_prefix, html_path.to_string_lossy());
-
-          // Extract page title
-          let page_title =
-            ndg_utils::markdown::extract_page_title(path, &html_path);
-
-          // Apply sidebar configuration if available
-          let (display_title, position) =
-            if let Some(sidebar_config) = &config.sidebar {
-              let path_str = rel_doc_path.to_string_lossy();
-              if let Some(matched_rule) =
-                sidebar_config.find_match(&path_str, &page_title)
-              {
-                let title = matched_rule
-                  .get_title()
-                  .map_or_else(|| page_title.clone(), String::from);
-                let pos = matched_rule.get_position();
-                (title, pos)
-              } else {
-                (page_title, None)
-              }
-            } else {
-              (page_title, None)
-            };
-
-          Some(NavItem {
-            path: target_path,
-            title: display_title,
-            rel_dir: html_path
-              .parent()
-              .and_then(|p| p.to_str())
-              .unwrap_or("")
-              .to_string(),
-            position,
-            number: None,
-          })
-        })
-        .collect();
-
-      // Sort items based on sidebar ordering configuration
-      if let Some(sidebar_config) = &config.sidebar {
-        use ndg_config::sidebar::SidebarOrdering;
-        match sidebar_config.ordering {
-          SidebarOrdering::Alphabetical => {
-            nav_items.sort_by(|a, b| a.title.cmp(&b.title));
-          },
-          SidebarOrdering::Custom => {
-            // Sort by position first, then alphabetically
-            nav_items.sort_by(|a, b| {
-              match (a.position, b.position) {
-                (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => a.title.cmp(&b.title),
-              }
-            });
-          },
-          SidebarOrdering::Filesystem => {
-            // Keep filesystem order (already in order thanks to walkdir)
-          },
-        }
-
-        // Add numbering if enabled
-        if sidebar_config.numbered {
-          for (idx, item) in nav_items.iter_mut().enumerate() {
-            item.number = Some(idx + 1);
-          }
-        }
+        Some(parent)
       } else {
-        // Default: alphabetical sorting
-        nav_items.sort_by(|a, b| a.title.cmp(&b.title));
-      }
-
-      // Process special entries
-      let mut special_nav_items: Vec<NavItem> = special_entries
-        .iter()
-        .filter_map(|entry| {
-          let path = entry.path();
-          let rel_doc_path = path.strip_prefix(input_dir).ok()?;
-          let html_path = config
-            .included_output_files
-            .get(rel_doc_path)
-            .cloned()
-            .unwrap_or_else(|| {
-              let mut html_path = rel_doc_path.to_path_buf();
-              html_path.set_extension("html");
-              html_path
-            });
-
-          let target_path =
-            format!("{}{}", root_prefix, html_path.to_string_lossy());
-
-          let page_title =
-            ndg_utils::markdown::extract_page_title(path, &html_path);
-
-          // Apply sidebar configuration to special files if available
-          let (display_title, position) =
-            if let Some(sidebar_config) = &config.sidebar {
-              let path_str = rel_doc_path.to_string_lossy();
-              if let Some(matched_rule) =
-                sidebar_config.find_match(&path_str, &page_title)
-              {
-                let title = matched_rule
-                  .get_title()
-                  .map_or_else(|| page_title.clone(), String::from);
-                let position = matched_rule.get_position();
-                (title, position)
-              } else {
-                (page_title, None)
-              }
-            } else {
-              (page_title, None)
-            };
-
-          Some(NavItem {
-            path: target_path,
-            title: display_title,
-            rel_dir: html_path
-              .parent()
-              .and_then(|p| p.to_str())
-              .unwrap_or("")
-              .to_string(),
-            position,
-            number: None,
-          })
-        })
-        .collect();
-
-      // Sort special entries according to sidebar ordering configuration
-      if let Some(sidebar_config) = &config.sidebar {
-        match sidebar_config.ordering {
-          SidebarOrdering::Alphabetical => {
-            special_nav_items.sort_by(|a, b| a.title.cmp(&b.title));
-          },
-          SidebarOrdering::Custom => {
-            // Sort by position first, then alphabetically.
-            special_nav_items.sort_by(|a, b| {
-              match (a.position, b.position) {
-                (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => a.title.cmp(&b.title),
-              }
-            });
-          },
-          SidebarOrdering::Filesystem => {
-            // Filesystem ordering keeps the order from directory iteration
-          },
-        }
-      } else {
-        // Default: alphabetical sorting
-        special_nav_items.sort_by(|a, b| a.title.cmp(&b.title));
-      }
-
-      // Determine if we should number special files
-      let should_number_special = config
-        .sidebar
-        .as_ref()
-        .is_some_and(|s| s.numbered && s.number_special_files);
-
-      let group_by_dir =
-        config.sidebar.as_ref().is_some_and(|s| s.group_by_dir);
-
-      let show_group_counts =
-        config.sidebar.as_ref().is_some_and(|s| s.show_group_counts);
-
-      let navigation = DocumentNavigation {
-        special_items: special_nav_items,
-        regular_items: nav_items,
-        number_special: should_number_special,
-        show_group_counts,
+        None
       };
-      if group_by_dir {
-        GroupedDocumentNavigationGenerator.generate(&mut doc_nav, navigation);
+      parents.push(parent);
+    }
+    drop(source_indices);
+    validate_nav_parents(&items, &parents)?;
+
+    let mut roots = Vec::new();
+    let mut children = vec![Vec::new(); items.len()];
+    for (index, parent) in parents.into_iter().enumerate() {
+      if let Some(parent) = parent {
+        children[parent].push(index);
       } else {
-        FlatDocumentNavigationGenerator.generate(&mut doc_nav, navigation);
+        roots.push(index);
       }
+    }
+    let ordering =
+      sidebar.map_or(SidebarOrdering::Alphabetical, |s| s.ordering);
+    let numbered = sidebar.is_some_and(|s| s.numbered);
+    let number_special = sidebar.is_some_and(|s| s.number_special_files);
+    order_nav_siblings(
+      &mut items,
+      &mut roots,
+      ordering,
+      numbered,
+      number_special,
+      true,
+    );
+    for siblings in &mut children {
+      order_nav_siblings(
+        &mut items,
+        siblings,
+        ordering,
+        numbered,
+        number_special,
+        false,
+      );
+    }
+
+    if group_by_dir {
+      let show_counts = sidebar.is_some_and(|s| s.show_group_counts);
+      if numbered && number_special {
+        render_grouped(&mut doc_nav, &items, &roots, show_counts);
+      } else {
+        let regular_start =
+          roots.partition_point(|&index| items[index].special);
+        for &index in &roots[..regular_start] {
+          render_nav_item(&mut doc_nav, &items[index]);
+        }
+        render_grouped(
+          &mut doc_nav,
+          &items,
+          &roots[regular_start..],
+          show_counts,
+        );
+      }
+    } else {
+      render_hierarchy(&mut doc_nav, &items, &roots, &children);
     }
   }
 
@@ -1611,7 +1611,7 @@ fn generate_doc_nav(config: &Config, current_file_rel_path: &Path) -> String {
     );
   }
 
-  doc_nav
+  Ok(doc_nav)
 }
 
 /// Generate custom scripts HTML
