@@ -58,16 +58,24 @@ const fn default_true() -> bool {
 }
 
 impl SidebarConfig {
-  /// Validate and compile all regex patterns in the sidebar configuration.
+  /// Validate sidebar settings and compile all regex patterns.
   ///
   /// This pre-compiles all regex patterns to ensure they're valid,
   /// failing fast at config load time rather than during rendering.
   ///
   /// # Errors
   ///
-  /// Returns an error if any regex pattern is invalid.
+  /// Returns an error if any regex pattern is invalid or explicit parents are
+  /// combined with directory grouping.
   pub fn validate(&mut self) -> Result<(), String> {
     for (idx, m) in self.matches.iter_mut().enumerate() {
+      if self.group_by_dir && m.parent.is_some() {
+        return Err(format!(
+          "Sidebar match #{}: parent cannot be combined with \
+           sidebar.group_by_dir",
+          idx + 1
+        ));
+      }
       m.compile_regexes()
         .map_err(|e| format!("Sidebar match #{}: {}", idx + 1, e))?;
     }
@@ -357,9 +365,14 @@ pub struct SidebarMatch {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub new_title: Option<String>,
 
-  /// Custom position in sidebar.
+  /// Custom integer position among siblings in the sidebar.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub position: Option<usize>,
+
+  /// Parent Markdown source path relative to `input_dir`, not an output URL
+  /// or title. When omitted, the matched page remains a root sidebar item.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub parent: Option<String>,
 }
 
 impl SidebarMatch {
@@ -692,6 +705,7 @@ mod tests {
       title:     None,
       new_title: None,
       position:  Some(1),
+      parent:    None,
     };
 
     assert!(m.matches("getting-started.md", "Any Title"));
@@ -705,6 +719,7 @@ mod tests {
       title:     None,
       new_title: None,
       position:  Some(50),
+      parent:    None,
     };
 
     m.compile_regexes().expect("regex should compile");
@@ -721,6 +736,7 @@ mod tests {
       title:     Some(TitleMatch::exact("Release Notes".to_string())),
       new_title: Some("What's New".to_string()),
       position:  Some(999),
+      parent:    None,
     };
 
     assert!(m.matches("any/path.md", "Release Notes"));
@@ -734,6 +750,7 @@ mod tests {
       title:     Some(TitleMatch::regex(r"^Release.*".to_string())),
       new_title: Some("What's New".to_string()),
       position:  Some(999),
+      parent:    None,
     };
 
     m.compile_regexes().expect("regex should compile");
@@ -750,6 +767,7 @@ mod tests {
       title:     Some(TitleMatch::regex(r"^API.*".to_string())),
       new_title: None,
       position:  Some(50),
+      parent:    None,
     };
 
     m.compile_regexes().expect("regexes should compile");
@@ -767,6 +785,7 @@ mod tests {
       title:     None,
       new_title: None,
       position:  Some(42),
+      parent:    None,
     };
 
     assert_eq!(m.get_position(), Some(42));
@@ -779,6 +798,7 @@ mod tests {
       title:     None,
       new_title: Some("Custom Title".to_string()),
       position:  None,
+      parent:    None,
     };
 
     assert_eq!(m.get_title(), Some("Custom Title"));
@@ -800,12 +820,14 @@ mod tests {
           title:     None,
           new_title: None,
           position:  Some(1),
+          parent:    None,
         },
         SidebarMatch {
           path:      Some(PathMatch::regex(r"^api/.*\.md$".to_string())),
           title:     None,
           new_title: None,
           position:  Some(50),
+          parent:    None,
         },
       ],
     };
@@ -839,12 +861,14 @@ mod tests {
           title:     None,
           new_title: Some("First".to_string()),
           position:  Some(1),
+          parent:    None,
         },
         SidebarMatch {
           path:      Some(PathMatch::exact("test.md".to_string())),
           title:     None,
           new_title: Some("Second".to_string()),
           position:  Some(2),
+          parent:    None,
         },
       ],
     };
@@ -871,6 +895,7 @@ mod tests {
         title:     None,
         new_title: None,
         position:  Some(42),
+        parent:    None,
       }],
     };
 
@@ -898,6 +923,7 @@ mod tests {
         title:     None,
         new_title: Some("Custom".to_string()),
         position:  None,
+        parent:    None,
       }],
     };
 
