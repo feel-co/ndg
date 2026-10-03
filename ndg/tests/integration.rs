@@ -263,6 +263,7 @@ fn test_sidebar_integration() {
         title:     None,
         new_title: Some("Setup Guide".to_string()),
         position:  Some(1),
+        parent:    None,
       },
       SidebarMatch {
         path:      Some(PathMatch {
@@ -273,6 +274,7 @@ fn test_sidebar_integration() {
         title:     None,
         new_title: None,
         position:  Some(3),
+        parent:    None,
       },
       SidebarMatch {
         path:      Some(PathMatch {
@@ -283,6 +285,7 @@ fn test_sidebar_integration() {
         title:     None,
         new_title: None,
         position:  Some(2),
+        parent:    None,
       },
     ],
     toc:                  SidebarTocConfig::default(),
@@ -332,6 +335,7 @@ fn test_sidebar_integration() {
       }),
       new_title: Some("📖 Guide".to_string()),
       position:  None,
+      parent:    None,
     }],
     toc:                  SidebarTocConfig::default(),
     options:              None,

@@ -177,6 +177,13 @@ max_heading_level = 3
 # path = "getting-started.md"
 # position = 1
 
+# Explicit sub-chapter: parent is a Markdown source path relative to input_dir.
+# Position orders this page among its siblings.
+# [[sidebar.matches]]
+# path = "guides/installation.md"
+# parent = "getting-started.md"
+# position = 1
+
 # Exact title match with override (shorthand syntax)
 # [[sidebar.matches]]
 # title = "Release Notes"
@@ -288,6 +295,7 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
     "matches": [
       {
         "path": "getting-started.md",
+        "parent": null,
         "position": 1
       },
       {
