@@ -1,29 +1,44 @@
 {
   pkgs,
+  lib,
   ndg-builder,
 }: let
-  stagedDocs = pkgs.runCommandLocal "ndg-docs-src" {} ''
-    mkdir -p "$out"
-    cp -R ${./../../../ndg/docs}/. "$out/"
-    cp -f ${./../../../ndg/README.md} "$out/index.md"
-  '';
-in let
-  docs = ndg-builder.override {
-    title = "NDG Documentation";
-    description = "NDG documentation (ndg-builder)";
-    inputDir = stagedDocs;
-    rawModules = [];
-    optionsDepth = 2;
-    generateSearch = true;
-    highlightCode = true;
-    buildZim = true;
-    zimId = "ndg-builder";
-    creator = "feel-co.org";
-    publisher = "feel-co.org";
-    zimIllustration = ./logo.png;
-    source = "https://ndg.feel-co.org/";
-    extraConfig.anchor.on_duplicate = "deduplicate";
+  fs = lib.fileset;
+  src = ../../..;
+  docsSrc = fs.toSource {
+    root = src;
+    fileset = fs.unions [
+      (src + /ndg/docs)
+      (src + /ndg-commonmark/docs)
+      (src + /ndg/README.md)
+    ];
   };
+  docs =
+    (ndg-builder.override {
+      title = "NDG Documentation";
+      description = "NDG documentation (ndg-builder)";
+      inputDir = "docs";
+      rawModules = [];
+      optionsDepth = 2;
+      generateSearch = true;
+      highlightCode = true;
+      buildZim = true;
+      zimId = "ndg-builder";
+      creator = "feel-co.org";
+      publisher = "feel-co.org";
+      zimIllustration = ./logo.png;
+      source = "https://ndg.feel-co.org/";
+      extraConfig.anchor.on_duplicate = "deduplicate";
+    }).overrideAttrs (previous: {
+      src = docsSrc;
+      buildCommand = ''
+        mkdir docs
+        cp -R "$src"/{ndg,ndg-commonmark}/docs/. docs/
+        cp -f "$src/ndg/README.md" docs/index.md
+
+        ${previous.buildCommand}
+      '';
+    });
 in
   pkgs.runCommandLocal "ndg-builder-docs" {} ''
     mkdir -p "$out/bin"

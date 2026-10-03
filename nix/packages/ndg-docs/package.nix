@@ -25,6 +25,7 @@ pkgs.writeShellApplication {
     trap 'rm -rf "$tmpdir"' EXIT
     mkdir -p "$tmpdir/docs"
     cp -R ./ndg/docs/. "$tmpdir/docs/"
+    cp -R ./ndg-commonmark/docs/. "$tmpdir/docs/"
     cp -f ./ndg/README.md "$tmpdir/docs/index.md"
 
     extra_flags=()
