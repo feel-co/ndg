@@ -4,7 +4,12 @@
 /// whether to use `README.md` as the homepage and whether to generate a
 /// fallback index when no index file is provided.
 #[derive(
-  Debug, Clone, serde::Serialize, serde::Deserialize, ndg_macros::Configurable,
+  Debug,
+  Clone,
+  serde::Serialize,
+  serde::Deserialize,
+  ndg_macros::Configurable,
+  ndg_macros::ConfigTemplate,
 )]
 #[serde(default, deny_unknown_fields)]
 pub struct IndexConfig {

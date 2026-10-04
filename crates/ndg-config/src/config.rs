@@ -3,7 +3,7 @@ use std::{
   path::{Path, PathBuf},
 };
 
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +41,9 @@ pub const DEFAULT_TAB_STYLE: &str = "none";
 /// generation, including input/output directories, template customization,
 /// search, syntax highlighting, and more. Fields are typically loaded from a
 /// TOML or JSON config file, but can also be set via CLI arguments.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
   /// Input directory containing markdown files.
@@ -54,24 +56,30 @@ pub struct Config {
 
   /// Path to options.json file (optional).
   #[config(key = "module_options", allow_empty)]
+  #[template(example = PathBuf::from("options.json"))]
   pub module_options: Option<PathBuf>,
 
   /// Path to custom template file.
   #[config(key = "template_path", allow_empty)]
+  #[template(example = PathBuf::from("templates/custom.html"))]
   pub template_path: Option<PathBuf>,
 
   /// Path to template directory containing all template files.
   #[config(key = "template_dir", allow_empty)]
+  #[template(example = PathBuf::from("templates"))]
   pub template_dir: Option<PathBuf>,
 
   /// Paths to custom stylesheets.
+  #[template(example = vec![PathBuf::from("assets/custom.css")])]
   pub stylesheet_paths: Vec<PathBuf>,
 
   /// Paths to custom JavaScript files.
+  #[template(example = vec![PathBuf::from("assets/custom.js")])]
   pub script_paths: Vec<PathBuf>,
 
   /// Directory containing additional assets.
   #[config(key = "assets_dir", allow_empty)]
+  #[template(example = PathBuf::from("assets"))]
   pub assets_dir: Option<PathBuf>,
 
   /// Options for copying custom assets.
@@ -80,10 +88,12 @@ pub struct Config {
 
   /// Path to manpage URL mappings JSON file.
   #[config(key = "manpage_urls_path", allow_empty)]
+  #[template(example = PathBuf::from("manpage-urls.json"))]
   pub manpage_urls_path: Option<PathBuf>,
 
   /// Path to user-defined Tree-sitter query overrides.
   #[config(key = "syntax_queries_path", allow_empty)]
+  #[template(example = PathBuf::from("queries"))]
   pub syntax_queries_path: Option<PathBuf>,
 
   /// Title for the documentation.
@@ -92,6 +102,7 @@ pub struct Config {
 
   /// Number of threads to use for parallel processing.
   #[config(key = "jobs", allow_empty)]
+  #[template(example = 4usize)]
   pub jobs: Option<usize>,
 
   /// Whether to generate anchors for headings.
@@ -158,6 +169,7 @@ pub struct Config {
   /// recursively for `.nix` files. Entries with nixdoc comments (`/** ... */`)
   /// are extracted and rendered as a library reference page (`lib.html`).
   #[serde(default)]
+  #[template(example = vec![PathBuf::from("lib")])]
   pub nixdoc_inputs: Vec<PathBuf>,
 
   /// Index page configuration.
@@ -822,7 +834,6 @@ impl Config {
     format: &str,
     path: &Path,
   ) -> Result<(), ConfigError> {
-    // Get template from the templates module
     let config_content = crate::templates::get_template(format)
       .map_err(|e| ConfigError::Template(e.to_string()))?;
 
