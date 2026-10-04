@@ -1,9 +1,11 @@
 use std::str::FromStr;
 
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Default, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct AnchorConfig {
   #[config(key = "legacy_option_id_format")]

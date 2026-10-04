@@ -32,6 +32,7 @@ const MERMAID_INIT_JS: &str = templates::MERMAID_INIT_JS;
 ///
 /// Returns an error if any asset cannot be read or written.
 pub fn copy_assets(config: &Config) -> Result<()> {
+  config.validate_script_destinations()?;
   // Create assets directory
   let assets_dir = config.output_dir.join("assets");
   fs::create_dir_all(&assets_dir)?;
@@ -388,18 +389,19 @@ fn generate_css(config: &Config) -> eyre::Result<String> {
         })?;
 
         // Process SCSS if needed
-        let processed_content =
-          if stylesheet_path.extension().is_some_and(|ext| ext == "scss") {
-            grass::from_string(content.clone(), &grass::Options::default())
-              .wrap_err({
-                format!(
-                  "Failed to compile SCSS to CSS for stylesheet {}",
-                  index + 1
-                )
-              })?
-          } else {
-            content
-          };
+        let processed_content = if stylesheet_path
+          .extension()
+          .is_some_and(|ext| ext == "scss")
+        {
+          grass::from_string(content, &grass::Options::default()).wrap_err({
+            format!(
+              "Failed to compile SCSS to CSS for stylesheet {}",
+              index + 1
+            )
+          })?
+        } else {
+          content
+        };
 
         // Add a comment to separate multiple stylesheets
         combined_css.push_str("\n\n/* Custom Stylesheet ");

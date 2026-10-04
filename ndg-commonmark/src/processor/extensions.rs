@@ -1598,7 +1598,7 @@ pub fn process_manpage_references(
               ],
             );
             link.append(NodeRef::new_text(span_text.clone()));
-            to_replace.push((span_el.clone(), link));
+            to_replace.push((span_el, link));
           }
         }
       }
@@ -1701,9 +1701,9 @@ pub fn process_option_references(
               QualName::new(None, ns!(html), local_name!("code")),
               vec![],
             );
-            code.append(NodeRef::new_text(code_text.clone()));
+            code.append(NodeRef::new_text(code_text));
             a.append(code);
-            to_replace.push((code_el.clone(), a));
+            to_replace.push((code_el, a));
           }
           // If should_link is false, leave the code element as-is (no wrapping)
         }

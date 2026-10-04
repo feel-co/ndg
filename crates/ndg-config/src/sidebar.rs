@@ -1,11 +1,13 @@
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::matchers::{MatchField, OptionNameMatch, deserialize_match_field};
 
 /// Configuration for sidebar behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Default, Configurable, ConfigTemplate,
+)]
 #[serde(deny_unknown_fields)]
 #[expect(
   clippy::struct_excessive_bools,
@@ -42,14 +44,17 @@ pub struct SidebarConfig {
 
   /// Pattern-based matching rules for sidebar items.
   #[serde(default)]
+  #[template(nested)]
   pub matches: Vec<SidebarMatch>,
 
   /// Per-page table of contents configuration.
   #[serde(default)]
+  #[template(nested)]
   pub toc: SidebarTocConfig,
 
   /// Options sidebar configuration.
   #[serde(default)]
+  #[template(nested)]
   pub options: Option<OptionsConfig>,
 }
 
@@ -98,10 +103,13 @@ impl SidebarConfig {
 }
 
 /// Configuration for generated per-page tables of contents.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, ConfigTemplate,
+)]
 pub struct SidebarTocConfig {
   /// Heading titles to exclude from tables of contents.
   #[serde(default)]
+  #[template(nested)]
   pub exclude: Vec<TitleMatch>,
 }
 
@@ -159,14 +167,16 @@ impl std::str::FromStr for SidebarOrdering {
 }
 
 /// Path matching criteria
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Default, ConfigTemplate)]
 pub struct PathMatch {
   /// Exact path match.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = "getting-started.md".to_string())]
   pub exact: Option<String>,
 
   /// Regex pattern for path matching.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = r"^guides/.*\.md$".to_string())]
   pub regex: Option<String>,
 
   /// Compiled regex cache (populated after validation).
@@ -234,14 +244,16 @@ impl<'de> Deserialize<'de> for PathMatch {
 }
 
 /// Title matching criteria (exact or regex).
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Default, ConfigTemplate)]
 pub struct TitleMatch {
   /// Exact title match.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = "Release Notes".to_string())]
   pub exact: Option<String>,
 
   /// Regex pattern for title matching.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = "^Tutorial:.*".to_string())]
   pub regex: Option<String>,
 
   /// Compiled regex cache (populated after validation).
@@ -350,15 +362,19 @@ impl<'de> Deserialize<'de> for TitleMatch {
 }
 
 /// Pattern-based matching rule for sidebar items.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, ConfigTemplate,
+)]
 #[serde(deny_unknown_fields)]
 pub struct SidebarMatch {
   /// Path matching criteria.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(nested)]
   pub path: Option<PathMatch>,
 
   /// Title matching criteria.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(nested)]
   pub title: Option<TitleMatch>,
 
   /// Override title with this value.
@@ -372,6 +388,7 @@ pub struct SidebarMatch {
   /// Parent Markdown source path relative to `input_dir`, not an output URL
   /// or title. When omitted, the matched page remains a root sidebar item.
   #[serde(default, skip_serializing_if = "Option::is_none")]
+  #[template(example = "getting-started.md".to_string())]
   pub parent: Option<String>,
 }
 
@@ -444,15 +461,10 @@ impl SidebarMatch {
     }
 
     // Check title matching
-    if self
+    self
       .title
       .as_ref()
-      .is_some_and(|title_match| !title_match.matches(title_str))
-    {
-      return false;
-    }
-
-    true
+      .is_none_or(|title_match| title_match.matches(title_str))
   }
 
   /// Get the position for this match.
@@ -469,7 +481,9 @@ impl SidebarMatch {
 }
 
 /// Configuration for options sidebar behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct OptionsConfig {
   /// Depth of parent categories in options TOC.
@@ -495,6 +509,7 @@ pub struct OptionsConfig {
   pub ordering: SidebarOrdering,
 
   /// Pattern-based matching rules for options.
+  #[template(nested)]
   pub matches: Vec<OptionsMatch>,
 }
 
@@ -542,11 +557,14 @@ impl OptionsConfig {
 }
 
 /// Matching rule for options.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, ConfigTemplate,
+)]
 #[serde(deny_unknown_fields)]
 pub struct OptionsMatch {
   /// Option name matching criteria.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(nested)]
   pub name: Option<OptionNameMatch>,
 
   /// Override display name with this value.
@@ -555,6 +573,7 @@ pub struct OptionsMatch {
 
   /// Custom grouping depth for this option.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = 2usize)]
   pub depth: Option<usize>,
 
   /// Custom position in sidebar.
@@ -685,17 +704,6 @@ mod tests {
     let wrapper: Wrapper =
       toml::from_str(toml).expect("Failed to parse filesystem ordering TOML");
     assert!(matches!(wrapper.ordering, SidebarOrdering::Filesystem));
-  }
-
-  #[test]
-  fn test_sidebar_config_default() {
-    let config = SidebarConfig::default();
-    assert!(!config.numbered);
-    assert!(!config.number_special_files);
-    assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
-    assert!(config.matches.is_empty());
-    assert!(config.toc.exclude.is_empty());
-    assert!(config.options.is_none());
   }
 
   #[test]
@@ -1093,15 +1101,6 @@ position = 1
   }
 
   // Options configuration tests
-
-  #[test]
-  fn test_options_config_default() {
-    let config = OptionsConfig::default();
-    assert_eq!(config.depth, 2);
-    assert!(!config.collapse_singletons);
-    assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
-    assert!(config.matches.is_empty());
-  }
 
   #[test]
   fn test_options_match_exact_name() {

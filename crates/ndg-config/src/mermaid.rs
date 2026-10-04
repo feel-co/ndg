@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use serde::{Deserialize, Serialize};
 
 /// The Mermaid library that ndg loads when `mermaid.script` is not set.
@@ -8,7 +8,9 @@ pub const DEFAULT_MERMAID_SCRIPT: &str =
   "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
 
 /// Configuration for Mermaid diagrams
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Default, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct MermaidConfig {
   /// Whether to render `mermaid` fenced code blocks as diagrams
@@ -19,8 +21,9 @@ pub struct MermaidConfig {
   ///
   /// A URL (`https://`, `http://` or `//`) is linked as-is. Any other value
   /// is a path to a local file, which ndg copies to the `assets` directory.
-  /// Defaults to [`DEFAULT_MERMAID_SCRIPT`].
+  /// Defaults to Mermaid 11 from jsDelivr.
   #[config(key = "script", allow_empty)]
+  #[template(example = DEFAULT_MERMAID_SCRIPT.to_string())]
   pub script: Option<String>,
 }
 

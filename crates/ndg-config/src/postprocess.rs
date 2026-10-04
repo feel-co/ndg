@@ -1,4 +1,4 @@
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for HTML/CSS/JS postprocessing
@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 /// - CSS: `lightningcss` - Production-grade CSS parsing and minification
 /// - JavaScript: `oxc_minifier` - Production-grade JavaScript minification with
 ///   17+ optimization passes
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Default, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct PostprocessConfig {
   /// Whether to minify HTML output
@@ -41,7 +43,9 @@ pub struct PostprocessConfig {
 /// Options for HTML minification
 ///
 /// These control `minify-html` behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct HtmlMinifyOptions {
   /// Remove HTML comments
@@ -62,7 +66,9 @@ impl Default for HtmlMinifyOptions {
 /// Options for CSS minification
 ///
 /// These control `lightningcss` behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct CssMinifyOptions {
   /// Enable minification
@@ -92,7 +98,9 @@ impl Default for CssMinifyOptions {
 /// Options for JavaScript minification
 ///
 /// These control `oxc_minifier` behavior.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct JsMinifyOptions {
   /// Enable compression optimizations

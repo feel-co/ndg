@@ -1,8 +1,10 @@
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for search functionality
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct SearchConfig {
   /// Whether search functionality is enabled

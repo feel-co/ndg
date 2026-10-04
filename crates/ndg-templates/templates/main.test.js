@@ -17,7 +17,7 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "fetch",
     "DOMParser",
     "IntersectionObserver",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading };`,
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme };`,
   )(
     window,
     document,
@@ -246,4 +246,58 @@ Deno.test("option scrolling reveals contained cards before aligning", () => {
 
   frames.shift()();
   assert(!classes.has("options-revealed"), "containment must resume afterward");
+});
+
+function themeBrowser(dark) {
+  return {
+    window: {
+      requestIdleCallback() {},
+      cancelIdleCallback() {},
+      matchMedia: () => ({ matches: dark }),
+    },
+    document: { addEventListener() {} },
+  };
+}
+
+Deno.test("a selected theme selects the matching picture source", () => {
+  const { syncThemedImages } = loadMain(() => {}, themeBrowser(false));
+  const dark = { dataset: {}, media: "(prefers-color-scheme: dark)" };
+  const wide = {
+    dataset: {},
+    media: "(min-width: 800px) and (prefers-color-scheme: light)",
+  };
+  const root = { querySelectorAll: () => [dark, wide] };
+
+  syncThemedImages("dark", root);
+  assert(dark.media === "(grid: 0)", "the dark source always matches");
+  assert(
+    wide.media === "(min-width: 800px) and (grid: 1)",
+    "the light source never matches, and keeps its other conditions",
+  );
+
+  syncThemedImages("light", root);
+  assert(dark.media === "(grid: 1)", "the dark source never matches");
+  assert(
+    wide.media === "(min-width: 800px) and (grid: 0)",
+    "the light source matches on a wide screen",
+  );
+
+  syncThemedImages("auto", root);
+  assert(
+    dark.media === "(prefers-color-scheme: dark)",
+    "the original query is restored",
+  );
+  assert(
+    wide.media === "(min-width: 800px) and (prefers-color-scheme: light)",
+    "the original query is restored",
+  );
+});
+
+Deno.test("the theme toggle goes back to the system theme", () => {
+  const { nextTheme } = loadMain(() => {}, themeBrowser(false));
+  assert(nextTheme("auto", "light") === "dark", "auto in light selects dark");
+  assert(nextTheme("dark", "light") === "auto", "dark goes back to auto");
+  assert(nextTheme("auto", "dark") === "light", "auto in dark selects light");
+  assert(nextTheme("light", "light") === "dark", "a pinned light selects dark");
+  assert(nextTheme("light", "dark") === "auto", "light goes back to auto");
 });

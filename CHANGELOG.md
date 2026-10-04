@@ -52,6 +52,22 @@ changes.
   `ndg-builder` Nix package has a `mermaid` option that uses the library from
   `mdbook-mermaid`.
 
+- A theme toggle in the page header. A click selects the light or the dark
+  theme, and the page keeps the selection in `localStorage`. When the selected
+  theme is the same as the system theme, the page follows the system theme
+  again. The toggle also selects the matching `<source>` of a `<picture>` with a
+  `prefers-color-scheme` media query. The page sends an `ndg:themechange` event
+  on `document` when the theme changes.
+
+### Changed
+
+- `ndg init` now generates configuration from the config types and defaults,
+  keeping TOML field comments and optional-setting examples in sync as settings
+  are added. JSON uses the same starter values without activating example paths
+  or sidebar rules. Long time coming honestly.
+
+## [2.10.2]
+
 ### Fixed
 
 - Pages now link each script in `script_paths` at `assets/<file name>`, where
@@ -68,6 +84,25 @@ changes.
   navigation links synchronized when non-heading anchors share their IDs, and
   preserves explicitly assigned IDs that collide with generated suffixes
   ([#286](https://github.com/feel-co/ndg/issues/286)).
+- Sidebar and per-page TOC links now match rendered heading IDs for headings
+  containing quoted inline code, such as `"/package"`. Existing heading IDs and
+  deep links remain unchanged
+  ([#293](https://github.com/feel-co/ndg/issues/293)).
+
+### Changed
+
+- The documentation site now includes the ndg-commonmark syntax and highlighting
+  guides, with navigation entries and searchable content
+  ([#291](https://github.com/feel-co/ndg/issues/291)).
+
+## [2.10.1]
+
+### Fixed
+
+- Headings excluded from the per-page TOC now still follow the configured
+  duplicate-anchor policy. Exclusions no longer bypass duplicate validation or
+  deduplication, including for cached Markdown renders.
+- Toggling the sidebar no longer shifts the main content horizontally.
 
 ## [2.10.0]
 
@@ -720,7 +755,9 @@ documentation using the old hyphen-based format will need to be updated**.
 - Prevented panic in theme name fallback logic in ndg-commonmark
 - Prevented panic on empty fence character extraction in ndg-commonmark
 
-[Unreleased]: https://github.com/feel-co/ndg/compare/v2.10.0..HEAD
+[Unreleased]: https://github.com/feel-co/ndg/compare/v2.10.2..HEAD
+[2.10.2]: https://github.com/feel-co/ndg/compare/v2.10.1..v2.10.2
+[2.10.1]: https://github.com/feel-co/ndg/compare/v2.10.0..v2.10.1
 [2.10.0]: https://github.com/feel-co/ndg/compare/v2.9.0..v2.10.0
 [2.9.0]: https://github.com/feel-co/ndg/compare/v2.8.2...v2.9.0
 [2.8.2]: https://github.com/feel-co/ndg/compare/v2.8.1...v2.8.2

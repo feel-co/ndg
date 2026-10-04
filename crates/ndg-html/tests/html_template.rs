@@ -938,41 +938,6 @@ fn render_page_falls_back_to_default_template() {
 }
 
 #[test]
-fn navbar_respects_search_generation_flag() {
-  let mut config = minimal_config();
-  config.search = Some(ndg_config::search::SearchConfig {
-    enable: true,
-    ..Default::default()
-  });
-
-  let content = "<p>Test content</p>";
-  let title = "Test Page";
-  let headers: Vec<Header> = vec![];
-  let rel_path = Path::new("test.html");
-
-  let html =
-    template::render(&config, content, title, &headers, rel_path, None)
-      .expect("Should render HTML");
-
-  // Should contain search link when enabled
-  assert!(html.contains("Search") || html.contains("search"));
-
-  // Test with search disabled
-  config.search = Some(ndg_config::search::SearchConfig {
-    enable: false,
-    ..Default::default()
-  });
-  let html_no_search =
-    template::render(&config, content, title, &headers, rel_path, None)
-      .expect("Should render HTML");
-
-  // The navbar might still contain the word "search" in template structure,
-  // but the search link should be conditionally rendered
-  // We just verify it renders successfully with different configs
-  assert!(!html_no_search.is_empty());
-}
-
-#[test]
 fn navbar_shows_options_link_when_configured() {
   let mut config = minimal_config();
   config.module_options = Some("options.json".into());

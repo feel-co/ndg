@@ -398,7 +398,7 @@ fn process_markdown_files_impl(
       } else {
         for custom in custom_outputs {
           output_map.insert(
-            custom.clone(),
+            custom,
             (
               result.html.clone(),
               result.headers.clone(),

@@ -1,10 +1,12 @@
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for custom assets copying
 ///
 /// Controls how custom assets from the assets directory are copied.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct AssetsConfig {
   /// Follow symbolic links when copying assets

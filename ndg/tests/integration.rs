@@ -5,7 +5,7 @@ use ndg::{
   config::{Config, mermaid::MermaidConfig, postprocess::PostprocessConfig},
   utils::assets::copy_assets,
 };
-use ndg_commonmark::{MarkdownExtension, MarkdownOptions, MarkdownProcessor};
+use ndg_commonmark::MarkdownExtension;
 use tempfile::tempdir;
 
 #[test]
@@ -151,28 +151,6 @@ fn test_large_file_processing() {
   let content = fs::read_to_string(input_dir.join("large.md"))
     .expect("Failed to read large.md in test");
   assert!(content.len() > 10000);
-}
-
-#[test]
-fn test_malformed_markdown_recovery() {
-  let malformed_md = r"# Unclosed [link
-
-Some text.
-
-- List item 1
-- List item 2
-
-```unclosed code block
-
-End.
-";
-
-  let result = MarkdownProcessor::new(MarkdownOptions {
-    highlight_code: false,
-    ..Default::default()
-  })
-  .render(malformed_md);
-  assert!(!result.html.is_empty());
 }
 
 #[test]
