@@ -5,6 +5,7 @@ pub mod error;
 pub mod index;
 pub mod markdown;
 pub mod matchers;
+pub mod mermaid;
 pub mod meta;
 pub mod options;
 pub mod postprocess;

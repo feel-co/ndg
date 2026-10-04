@@ -96,6 +96,14 @@ revision = "main"
 # [markdown]
 # extensions = ["math-dollars", "math-code", "math-latex"]
 
+# Mermaid diagrams
+# When enabled, `mermaid` fenced code blocks are rendered as diagrams.
+# `script` is a URL or a local path to the Mermaid library. A local file is
+# copied to the assets directory. It defaults to Mermaid 11 from jsDelivr.
+# [mermaid]
+# enable = true
+# script = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+
 # Index page configuration
 # [index]
 # Whether to use README.md as the homepage when index.md is not present.
@@ -280,6 +288,9 @@ pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
   "highlight_code": true,
   "markdown": {
     "extensions": []
+  },
+  "mermaid": {
+    "enable": false
   },
   "syntax_queries_path": "queries",
   "tab_style": "none",
