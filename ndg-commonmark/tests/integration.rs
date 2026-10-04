@@ -104,7 +104,6 @@ Visit the [](#getting-started) guide.
   let result = processor.render(complex_markdown);
 
   // Verify basic structure
-  assert!(!result.html.is_empty());
   assert!(result.html.contains("<html>"));
   assert!(result.html.contains("</html>"));
 
@@ -240,7 +239,6 @@ Valid option: {option}`boot.loader.grub.enable`
   let result = processor.render(edge_case_markdown);
 
   // Should not crash and produce valid HTML
-  assert!(!result.html.is_empty());
   assert!(result.html.contains("<html>"));
 
   // Should handle unicode in anchors

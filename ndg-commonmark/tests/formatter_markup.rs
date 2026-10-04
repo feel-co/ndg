@@ -104,7 +104,7 @@ fn test_empty_markdown() {
   let md = "";
   let processor = markdown_processor();
   let result = processor.render(md);
-  assert!(result.html.is_empty());
+  assert_eq!(result.html, "");
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn test_markdown_with_only_whitespace() {
   let md = "   \n\t\n  ";
   let processor = markdown_processor();
   let result = processor.render(md);
-  assert!(result.html.trim().is_empty());
+  assert_eq!(result.html.trim(), "");
 }
 
 #[test]

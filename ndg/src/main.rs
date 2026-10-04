@@ -228,66 +228,6 @@ fn project_root(config_files: &[PathBuf]) -> PathBuf {
     )
 }
 
-#[cfg(test)]
-mod tests {
-  #![allow(clippy::unwrap_used, reason = "Tests can unwrap")]
-
-  use tempfile::tempdir;
-
-  use super::*;
-
-  fn processed(output_path: &str) -> utils::markdown::ProcessedMarkdown {
-    utils::markdown::ProcessedMarkdown {
-      html_content: String::new(),
-      headers:      Vec::new(),
-      title:        None,
-      source_path:  PathBuf::from("source.md"),
-      output_path:  output_path.to_string(),
-      is_included:  false,
-      frontmatter:  None,
-    }
-  }
-
-  #[test]
-  fn nested_index_page_is_not_root_homepage() {
-    let processed_markdown = vec![processed("hooks/index.html")];
-
-    assert!(!has_root_homepage(&processed_markdown));
-  }
-
-  #[test]
-  fn root_index_page_is_homepage() {
-    let processed_markdown = vec![processed("index.html")];
-
-    assert!(has_root_homepage(&processed_markdown));
-  }
-
-  #[test]
-  fn init_creates_or_updates_gitignore_idempotently() {
-    let temp = tempdir().unwrap();
-    let new_project = temp.path().join("new");
-    fs::create_dir(&new_project).unwrap();
-    update_gitignore(&new_project.join("ndg.toml")).unwrap();
-    assert_eq!(
-      fs::read_to_string(new_project.join(".gitignore")).unwrap(),
-      "# NDG generated cache\n.ndg-cache/\n"
-    );
-
-    let existing_project = temp.path().join("existing");
-    fs::create_dir(&existing_project).unwrap();
-    let gitignore = existing_project.join(".gitignore");
-    fs::write(&gitignore, "result\n").unwrap();
-    let config = existing_project.join("custom.toml");
-    update_gitignore(&config).unwrap();
-    update_gitignore(&config).unwrap();
-    assert_eq!(
-      fs::read_to_string(gitignore).unwrap(),
-      "result\n\n# NDG generated cache\n.ndg-cache/\n"
-    );
-    assert_eq!(project_root(&[config]), existing_project);
-  }
-}
-
 #[derive(Clone, Copy, Debug)]
 enum OutputMode {
   All,
@@ -652,4 +592,63 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
   );
 
   Ok(())
+}
+#[cfg(test)]
+mod tests {
+  #![allow(clippy::unwrap_used, reason = "Tests can unwrap")]
+
+  use tempfile::tempdir;
+
+  use super::*;
+
+  fn processed(output_path: &str) -> utils::markdown::ProcessedMarkdown {
+    utils::markdown::ProcessedMarkdown {
+      html_content: String::new(),
+      headers:      Vec::new(),
+      title:        None,
+      source_path:  PathBuf::from("source.md"),
+      output_path:  output_path.to_string(),
+      is_included:  false,
+      frontmatter:  None,
+    }
+  }
+
+  #[test]
+  fn nested_index_page_is_not_root_homepage() {
+    let processed_markdown = vec![processed("hooks/index.html")];
+
+    assert!(!has_root_homepage(&processed_markdown));
+  }
+
+  #[test]
+  fn root_index_page_is_homepage() {
+    let processed_markdown = vec![processed("index.html")];
+
+    assert!(has_root_homepage(&processed_markdown));
+  }
+
+  #[test]
+  fn init_creates_or_updates_gitignore_idempotently() {
+    let temp = tempdir().unwrap();
+    let new_project = temp.path().join("new");
+    fs::create_dir(&new_project).unwrap();
+    update_gitignore(&new_project.join("ndg.toml")).unwrap();
+    assert_eq!(
+      fs::read_to_string(new_project.join(".gitignore")).unwrap(),
+      "# NDG generated cache\n.ndg-cache/\n"
+    );
+
+    let existing_project = temp.path().join("existing");
+    fs::create_dir(&existing_project).unwrap();
+    let gitignore = existing_project.join(".gitignore");
+    fs::write(&gitignore, "result\n").unwrap();
+    let config = existing_project.join("custom.toml");
+    update_gitignore(&config).unwrap();
+    update_gitignore(&config).unwrap();
+    assert_eq!(
+      fs::read_to_string(gitignore).unwrap(),
+      "result\n\n# NDG generated cache\n.ndg-cache/\n"
+    );
+    assert_eq!(project_root(&[config]), existing_project);
+  }
 }
