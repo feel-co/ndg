@@ -489,6 +489,45 @@ download KaTeX's prebuilt distribution and serve its JavaScript, stylesheet, and
 `fonts/` directory from `assets/` instead. See the [KaTeX browser setup] and
 [rendering API] documentation.
 
+### Rendering Mermaid diagrams
+
+NDG can render [Mermaid] diagrams from fenced code blocks with the `mermaid`
+language:
+
+````markdown
+```mermaid
+flowchart LR
+  config["ndg.toml"] --> ndg --> html["HTML"]
+```
+````
+
+Enable this in `ndg.toml`:
+
+```toml
+[mermaid]
+enable = true
+```
+
+NDG then renders each `mermaid` code block as a `<pre class="mermaid">` element
+without syntax highlighting, and adds `assets/mermaid-init.js` to each page. The
+script loads the Mermaid library only on pages that have a diagram, and selects
+the dark Mermaid theme when the browser prefers a dark color scheme.
+
+By default, the library is Mermaid 11 from jsDelivr. To use a different version
+or to serve the library from your site, set `script` to a URL or a local path:
+
+```toml
+[mermaid]
+enable = true
+script = "vendor/mermaid.min.js"
+```
+
+NDG copies a local file to the generated `assets/` directory. The Nix builder
+`ndg-builder` has a `mermaid` option, which uses the library from the
+`mdbook-mermaid` package, so that the site does not need a CDN.
+
+[Mermaid]: https://mermaid.js.org
+
 #### Advanced Configuration Details
 
 **Parallel Processing (`jobs`):**
