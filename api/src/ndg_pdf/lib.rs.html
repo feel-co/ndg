@@ -1135,7 +1135,7 @@
 <a href=#1135 id=1135 data-nosnippet>1135</a>    }
 <a href=#1136 id=1136 data-nosnippet>1136</a>
 <a href=#1137 id=1137 data-nosnippet>1137</a>    <span class="kw">if </span>level == <span class="number">1 </span>{
-<a href=#1138 id=1138 data-nosnippet>1138</a>      <span class="kw">let </span>rule_y = <span class="self">self</span>.y + line_h * <span class="number">0.5</span>;
+<a href=#1138 id=1138 data-nosnippet>1138</a>      <span class="kw">let </span>rule_y = line_h.mul_add(<span class="number">0.5</span>, <span class="self">self</span>.y);
 <a href=#1139 id=1139 data-nosnippet>1139</a>      <span class="self">self</span>.draw_line(
 <a href=#1140 id=1140 data-nosnippet>1140</a>        <span class="self">Self</span>::ML,
 <a href=#1141 id=1141 data-nosnippet>1141</a>        rule_y,

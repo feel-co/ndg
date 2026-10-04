@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_JSON_TEMPLATE","DEFAULT_TOML_TEMPLATE"],"enum":["TemplateError"],"fn":["get_template"]};
+window.SIDEBAR_ITEMS = {"enum":["TemplateError"],"fn":["get_template","starter_config","toml_key"],"struct":["TemplateWriter"],"trait":["ConfigTemplate"]};

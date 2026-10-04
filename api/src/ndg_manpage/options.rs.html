@@ -289,11 +289,11 @@
 <a href=#289 id=289 data-nosnippet>289</a></span><span class="kw">fn </span>process_raw_type(s: <span class="kw-2">&amp;</span>str) -&gt; String {
 <a href=#290 id=290 data-nosnippet>290</a>  <span class="comment">// Replace common escape sequences with their troff equivalents
 <a href=#291 id=291 data-nosnippet>291</a>  </span><span class="kw">let </span>s = s
-<a href=#292 id=292 data-nosnippet>292</a>        .replace(<span class="string">'"'</span>, <span class="string">"\\[u201C]"</span>) <span class="comment">// opening double quote
-<a href=#293 id=293 data-nosnippet>293</a>        </span>.replace(<span class="string">"\\n"</span>, <span class="string">"\\en"</span>) <span class="comment">// newline
-<a href=#294 id=294 data-nosnippet>294</a>        </span>.replace(<span class="string">'\''</span>, <span class="string">"\\[u2019]"</span>) <span class="comment">// single quote
-<a href=#295 id=295 data-nosnippet>295</a>        </span>.replace(<span class="string">'-'</span>, <span class="string">"\\-"</span>) <span class="comment">// hyphen
-<a href=#296 id=296 data-nosnippet>296</a>        </span>.replace(<span class="string">'.'</span>, <span class="string">"\\&amp;."</span>); <span class="comment">// period
+<a href=#292 id=292 data-nosnippet>292</a>    .replace(<span class="string">'"'</span>, <span class="string">"\\[u201C]"</span>) <span class="comment">// opening double quote
+<a href=#293 id=293 data-nosnippet>293</a>    </span>.replace(<span class="string">"\\n"</span>, <span class="string">"\\en"</span>) <span class="comment">// newline
+<a href=#294 id=294 data-nosnippet>294</a>    </span>.replace(<span class="string">'\''</span>, <span class="string">"\\[u2019]"</span>) <span class="comment">// single quote
+<a href=#295 id=295 data-nosnippet>295</a>    </span>.replace(<span class="string">'-'</span>, <span class="string">"\\-"</span>) <span class="comment">// hyphen
+<a href=#296 id=296 data-nosnippet>296</a>    </span>.replace(<span class="string">'.'</span>, <span class="string">"\\&amp;."</span>); <span class="comment">// period
 <a href=#297 id=297 data-nosnippet>297</a>
 <a href=#298 id=298 data-nosnippet>298</a>  // For closing quote after \n
 <a href=#299 id=299 data-nosnippet>299</a>

@@ -1598,7 +1598,7 @@
 <a href=#1598 id=1598 data-nosnippet>1598</a>              ],
 <a href=#1599 id=1599 data-nosnippet>1599</a>            );
 <a href=#1600 id=1600 data-nosnippet>1600</a>            link.append(NodeRef::new_text(span_text.clone()));
-<a href=#1601 id=1601 data-nosnippet>1601</a>            to_replace.push((span_el.clone(), link));
+<a href=#1601 id=1601 data-nosnippet>1601</a>            to_replace.push((span_el, link));
 <a href=#1602 id=1602 data-nosnippet>1602</a>          }
 <a href=#1603 id=1603 data-nosnippet>1603</a>        }
 <a href=#1604 id=1604 data-nosnippet>1604</a>      }
@@ -1701,9 +1701,9 @@
 <a href=#1701 id=1701 data-nosnippet>1701</a>              QualName::new(<span class="prelude-val">None</span>, <span class="macro">ns!</span>(html), <span class="macro">local_name!</span>(<span class="string">"code"</span>)),
 <a href=#1702 id=1702 data-nosnippet>1702</a>              <span class="macro">vec!</span>[],
 <a href=#1703 id=1703 data-nosnippet>1703</a>            );
-<a href=#1704 id=1704 data-nosnippet>1704</a>            code.append(NodeRef::new_text(code_text.clone()));
+<a href=#1704 id=1704 data-nosnippet>1704</a>            code.append(NodeRef::new_text(code_text));
 <a href=#1705 id=1705 data-nosnippet>1705</a>            a.append(code);
-<a href=#1706 id=1706 data-nosnippet>1706</a>            to_replace.push((code_el.clone(), a));
+<a href=#1706 id=1706 data-nosnippet>1706</a>            to_replace.push((code_el, a));
 <a href=#1707 id=1707 data-nosnippet>1707</a>          }
 <a href=#1708 id=1708 data-nosnippet>1708</a>          <span class="comment">// If should_link is false, leave the code element as-is (no wrapping)
 <a href=#1709 id=1709 data-nosnippet>1709</a>        </span>}
