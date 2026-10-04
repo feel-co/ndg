@@ -30,6 +30,7 @@ const MAIN_JS: &str = templates::MAIN_JS;
 ///
 /// Returns an error if any asset cannot be read or written.
 pub fn copy_assets(config: &Config) -> Result<()> {
+  config.validate_script_destinations()?;
   // Create assets directory
   let assets_dir = config.output_dir.join("assets");
   fs::create_dir_all(&assets_dir)?;

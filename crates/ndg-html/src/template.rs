@@ -1619,6 +1619,7 @@ fn generate_custom_scripts(
   config: &Config,
   current_file_rel_path: &Path,
 ) -> Result<String> {
+  config.validate_script_destinations()?;
   let mut custom_scripts = String::new();
   let root_prefix =
     ndg_utils::html::calculate_root_relative_path(current_file_rel_path);
@@ -1629,9 +1630,12 @@ fn generate_custom_scripts(
   for script_path in &config.script_paths {
     // `copy_assets` copies each script to `assets/<file name>`, so link there,
     // not to the configured source path.
-    let Some(file_name) = script_path.file_name() else {
-      continue;
-    };
+    let file_name = script_path.file_name().ok_or_else(|| {
+      color_eyre::eyre::eyre!(
+        "Invalid script_paths entry '{}': expected a path with a filename",
+        script_path.display()
+      )
+    })?;
     let script_relative_path =
       format!("{}assets/{}", root_prefix, file_name.to_string_lossy());
     write!(

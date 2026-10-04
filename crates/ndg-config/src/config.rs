@@ -657,12 +657,52 @@ impl Config {
     None
   }
 
+  /// Validate filenames used when copying custom scripts into `assets/`.
+  ///
+  /// This checks destinations without reading source files, so rendering can
+  /// enforce the same rules as asset copying.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if a script has no filename or two scripts would share
+  /// the same destination filename.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// let config = ndg_config::Config::default();
+  /// config.validate_script_destinations()?;
+  /// # Ok::<(), ndg_config::ConfigError>(())
+  /// ```
+  pub fn validate_script_destinations(&self) -> Result<(), ConfigError> {
+    let mut destinations = FxHashMap::default();
+    for script_path in &self.script_paths {
+      let filename = script_path.file_name().ok_or_else(|| {
+        ConfigError::Config(format!(
+          "Invalid script_paths entry '{}': expected a path with a filename",
+          script_path.display()
+        ))
+      })?;
+      if let Some(previous) = destinations.insert(filename, script_path) {
+        return Err(ConfigError::Config(format!(
+          "script_paths entries '{}' and '{}' both copy to 'assets/{}'; \
+           script filenames must be unique",
+          previous.display(),
+          script_path.display(),
+          filename.to_string_lossy()
+        )));
+      }
+    }
+    Ok(())
+  }
+
   /// Validate all paths specified in the configuration
   ///
   /// # Errors
   ///
   /// Returns an error if any configured path does not exist or is invalid.
   pub fn validate_paths(&self) -> Result<(), ConfigError> {
+    self.validate_script_destinations()?;
     let mut errors = Vec::new();
 
     // Module options file should exist if specified
