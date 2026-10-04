@@ -2,7 +2,7 @@
 use std::{fs, process::Command};
 
 use ndg::{
-  config::{Config, postprocess::PostprocessConfig},
+  config::{Config, mermaid::MermaidConfig, postprocess::PostprocessConfig},
   utils::assets::copy_assets,
 };
 use ndg_commonmark::{MarkdownExtension, MarkdownOptions, MarkdownProcessor};
@@ -1263,5 +1263,60 @@ fn test_readme_as_homepage_disabled() {
     processed[0].output_path, "README.html",
     "README.md should be output as README.html when index.use_readme is \
      disabled"
+  );
+}
+
+#[test]
+fn test_mermaid_assets_copied_when_enabled() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let output_dir = temp_dir.path().join("output");
+  let library = temp_dir.path().join("mermaid.min.js");
+  let library_content = "globalThis.mermaid = {};";
+  fs::write(&library, library_content)
+    .expect("Failed to write mermaid.min.js in test");
+
+  let config = Config {
+    output_dir: output_dir.clone(),
+    mermaid: Some(MermaidConfig {
+      enable: true,
+      script: Some(library.to_string_lossy().into_owned()),
+    }),
+    postprocess: Some(PostprocessConfig {
+      minify_js: true,
+      ..Default::default()
+    }),
+    ..Default::default()
+  };
+
+  copy_assets(&config).expect("Failed to copy assets in test");
+
+  let assets_dir = output_dir.join("assets");
+  assert!(
+    assets_dir.join("mermaid-init.js").is_file(),
+    "Mermaid loader should be copied"
+  );
+  assert_eq!(
+    fs::read_to_string(assets_dir.join("mermaid.min.js"))
+      .expect("Failed to read copied Mermaid script in test"),
+    library_content,
+    "Mermaid script should be copied without postprocessing"
+  );
+}
+
+#[test]
+fn test_mermaid_assets_absent_when_disabled() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let output_dir = temp_dir.path().join("output");
+
+  let config = Config {
+    output_dir: output_dir.clone(),
+    ..Default::default()
+  };
+
+  copy_assets(&config).expect("Failed to copy assets in test");
+
+  assert!(
+    !output_dir.join("assets").join("mermaid-init.js").exists(),
+    "Mermaid loader should not be copied when Mermaid is disabled"
   );
 }

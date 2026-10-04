@@ -662,6 +662,7 @@ pub fn create_processor(
   let mut builder = MarkdownOptionsBuilder::new()
     .gfm(true)
     .highlight_code(config.highlight_code)
+    .mermaid(config.is_mermaid_enabled())
     .extensions(
       config
         .markdown

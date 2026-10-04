@@ -23,6 +23,7 @@ pub const SEARCH_JS: &str = include_str!("../templates/search.js");
 pub const SEARCH_WORKER_JS: &str =
   include_str!("../templates/search-worker.js");
 pub const MAIN_JS: &str = include_str!("../templates/main.js");
+pub const MERMAID_INIT_JS: &str = include_str!("../templates/mermaid-init.js");
 
 #[must_use]
 pub fn all_templates() -> HashMap<&'static str, &'static str> {
@@ -42,6 +43,7 @@ pub fn all_templates() -> HashMap<&'static str, &'static str> {
       templates.insert("search.js", SEARCH_JS);
       templates.insert("search-worker.js", SEARCH_WORKER_JS);
       templates.insert("main.js", MAIN_JS);
+      templates.insert("mermaid-init.js", MERMAID_INIT_JS);
       templates
     })
     .clone()

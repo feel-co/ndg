@@ -11,7 +11,7 @@ use color_eyre::eyre::{Context, Result, bail};
 use html_escape::{encode_double_quoted_attribute, encode_text};
 use indexmap::IndexMap;
 use ndg_commonmark::{Header, MarkdownProcessor};
-use ndg_config::{Config, sidebar::SidebarOrdering};
+use ndg_config::{Config, mermaid::MermaidScript, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
 use ndg_templates as templates;
 use ndg_utils::{
@@ -1637,6 +1637,25 @@ fn generate_custom_scripts(
     write!(
       custom_scripts,
       "<script defer src=\"{script_relative_path}\"></script>"
+    )?;
+  }
+
+  if let Some(mermaid) = config.enabled_mermaid() {
+    // `copy_assets` copies a local Mermaid script to `assets/<file name>`.
+    let mermaid_src = match mermaid.script_source() {
+      MermaidScript::Url(url) => url.to_owned(),
+      MermaidScript::File(path) => {
+        let Some(file_name) = path.file_name() else {
+          return Ok(custom_scripts);
+        };
+        format!("{}assets/{}", root_prefix, file_name.to_string_lossy())
+      },
+    };
+    write!(
+      custom_scripts,
+      "<script defer src=\"{root_prefix}assets/mermaid-init.js\" \
+       data-mermaid-src=\"{}\"></script>",
+      encode_double_quoted_attribute(&mermaid_src)
     )?;
   }
 

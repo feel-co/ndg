@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use color_eyre::eyre::{self, Context, Result};
 use log::debug;
-use ndg_config::Config;
+use ndg_config::{Config, mermaid::MermaidScript};
 use ndg_templates as templates;
 use walkdir::WalkDir;
 
@@ -13,6 +13,7 @@ const SEARCH_CORE_JS: &str = templates::SEARCH_CORE_JS;
 const SEARCH_JS: &str = templates::SEARCH_JS;
 const SEARCH_WORKER_JS: &str = templates::SEARCH_WORKER_JS;
 const MAIN_JS: &str = templates::MAIN_JS;
+const MERMAID_INIT_JS: &str = templates::MERMAID_INIT_JS;
 
 /// Copies all required assets (CSS, JS, custom assets, scripts) to the output
 /// directory.
@@ -20,6 +21,7 @@ const MAIN_JS: &str = templates::MAIN_JS;
 /// This includes:
 /// - The main stylesheet (default or template/custom)
 /// - Main JavaScript files (main.js, search.js only if enabled)
+/// - The Mermaid loader and a local Mermaid library, if Mermaid is enabled
 /// - Any custom assets from the configured assets directory
 /// - Any custom script files specified in the configuration
 /// - The favicon file if configured
@@ -72,6 +74,8 @@ pub fn copy_assets(config: &Config) -> Result<()> {
   // Copy script files to assets directory
   copy_script_files(config, &assets_dir)?;
 
+  copy_mermaid_assets(config, &assets_dir)?;
+
   // Create search.js for search functionality
   if config.is_search_enabled() {
     copy_template_asset(config, &assets_dir, "search-core.js", SEARCH_CORE_JS)?;
@@ -91,6 +95,38 @@ pub fn copy_assets(config: &Config) -> Result<()> {
         SEARCH_WORKER_JS,
       )?;
     }
+  }
+
+  Ok(())
+}
+
+/// Copies the Mermaid loader and, if the Mermaid script is a local file, the
+/// Mermaid library to the assets directory.
+///
+/// The library is copied as is, because it is already minified.
+///
+/// # Errors
+///
+/// Returns an error if an asset cannot be read or written.
+fn copy_mermaid_assets(config: &Config, assets_dir: &Path) -> Result<()> {
+  let Some(mermaid) = config.enabled_mermaid() else {
+    return Ok(());
+  };
+
+  copy_template_asset(config, assets_dir, "mermaid-init.js", MERMAID_INIT_JS)?;
+
+  if let MermaidScript::File(path) = mermaid.script_source() {
+    let file_name = path.file_name().ok_or_else(|| {
+      eyre::eyre!("Mermaid script has no file name: {}", path.display())
+    })?;
+    let dest_path = assets_dir.join(file_name);
+    fs::copy(path, &dest_path).wrap_err_with(|| {
+      format!(
+        "Failed to copy Mermaid script from {} to {}",
+        path.display(),
+        dest_path.display()
+      )
+    })?;
   }
 
   Ok(())
