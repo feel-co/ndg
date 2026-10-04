@@ -54,15 +54,22 @@
         </div>
         
         <div class="search-container js-only">
-          <input type="text" id="search-input" placeholder="Search..." />
+          <input type="text" id="search-input" placeholder="Search..." aria-label="Search" autocomplete="off" />
           <div id="search-results" class="search-results"></div>
         </div>
         
       </header>
 
       <div class="layout">
-        <div class="sidebar-toggle js-only" aria-label="Toggle sidebar">
+        <button
+          type="button"
+          class="sidebar-toggle js-only"
+          aria-label="Collapse sidebar"
+          aria-expanded="true"
+          aria-controls="sidebar"
+        >
           <svg
+            aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             width="24"
@@ -70,8 +77,8 @@
           >
             <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
           </svg>
-        </div>
-        <nav class="sidebar">
+        </button>
+        <nav id="sidebar" class="sidebar" aria-label="Sidebar">
           <details class="sidebar-section" data-section="docs" open>
             <summary>Documents</summary>
             <div class="sidebar-section-content">
@@ -81,7 +88,9 @@
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
-<li><a href="FRONTMATTER.html">6. Frontmatter</a></li>
+<li><a href="SYNTAX.html">6. Syntax Reference</a></li>
+<li><a href="HIGHLIGHTING.html">7. Syntax Highlighting</a></li>
+<li><a href="FRONTMATTER.html">8. Frontmatter</a></li>
 <li><a href="search.html">Search</a></li>
 
               </ul>
@@ -98,13 +107,15 @@
 <ul><li><a href="#numbered">numbered</a>
 <li><a href="#number_special_files">number_special_files</a>
 <li><a href="#ordering">ordering</a>
-</ul><li><a href="#pattern-matching">Pattern Matching</a>
+</ul><li><a href="#page-table-of-contents">Page Table of Contents</a>
+<li><a href="#pattern-matching">Pattern Matching</a>
 <ul><li><a href="#match-rule-structure">Match Rule Structure</a>
 <li><a href="#matching-logic">Matching Logic</a>
 <li><a href="#shorthand-syntax">Shorthand Syntax</a>
 </ul><li><a href="#examples">Examples</a>
 <ul><li><a href="#basic-numbering">Basic Numbering</a>
 <li><a href="#custom-ordering">Custom Ordering</a>
+<li><a href="#sub-chapters">Sub-chapters</a>
 <li><a href="#custom-titles">Custom Titles</a>
 <li><a href="#regex-pattern-matching">Regex Pattern Matching</a>
 <li><a href="#combined-conditions">Combined Conditions</a>
@@ -112,7 +123,7 @@
 <ul><li><a href="#structure">Structure</a>
 <li><a href="#options-fields">Options Fields</a>
 <li><a href="#option-pattern-matching">Option Pattern Matching</a>
-<li><a href="#shorthand-syntax">Shorthand Syntax</a>
+<li><a href="#shorthand-syntax-1">Shorthand Syntax</a>
 <li><a href="#options-examples">Options Examples</a>
 <li><a href="#multi-page-options">Multi-Page Options</a>
 </ul><li><a href="#json-configuration">JSON Configuration</a>
@@ -137,19 +148,24 @@ ordering = "alphabetical"
 [[sidebar.matches]]
 # Pattern-based matching rules
 
+[sidebar.toc]
+# Per-page table of contents configuration
+
 [sidebar.options]
 # NixOS options-specific configuration
 </code></pre>
 <h2 id="top-level-options">Top-Level Options</h2>
 <h3 id="numbered"><code>numbered</code></h3>
-<p>Controls whether sidebar items are numbered sequentially.</p>
+<p>Controls whether sidebar items are numbered within each sibling group.</p>
 <ul>
 <li><strong>Type</strong>: Boolean</li>
 <li><strong>Default</strong>: <code>false</code></li>
 </ul>
 <p>When enabled, items display as "1. Title", "2. Title", etc. Special files
 (<code>index.md</code>, <code>README.md</code>) are excluded from numbering by default unless
-<code>number_special_files</code> is enabled.</p>
+<code>number_special_files</code> is enabled. Sub-chapters use hierarchical numbers such as
+"2.1. Title" and "2.1.1. Title". Setting <code>numbered = false</code> removes the numbers
+without changing the hierarchy.</p>
 <p><strong>Example:</strong></p>
 <pre><code class="language-toml">[sidebar]
 numbered = true
@@ -178,7 +194,7 @@ numbering sequence. Only has effect when <code>numbered = true</code>.</p>
 3. Configuration
 </code></pre>
 <h3 id="ordering"><code>ordering</code></h3>
-<p>Determines how sidebar items are sorted.</p>
+<p>Determines how sidebar items are sorted within each sibling group.</p>
 <ul>
 <li><strong>Type</strong>: String</li>
 <li><strong>Default</strong>: <code>"alphabetical"</code></li>
@@ -190,6 +206,27 @@ numbering sequence. Only has effect when <code>numbered = true</code>.</p>
 </ul>
 </li>
 </ul>
+<h2 id="page-table-of-contents">Page Table of Contents</h2>
+<p>The <code>sidebar.toc</code> section controls the generated per-page table of contents used
+by both the sidebar Contents section and the desktop On this page navigation.
+Use <code>exclude</code> entries to omit headings by exact title or regular expression.</p>
+<pre><code class="language-toml">[sidebar.toc]
+
+[[sidebar.toc.exclude]]
+exact = "Internal details"
+
+[[sidebar.toc.exclude]]
+regex = "^(Inputs|Type|Examples)$"
+</code></pre>
+<p>Exclusions only remove matching headings from the navigation; the headings and
+their content remain in the rendered page. Exclusion entries use the same title
+matcher semantics as <code>sidebar.matches</code>: <code>exact</code> and <code>regex</code> are both supported,
+and both must match when specified together.</p>
+<p>Exclusions do not affect heading anchors or duplicate-anchor validation. For
+repeated section titles such as <code>Inputs</code>, <code>Type</code>, or <code>Examples</code>, configure
+<code>[anchor] on_duplicate = "deduplicate"</code> to create unique IDs. Existing explicit
+IDs retain their names whereas generated suffixes skip them. The TOC and search
+index use the same deduplicated IDs as the rendered headings.</p>
 <h2 id="pattern-matching">Pattern Matching</h2>
 <p>The <code>matches</code> array contains pattern-based rules for customizing specific
 sidebar items. Rules are evaluated in order, and the <strong>first matching rule
@@ -258,7 +295,12 @@ wins</strong>.</p>
 <tr>
 <td><code>position</code></td>
 <td>Integer</td>
-<td>Custom position (used when <code>ordering = "custom"</code>)</td>
+<td>Sibling sort key for <code>ordering = "custom"</code></td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>String</td>
+<td>Input-relative parent Markdown source path</td>
 </tr>
 </tbody>
 </table>
@@ -309,6 +351,82 @@ position = 2
 path = "api-reference.md"
 position = 3
 </code></pre>
+<h3 id="sub-chapters">Sub-chapters</h3>
+<p>Set <code>parent</code> on a page's matching rule to nest it under another page. Both
+<code>path</code> and <code>parent</code> identify Markdown source paths relative to <code>input_dir</code>. They
+do not identify page titles or generated HTML URLs, even when an included file
+has a custom output path. Pages without a parent remain root items.</p>
+<p>For example, create these source files with the titles shown below:</p>
+<pre><code class="language-plaintext">docs/index.md                       # Introduction
+docs/getting-started.md             # Getting Started
+docs/installation.md                # Installation
+docs/usage.md                       # Usage
+docs/configuration.md               # Configuration
+docs/configuration/session.md       # Session Management
+docs/configuration/deep/advanced.md # Advanced
+docs/configuration/profiles.md      # Profiles
+</code></pre>
+<p>With <code>input_dir = "docs"</code>, configure their relationships as follows:</p>
+<pre><code class="language-toml">[sidebar]
+numbered = true
+ordering = "custom"
+
+[[sidebar.matches]]
+path = "getting-started.md"
+position = 1
+
+[[sidebar.matches]]
+path = "installation.md"
+position = 2
+
+[[sidebar.matches]]
+path = "usage.md"
+position = 3
+
+[[sidebar.matches]]
+path = "configuration.md"
+position = 4
+
+[[sidebar.matches]]
+path = "configuration/session.md"
+parent = "configuration.md"
+position = 1
+
+[[sidebar.matches]]
+path = "configuration/deep/advanced.md"
+parent = "configuration/session.md"
+position = 1
+
+[[sidebar.matches]]
+path = "configuration/profiles.md"
+parent = "configuration.md"
+position = 2
+</code></pre>
+<p>The sidebar renders clickable parent pages with indented sub-chapters:</p>
+<pre><code class="language-plaintext">Introduction
+1. Getting Started
+2. Installation
+3. Usage
+4. Configuration
+  4.1. Session Management
+    4.1.1. Advanced
+  4.2. Profiles
+</code></pre>
+<p><code>position</code> is an integer sort key, not a displayed chapter number. Each sibling
+group has its own numbering sequence. Use <code>parent</code> to define the hierarchy;
+decimal positions such as <code>4.1</code> are invalid. The first matching rule controls
+the page's parent, title, and position, so put specific rules before broad
+rules.</p>
+<p>Special root pages such as <code>index.md</code> still appear first. A special page with a
+parent stays under that parent. Unless <code>number_special_files = true</code>, special
+pages have no number and do not consume a sibling number. Their descendants
+inherit the nearest numbered ancestor's prefix, or start at <code>1</code> beneath an
+unnumbered root.</p>
+<p>The parent must be a page that appears in navigation. Included fragments cannot
+be parents unless they produce their own standalone page. NDG reports an error
+for missing parents, self-parenting, and parent cycles. Explicit parents cannot
+be combined with <code>sidebar.group_by_dir = true</code>, which groups pages by directory
+instead of page relationships.</p>
 <h3 id="custom-titles">Custom Titles</h3>
 <pre><code class="language-toml">[sidebar]
 numbered = false
@@ -399,6 +517,19 @@ rum.programs
 └── beets
     └── enable
 </code></pre>
+<p>Each dropdown badge counts its immediate rendered children. For example, the
+<code>rum.programs</code> badge above is <code>2</code> because opening it shows <code>alacritty</code> and
+<code>beets</code>; it does not count all descendant options.</p>
+<h4 id="collapse_singletons"><code>collapse_singletons</code></h4>
+<p>When <code>nested = true</code>, controls whether categories with one child are rendered as
+dropdowns.</p>
+<ul>
+<li><strong>Type</strong>: Boolean</li>
+<li><strong>Default</strong>: <code>false</code></li>
+</ul>
+<p>By default, a category with no option of its own and exactly one child is
+rendered as a direct link using the option's full name. Set this to <code>true</code> to
+render that category as a one-item dropdown instead.</p>
 <h4 id="nested_depth"><code>nested_depth</code></h4>
 <p>Limits how many child dropdown levels are created below each category.</p>
 <ul>
@@ -407,16 +538,21 @@ rum.programs
 </ul>
 <p><code>0</code> means unlimited nesting. A positive value collapses deeper suffixes into a
 single leaf label.</p>
-<h4 id="ordering"><code>ordering</code></h4>
+<h4 id="ordering-1"><code>ordering</code></h4>
 <p>Determines how options are sorted in the table of contents.</p>
 <ul>
 <li><strong>Type</strong>: String</li>
 <li><strong>Default</strong>: <code>"alphabetical"</code></li>
 <li><strong>Options</strong>: <code>"alphabetical"</code>, <code>"custom"</code>, <code>"filesystem"</code></li>
 </ul>
+<p><code>alphabetical</code> sorts option links and groups by name. <code>custom</code> sorts matched
+<code>position</code> values first, then by name; a group's position is its lowest matched
+member position. <code>filesystem</code> preserves the order from the input options data.
+Direct option links are always rendered before collapsible groups; ordering
+applies within each section.</p>
 <h3 id="option-pattern-matching">Option Pattern Matching</h3>
 <p>Each <code>&lt;a href="sidebar.options.matches.html" class="obsidian-link"&gt;sidebar.options.matches&lt;/a&gt;</code> entry supports:</p>
-<h4 id="matching-fields">Matching Fields</h4>
+<h4 id="matching-fields-1">Matching Fields</h4>
 <!-- markdownlint-disable MD013 -->
 <table>
 <thead>
@@ -445,7 +581,7 @@ single leaf label.</p>
 </tbody>
 </table>
 <!-- markdownlint-enable MD013 -->
-<h4 id="action-fields">Action Fields</h4>
+<h4 id="action-fields-1">Action Fields</h4>
 <table>
 <thead>
 <tr>
@@ -477,7 +613,7 @@ single leaf label.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="shorthand-syntax">Shorthand Syntax</h3>
+<h3 id="shorthand-syntax-1">Shorthand Syntax</h3>
 <pre><code class="language-toml"># Shorthand for exact matches
 [[sidebar.options.matches]]
 name = "services.nginx.enable"
@@ -515,7 +651,7 @@ new_name = "Git Configuration"
 name = "services.nginx"
 new_name = "NGINX Web Server"
 </code></pre>
-<h4 id="custom-ordering">Custom Ordering</h4>
+<h4 id="custom-ordering-1">Custom Ordering</h4>
 <pre><code class="language-toml">[sidebar.options]
 ordering = "custom"
 depth = 2
@@ -640,13 +776,15 @@ or nested syntax:</p>
 <ul><li><a href="#numbered">numbered</a>
 <li><a href="#number_special_files">number_special_files</a>
 <li><a href="#ordering">ordering</a>
-</ul><li><a href="#pattern-matching">Pattern Matching</a>
+</ul><li><a href="#page-table-of-contents">Page Table of Contents</a>
+<li><a href="#pattern-matching">Pattern Matching</a>
 <ul><li><a href="#match-rule-structure">Match Rule Structure</a>
 <li><a href="#matching-logic">Matching Logic</a>
 <li><a href="#shorthand-syntax">Shorthand Syntax</a>
 </ul><li><a href="#examples">Examples</a>
 <ul><li><a href="#basic-numbering">Basic Numbering</a>
 <li><a href="#custom-ordering">Custom Ordering</a>
+<li><a href="#sub-chapters">Sub-chapters</a>
 <li><a href="#custom-titles">Custom Titles</a>
 <li><a href="#regex-pattern-matching">Regex Pattern Matching</a>
 <li><a href="#combined-conditions">Combined Conditions</a>
@@ -654,7 +792,7 @@ or nested syntax:</p>
 <ul><li><a href="#structure">Structure</a>
 <li><a href="#options-fields">Options Fields</a>
 <li><a href="#option-pattern-matching">Option Pattern Matching</a>
-<li><a href="#shorthand-syntax">Shorthand Syntax</a>
+<li><a href="#shorthand-syntax-1">Shorthand Syntax</a>
 <li><a href="#options-examples">Options Examples</a>
 <li><a href="#multi-page-options">Multi-Page Options</a>
 </ul><li><a href="#json-configuration">JSON Configuration</a>
@@ -664,7 +802,14 @@ or nested syntax:</p>
       </aside>
 
       <footer>
-  <p>Generated with NDG</p>
+  <p>
+    Generated with <a href="https://github.com/feel-co/ndg">ndg</a>
+  </p>
+  <nav aria-label="Quick links">
+    <a href="https://github.com/feel-co">GitHub</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="https://github.com/feel-co/ndg">NDG repository</a>
+  </nav>
 </footer>
 
     </div>

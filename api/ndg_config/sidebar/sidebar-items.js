@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["SidebarOrdering"],"fn":["default_true"],"struct":["OptionsConfig","OptionsMatch","PathMatch","SidebarConfig","SidebarMatch","TitleMatch"]};
+window.SIDEBAR_ITEMS = {"enum":["SidebarOrdering"],"fn":["default_true"],"struct":["OptionsConfig","OptionsMatch","PathMatch","SidebarConfig","SidebarMatch","SidebarTocConfig","TitleMatch"]};

@@ -514,7 +514,8 @@ class SearchKeyboardNav {
             this.navigationPending = false;
           }, 100);
 
-          window.location.href = url.toString();
+          link.href = url.toString();
+          link.click();
         } else {
           // Clear flag before click to allow navigation
           setTimeout(() => {
@@ -590,6 +591,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Keyboard navigation for search page
     searchPageInput.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        searchPageKeyboardNav.clear();
+        searchPageInput.blur();
+        return;
+      }
+
       const hasResults =
         searchPageResults &&
         searchPageResults.querySelector(".search-result-item");
@@ -614,10 +622,6 @@ document.addEventListener("DOMContentLoaded", function () {
       ) {
         event.preventDefault();
         searchPageKeyboardNav.select();
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        searchPageKeyboardNav.clear();
-        searchPageInput.blur();
       }
     });
 
@@ -801,14 +805,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 
-    // Focus search when pressing slash key
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "/" && document.activeElement !== searchInput) {
-        event.preventDefault();
-        searchInput.focus();
-      }
-    });
-
     setupDocumentEventHandlers(searchInput, searchResults, searchContainer);
   }
 
@@ -841,11 +837,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.addEventListener("keydown", function (event) {
-      if (event.key === "/" && document.activeElement !== searchInput) {
-        event.preventDefault();
-        searchInput.focus();
-      }
-
       if (
         event.key === "Escape" &&
         (document.activeElement === searchInput ||

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["escape_html_in_markdown","format_location","process_options","write_options_html","write_split_options"]};
+window.SIDEBAR_ITEMS = {"constant":["OPTIONS_PER_CHUNK"],"fn":["escape_html_in_markdown","format_location","generate_chunk_loader_html","process_options","write_chunked_options","write_options","write_options_html","write_split_options"],"struct":["OptionsChunkManifest"]};

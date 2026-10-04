@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["attr_to_string","collect_entries","collect_from_expr","extract_entries","is_doc_comment","preceding_doc_comment"],"struct":["LineIndex"]};
+window.SIDEBAR_ITEMS = {"fn":["attribute_start","attribute_to_string","collect_entries","collect_from_expr","extract_entries","first_non_trivia_kind","first_non_trivia_start","leading_doc_comment","normalize_static_string","push_escape","scan_leading_trivia","strip_indented_string_whitespace","unescape_string"],"struct":["LineIndex"]};

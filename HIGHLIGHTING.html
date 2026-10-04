@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Syntax Highlighting in ndg-commonmark</title>
+     
+    
+    <script>
+      document.documentElement.classList.remove("no-js");
+      document.documentElement.classList.add("js");
+      // Apply sidebar state immediately to prevent flash
+      (function () {
+        try {
+          if (localStorage.getItem("sidebar-collapsed") === "true") {
+            document.documentElement.classList.add("sidebar-collapsed");
+          }
+        } catch (e) {
+          // localStorage unavailable
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/main.js"></script>
+    
+    <script>
+      window.searchNamespace = window.searchNamespace || {};
+      window.searchNamespace.rootPath = "";
+    </script>
+    <script defer src="assets/search-core.js"></script>
+    <script defer src="assets/search.js"></script>
+    
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-left">
+          <h1 class="site-title">
+            <a href="index.html">NDG Documentation</a>
+          </h1>
+
+          <nav class="header-nav">
+  <ul>
+    <li style="display:none;">
+      <a href="options.html">Options</a>
+    </li>
+    
+    <li><a href="search.html">Search</a></li>
+    
+    <li><a href="/api/">API Documentation</a></li>
+  </ul>
+</nav>
+
+        </div>
+        
+        <div class="search-container js-only">
+          <input type="text" id="search-input" placeholder="Search..." aria-label="Search" autocomplete="off" />
+          <div id="search-results" class="search-results"></div>
+        </div>
+        
+      </header>
+
+      <div class="layout">
+        <button
+          type="button"
+          class="sidebar-toggle js-only"
+          aria-label="Collapse sidebar"
+          aria-expanded="true"
+          aria-controls="sidebar"
+        >
+          <svg
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </button>
+        <nav id="sidebar" class="sidebar" aria-label="Sidebar">
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                <li><a href="index.html">1. Introduction</a></li>
+<li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
+<li><a href="SIDEBAR.html">3. Sidebar</a></li>
+<li><a href="SEARCH.html">4. Search</a></li>
+<li><a href="TEMPLATING.html">5. Templating Guide</a></li>
+<li><a href="SYNTAX.html">6. Syntax Reference</a></li>
+<li><a href="HIGHLIGHTING.html">7. Syntax Highlighting</a></li>
+<li><a href="FRONTMATTER.html">8. Frontmatter</a></li>
+<li><a href="search.html">Search</a></li>
+
+              </ul>
+            </div>
+          </details>
+
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                <li><a href="#syntax-highlighting-in-ndg-commonmark">Syntax Highlighting in ndg-commonmark</a>
+<ul><li><a href="#quick-start">Quick Start</a>
+<ul><li><a href="#basic-usage-with-markdownprocessor">Basic Usage with MarkdownProcessor</a>
+<li><a href="#direct-syntax-manager-usage">Direct Syntax Manager Usage</a>
+</ul><li><a href="#configuration">Configuration</a>
+<ul><li><a href="#feature-flags">Feature Flags</a>
+<li><a href="#markdownoptions">MarkdownOptions</a>
+<li><a href="#syntaxconfig">SyntaxConfig</a>
+</ul><li><a href="#supported-languages">Supported Languages</a>
+<ul><li><a href="#language-aliases">Language Aliases</a>
+<li><a href="#file-extension-detection">File Extension Detection</a>
+</ul><li><a href="#themes">Themes</a>
+<ul><li><a href="#syntastica-backend">Syntastica Backend</a>
+<li><a href="#syntect-backend">Syntect Backend</a>
+<li><a href="#using-themes">Using Themes</a>
+<li><a href="#custom-themes">Custom Themes</a>
+</ul><li><a href="#backends">Backends</a>
+<ul><li><a href="#backend-selection">Backend Selection</a>
+</ul><li><a href="#error-handling">Error Handling</a>
+<li><a href="#performance-considerations">Performance Considerations</a>
+<li><a href="#advanced-usage">Advanced Usage</a>
+<ul><li><a href="#custom-highlighter-implementation">Custom Highlighter Implementation</a>
+<li><a href="#tree-sitter-query-overrides">Tree-sitter Query Overrides</a>
+</li></ul></li></ul></li>
+              </ul>
+            </div>
+          </details>
+        </nav>
+
+        <main class="content"><html><head></head><body><h1 id="syntax-highlighting-in-ndg-commonmark">Syntax Highlighting in ndg-commonmark</h1>
+<p>The syntax highlighting system in ndg-commonmark is designed with extensibility
+in mind, allowing different highlighting backends to be plugged in through a
+trait-based architecture. This enables users to choose the best highlighting
+engine for their needs while maintaining a consistent API.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>This document <em>highlights</em><sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref="">1</a></sup> using ndg-commonmark's syntax highlighting
+system for developers who intend to integrate ndg-commonmark into their
+project. If you are working with ndg, you may be more interested in its
+documentation and the <a href="./SYNTAX.html">syntax reference</a>.</p>
+</div>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="basic-usage-with-markdownprocessor">Basic Usage with MarkdownProcessor</h3>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">ndg_commonmark</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(229,192,123);">MarkdownOptions</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(229,192,123);">MarkdownProcessor</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(198,120,221);">mut</span>&nbsp;<span style="color:rgb(171,178,191);">options</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">MarkdownOptions</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">default</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(171,178,191);">options</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">highlight_code</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">true</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(171,178,191);">options</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">highlight_theme</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"one-dark"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">processor</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">MarkdownProcessor</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">new</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">options</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">markdown</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">r#"</span><br><span style="color:rgb(152,195,121);">#&nbsp;Example</span><br><span style="color:rgb(152,195,121);"></span><br><span style="color:rgb(152,195,121);">```rust</span><br><span style="color:rgb(152,195,121);">fn&nbsp;main()&nbsp;{</span><br><span style="color:rgb(152,195,121);">&nbsp;&nbsp;&nbsp;&nbsp;println!("Hello,&nbsp;world!");</span><br><span style="color:rgb(152,195,121);">}</span><br><span style="color:rgb(152,195,121);">```</span><br><span style="color:rgb(152,195,121);"></span><br><span style="color:rgb(152,195,121);">"#</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">result</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">processor</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">render</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">markdown</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span>&nbsp;<span style="color:rgb(86,182,194);">println</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"{}"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">result</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">html</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h3 id="direct-syntax-manager-usage">Direct Syntax Manager Usage</h3>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">ndg_commonmark</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">syntax</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(171,178,191);">create_default_manager</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">create_default_manager</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(171,178,191);">?</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">highlighted</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">highlight_code</span><span style="color:rgb(132,139,152);">(</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"fn&nbsp;main()&nbsp;{&nbsp;println!(</span><span style="color:rgb(232,102,113);">\"</span><span style="color:rgb(152,195,121);">Hello</span><span style="color:rgb(232,102,113);">\"</span><span style="color:rgb(152,195,121);">);&nbsp;}"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"rust"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"one-dark"</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(171,178,191);">?</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(86,182,194);">println</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"{}"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">highlighted</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h2 id="configuration">Configuration</h2>
+<h3 id="feature-flags">Feature Flags</h3>
+<p>The syntax highlighting system is controlled by feature flags:</p>
+<ul>
+<li><code>syntastica</code>: Enables Syntastica backend (enabled by <code>ndg-flavored</code>)</li>
+<li><code>ndg-flavored</code>: Enables all NDG-specific features including syntax
+highlighting</li>
+<li><code>syntect</code>: Enables the legacy highlighting system. More lightweight, but lacks
+language support.</li>
+</ul>
+<pre><code class="language-toml">[dependencies]
+ndg-commonmark = { version = "1.0", features = ["syntastica"] }
+</code></pre>
+<h3 id="markdownoptions">MarkdownOptions</h3>
+<p>Configure syntax highlighting through <code>MarkdownOptions</code>:</p>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(198,120,221);">mut</span>&nbsp;<span style="color:rgb(171,178,191);">options</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">MarkdownOptions</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">default</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Enable/disable&nbsp;syntax&nbsp;highlighting</span><br><span style="color:rgb(171,178,191);">options</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">highlight_code</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">true</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Set&nbsp;default&nbsp;theme</span><br><span style="color:rgb(171,178,191);">options</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">highlight_theme</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"gruvbox-dark"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h3 id="syntaxconfig">SyntaxConfig</h3>
+<p>For advanced configuration, use <code>SyntaxConfig</code>:</p>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">ndg_commonmark</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">syntax</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(229,192,123);">SyntaxConfig</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxManager</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">std</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">collections</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">HashMap</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(198,120,221);">mut</span>&nbsp;<span style="color:rgb(171,178,191);">config</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxConfig</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">default</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Set&nbsp;default&nbsp;theme</span><br><span style="color:rgb(171,178,191);">config</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">default_theme</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"one-dark"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Add&nbsp;custom&nbsp;language&nbsp;aliases</span><br><span style="color:rgb(171,178,191);">config</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">language_aliases</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">insert</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"ts"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(152,195,121);">"typescript"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Configure&nbsp;fallback&nbsp;behavior</span><br><span style="color:rgb(171,178,191);">config</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">fallback_to_plain</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">true</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxManager</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">new</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">highlighter</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">config</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h2 id="supported-languages">Supported Languages</h2>
+<p>The Syntastica crate supports a large variety of languages. We enable support
+for <em>all</em> languages by default.</p>
+<h3 id="language-aliases">Language Aliases</h3>
+<p>Common aliases are automatically resolved:</p>
+<table>
+<thead>
+<tr>
+<th>Alias</th>
+<th>Resolves To</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>js</code></td>
+<td><code>javascript</code></td>
+</tr>
+<tr>
+<td><code>ts</code></td>
+<td><code>typescript</code></td>
+</tr>
+<tr>
+<td><code>py</code></td>
+<td><code>python</code></td>
+</tr>
+<tr>
+<td><code>rb</code></td>
+<td><code>ruby</code></td>
+</tr>
+<tr>
+<td><code>sh</code></td>
+<td><code>bash</code></td>
+</tr>
+<tr>
+<td><code>shell</code></td>
+<td><code>bash</code></td>
+</tr>
+<tr>
+<td><code>yml</code></td>
+<td><code>yaml</code></td>
+</tr>
+<tr>
+<td><code>nixos</code></td>
+<td><code>nix</code></td>
+</tr>
+<tr>
+<td><code>md</code></td>
+<td><code>markdown</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="file-extension-detection">File Extension Detection</h3>
+<p>Languages can be automatically detected from file extensions:</p>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(97,175,239);">create_default_manager</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(171,178,191);">?</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">if</span>&nbsp;<span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">lang</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">highlighter</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">language_from_filename</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"main.rs"</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">println</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"Detected&nbsp;language:&nbsp;{}"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">lang</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span>&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;"rust"</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
+<h2 id="themes">Themes</h2>
+<p>The number and the names of supported themes depend on the backend crate used.</p>
+<h3 id="syntastica-backend">Syntastica Backend</h3>
+<ul>
+<li><code>one-dark</code> (default)</li>
+<li><code>one-light</code></li>
+<li><code>gruvbox-dark</code></li>
+<li><code>gruvbox-light</code></li>
+<li><code>github</code></li>
+</ul>
+<h3 id="syntect-backend">Syntect Backend</h3>
+<ul>
+<li><code>InspiredGitHub</code> (default)</li>
+<li>Plus all themes from syntect's default theme set</li>
+</ul>
+<h3 id="using-themes">Using Themes</h3>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;With&nbsp;MarkdownProcessor</span><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(198,120,221);">mut</span>&nbsp;<span style="color:rgb(171,178,191);">options</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">MarkdownOptions</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">default</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(171,178,191);">options</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(86,182,194);">highlight_theme</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"gruvbox-dark"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;With&nbsp;SyntaxManager</span><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">highlighted</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">highlight_code</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">code</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(152,195,121);">"rust"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"one-dark"</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(171,178,191);">?</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h3 id="custom-themes">Custom Themes</h3>
+<h4 id="for-syntastica">For Syntastica</h4>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">syntastica</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(171,178,191);">theme</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">ndg_commonmark</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">syntax</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">SyntasticaHighlighter</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">theme</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(171,178,191);">theme</span><span style="color:rgb(86,182,194);">!</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"purple"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"#c678dd"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"blue"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"#61afef"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"keyword"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"$purple"</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"function"</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(152,195,121);">"$blue"</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(198,120,221);">mut</span>&nbsp;<span style="color:rgb(171,178,191);">highlighter</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">SyntasticaHighlighter</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">new</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(171,178,191);">?</span><span style="color:rgb(132,139,152);">;</span><br><span style="color:rgb(171,178,191);">highlighter</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">add_theme</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"my-theme"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">theme</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h2 id="backends">Backends</h2>
+<h3 id="backend-selection">Backend Selection</h3>
+<p>The backend is automatically selected based on feature flags:</p>
+<ol>
+<li>If <code>syntastica</code> feature is enabled, then the Syntastica crate will be used.</li>
+<li>If <code>syntect</code> feature is enabled, then Syntect will be used for syntax
+highlighting.</li>
+<li>If neither are enabled, then ndg-commonmark will not do <em>any</em> syntax
+highlighting at all.</li>
+</ol>
+<p>Manual backend selection:</p>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">ndg_commonmark</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">syntax</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(229,192,123);">SyntasticaHighlighter</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxManager</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxConfig</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Explicitly&nbsp;use&nbsp;Syntastica</span><br><span style="color:rgb(232,102,113);">#</span><span style="color:rgb(132,139,152);">[</span><span style="color:rgb(86,182,194);">cfg</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">feature</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(152,195,121);">"syntastica"</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">]</span><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">highlighter</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">Box</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">new</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(229,192,123);">SyntasticaHighlighter</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">new</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(171,178,191);">?</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Explicitly&nbsp;use&nbsp;Syntect</span><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">highlighter</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">Box</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">new</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(229,192,123);">SyntectHighlighter</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">default</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">let</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span>&nbsp;<span style="color:rgb(171,178,191);">=</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxManager</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">with_highlighter</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">highlighter</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br></code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<p>Example:</p>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">ndg_commonmark</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">syntax</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">SyntaxError</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">match</span>&nbsp;<span style="color:rgb(171,178,191);">manager</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">highlight_code</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">code</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(152,195,121);">"unknown-lang"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(209,154,102);">None</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(209,154,102);">Ok</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">html</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">=&gt;</span>&nbsp;<span style="color:rgb(86,182,194);">println</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"Success:&nbsp;{}"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">html</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(209,154,102);">Err</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(229,192,123);">SyntaxError</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(209,154,102);">UnsupportedLanguage</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">lang</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">=&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">eprintln</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"Language&nbsp;'{}'&nbsp;not&nbsp;supported"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">lang</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(209,154,102);">Err</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(229,192,123);">SyntaxError</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(209,154,102);">ThemeNotFound</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">theme</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">=&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">eprintln</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"Theme&nbsp;'{}'&nbsp;not&nbsp;found"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">theme</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(209,154,102);">Err</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(229,192,123);">SyntaxError</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(209,154,102);">HighlightingFailed</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">msg</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">=&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">eprintln</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"Highlighting&nbsp;failed:&nbsp;{}"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">msg</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">;</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(209,154,102);">Err</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">e</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">=&gt;</span>&nbsp;<span style="color:rgb(86,182,194);">eprintln</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"Other&nbsp;error:&nbsp;{}"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(171,178,191);">e</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<p>ndg-commonmark is fast, very fast. Though you will still want to keep somethings
+in mind to retain the performance benefits of ndg-commonmark. Here are some tips
+that you might find useful.</p>
+<ol>
+<li>Create syntax managers once and reuse them compatibility</li>
+<li>Limit available themes as theme changes can be expensive</li>
+<li>Avoid manual language specification when possible</li>
+</ol>
+<h2 id="advanced-usage">Advanced Usage</h2>
+<h3 id="custom-highlighter-implementation">Custom Highlighter Implementation</h3>
+<p>Implement the <code>SyntaxHighlighter</code> trait for custom backends:</p>
+<pre class="highlight"><code class="language-rust"><span style="color:rgb(198,120,221);">use</span>&nbsp;<span style="color:rgb(229,192,123);">ndg_commonmark</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(229,192,123);">syntax</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(132,139,152);">{</span><span style="color:rgb(229,192,123);">SyntaxHighlighter</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxResult</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxError</span><span style="color:rgb(132,139,152);">}</span><span style="color:rgb(132,139,152);">;</span><br><br><span style="color:rgb(198,120,221);">struct</span>&nbsp;<span style="color:rgb(229,192,123);">CustomHighlighter</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Your&nbsp;implementation</span><br><span style="color:rgb(132,139,152);">}</span><br><br><span style="color:rgb(198,120,221);">impl</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxHighlighter</span>&nbsp;<span style="color:rgb(198,120,221);">for</span>&nbsp;<span style="color:rgb(229,192,123);">CustomHighlighter</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">fn</span>&nbsp;<span style="color:rgb(97,175,239);">name</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(232,102,113);">self</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">-&gt;</span>&nbsp;<span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(198,120,221);">'</span><span style="color:rgb(232,102,113);">static</span>&nbsp;<span style="color:rgb(209,154,102);">str</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"Custom"</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">fn</span>&nbsp;<span style="color:rgb(97,175,239);">supported_languages</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(232,102,113);">self</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">-&gt;</span>&nbsp;<span style="color:rgb(229,192,123);">Vec</span><span style="color:rgb(132,139,152);">&lt;</span><span style="color:rgb(229,192,123);">String</span><span style="color:rgb(132,139,152);">&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">vec</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">[</span><span style="color:rgb(152,195,121);">"custom"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">]</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">fn</span>&nbsp;<span style="color:rgb(97,175,239);">available_themes</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(232,102,113);">self</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">-&gt;</span>&nbsp;<span style="color:rgb(229,192,123);">Vec</span><span style="color:rgb(132,139,152);">&lt;</span><span style="color:rgb(229,192,123);">String</span><span style="color:rgb(132,139,152);">&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(86,182,194);">vec</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">[</span><span style="color:rgb(152,195,121);">"default"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">]</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">fn</span>&nbsp;<span style="color:rgb(97,175,239);">highlight</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(232,102,113);">self</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">code</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(209,154,102);">str</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">language</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(209,154,102);">str</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">theme</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(229,192,123);">Option</span><span style="color:rgb(132,139,152);">&lt;</span><span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(209,154,102);">str</span><span style="color:rgb(132,139,152);">&gt;</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">-&gt;</span>&nbsp;<span style="color:rgb(229,192,123);">SyntaxResult</span><span style="color:rgb(132,139,152);">&lt;</span><span style="color:rgb(229,192,123);">String</span><span style="color:rgb(132,139,152);">&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(92,99,112);font-style: italic;">//&nbsp;Your&nbsp;highlighting&nbsp;logic</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(209,154,102);">Ok</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(86,182,194);">format</span><span style="color:rgb(86,182,194);">!</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"&lt;pre&gt;&lt;code&gt;{}&lt;/code&gt;&lt;/pre&gt;"</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(229,192,123);">html_escape</span><span style="color:rgb(132,139,152);">::</span><span style="color:rgb(97,175,239);">encode_text</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">code</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">fn</span>&nbsp;<span style="color:rgb(97,175,239);">language_from_extension</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(232,102,113);">self</span><span style="color:rgb(132,139,152);">,</span>&nbsp;<span style="color:rgb(232,102,113);">extension</span><span style="color:rgb(132,139,152);">:</span>&nbsp;<span style="color:rgb(171,178,191);">&amp;</span><span style="color:rgb(209,154,102);">str</span><span style="color:rgb(132,139,152);">)</span>&nbsp;<span style="color:rgb(132,139,152);">-&gt;</span>&nbsp;<span style="color:rgb(229,192,123);">Option</span><span style="color:rgb(132,139,152);">&lt;</span><span style="color:rgb(229,192,123);">String</span><span style="color:rgb(132,139,152);">&gt;</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(198,120,221);">match</span>&nbsp;<span style="color:rgb(232,102,113);">extension</span>&nbsp;<span style="color:rgb(132,139,152);">{</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(152,195,121);">"custom"</span>&nbsp;<span style="color:rgb(132,139,152);">=&gt;</span>&nbsp;<span style="color:rgb(209,154,102);">Some</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(152,195,121);">"custom"</span><span style="color:rgb(132,139,152);">.</span><span style="color:rgb(97,175,239);">to_string</span><span style="color:rgb(132,139,152);">(</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">)</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(232,102,113);">_</span>&nbsp;<span style="color:rgb(132,139,152);">=&gt;</span>&nbsp;<span style="color:rgb(209,154,102);">None</span><span style="color:rgb(132,139,152);">,</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:rgb(132,139,152);">}</span><br><span style="color:rgb(132,139,152);">}</span><br></code></pre>
+<h3 id="tree-sitter-query-overrides">Tree-sitter Query Overrides</h3>
+<p>When syntax highlighting is enabled with the <code>syntastica</code> backend, you can
+override Tree-sitter queries through configuration.</p>
+<p>Set <code>syntax_queries_path</code> in your NDG config, then place query files in this
+layout:</p>
+<pre><code class="language-text">&lt;syntax_queries_path&gt;/
+  &lt;language&gt;/
+    highlights.scm
+    injections.scm
+    locals.scm
+</code></pre>
+<ul>
+<li><code>&lt;language&gt;</code> must match a Syntastica language name (for example: <code>markdown</code>,
+<code>rust</code>, <code>nix</code>, <code>html</code>).</li>
+<li>Any file you provide overrides that built-in query for the language.</li>
+<li>Missing files fall back to bundled Syntastica queries.</li>
+<li>User queries are processed with Neovim-like compatibility enabled, including
+common injection query syntax patterns.</li>
+</ul>
+<p>Example override to force Markdown fenced code blocks to be injected as Bash:</p>
+<pre><code class="language-scm">((fenced_code_block
+  (code_fence_content) @injection.content)
+ (#set! injection.language "bash"))
+</code></pre>
+<section class="footnotes" data-footnotes="">
+<ol>
+<li id="fn-1">
+<p>Ha, get it? Highlights. Ha. <a href="#fnref-1" class="footnote-backref" data-footnote-backref="" data-footnote-backref-idx="1" aria-label="Back to reference 1">↩</a></p>
+</li>
+</ol>
+</section>
+</body></html></main>
+      </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            <li><a href="#syntax-highlighting-in-ndg-commonmark">Syntax Highlighting in ndg-commonmark</a>
+<ul><li><a href="#quick-start">Quick Start</a>
+<ul><li><a href="#basic-usage-with-markdownprocessor">Basic Usage with MarkdownProcessor</a>
+<li><a href="#direct-syntax-manager-usage">Direct Syntax Manager Usage</a>
+</ul><li><a href="#configuration">Configuration</a>
+<ul><li><a href="#feature-flags">Feature Flags</a>
+<li><a href="#markdownoptions">MarkdownOptions</a>
+<li><a href="#syntaxconfig">SyntaxConfig</a>
+</ul><li><a href="#supported-languages">Supported Languages</a>
+<ul><li><a href="#language-aliases">Language Aliases</a>
+<li><a href="#file-extension-detection">File Extension Detection</a>
+</ul><li><a href="#themes">Themes</a>
+<ul><li><a href="#syntastica-backend">Syntastica Backend</a>
+<li><a href="#syntect-backend">Syntect Backend</a>
+<li><a href="#using-themes">Using Themes</a>
+<li><a href="#custom-themes">Custom Themes</a>
+</ul><li><a href="#backends">Backends</a>
+<ul><li><a href="#backend-selection">Backend Selection</a>
+</ul><li><a href="#error-handling">Error Handling</a>
+<li><a href="#performance-considerations">Performance Considerations</a>
+<li><a href="#advanced-usage">Advanced Usage</a>
+<ul><li><a href="#custom-highlighter-implementation">Custom Highlighter Implementation</a>
+<li><a href="#tree-sitter-query-overrides">Tree-sitter Query Overrides</a>
+</li></ul></li></ul></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <footer>
+  <p>
+    Generated with <a href="https://github.com/feel-co/ndg">ndg</a>
+  </p>
+  <nav aria-label="Quick links">
+    <a href="https://github.com/feel-co">GitHub</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="https://github.com/feel-co/ndg">NDG repository</a>
+  </nav>
+</footer>
+
+    </div>
+
+    
+  </body>
+</html>

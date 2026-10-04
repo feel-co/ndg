@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AnchorConfig"]};
+window.SIDEBAR_ITEMS = {"enum":["DuplicateAnchorPolicy"],"struct":["AnchorConfig"]};

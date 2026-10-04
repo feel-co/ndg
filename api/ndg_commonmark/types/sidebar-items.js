@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Header","IncludedFile","MarkdownResult"]};
+window.SIDEBAR_ITEMS = {"fn":["deduplicate_anchor_ids","validate_anchor_ids","validate_rendered_anchor_ids"],"struct":["DuplicateAnchor","DuplicateAnchorError","Header","IncludedFile","MarkdownResult"]};

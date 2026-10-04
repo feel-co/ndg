@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/ndg-nixdoc/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-650bd49d.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ndg_nixdoc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.0-nightly (73dc9167f 2026-08-01)" data-channel="nightly" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-d4bd101e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ndg_nixdoc/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! `ndg-nixdoc`.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/ndg-nixdoc/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-203241e4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ndg_nixdoc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.101.0-nightly (db8f076d2 2026-10-03)" data-channel="nightly" data-search-js="search-b167f383.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-1814ead3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ndg_nixdoc/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! `ndg-nixdoc`.
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! This crate walks one or more `.nix` source files, locates attribute
 <a href=#4 id=4 data-nosnippet>4</a>//! bindings preceded by `/** ... */` doc comments, and returns structured
@@ -175,22 +175,58 @@
 <a href=#175 id=175 data-nosnippet>175</a>  }
 <a href=#176 id=176 data-nosnippet>176</a>
 <a href=#177 id=177 data-nosnippet>177</a>  <span class="attr">#[test]
-<a href=#178 id=178 data-nosnippet>178</a>  </span><span class="kw">fn </span>directory_extraction_is_recursive_and_ignores_other_files() {
+<a href=#178 id=178 data-nosnippet>178</a>  </span><span class="kw">fn </span>commonmark_headings_in_examples_do_not_split_sections() {
 <a href=#179 id=179 data-nosnippet>179</a>    <span class="kw">let </span>dir = tempdir().expect(<span class="string">"create temporary directory"</span>);
-<a href=#180 id=180 data-nosnippet>180</a>    <span class="kw">let </span>nested = dir.path().join(<span class="string">"nested"</span>);
-<a href=#181 id=181 data-nosnippet>181</a>    fs::create_dir(<span class="kw-2">&amp;</span>nested).expect(<span class="string">"create nested directory"</span>);
-<a href=#182 id=182 data-nosnippet>182</a>    fs::write(nested.join(<span class="string">"lib.nix"</span>), <span class="string">"{ /** Documented. */ value = 1; }"</span>)
-<a href=#183 id=183 data-nosnippet>183</a>      .expect(<span class="string">"write Nix source"</span>);
-<a href=#184 id=184 data-nosnippet>184</a>    fs::write(
-<a href=#185 id=185 data-nosnippet>185</a>      dir.path().join(<span class="string">"ignored.txt"</span>),
-<a href=#186 id=186 data-nosnippet>186</a>      <span class="string">"{ /** Hidden. */ value = 1; }"</span>,
-<a href=#187 id=187 data-nosnippet>187</a>    )
-<a href=#188 id=188 data-nosnippet>188</a>    .expect(<span class="string">"write non-Nix source"</span>);
-<a href=#189 id=189 data-nosnippet>189</a>
-<a href=#190 id=190 data-nosnippet>190</a>    <span class="kw">let </span>entries = extract_from_dir(dir.path()).expect(<span class="string">"extract directory"</span>);
-<a href=#191 id=191 data-nosnippet>191</a>
-<a href=#192 id=192 data-nosnippet>192</a>    <span class="macro">assert_eq!</span>(entries.len(), <span class="number">1</span>);
-<a href=#193 id=193 data-nosnippet>193</a>    <span class="macro">assert_eq!</span>(entries[<span class="number">0</span>].attr_path, [<span class="string">"value"</span>]);
-<a href=#194 id=194 data-nosnippet>194</a>  }
-<a href=#195 id=195 data-nosnippet>195</a>}
+<a href=#180 id=180 data-nosnippet>180</a>    <span class="kw">let </span>path = dir.path().join(<span class="string">"lib.nix"</span>);
+<a href=#181 id=181 data-nosnippet>181</a>    fs::write(
+<a href=#182 id=182 data-nosnippet>182</a>      <span class="kw-2">&amp;</span>path,
+<a href=#183 id=183 data-nosnippet>183</a>      <span class="string">r"{
+<a href=#184 id=184 data-nosnippet>184</a>  /**
+<a href=#185 id=185 data-nosnippet>185</a>    Run an example containing a Nix comment.
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a>    # Example
+<a href=#188 id=188 data-nosnippet>188</a>
+<a href=#189 id=189 data-nosnippet>189</a>    ```nix
+<a href=#190 id=190 data-nosnippet>190</a>    # This remains part of the example.
+<a href=#191 id=191 data-nosnippet>191</a>    identity 1
+<a href=#192 id=192 data-nosnippet>192</a>    ```
+<a href=#193 id=193 data-nosnippet>193</a>
+<a href=#194 id=194 data-nosnippet>194</a>    # Type
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>    ```
+<a href=#197 id=197 data-nosnippet>197</a>    identity :: a -&gt; a
+<a href=#198 id=198 data-nosnippet>198</a>    ```
+<a href=#199 id=199 data-nosnippet>199</a>  */
+<a href=#200 id=200 data-nosnippet>200</a>  identity = value: value;
+<a href=#201 id=201 data-nosnippet>201</a>}"</span>,
+<a href=#202 id=202 data-nosnippet>202</a>    )
+<a href=#203 id=203 data-nosnippet>203</a>    .expect(<span class="string">"write Nix source"</span>);
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">let </span>entries = extract_from_file(<span class="kw-2">&amp;</span>path).expect(<span class="string">"extract documentation"</span>);
+<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">let </span>doc = entries[<span class="number">0</span>].doc.as_ref().expect(<span class="string">"parse doc comment"</span>);
+<a href=#207 id=207 data-nosnippet>207</a>
+<a href=#208 id=208 data-nosnippet>208</a>    <span class="macro">assert_eq!</span>(doc.examples.len(), <span class="number">1</span>);
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="macro">assert!</span>(doc.examples[<span class="number">0</span>].code.contains(<span class="string">"# This remains"</span>));
+<a href=#210 id=210 data-nosnippet>210</a>    <span class="macro">assert_eq!</span>(doc.type_sig.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"identity :: a -&gt; a"</span>));
+<a href=#211 id=211 data-nosnippet>211</a>  }
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a>  <span class="attr">#[test]
+<a href=#214 id=214 data-nosnippet>214</a>  </span><span class="kw">fn </span>directory_extraction_is_recursive_and_ignores_other_files() {
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>dir = tempdir().expect(<span class="string">"create temporary directory"</span>);
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">let </span>nested = dir.path().join(<span class="string">"nested"</span>);
+<a href=#217 id=217 data-nosnippet>217</a>    fs::create_dir(<span class="kw-2">&amp;</span>nested).expect(<span class="string">"create nested directory"</span>);
+<a href=#218 id=218 data-nosnippet>218</a>    fs::write(nested.join(<span class="string">"lib.nix"</span>), <span class="string">"{ /** Documented. */ value = 1; }"</span>)
+<a href=#219 id=219 data-nosnippet>219</a>      .expect(<span class="string">"write Nix source"</span>);
+<a href=#220 id=220 data-nosnippet>220</a>    fs::write(
+<a href=#221 id=221 data-nosnippet>221</a>      dir.path().join(<span class="string">"ignored.txt"</span>),
+<a href=#222 id=222 data-nosnippet>222</a>      <span class="string">"{ /** Hidden. */ value = 1; }"</span>,
+<a href=#223 id=223 data-nosnippet>223</a>    )
+<a href=#224 id=224 data-nosnippet>224</a>    .expect(<span class="string">"write non-Nix source"</span>);
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>    <span class="kw">let </span>entries = extract_from_dir(dir.path()).expect(<span class="string">"extract directory"</span>);
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a>    <span class="macro">assert_eq!</span>(entries.len(), <span class="number">1</span>);
+<a href=#229 id=229 data-nosnippet>229</a>    <span class="macro">assert_eq!</span>(entries[<span class="number">0</span>].attr_path, [<span class="string">"value"</span>]);
+<a href=#230 id=230 data-nosnippet>230</a>  }
+<a href=#231 id=231 data-nosnippet>231</a>}
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["append_tree_contents","branch_depth","generate_nested_options_toc_html","option_leaf_label","option_toc_leaf_html","option_toc_path","parent_path_part","render_option_toc_link"]};
+window.SIDEBAR_ITEMS = {"fn":["append_tree_contents","branch_depth","compare_positions","group_ranks","option_leaf_label","option_parent","option_toc_leaf_html","option_toc_path","parent_path_part","render_option_toc_link"],"struct":["NestedOptionsTocGenerator","OptionsTocModel"],"trait":["OptionsTocGenerator"]};

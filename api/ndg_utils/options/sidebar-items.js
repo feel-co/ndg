@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DocumentationText","DocumentedValue","MarkdownDocumentation","OptionLocation","OptionVisibility","OptionsParseError","VisibilityMode"],"fn":["compare_option_locs","deserialize_documented_value","parse_options_json"],"struct":["NixOptionDocument"],"type":["NixOptionsDocument"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_fallback_index"]};
+window.SIDEBAR_ITEMS = {"fn":["create_fallback_index","output_path"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["count_leaves","insert_path","render_node"],"struct":["TocNode","TocPathPart","TocTree"]};
+window.SIDEBAR_ITEMS = {"fn":["insert_path","render_node"],"struct":["TocNode","TocPathPart","TocTree"]};

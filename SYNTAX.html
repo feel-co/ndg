@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NDG Syntax Reference</title>
+     
+    
+    <script>
+      document.documentElement.classList.remove("no-js");
+      document.documentElement.classList.add("js");
+      // Apply sidebar state immediately to prevent flash
+      (function () {
+        try {
+          if (localStorage.getItem("sidebar-collapsed") === "true") {
+            document.documentElement.classList.add("sidebar-collapsed");
+          }
+        } catch (e) {
+          // localStorage unavailable
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/main.js"></script>
+    
+    <script>
+      window.searchNamespace = window.searchNamespace || {};
+      window.searchNamespace.rootPath = "";
+    </script>
+    <script defer src="assets/search-core.js"></script>
+    <script defer src="assets/search.js"></script>
+    
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="header-left">
+          <h1 class="site-title">
+            <a href="index.html">NDG Documentation</a>
+          </h1>
+
+          <nav class="header-nav">
+  <ul>
+    <li style="display:none;">
+      <a href="options.html">Options</a>
+    </li>
+    
+    <li><a href="search.html">Search</a></li>
+    
+    <li><a href="/api/">API Documentation</a></li>
+  </ul>
+</nav>
+
+        </div>
+        
+        <div class="search-container js-only">
+          <input type="text" id="search-input" placeholder="Search..." aria-label="Search" autocomplete="off" />
+          <div id="search-results" class="search-results"></div>
+        </div>
+        
+      </header>
+
+      <div class="layout">
+        <button
+          type="button"
+          class="sidebar-toggle js-only"
+          aria-label="Collapse sidebar"
+          aria-expanded="true"
+          aria-controls="sidebar"
+        >
+          <svg
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path>
+          </svg>
+        </button>
+        <nav id="sidebar" class="sidebar" aria-label="Sidebar">
+          <details class="sidebar-section" data-section="docs" open>
+            <summary>Documents</summary>
+            <div class="sidebar-section-content">
+              <ul>
+                <li><a href="index.html">1. Introduction</a></li>
+<li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
+<li><a href="SIDEBAR.html">3. Sidebar</a></li>
+<li><a href="SEARCH.html">4. Search</a></li>
+<li><a href="TEMPLATING.html">5. Templating Guide</a></li>
+<li><a href="SYNTAX.html">6. Syntax Reference</a></li>
+<li><a href="HIGHLIGHTING.html">7. Syntax Highlighting</a></li>
+<li><a href="FRONTMATTER.html">8. Frontmatter</a></li>
+<li><a href="search.html">Search</a></li>
+
+              </ul>
+            </div>
+          </details>
+
+          <details class="sidebar-section" data-section="toc" open>
+            <summary>Contents</summary>
+            <div class="sidebar-section-content">
+              <ul class="toc-list">
+                <li><a href="#ndg-syntax-reference">NDG Syntax Reference</a>
+<ul><li><a href="#basic-markdown">Basic Markdown</a>
+<li><a href="#extended-syntax">Extended Syntax</a>
+<ul><li><a href="#admonitions">Admonitions</a>
+<li><a href="#text-roles">Text Roles</a>
+<li><a href="#command-and-repl-prompts">Command and REPL Prompts</a>
+<li><a href="#github-callouts">GitHub Callouts</a>
+<li><a href="#headers-with-anchors">Headers with Anchors</a>
+<li><a href="#inline-anchors">Inline Anchors</a>
+<li><a href="#list-items-with-anchors">List Items with Anchors</a>
+<li><a href="#figures">Figures</a>
+<li><a href="#definition-lists">Definition Lists</a>
+<li><a href="#file-includes">File Includes</a>
+<li><a href="#autolinks">Autolinks</a>
+<li><a href="#option-references">Option References</a>
+</ul><li><a href="#nixos-module-options">NixOS Module Options</a>
+<li><a href="#manpage-formatting">Manpage Formatting</a>
+</li></ul></li>
+              </ul>
+            </div>
+          </details>
+        </nav>
+
+        <main class="content"><html><head></head><body><h1 id="ndg-syntax-reference">NDG Syntax Reference</h1>
+<!--toc:start-->
+<ul>
+<li><a href="#ndg-syntax-reference">NDG Syntax Reference</a>
+<ul>
+<li><a href="#basic-markdown">Basic Markdown</a></li>
+<li><a href="#extended-syntax">Extended Syntax</a>
+<ul>
+<li><a href="#admonitions">Admonitions</a>
+<ul>
+<li><a href="#nesting-admonitions">Nesting admonitions</a></li>
+</ul>
+</li>
+<li><a href="#text-roles">Text Roles</a></li>
+<li><a href="#command-and-repl-prompts">Command and REPL Prompts</a></li>
+<li><a href="#github-callouts">GitHub Callouts</a></li>
+<li><a href="#headers-with-anchors">Headers with Anchors</a></li>
+<li><a href="#inline-anchors">Inline Anchors</a></li>
+<li><a href="#list-items-with-anchors">List Items with Anchors</a></li>
+<li><a href="#figures">Figures</a></li>
+<li><a href="#definition-lists">Definition Lists</a></li>
+<li><a href="#file-includes">File Includes</a></li>
+<li><a href="#autolinks">Autolinks</a></li>
+<li><a href="#option-references">Option References</a></li>
+</ul>
+</li>
+<li><a href="#nixos-module-options">NixOS Module Options</a></li>
+<li><a href="#manpage-formatting">Manpage Formatting</a></li>
+</ul>
+</li>
+</ul>
+<!--toc:end-->
+<p>This document details all the syntax features supported by ndg and covers all
+the special markup features that ndg supports beyond standard Markdown.</p>
+<p>By using these extensions, you can create rich, semantically meaningful
+documentation for your Nix projects that works well both as HTML and manpages.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>While NDG is very clearly inspired by nixos-render-docs and nixpkgs flavored
+commonmark, 1:1 feature parity is not a concern. Most syntax features you
+might be familiar with <em>are</em> supported, but there will be disparities. Please
+feel free to request new features that you think should be supported.</p>
+</div>
+<h2 id="basic-markdown">Basic Markdown</h2>
+<p>ndg supports all standard CommonMark syntax including:</p>
+<ul>
+<li>Headings H1 to H6 (<code>#</code> to <code>######</code>)</li>
+<li>Emphasis (<em>italic</em> and <strong>bold</strong>)</li>
+<li>Lists (ordered and unordered)</li>
+<li>Links and images
+<ul>
+<li><a href="https://github.com/feel-co/ndg">Masked links</a> and <code>&lt;autolinks&gt;</code></li>
+</ul>
+</li>
+<li>Code blocks and inline code</li>
+<li>Blockquotes</li>
+<li>Horizontal rules</li>
+<li>Tables</li>
+<li>Footnotes</li>
+</ul>
+<p>Additionally, ndg includes support for GitHub Flavored Markdown extensions like
+strikethrough and task lists.</p>
+<h2 id="extended-syntax">Extended Syntax</h2>
+<p>Beyond standard Markdown, ndg provides several additional syntax features
+designed to enhance documentation, particularly for Nix-related projects.</p>
+<h3 id="admonitions">Admonitions</h3>
+<p>Admonitions are colored callout boxes that highlight important information. They
+use a fenced block syntax with a class indicator.</p>
+<!-- markdownlint-disable MD040 -->
+<pre class="highlight"><code class="language-markdown">:::&nbsp;{.note}&nbsp;This&nbsp;is&nbsp;a&nbsp;note&nbsp;admonition.&nbsp;:::<br><br>:::&nbsp;{.warning}&nbsp;This&nbsp;is&nbsp;a&nbsp;warning&nbsp;admonition.&nbsp;:::<br><br>:::&nbsp;{.tip}&nbsp;This&nbsp;is&nbsp;a&nbsp;tip&nbsp;admonition.&nbsp;:::<br><br>:::&nbsp;{.important}&nbsp;This&nbsp;is&nbsp;an&nbsp;important&nbsp;admonition.&nbsp;:::<br><br>:::&nbsp;{.caution}&nbsp;This&nbsp;is&nbsp;a&nbsp;caution&nbsp;admonition.&nbsp;:::<br><br>:::&nbsp;{.danger}&nbsp;This&nbsp;is&nbsp;a&nbsp;danger&nbsp;admonition.&nbsp;:::<br><br>:::&nbsp;{.info}&nbsp;This&nbsp;is&nbsp;an&nbsp;info&nbsp;admonition.&nbsp;:::<br></code></pre>
+<p>You can also add an ID to an admonition for direct linking:</p>
+<pre><code class="language-plaintext">::: {.note #custom-id}
+This note has a custom ID and can be linked to with
+[link](#custom-id).
+:::
+</code></pre>
+<h4 id="nesting-admonitions">Nesting admonitions</h4>
+<p>Fenced admonitions process block elements in their contents recursively. You can
+nest a GitHub-style callout inside a fenced admonition without writing HTML:</p>
+<pre class="highlight"><code class="language-markdown">:::&nbsp;{.example}&nbsp;This&nbsp;is&nbsp;an&nbsp;example.<br><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">!NOTE</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(232,102,113);">With&nbsp;a&nbsp;nested&nbsp;note!</span><br><br>:::<br></code></pre>
+<p>For nested fenced admonitions, use a longer fence for the outer block than for
+the inner block. A fence at least as long as the opening fence closes that
+block, so using the same length for both would close the outer block early.</p>
+<pre class="highlight"><code class="language-markdown">::::&nbsp;{.example}&nbsp;Outer&nbsp;content.<br><br>:::&nbsp;{.note}&nbsp;Inner&nbsp;content.&nbsp;:::<br><br>More&nbsp;outer&nbsp;content.<br><br>::::<br></code></pre>
+<h3 id="text-roles">Text Roles</h3>
+<p>Text roles provide semantic markup for specific types of content. They use a
+special syntax with curly braces and backticks.</p>
+<pre><code class="language-plaintext">{command}`ls -la`                    # Terminal command
+{file}`/etc/nixos/configuration.nix` # File path
+{option}`services.nginx.enable`      # NixOS option
+{env}`HOME`                          # Environmentvariable
+{var}`myVariable`                    # Nix variable
+{manpage}`man(1)`                    # Man page reference
+</code></pre>
+<!-- markdownlint-enable MD040 -->
+<p>Each role applies specific styling in the HTML output, making it easier to
+distinguish different types of technical content.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><code>{var}</code>, a.k.a "nix variables" are added in NDG to allow distinguishing
+between environment variables and other variables, e.g, in a config file.
+While it is called a "Nix variable", that is <em>only</em> internal naming and the
+feature is <em>not</em> specific to Nix variables.</p>
+</div>
+<h3 id="command-and-repl-prompts">Command and REPL Prompts</h3>
+<p>Terminal commands with prompts can be typed with a shorthand syntax:</p>
+<pre class="highlight"><code class="language-markdown"><span style="color:rgb(152,195,121);">`$&nbsp;echo&nbsp;"Hello&nbsp;World"`</span><br></code></pre>
+<p>This renders as a command prompt with styling.</p>
+<p>Similarly, for Nix REPL prompts:</p>
+<pre class="highlight"><code class="language-markdown"><span style="color:rgb(152,195,121);">`nix-repl&gt;&nbsp;1&nbsp;+&nbsp;2`</span><br></code></pre>
+<h3 id="github-callouts">GitHub Callouts</h3>
+<p>ndg supports GitHub-style callouts:</p>
+<pre class="highlight"><code class="language-markdown"><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">!NOTE</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(232,102,113);">This&nbsp;is&nbsp;a&nbsp;note&nbsp;callout&nbsp;using&nbsp;GitHub's&nbsp;syntax.</span><br><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">!WARNING</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(232,102,113);">This&nbsp;is&nbsp;a&nbsp;warning&nbsp;callout.</span><br><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">!TIP</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(232,102,113);">This&nbsp;is&nbsp;a&nbsp;tip&nbsp;callout.</span><br><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">!IMPORTANT</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(232,102,113);">This&nbsp;is&nbsp;an&nbsp;important&nbsp;callout.</span><br><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">!CAUTION</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(232,102,113);">This&nbsp;is&nbsp;a&nbsp;caution&nbsp;callout.</span><br><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">!DANGER</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(232,102,113);"></span><br><span style="color:rgb(232,102,113);">&gt;&nbsp;</span><span style="color:rgb(232,102,113);">This&nbsp;is&nbsp;a&nbsp;danger&nbsp;callout.</span><br></code></pre>
+<p>These are converted to the same styled admonition blocks as the fenced
+admonition syntax.</p>
+<p>Callout type names currently require uppercase letters in NDG. Nesting one
+GitHub-style callout inside another is not supported; use a fenced outer
+admonition as shown in <a href="#nesting-admonitions">Nesting admonitions</a>.</p>
+<h3 id="headers-with-anchors">Headers with Anchors</h3>
+<p>You can add custom anchor IDs to headers for more reliable linking:</p>
+<pre class="highlight"><code class="language-markdown"><span style="color:rgb(209,154,102);font-weight: bold;">##&nbsp;Installation&nbsp;{#installation}</span><br><br>Refer&nbsp;to&nbsp;the&nbsp;<span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">installation&nbsp;section</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(97,175,239);">(</span><span style="color:rgb(86,182,194);text-decoration: underline;">#installation</span><span style="color:rgb(97,175,239);">)</span>.<br></code></pre>
+<p>This creates a header with a specific ID that won't change even if you rename
+the section.</p>
+<h3 id="inline-anchors">Inline Anchors</h3>
+<p>You can create anchor points anywhere in your document:</p>
+<pre class="highlight"><code class="language-markdown">[]{#my-anchor}<br><br>...&nbsp;some&nbsp;content&nbsp;...<br><br><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">Link&nbsp;to&nbsp;the&nbsp;anchor</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(97,175,239);">(</span><span style="color:rgb(86,182,194);text-decoration: underline;">#my-anchor</span><span style="color:rgb(97,175,239);">)</span><br></code></pre>
+<p>This adds an invisible anchor that you can link to from elsewhere in the
+document.</p>
+<h3 id="list-items-with-anchors">List Items with Anchors</h3>
+<p>Add anchors to specific list items:</p>
+<pre class="highlight"><code class="language-markdown"><span style="color:rgb(232,102,113);">-&nbsp;</span>[]{#item1}&nbsp;First&nbsp;item<br><span style="color:rgb(232,102,113);">-&nbsp;</span>[]{#item2}&nbsp;Second&nbsp;item<br><br>See&nbsp;the&nbsp;<span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">second&nbsp;item</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(97,175,239);">(</span><span style="color:rgb(86,182,194);text-decoration: underline;">#item2</span><span style="color:rgb(97,175,239);">)</span>.<br></code></pre>
+<h3 id="figures">Figures</h3>
+<p>Create figures with captions:</p>
+<pre class="highlight"><code class="language-markdown">:::&nbsp;{.figure&nbsp;#sample-figure}<br><br><span style="color:rgb(209,154,102);font-weight: bold;">#&nbsp;Sample&nbsp;Figure&nbsp;Caption</span><br><br><span style="color:rgb(97,175,239);">!</span><span style="color:rgb(97,175,239);">[</span><span style="color:rgb(97,175,239);">Alt&nbsp;text&nbsp;for&nbsp;image</span><span style="color:rgb(97,175,239);">]</span><span style="color:rgb(97,175,239);">(</span><span style="color:rgb(86,182,194);text-decoration: underline;">path/to/image.png</span><span style="color:rgb(97,175,239);">)</span>&nbsp;:::<br></code></pre>
+<p>This creates a figure with proper semantic HTML including a caption.</p>
+<h3 id="definition-lists">Definition Lists</h3>
+<p>Create definition lists with a simple syntax:</p>
+<pre class="highlight"><code class="language-markdown">Term&nbsp;:&nbsp;Definition&nbsp;for&nbsp;the&nbsp;term.<br><br>Another&nbsp;term&nbsp;:&nbsp;Definition&nbsp;for&nbsp;another&nbsp;term.<br></code></pre>
+<h3 id="file-includes">File Includes</h3>
+<p>Include the contents of other files in your documentation:</p>
+<pre class="highlight"><code class="language-markdown"><span style="color:rgb(152,195,121);">```</span><span style="color:rgb(232,102,113);">{</span><span style="color:rgb(232,102,113);">=include=</span><span style="color:rgb(232,102,113);">}</span><span style="color:rgb(152,195,121);"></span><br><span style="color:rgb(152,195,121);">path/to/file1.md</span><br><span style="color:rgb(152,195,121);">path/to/file2.md</span><br><span style="color:rgb(152,195,121);">```</span><span style="color:rgb(152,195,121);"></span><br></code></pre>
+<p>This is useful for creating modular documentation from multiple smaller files.</p>
+<h3 id="autolinks">Autolinks</h3>
+<p>URLs are automatically converted to clickable links even without explicit
+Markdown link syntax:</p>
+<pre class="highlight"><code class="language-markdown">Visit&nbsp;https://nixos.org&nbsp;for&nbsp;more&nbsp;information.<br></code></pre>
+<h3 id="option-references">Option References</h3>
+<p>References to NixOS options are automatically linked to the options
+documentation page:</p>
+<pre class="highlight"><code class="language-markdown">Configure&nbsp;<span style="color:rgb(152,195,121);">`services.nginx.enable`</span>&nbsp;to&nbsp;start&nbsp;the&nbsp;web&nbsp;server.<br></code></pre>
+<p>When you have included a module options JSON file in your build, option
+references like this will be automatically linked to the corresponding entry in
+the options page. <sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref="">1</a></sup></p>
+<h2 id="nixos-module-options">NixOS Module Options</h2>
+<p>ndg can generate documentation for NixOS module options when provided with an
+options JSON file (typically created with <code>nixosOptionsDoc</code>). Options are
+automatically rendered with:</p>
+<ul>
+<li>Type information</li>
+<li>Default values</li>
+<li>Examples (if available)</li>
+<li>Descriptions</li>
+<li>Declaration locations (with links to source if available)</li>
+</ul>
+<p>To include options documentation:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">html</span>&nbsp;<span style="color:rgb(232,102,113);">--module-options</span>&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;<span style="color:rgb(232,102,113);">...</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;=&gt;&nbsp;This&nbsp;will&nbsp;generate&nbsp;the&nbsp;document&nbsp;with&nbsp;an&nbsp;options.html&nbsp;page,&nbsp;also&nbsp;linked&nbsp;in</span><br><span style="color:rgb(92,99,112);font-style: italic;">#&nbsp;the&nbsp;navbar&nbsp;by&nbsp;default</span><br></code></pre>
+<p>Options are presented in a hierarchical structure for easier navigation, with
+the depth of parent categories controlled by the <code>sidebar.options.depth</code> config
+key.</p>
+<h2 id="manpage-formatting">Manpage Formatting</h2>
+<p>When generating manpages with ndg, special formatting is applied to convert
+Markdown elements to troff syntax. The following elements receive special
+treatment:</p>
+<ul>
+<li>Section headings become proper manpage section headings</li>
+<li>Code blocks are properly formatted with fixed-width text</li>
+<li>Lists are formatted with appropriate indentation</li>
+<li>Command prompts and REPL prompts are specially formatted</li>
+<li>Admonitions become indented blocks with appropriate headings</li>
+<li>Text roles are converted to bold or italic text as appropriate</li>
+<li>Links show both the link text and URL</li>
+</ul>
+<p>To generate manpages from options:</p>
+<pre class="highlight"><code class="language-bash"><span style="color:rgb(232,102,113);">$</span>&nbsp;<span style="color:rgb(171,178,191);">ndg</span>&nbsp;<span style="color:rgb(232,102,113);">manpage</span>&nbsp;<span style="color:rgb(232,102,113);">--module-options</span>&nbsp;<span style="color:rgb(232,102,113);">./options.json</span>&nbsp;<span style="color:rgb(232,102,113);">--output</span>&nbsp;<span style="color:rgb(232,102,113);">./man/myproject.5</span>&nbsp;\<br>&nbsp;&nbsp;<span style="color:rgb(232,102,113);">--title</span>&nbsp;<span style="color:rgb(152,195,121);">"My&nbsp;Project"</span>&nbsp;<span style="color:rgb(232,102,113);">--section</span>&nbsp;<span style="color:rgb(209,154,102);">5</span><br></code></pre>
+<hr>
+<p>Please refer to manpages and the README for direct command usage.</p>
+<section class="footnotes" data-footnotes="">
+<ol>
+<li id="fn-1">
+<p>Work in progress, might not always work and may be removed in the future. <a href="#fnref-1" class="footnote-backref" data-footnote-backref="" data-footnote-backref-idx="1" aria-label="Back to reference 1">↩</a></p>
+</li>
+</ol>
+</section>
+</body></html></main>
+      </div>
+
+      <aside class="page-toc">
+        <nav class="page-toc-nav">
+          <h3>On this page</h3>
+          <ul class="page-toc-list">
+            <li><a href="#ndg-syntax-reference">NDG Syntax Reference</a>
+<ul><li><a href="#basic-markdown">Basic Markdown</a>
+<li><a href="#extended-syntax">Extended Syntax</a>
+<ul><li><a href="#admonitions">Admonitions</a>
+<li><a href="#text-roles">Text Roles</a>
+<li><a href="#command-and-repl-prompts">Command and REPL Prompts</a>
+<li><a href="#github-callouts">GitHub Callouts</a>
+<li><a href="#headers-with-anchors">Headers with Anchors</a>
+<li><a href="#inline-anchors">Inline Anchors</a>
+<li><a href="#list-items-with-anchors">List Items with Anchors</a>
+<li><a href="#figures">Figures</a>
+<li><a href="#definition-lists">Definition Lists</a>
+<li><a href="#file-includes">File Includes</a>
+<li><a href="#autolinks">Autolinks</a>
+<li><a href="#option-references">Option References</a>
+</ul><li><a href="#nixos-module-options">NixOS Module Options</a>
+<li><a href="#manpage-formatting">Manpage Formatting</a>
+</li></ul></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <footer>
+  <p>
+    Generated with <a href="https://github.com/feel-co/ndg">ndg</a>
+  </p>
+  <nav aria-label="Quick links">
+    <a href="https://github.com/feel-co">GitHub</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="https://github.com/feel-co/ndg">NDG repository</a>
+  </nav>
+</footer>
+
+    </div>
+
+    
+  </body>
+</html>
