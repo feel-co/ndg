@@ -1110,6 +1110,9 @@ function setupOptionsPage(signal, content) {
 function initializePage() {
   const signal = beginPageLifecycle();
 
+  // The images of a new page follow the selected theme too.
+  syncThemedImages(currentTheme());
+
   // Highlight the active nav item before the mobile nav is cloned from it.
   markActiveNav();
 
@@ -1338,6 +1341,112 @@ function initializePage() {
   );
 }
 
+// Light and dark theme. The inline script of each page applies the stored
+// theme to `<html data-theme>` before the first paint. Without `data-theme`,
+// the theme is `auto` and follows the color scheme of the system. The
+// stylesheet reads `data-theme`, so this code only changes it, stores it,
+// updates the images and labels, and dispatches `ndg:themechange` on
+// `document` with the `mode` and the `resolved` theme.
+const THEME_STORAGE_KEY = "theme";
+const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
+function currentTheme() {
+  const theme = document.documentElement.dataset.theme;
+  return theme === "light" || theme === "dark" ? theme : "auto";
+}
+
+function systemTheme() {
+  return window.matchMedia(DARK_SCHEME_QUERY).matches ? "dark" : "light";
+}
+
+function resolveTheme(mode) {
+  return mode === "auto" ? systemTheme() : mode;
+}
+
+// A `<source media="(prefers-color-scheme: dark)">` of a `<picture>` follows
+// only the system. For a selected theme, replace each color scheme feature
+// with a feature that always matches or never matches. A browser shows the
+// page on a bitmap screen, thus `(grid: 0)` always matches and `(grid: 1)`
+// never matches. The `data-scheme-media` attribute keeps the original query.
+function syncThemedImages(mode, root = document) {
+  const resolved = resolveTheme(mode);
+  root
+    .querySelectorAll(
+      "picture > source[media*='prefers-color-scheme'], picture > source[data-scheme-media]",
+    )
+    .forEach((source) => {
+      source.dataset.schemeMedia ??= source.media;
+      source.media =
+        mode === "auto"
+          ? source.dataset.schemeMedia
+          : source.dataset.schemeMedia.replace(
+              /\(\s*prefers-color-scheme\s*:\s*(light|dark)\s*\)/gi,
+              (_, scheme) =>
+                scheme.toLowerCase() === resolved ? "(grid: 0)" : "(grid: 1)",
+            );
+    });
+}
+
+// The label tells what a click does, as the icon does.
+function syncThemeToggles(mode) {
+  const label =
+    resolveTheme(mode) === "dark"
+      ? "Switch to the light theme"
+      : "Switch to the dark theme";
+  document.querySelectorAll("[data-theme-toggle]").forEach((toggle) => {
+    toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("title", label);
+  });
+}
+
+function applyTheme(mode) {
+  if (mode === "auto") {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = mode;
+  }
+  syncThemeToggles(mode);
+  syncThemedImages(mode);
+  document.dispatchEvent(
+    new CustomEvent("ndg:themechange", {
+      detail: { mode, resolved: resolveTheme(mode) },
+    }),
+  );
+}
+
+// The toggle selects the other theme. When the other theme is the theme of
+// the system, the toggle removes the selection and goes back to `auto`.
+function nextTheme(mode, system) {
+  const resolved = mode === "auto" ? system : mode;
+  const other = resolved === "dark" ? "light" : "dark";
+  return other === system ? "auto" : other;
+}
+
+function setupThemeToggle() {
+  syncThemeToggles(currentTheme());
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest?.("[data-theme-toggle]")) return;
+    const mode = nextTheme(currentTheme(), systemTheme());
+    try {
+      if (mode === "auto") {
+        localStorage.removeItem(THEME_STORAGE_KEY);
+      } else {
+        localStorage.setItem(THEME_STORAGE_KEY, mode);
+      }
+    } catch {
+      // localStorage unavailable: the theme applies to this page only
+    }
+    applyTheme(mode);
+  });
+
+  // In `auto`, the stylesheet follows the system, but other scripts can need
+  // the event.
+  window.matchMedia(DARK_SCHEME_QUERY).addEventListener("change", () => {
+    if (currentTheme() === "auto") applyTheme("auto");
+  });
+}
+
 function initializeGlobalBehavior() {
   if (!document.querySelector(".mobile-sidebar-toggle")) createMobileElements();
   initMobileNavigation();
@@ -1345,6 +1454,7 @@ function initializeGlobalBehavior() {
   setupNavbarKeyboardNavigation();
   setupOptionTocNavigation();
   setupClientNavigation();
+  setupThemeToggle();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
