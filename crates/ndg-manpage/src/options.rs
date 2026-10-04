@@ -289,11 +289,11 @@ pub fn generate_manpage(
 fn process_raw_type(s: &str) -> String {
   // Replace common escape sequences with their troff equivalents
   let s = s
-        .replace('"', "\\[u201C]") // opening double quote
-        .replace("\\n", "\\en") // newline
-        .replace('\'', "\\[u2019]") // single quote
-        .replace('-', "\\-") // hyphen
-        .replace('.', "\\&."); // period
+    .replace('"', "\\[u201C]") // opening double quote
+    .replace("\\n", "\\en") // newline
+    .replace('\'', "\\[u2019]") // single quote
+    .replace('-', "\\-") // hyphen
+    .replace('.', "\\&."); // period
 
   // For closing quote after \n
 
