@@ -104,6 +104,14 @@ pub struct MarkdownOptions {
 
   /// How to handle hard tabs in code blocks.
   pub tab_style: TabStyle,
+
+  /// Render `mermaid` fenced code blocks as Mermaid diagrams.
+  ///
+  /// When `true`, each `mermaid` fenced code block becomes a
+  /// `<pre class="mermaid">` element that holds the diagram source, without
+  /// syntax highlighting. The page must load the Mermaid library to draw the
+  /// diagrams.
+  pub mermaid: bool,
 }
 
 /// Configuration for handling hard tabs in code blocks.
@@ -135,6 +143,7 @@ impl MarkdownOptions {
       auto_link_options:   true,
       valid_options:       None,
       tab_style:           TabStyle::None,
+      mermaid:             false,
     }
   }
 
@@ -156,6 +165,7 @@ impl MarkdownOptions {
       auto_link_options: true,
       valid_options: None,
       tab_style: TabStyle::None,
+      mermaid: false,
     }
   }
 }
@@ -173,6 +183,7 @@ impl Default for MarkdownOptions {
       auto_link_options:   true,
       valid_options:       None,
       tab_style:           TabStyle::None,
+      mermaid:             false,
     }
   }
 }
@@ -421,6 +432,13 @@ impl MarkdownOptionsBuilder {
   #[must_use]
   pub const fn tab_style(mut self, style: TabStyle) -> Self {
     self.options.tab_style = style;
+    self
+  }
+
+  /// Enable or disable Mermaid diagram blocks.
+  #[must_use]
+  pub const fn mermaid(mut self, enabled: bool) -> Self {
+    self.options.mermaid = enabled;
     self
   }
 

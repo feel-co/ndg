@@ -641,9 +641,44 @@ impl MarkdownProcessor {
   fn kuchiki_postprocess(&self, html: &str) -> String {
     // Use a standalone function to avoid borrowing issues
     kuchiki_postprocess_html(html, |document| {
+      if self.options.mermaid {
+        Self::process_mermaid_blocks(document);
+      }
       self.highlight_codeblocks_document(document);
       Self::apply_dom_transformations(document);
     })
+  }
+
+  /// Replace each `mermaid` code block with a `<pre class="mermaid">` element
+  /// that holds the diagram source as text. The Mermaid library draws these
+  /// elements on the client.
+  fn process_mermaid_blocks(document: &kuchikikiki::NodeRef) {
+    let mut to_modify = Vec::new();
+    for code_node in safe_select(document, "pre > code.language-mermaid") {
+      if let Some(pre_node) = code_node.parent() {
+        to_modify.push((pre_node, code_node.text_contents()));
+      }
+    }
+
+    for (pre_node, source) in to_modify {
+      let diagram = kuchikikiki::NodeRef::new_element(
+        markup5ever::QualName::new(
+          None,
+          markup5ever::ns!(html),
+          local_name!("pre"),
+        ),
+        vec![(
+          kuchikikiki::ExpandedName::new("", "class"),
+          kuchikikiki::Attribute {
+            prefix: None,
+            value:  "mermaid".into(),
+          },
+        )],
+      );
+      diagram.append(kuchikikiki::NodeRef::new_text(source));
+      pre_node.insert_after(diagram);
+      pre_node.detach();
+    }
   }
 
   fn highlight_codeblocks_document(&self, document: &kuchikikiki::NodeRef) {

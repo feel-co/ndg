@@ -163,6 +163,7 @@ fn options_for_preset(preset: ProcessorPreset) -> MarkdownOptions {
         auto_link_options:   true,
         tab_style:           TabStyle::None,
         valid_options:       None,
+        mermaid:             false,
       }
     },
     ProcessorPreset::Ndg => {
@@ -177,6 +178,7 @@ fn options_for_preset(preset: ProcessorPreset) -> MarkdownOptions {
         auto_link_options:   true,
         tab_style:           TabStyle::None,
         valid_options:       None,
+        mermaid:             false,
       }
     },
     ProcessorPreset::Nixpkgs => {
@@ -191,6 +193,7 @@ fn options_for_preset(preset: ProcessorPreset) -> MarkdownOptions {
         auto_link_options:   true,
         tab_style:           TabStyle::None,
         valid_options:       None,
+        mermaid:             false,
       }
     },
   }
