@@ -3,6 +3,7 @@
   lib,
   # Build Dependencies
   ndg,
+  mdbook-mermaid,
   runCommandLocal,
   nixosOptionsDoc,
   writers,
@@ -106,6 +107,9 @@
   optionsDepth ? 2,
   generateSearch ? true,
   highlightCode ? true,
+  # Render `mermaid` code blocks as diagrams, with the Mermaid library from
+  # `mdbook-mermaid`, so that the site does not need a CDN.
+  mermaid ? false,
   extraConfig ? {},
   # ZIM archive generation
   buildZim ? false,
@@ -155,6 +159,12 @@ in
       (optionalAttrs (manpageUrls != null) {manpage_urls_path = manpageUrls;})
       (optionalAttrs (stylesheets != []) {stylesheet_paths = stylesheets;})
       (optionalAttrs (scripts != []) {script_paths = scripts;})
+      (optionalAttrs mermaid {
+        mermaid = {
+          enable = true;
+          script = "${mdbook-mermaid.src}/src/bin/assets/mermaid.min.js";
+        };
+      })
       (optionalAttrs (extraConfig != {}) extraConfig)
     ]);
   in

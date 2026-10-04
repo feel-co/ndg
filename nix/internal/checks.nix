@@ -31,6 +31,27 @@ in {
     };
   };
 
+  mermaid = let
+    site = ndg-builder.override {
+      mermaid = true;
+      inputDir = pkgs.writeTextDir "diagram.md" ''
+        # Diagram
+
+        ```mermaid
+        flowchart LR
+          a --> b
+        ```
+      '';
+    };
+  in
+    pkgs.runCommandLocal "ndg-mermaid" {} ''
+      grep -F '<pre class="mermaid">flowchart LR' ${site}/diagram.html
+      grep -F 'data-mermaid-src="assets/mermaid.min.js"' ${site}/diagram.html
+      test -s ${site}/assets/mermaid.min.js
+      test -s ${site}/assets/mermaid-init.js
+      touch $out
+    '';
+
   nrd-options-commonmark = pkgs.testers.runNixOSTest {
     name = "ndg-nrd-options-commonmark";
 
