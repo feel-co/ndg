@@ -1,3 +1,4 @@
+use ndg_macros::ConfigTemplate;
 use regex::Regex;
 use serde::{
   Deserialize,
@@ -83,14 +84,16 @@ where
 }
 
 /// Option name matching criteria (exact or regex).
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Default, ConfigTemplate)]
 pub struct OptionNameMatch {
   /// Exact option name match.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = "programs.git".to_string())]
   pub exact: Option<String>,
 
   /// Regex pattern for option name matching.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = r"^services\..*".to_string())]
   pub regex: Option<String>,
 
   /// Compiled regex cache (populated after validation).

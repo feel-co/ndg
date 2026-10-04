@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, path::PathBuf};
 
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +24,7 @@ fn default_rel() -> String {
 /// dest  = "apple-touch-icon.png"
 /// rel   = "apple-touch-icon"
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ConfigTemplate)]
 #[serde(deny_unknown_fields)]
 pub struct FaviconEntry {
   /// Path to the favicon file on disk. The file is copied to the root of the
@@ -72,7 +72,9 @@ impl FaviconEntry {
 ///
 /// Contains `OpenGraph` tags, additional meta tags, and favicon entries to be
 /// injected into the HTML `<head>` element.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Default, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct MetaConfig {
   /// `OpenGraph` tags (e.g., `{"og:title": "...", "og:image": "..."}`)
@@ -83,5 +85,12 @@ pub struct MetaConfig {
 
   /// Favicon entries. Each entry produces one `<link>` tag in the HTML head.
   #[serde(default)]
+  #[template(nested, example = FaviconEntry {
+    href: PathBuf::from("favicon.png"),
+    dest: None,
+    rel: default_rel(),
+    mime_type: None,
+    sizes: None,
+  })]
   pub favicon: Vec<FaviconEntry>,
 }

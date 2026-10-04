@@ -1,354 +1,218 @@
-use std::fmt;
+//! Struct-derived starter configuration and annotated TOML rendering.
 
-/// Error type for template operations.
-///
-/// Represents the various errors that can occur during template
-/// operations, providing clear error messages and context for debugging.
-#[derive(Debug)]
+use std::{borrow::Cow, path::PathBuf};
+
+use serde::Serialize;
+use thiserror::Error;
+
+use crate::Config;
+
+/// Errors encountered while rendering a starter configuration.
+#[derive(Debug, Error)]
 pub enum TemplateError {
-  /// Indicates that the requested configuration format is not supported.
-  /// Contains the name of the unsupported format.
+  /// The requested file format is unsupported.
+  #[error("Unsupported config format: {0}")]
   UnsupportedFormat(String),
+  /// A configuration value cannot be represented as TOML.
+  #[error("Failed to serialize TOML configuration: {0}")]
+  Toml(#[from] toml::ser::Error),
+  /// A configuration value cannot be represented as JSON.
+  #[error("Failed to serialize JSON configuration: {0}")]
+  Json(#[from] serde_json::Error),
 }
 
-impl fmt::Display for TemplateError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      Self::UnsupportedFormat(format) => {
-        write!(f, "Unsupported config format: {format}")
-      },
+pub(crate) trait ConfigTemplate {
+  fn write_template(
+    &self,
+    writer: &mut TemplateWriter,
+  ) -> Result<(), TemplateError>;
+}
+
+#[derive(Default)]
+pub(crate) struct TemplateWriter {
+  output:    String,
+  path:      String,
+  value:     String,
+  commented: bool,
+}
+
+impl TemplateWriter {
+  fn comments(&mut self, docs: &str) {
+    for line in docs.lines() {
+      self.output.push_str("# ");
+      self.output.push_str(line);
+      self.output.push('\n');
     }
   }
-}
 
-impl std::error::Error for TemplateError {}
-
-/// Default configuration template in TOML. We've also included sufficient
-/// amount of comments to explain each field so that the user is not immediately
-/// lost. Yuck though, I do not like having to embed a string one bit.
-pub const DEFAULT_TOML_TEMPLATE: &str = r#"# NDG Configuration File
-
-# Input directory containing markdown files
-input_dir = "docs"
-
-# Output directory for generated documentation
-output_dir = "build"
-
-# Path to options.json file (optional)
-# module_options = "options.json"
-
-# Nix files or directories containing RFC 145-style /** ... */ comments.
-# Requires an ndg build with the default `nixdoc` Cargo feature enabled.
-# nixdoc_inputs = ["lib"]
-
-# Title for the documentation
-title = "My Project Documentation"
-
-# Footer text for the documentation
-footer_text = "Generated with ndg"
-
-# Number of threads to use for parallel processing (defaults to number of CPU cores)
-# jobs = 4
-
-# Template customization
-# Path to custom template file
-# template_path = "templates/custom.html"
-
-# Path to template directory containing all template files
-# template_dir = "templates"
-
-# Path to custom stylesheet
-# stylesheet_path = "assets/custom.css"
-
-# Paths to custom JavaScript files
-# script_paths = ["assets/custom.js", "assets/search.js"]
-
-# Directory containing additional assets
-# assets_dir = "assets"
-
-# Path to manpage URL mappings JSON file
-# manpage_urls_path = "manpage-urls.json"
-
-# Whether to generate anchors for headings
-generate_anchors = true
-
-# Whether to enable syntax highlighting for code blocks
-highlight_code = true
-
-# Path to user-defined Tree-sitter query overrides
-# syntax_queries_path = "queries"
-
-# How to handle hard tabs in code blocks (one of "none", "warn", or "normalize")
-tab_style = "none"
-
-# Duplicate heading anchor handling (one of "error", "warn", or "deduplicate")
-# - "error": fail the build on duplicate anchors (default)
-# - "warn": log a warning and keep duplicate IDs
-# - "deduplicate": make anchors unique with deterministic -1, -2, ... suffixes
-# Headings matching [sidebar.toc] exclusions are ignored for validation.
-# [anchor]
-# on_duplicate = "error"
-
-# GitHub revision for linking to source files (defaults to 'local')
-revision = "main"
-
-# Markdown rendering options
-# [markdown]
-# extensions = ["math-dollars", "math-code", "math-latex"]
-
-# Index page configuration
-# [index]
-# Whether to use README.md as the homepage when index.md is not present.
-# When enabled, README.md will be rendered as index.html instead of README.html.
-# use_readme = false
-
-# Whether to generate a fallback index.html when no index file is provided.
-# When disabled, no fallback index will be created if there's no index.md or README.md.
-# generate_fallback = true
-
-# OpenGraph tags to inject into the HTML head (example: { og:title = "My Project", og:image = "..." })
-# opengraph = { og:title = "My Project", og:image = "https://example.com/image.png" }
-
-# Additional meta tags to inject into the HTML head (example: { description = "Docs", keywords = "nix,docs" })
-# meta_tags = { description = "Documentation for My Project", keywords = "nix,docs,example" }
-
-# Search configuration
-[search]
-# Whether to generate a search index
-enable = true
-
-# Maximum heading level to index
-max_heading_level = 3
-
-# Global module options configuration
-# [options.filter]
-# Include only option names under this prefix.
-# prefix = "services.nginx"
-
-# Include only options whose type contains this text.
-# type = "boolean"
-
-# Include only options whose name or description contains this text.
-# search = "enable"
-
-# Include only options with default values or descriptions.
-# has_default = false
-# has_description = false
-
-# Include options marked internal or invisible.
-# include_internal = true
-
-# Split option documentation into generated group pages.
-# [options.pages]
-# enabled = false
-# depth = 1
-# root = "options"
-
-# Route deep option trees to their own page.
-# [[options.pages.matches]]
-# name.regex = "^foo\\.bar\\.baz(\\.|$)"
-# depth = 3
-# title = "Foo Bar Baz"
-# position = 10
-
-# Sidebar configuration
-# [sidebar]
-# Enable numbering for sidebar items
-# numbered = true
-
-# Include special files in numbering sequence
-# Only has effect when numbered = true.
-# number_special_files = false
-
-# Ordering algorithm for sidebar items: "alphabetical", "custom", or "filesystem"
-# ordering = "alphabetical"
-
-# Exclude headings from generated per-page tables of contents.
-# [sidebar.toc]
-# [[sidebar.toc.exclude]]
-# regex = "^(Inputs|Type|Examples)$"
-
-# Pattern-based sidebar matching rules
-# Rules are evaluated in order, and the first matching rule is applied.
-# All specified conditions are expected to match.
-
-# Simple exact path match (shorthand syntax)
-# [[sidebar.matches]]
-# path = "getting-started.md"
-# position = 1
-
-# Explicit sub-chapter: parent is a Markdown source path relative to input_dir.
-# Position orders this page among its siblings.
-# [[sidebar.matches]]
-# path = "guides/installation.md"
-# parent = "getting-started.md"
-# position = 1
-
-# Exact title match with override (shorthand syntax)
-# [[sidebar.matches]]
-# title = "Release Notes"
-# new_title = "What's New"
-# position = 999
-
-# Regex patterns for more advanced matching (nested syntax required)
-# [[sidebar.matches]]
-# path.regex = "^api/.*\\.md$"
-# position = 50
-
-# Combined conditions (path regex & title regex)
-# [[sidebar.matches]]
-# path.regex = "^guides/.*\\.md$"
-# title.regex = "^Tutorial:.*"
-# position = 10
-
-# Options sidebar configuration
-# [sidebar.options]
-# Depth of parent categories in options TOC (defaults to 2)
-# depth = 2
-
-# Render child attributes as recursive dropdowns.
-# nested = false
-# Maximum child nesting depth below each category, or 0 for unlimited.
-# nested_depth = 0
-# When nested, keep one-child categories as dropdowns instead of direct links.
-# collapse_singletons = false
-
-# Ordering algorithm for options: "alphabetical", "custom", or "filesystem"
-# ordering = "alphabetical"
-
-# Pattern-based options matching rules
-# Rules are evaluated in order, and the first matching rule is applied.
-
-# Hide internal options from the TOC
-# [[sidebar.options.matches]]
-# name.regex = "^myInternal\\..*"
-# hidden = true
-
-# Rename a category for display
-# [[sidebar.options.matches]]
-# name = "programs.git"
-# new_name = "Git Configuration"
-# position = 5
-
-# Set custom depth for specific options
-# [[sidebar.options.matches]]
-# name.regex = "^services\\..*"
-# depth = 3
-# position = 10
-
-# Basic exact name match (shorthand syntax)
-# [[sidebar.options.matches]]
-# name = "networking.firewall"
-# new_name = "Firewall Settings"
-# position = 1
-"#;
-
-/// Default configuration template in JSON format.
-pub const DEFAULT_JSON_TEMPLATE: &str = r#"{
-  "input_dir": "docs",
-  "output_dir": "build",
-  "nixdoc_inputs": [],
-  "title": "My Project Documentation",
-  "footer_text": "Generated with ndg",
-  "generate_anchors": true,
-  "search": {
-    "enable": true,
-    "max_heading_level": 3
-  },
-  "options": {
-    "filter": {
-      "has_default": false,
-      "has_description": false,
-      "include_internal": true
-    },
-    "pages": {
-      "enabled": false,
-      "depth": 1,
-      "root": "options",
-      "matches": [
-        {
-          "name": {
-            "regex": "^foo\\.bar\\.baz(\\.|$)"
-          },
-          "depth": 3,
-          "title": "Foo Bar Baz",
-          "position": 10
-        }
-      ]
-    }
-  },
-  "highlight_code": true,
-  "markdown": {
-    "extensions": []
-  },
-  "syntax_queries_path": "queries",
-  "tab_style": "none",
-  "revision": "main",
-  "index": {
-    "use_readme": false,
-    "generate_fallback": true
-  },
-  "sidebar": {
-    "numbered": true,
-    "number_special_files": false,
-    "ordering": "alphabetical",
-    "matches": [
-      {
-        "path": "getting-started.md",
-        "parent": null,
-        "position": 1
-      },
-      {
-        "title": "Release Notes",
-        "new_title": "What's New",
-        "position": 999
-      },
-      {
-        "path": {
-          "regex": "^api/.*\\.md$"
-        },
-        "position": 50
+  pub(crate) fn field<T: Serialize>(
+    &mut self,
+    key: &str,
+    docs: &str,
+    value: &T,
+    commented: bool,
+  ) -> Result<(), TemplateError> {
+    self.value.clear();
+    value.serialize(toml::ser::ValueSerializer::new(&mut self.value))?;
+    self.comments(docs);
+    let prefix = if self.commented || commented {
+      "# "
+    } else {
+      ""
+    };
+    self.output.push_str(prefix);
+    self.output.push_str(&toml_key(key));
+    self.output.push_str(" = ");
+    // TOML strings can contain literal newlines; comment every line of
+    // examples.
+    for (index, line) in self.value.lines().enumerate() {
+      if index > 0 {
+        self.output.push('\n');
+        self.output.push_str(prefix);
       }
-    ],
-    "options": {
-      "depth": 2,
-      "nested": false,
-      "nested_depth": 0,
-      "ordering": "alphabetical",
-      "matches": [
-        {
-          "name": {
-            "regex": "^myInternal\\..*"
-          },
-          "hidden": true
-        },
-        {
-          "name": "programs.git",
-          "new_name": "Git Configuration",
-          "position": 5
-        },
-        {
-          "name": {
-            "regex": "^services\\..*"
-          },
-          "depth": 3,
-          "position": 10
-        }
-      ]
+      self.output.push_str(line);
     }
+    self.output.push_str("\n\n");
+    Ok(())
+  }
+
+  pub(crate) fn section<T: ConfigTemplate>(
+    &mut self,
+    key: &str,
+    docs: &str,
+    value: &T,
+    commented: bool,
+    array: bool,
+  ) -> Result<(), TemplateError> {
+    let previous_len = self.path.len();
+    let previous_commented = self.commented;
+    if !self.path.is_empty() {
+      self.path.push('.');
+    }
+    self.path.push_str(&toml_key(key));
+    self.commented |= commented;
+    self.comments(docs);
+    if self.commented {
+      self.output.push_str("# ");
+    }
+    self.output.push_str(if array { "[[" } else { "[" });
+    self.output.push_str(&self.path);
+    self.output.push_str(if array { "]]\n\n" } else { "]\n\n" });
+    let result = value.write_template(self);
+    self.path.truncate(previous_len);
+    self.commented = previous_commented;
+    result
   }
 }
-"#;
 
-/// Get the correct configuration template based on the requested format.
+fn toml_key(key: &str) -> Cow<'_, str> {
+  if !key.is_empty()
+    && key
+      .bytes()
+      .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+  {
+    Cow::Borrowed(key)
+  } else {
+    Cow::Owned(toml::Value::String(key.to_string()).to_string())
+  }
+}
+
+fn starter_config() -> Config {
+  Config {
+    input_dir: Some(PathBuf::from("docs")),
+    ..Config::default()
+  }
+}
+
+/// Generate a starter configuration using the configuration types and defaults.
+///
+/// TOML includes field documentation and commented examples for absent optional
+/// settings. JSON contains only the starter values, never the TOML examples.
 ///
 /// # Errors
 ///
-/// Returns an error if the requested format is not supported.
-pub fn get_template(format: &str) -> Result<&'static str, TemplateError> {
+/// Returns an error for unsupported formats or values that cannot be
+/// serialized.
+///
+/// # Examples
+///
+/// ```
+/// let config = ndg_config::templates::get_template("json")?;
+/// let _: ndg_config::Config = serde_json::from_str(&config)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn get_template(format: &str) -> Result<String, TemplateError> {
+  let config = starter_config();
   match format.to_lowercase().as_str() {
-    "toml" => Ok(DEFAULT_TOML_TEMPLATE),
-    "json" => Ok(DEFAULT_JSON_TEMPLATE),
+    "toml" => {
+      let mut writer = TemplateWriter {
+        output: "# NDG Configuration File\n# Optional settings and sections \
+                 are commented out.\n\n"
+          .to_string(),
+        ..TemplateWriter::default()
+      };
+      config.write_template(&mut writer)?;
+      Ok(writer.output)
+    },
+    "json" => Ok(serde_json::to_string_pretty(&config)? + "\n"),
     _ => Err(TemplateError::UnsupportedFormat(format.to_string())),
+  }
+}
+
+#[cfg(test)]
+#[expect(
+  clippy::unwrap_used,
+  reason = "Tests can unwrap generated configurations"
+)]
+mod tests {
+  use tempfile::tempdir;
+
+  use super::*;
+  use crate::{options, sidebar};
+
+  #[test]
+  fn test_init_formats_load_the_same_starter() {
+    let temp = tempdir().unwrap();
+    let expected = serde_json::to_value(starter_config()).unwrap();
+    for format in ["toml", "json"] {
+      let path = temp.path().join(format!("ndg.{format}"));
+      Config::generate_default_config(format, &path).unwrap();
+      let config = Config::from_file(path).unwrap();
+      assert_eq!(serde_json::to_value(config).unwrap(), expected);
+    }
+  }
+
+  #[test]
+  fn test_template_nested_tables_preserve_root_values_and_rule_names() {
+    let config = Config {
+      title: "Quotes \" and\na new line".to_string(),
+      options: Some(options::OptionsConfig {
+        filter: Some(options::FilterConfig {
+          type_name: Some("boolean".to_string()),
+          ..options::FilterConfig::default()
+        }),
+        ..options::OptionsConfig::default()
+      }),
+      sidebar: Some(sidebar::SidebarConfig {
+        matches: vec![sidebar::SidebarMatch {
+          path: Some(sidebar::PathMatch {
+            exact: Some("guide.md".to_string()),
+            ..sidebar::PathMatch::default()
+          }),
+          position: Some(2),
+          ..sidebar::SidebarMatch::default()
+        }],
+        ..sidebar::SidebarConfig::default()
+      }),
+      ..starter_config()
+    };
+    let mut writer = TemplateWriter::default();
+    config.write_template(&mut writer).unwrap();
+    let mut parsed: Config = toml::from_str(&writer.output).unwrap();
+    parsed.validate().unwrap();
+    assert_eq!(
+      serde_json::to_value(parsed).unwrap(),
+      serde_json::to_value(config).unwrap()
+    );
   }
 }

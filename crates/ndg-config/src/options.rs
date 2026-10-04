@@ -1,6 +1,6 @@
 use std::path::{Component, Path};
 
-use ndg_macros::Configurable;
+use ndg_macros::{ConfigTemplate, Configurable};
 use serde::{Deserialize, Serialize};
 
 use crate::matchers::OptionNameMatch;
@@ -10,7 +10,9 @@ const fn default_true() -> bool {
 }
 
 /// Filters applied to module options before rendering options documentation.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Default, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct OptionsConfig {
   /// Optional filtering configuration for module options.
@@ -38,7 +40,9 @@ impl OptionsConfig {
 }
 
 /// Filters applied to module options before rendering options documentation.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct FilterConfig {
   /// Include only options whose names start with this prefix.
@@ -140,7 +144,9 @@ fn default_pages_root() -> String {
 }
 
 /// Configuration for splitting option documentation across generated pages.
-#[derive(Debug, Clone, Serialize, Deserialize, Configurable)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, Configurable, ConfigTemplate,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct OptionsPagesConfig {
   /// Whether multi-page option documentation is enabled.
@@ -158,6 +164,7 @@ pub struct OptionsPagesConfig {
   pub root: String,
 
   /// Pattern-based matching rules for deep or custom option page groups.
+  #[template(nested)]
   pub matches: Vec<OptionsPageMatch>,
 }
 
@@ -220,15 +227,19 @@ impl OptionsPagesConfig {
 }
 
 /// Matching rule for custom option page routing.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(
+  Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, ConfigTemplate,
+)]
 #[serde(deny_unknown_fields)]
 pub struct OptionsPageMatch {
   /// Option name matching criteria.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(nested)]
   pub name: Option<OptionNameMatch>,
 
   /// Custom page prefix depth for matching options.
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[template(example = 1usize)]
   pub depth: Option<usize>,
 
   /// Override display title for the generated page group.
