@@ -248,8 +248,6 @@ Content with null bytes \x00
   let result = processor.render(md);
   let html = result.html;
 
-  // Should not crash and should produce some HTML output
-  assert!(!html.is_empty());
   assert!(html.contains("<html>"));
 
   // Should handle headers gracefully

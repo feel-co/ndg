@@ -1135,7 +1135,7 @@ impl PdfBuilder {
     }
 
     if level == 1 {
-      let rule_y = self.y + line_h * 0.5;
+      let rule_y = line_h.mul_add(0.5, self.y);
       self.draw_line(
         Self::ML,
         rule_y,

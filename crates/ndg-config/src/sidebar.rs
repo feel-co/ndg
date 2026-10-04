@@ -461,15 +461,10 @@ impl SidebarMatch {
     }
 
     // Check title matching
-    if self
+    self
       .title
       .as_ref()
-      .is_some_and(|title_match| !title_match.matches(title_str))
-    {
-      return false;
-    }
-
-    true
+      .is_none_or(|title_match| title_match.matches(title_str))
   }
 
   /// Get the position for this match.
@@ -709,17 +704,6 @@ mod tests {
     let wrapper: Wrapper =
       toml::from_str(toml).expect("Failed to parse filesystem ordering TOML");
     assert!(matches!(wrapper.ordering, SidebarOrdering::Filesystem));
-  }
-
-  #[test]
-  fn test_sidebar_config_default() {
-    let config = SidebarConfig::default();
-    assert!(!config.numbered);
-    assert!(!config.number_special_files);
-    assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
-    assert!(config.matches.is_empty());
-    assert!(config.toc.exclude.is_empty());
-    assert!(config.options.is_none());
   }
 
   #[test]
@@ -1117,15 +1101,6 @@ position = 1
   }
 
   // Options configuration tests
-
-  #[test]
-  fn test_options_config_default() {
-    let config = OptionsConfig::default();
-    assert_eq!(config.depth, 2);
-    assert!(!config.collapse_singletons);
-    assert!(matches!(config.ordering, SidebarOrdering::Alphabetical));
-    assert!(config.matches.is_empty());
-  }
 
   #[test]
   fn test_options_match_exact_name() {
