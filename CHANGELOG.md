@@ -44,6 +44,13 @@ changes.
   `sidebar.group_by_dir` report errors
   ([#290](https://github.com/feel-co/ndg/issues/290)).
 
+- A theme toggle in the page header. A click selects the light or the dark
+  theme, and the page keeps the selection in `localStorage`. When the selected
+  theme is the same as the system theme, the page follows the system theme
+  again. The toggle also selects the matching `<source>` of a `<picture>` with a
+  `prefers-color-scheme` media query. The page sends an `ndg:themechange` event
+  on `document` when the theme changes.
+
 ### Changed
 
 - `ndg init` now generates configuration from the config types and defaults,
