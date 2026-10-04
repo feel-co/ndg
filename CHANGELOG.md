@@ -37,6 +37,11 @@ changes.
 
 ### Fixed
 
+- Pages now link each script in `script_paths` at `assets/<file name>`, where
+  NDG copies it. Before, the link used the configured source path, so a script
+  from outside the output directory, such as a path in the Nix store, did not
+  load.
+
 - An anchor link that holds only an element, such as
   `<a href="#fig-example"><img src="example.png"></a>`, no longer gets humanized
   text added after the element. Before, the processor treated it as an empty

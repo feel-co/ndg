@@ -1627,9 +1627,13 @@ fn generate_custom_scripts(
   // replace default content, the user should specify `--template-dir` or
   // `--template` instead.
   for script_path in &config.script_paths {
-    // Relative path to script
+    // `copy_assets` copies each script to `assets/<file name>`, so link there,
+    // not to the configured source path.
+    let Some(file_name) = script_path.file_name() else {
+      continue;
+    };
     let script_relative_path =
-      format!("{}{}", root_prefix, script_path.to_string_lossy());
+      format!("{}assets/{}", root_prefix, file_name.to_string_lossy());
     write!(
       custom_scripts,
       "<script defer src=\"{script_relative_path}\"></script>"
