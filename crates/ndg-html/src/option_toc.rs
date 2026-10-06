@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
-use color_eyre::eyre::Result;
 use html_escape::encode_text;
 use indexmap::IndexMap;
+use misstep::Result;
 use ndg_config::sidebar::{OptionsConfig, OptionsMatch, SidebarOrdering};
 use ndg_manpage::types::NixOption;
 use rustc_hash::FxHashMap;

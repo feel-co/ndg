@@ -1,7 +1,7 @@
 use std::{fmt::Write, path::Path};
 
-use color_eyre::eyre::Result;
 use html_escape::encode_text;
+use misstep::Result;
 use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
 use ndg_utils::html::calculate_root_relative_path;

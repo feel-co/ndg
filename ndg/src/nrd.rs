@@ -8,8 +8,8 @@ use std::{
 };
 
 use clap::{Args, Parser, Subcommand};
-use color_eyre::eyre::{Context, Result, bail};
 use comrak::{Arena, Options, nodes::NodeValue, parse_document};
+use misstep::{Result, ResultExt, bail, report};
 use regex::Regex;
 use serde_json::{Map, Value};
 
@@ -249,7 +249,7 @@ pub fn run() -> Result<()> {
     rayon::ThreadPoolBuilder::new()
       .num_threads(jobs)
       .build_global()
-      .wrap_err("failed to configure nrd worker pool")?;
+      .context("failed to configure nrd worker pool")?;
   }
 
   match cli.command {
@@ -303,7 +303,7 @@ fn run_options_commonmark(args: CommonMarkArgs) -> Result<()> {
     args.anchor_prefix,
   );
   converter.add_options(&options)?;
-  fs::write(&args.outfile, converter.finalize()).wrap_err_with(|| {
+  fs::write(&args.outfile, converter.finalize()).with_context(|| {
     format!(
       "failed to write commonmark output to {}",
       args.outfile.display()
@@ -319,7 +319,7 @@ fn run_options_manpage(args: ManpageArgs) -> Result<()> {
     read_optional_lines(args.footer.as_ref())?,
   );
   converter.add_options(&options)?;
-  fs::write(&args.outfile, converter.finalize()?).wrap_err_with(|| {
+  fs::write(&args.outfile, converter.finalize()?).with_context(|| {
     format!(
       "failed to write manpage output to {}",
       args.outfile.display()
@@ -331,7 +331,7 @@ fn read_optional_text(path: Option<&PathBuf>) -> Result<Option<String>> {
   path
     .map(|path| {
       fs::read_to_string(path)
-        .wrap_err_with(|| format!("failed to read {}", path.display()))
+        .with_context(|| format!("failed to read {}", path.display()))
     })
     .transpose()
 }
@@ -344,9 +344,9 @@ fn read_optional_lines(path: Option<&PathBuf>) -> Result<Option<Vec<String>>> {
 
 fn read_options(path: &PathBuf) -> Result<Map<String, Value>> {
   let content = fs::read_to_string(path)
-    .wrap_err_with(|| format!("failed to read {}", path.display()))?;
+    .with_context(|| format!("failed to read {}", path.display()))?;
   let value: Value = serde_json::from_str(&content)
-    .wrap_err_with(|| format!("failed to parse {}", path.display()))?;
+    .with_context(|| format!("failed to parse {}", path.display()))?;
   match value {
     Value::Object(options) => Ok(options),
     _ => bail!("options input must be a JSON object"),
@@ -355,9 +355,9 @@ fn read_options(path: &PathBuf) -> Result<Map<String, Value>> {
 
 fn read_string_map(path: &PathBuf) -> Result<HashMap<String, String>> {
   let content = fs::read_to_string(path)
-    .wrap_err_with(|| format!("failed to read {}", path.display()))?;
+    .with_context(|| format!("failed to read {}", path.display()))?;
   serde_json::from_str(&content)
-    .wrap_err_with(|| format!("failed to parse {}", path.display()))
+    .with_context(|| format!("failed to parse {}", path.display()))
 }
 
 fn parse_anchor_style(value: &str) -> Result<AnchorStyle> {
@@ -388,7 +388,7 @@ impl CommonMarkConverter {
     for (name, option) in options {
       let rendered = self
         .render_option(name, option)
-        .wrap_err_with(|| format!("failed to render option {name}"))?;
+        .with_context(|| format!("failed to render option {name}"))?;
       self.options.insert(name.clone(), rendered);
     }
     Ok(())
@@ -658,7 +658,7 @@ impl ManpageConverter {
     for (name, option) in options {
       let rendered = self
         .render_option(name, option)
-        .wrap_err_with(|| format!("failed to render option {name}"))?;
+        .with_context(|| format!("failed to render option {name}"))?;
       self.options.insert(name.clone(), rendered);
     }
     Ok(())
@@ -979,7 +979,7 @@ impl CommonMarkRenderer {
           let list = self
             .list_stack
             .last_mut()
-            .ok_or_else(|| color_eyre::eyre::eyre!("list item outside list"))?;
+            .ok_or_else(|| report!("list item outside list"))?;
           let line_break_count = if list.first_item_seen {
             Some(if list.compact { 1 } else { 2 })
           } else {
@@ -1247,7 +1247,7 @@ impl ManpageRenderer {
           let list = self
             .list_stack
             .last_mut()
-            .ok_or_else(|| color_eyre::eyre::eyre!("list item outside list"))?;
+            .ok_or_else(|| report!("list item outside list"))?;
           let maybe_space = if list.compact || !list.first_item_seen {
             String::new()
           } else {

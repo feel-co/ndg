@@ -2,12 +2,13 @@ use std::{
   fs,
   io::{self, Write},
   path::{Path, PathBuf},
+  process::ExitCode,
 };
 
-use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate_to, shells};
 use clap_mangen::Man;
+use misstep::{Result, ResultExt};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -34,7 +35,17 @@ enum Commands {
   },
 }
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
+  match run() {
+    Ok(()) => ExitCode::SUCCESS,
+    Err(error) => {
+      let _ = writeln!(io::stderr().lock(), "{error:?}");
+      ExitCode::FAILURE
+    },
+  }
+}
+
+fn run() -> Result<()> {
   let xtask = Xtask::parse();
 
   match xtask.command {

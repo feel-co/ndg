@@ -6,10 +6,10 @@ edition.workspace = true
 publish           = false
 
 [dependencies]
-anyhow.workspace        = true
 clap.workspace          = true
 clap_complete.workspace = true
 clap_mangen.workspace   = true
+misstep.workspace       = true
 ndg                     = { workspace = true, features = [ "commonmark-ndg" ] }
 
 [lints]

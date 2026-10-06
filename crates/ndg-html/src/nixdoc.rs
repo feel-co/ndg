@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
-use color_eyre::eyre::{Context, Result, bail};
 use log::info;
+use misstep::{Result, ResultExt, bail};
 use ndg_config::Config;
 use ndg_nixdoc::NixDocEntry;
 
@@ -60,10 +60,10 @@ pub fn process_nixdoc(
   let entries_html = page.entries_html();
   let toc_html = page.toc_html();
   let lib_html = template::render_lib(config, &entries_html, &toc_html)
-    .wrap_err("Failed to render lib page")?;
+    .context("Failed to render lib page")?;
 
   let lib_path = config.output_dir.join("lib.html");
-  fs::write(&lib_path, &lib_html).wrap_err_with(|| {
+  fs::write(&lib_path, &lib_html).with_context(|| {
     format!("Failed to write lib.html to {}", lib_path.display())
   })?;
 
