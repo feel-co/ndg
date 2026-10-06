@@ -58,12 +58,16 @@ changes.
   are added. JSON uses the same starter values without activating example paths
   or sidebar rules. Long time coming honestly.
 
+- NDG's error reporting stack, previously handled by `color-eyre` and `anyhow`,
+  have been replaced with our own in-house crate `misstep` for lighter
+  dependency graphs. Error context and backtraces should be preserved with no
+  issues, but please do open issues if you notice anything.
+
 ### Fixed
 
 - Option filtering keeps cards in place and hides nonmatches, reducing delays
   from browser extensions that rescan removed and reinserted content. Results
   retain their original order, and keyboard navigation skips hidden cards.
-
 ## [2.10.2]
 
 ### Fixed
