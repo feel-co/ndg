@@ -58,6 +58,12 @@ changes.
   are added. JSON uses the same starter values without activating example paths
   or sidebar rules. Long time coming honestly.
 
+### Fixed
+
+- Option filtering keeps cards in place and hides nonmatches, reducing delays
+  from browser extensions that rescan removed and reinserted content. Results
+  retain their original order, and keyboard navigation skips hidden cards.
+
 ## [2.10.2]
 
 ### Fixed
