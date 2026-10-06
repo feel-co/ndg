@@ -1,8 +1,8 @@
 use std::{fmt::Write, fs, path::Path};
 
-use color_eyre::eyre::{Context, Result};
 use indexmap::IndexMap;
 use log::debug;
+use misstep::{Result, ResultExt};
 use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
 use ndg_manpage::types::NixOption;
@@ -40,11 +40,11 @@ struct OptionsChunkManifest {
 /// Returns an error if the file cannot be read, parsed, or written.
 pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
   // Read options JSON
-  let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
+  let json_content = fs::read_to_string(options_path).with_context(|| {
     format!("Failed to read options file: {}", options_path.display())
   })?;
 
-  let options_data = parse_options_json(&json_content).wrap_err_with(|| {
+  let options_data = parse_options_json(&json_content).with_context(|| {
     format!(
       "Failed to validate options JSON at {}",
       options_path.display()
@@ -323,12 +323,12 @@ fn write_options_html(
 
   let output_path = config.output_dir.join(relative_path);
   if let Some(parent) = output_path.parent() {
-    fs::create_dir_all(parent).wrap_err_with(|| {
+    fs::create_dir_all(parent).with_context(|| {
       format!("Failed to create options directory: {}", parent.display())
     })?;
   }
 
-  fs::write(&output_path, processed_html).wrap_err_with(|| {
+  fs::write(&output_path, processed_html).with_context(|| {
     format!("Failed to write options file: {}", output_path.display())
   })?;
 

@@ -4,9 +4,9 @@ use std::{
   sync::Mutex,
 };
 
-use color_eyre::eyre::{Context, Result};
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use log::{info, warn};
+use misstep::{Result, ResultExt, report};
 use ndg_commonmark::{
   Header,
   MarkdownOptionsBuilder,
@@ -250,10 +250,9 @@ fn process_markdown_files_impl(
       .par_iter()
       .progress_with(progress.clone())
       .map(|file_path| {
-        let raw_content =
-          fs::read_to_string(file_path).wrap_err_with(|| {
-            format!("Failed to read markdown file: {}", file_path.display())
-          })?;
+        let raw_content = fs::read_to_string(file_path).with_context(|| {
+          format!("Failed to read markdown file: {}", file_path.display())
+        })?;
         let base_dir = file_path.parent().unwrap_or(input_dir.as_path());
         let source_digest = digest(&raw_content);
         if let Some((dir, processor_digest)) = &cache
@@ -310,7 +309,7 @@ fn process_markdown_files_impl(
           if let Ok(inc_rel) = inc_path.strip_prefix(input_dir) {
             let custom_output = Path::new(custom_output);
             crate::output::output_path(&config.output_dir, custom_output)
-              .wrap_err_with(|| {
+              .with_context(|| {
                 format!(
                   "Invalid html:into-file output path: {}",
                   custom_output.display()
@@ -350,7 +349,7 @@ fn process_markdown_files_impl(
 
     // Second pass: build output entries after resolving include relationships.
     for (file_path, (frontmatter, result)) in files.into_iter().zip(rendered) {
-      let rel_path = file_path.strip_prefix(input_dir).wrap_err_with(|| {
+      let rel_path = file_path.strip_prefix(input_dir).with_context(|| {
         format!(
           "Failed to determine relative path for {}",
           file_path.display()
@@ -463,10 +462,7 @@ fn apply_anchor_policy(
   match policy {
     DuplicateAnchorPolicy::Error => {
       validate_rendered_anchor_ids(&result.headers, &result.html).map_err(|e| {
-        color_eyre::eyre::eyre!(
-          "Duplicate anchor IDs in {}:\n{e}",
-          file_path.display()
-        )
+        report!("Duplicate anchor IDs in {}:\n{e}", file_path.display())
       })
     },
     DuplicateAnchorPolicy::Warn => {
@@ -672,7 +668,7 @@ pub fn create_processor(
 
   if let Some(mappings_path) = &config.manpage_urls_path {
     let mappings = ndg_commonmark::utils::load_manpage_urls(mappings_path)
-      .wrap_err_with(|| {
+      .with_context(|| {
         format!(
           "Failed to load manpage URL mappings from {}",
           mappings_path.display()

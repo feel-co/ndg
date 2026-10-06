@@ -3,7 +3,7 @@ use std::{
   path::{Component, Path, PathBuf},
 };
 
-use color_eyre::eyre::{Result, bail};
+use misstep::{Result, bail};
 use ndg_config::Config;
 
 use crate::markdown::extract_page_title;

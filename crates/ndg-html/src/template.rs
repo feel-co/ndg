@@ -7,9 +7,9 @@ use std::{
   sync::{Arc, LazyLock, RwLock},
 };
 
-use color_eyre::eyre::{Context, Result, bail};
 use html_escape::{encode_double_quoted_attribute, encode_text};
 use indexmap::IndexMap;
+use misstep::{Result, ResultExt, bail, report};
 use ndg_commonmark::{Header, MarkdownProcessor};
 use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
@@ -1160,7 +1160,7 @@ fn load_template_content(
     let template_path = template_dir.join(template_name);
     if template_path.exists() {
       log::debug!("Loading custom template: {}", template_path.display());
-      return fs::read_to_string(&template_path).wrap_err({
+      return fs::read_to_string(&template_path).context({
         format!("Failed to read template file: {}", template_path.display())
       });
     }
@@ -1182,7 +1182,7 @@ fn load_template_content(
       "Loading custom template (backward compat): {}",
       template_path.display()
     );
-    return fs::read_to_string(template_path).wrap_err({
+    return fs::read_to_string(template_path).context({
       format!(
         "Failed to read custom template file: {}. Check file permissions and \
          ensure the file is valid UTF-8",
@@ -1441,7 +1441,7 @@ fn generate_doc_nav(
     let mut items = Vec::new();
     let mut requested_parents = Vec::new();
     for entry in walkdir::WalkDir::new(input_dir).follow_links(true) {
-      let entry = entry.wrap_err_with(|| {
+      let entry = entry.with_context(|| {
         format!(
           "failed to discover sidebar pages in {}",
           input_dir.display()
@@ -1451,7 +1451,7 @@ fn generate_doc_nav(
       if !path.is_file() || path.extension().is_none_or(|ext| ext != "md") {
         continue;
       }
-      let source = path.strip_prefix(input_dir).wrap_err_with(|| {
+      let source = path.strip_prefix(input_dir).with_context(|| {
         format!(
           "sidebar source {} is outside {}",
           path.display(),
@@ -1631,7 +1631,7 @@ fn generate_custom_scripts(
     // `copy_assets` copies each script to `assets/<file name>`, so link there,
     // not to the configured source path.
     let file_name = script_path.file_name().ok_or_else(|| {
-      color_eyre::eyre::eyre!(
+      report!(
         "Invalid script_paths entry '{}': expected a path with a filename",
         script_path.display()
       )
@@ -2057,7 +2057,7 @@ pub fn render_and_write(
     html
   };
 
-  fs::write(&output_path, processed_html).wrap_err_with(|| {
+  fs::write(&output_path, processed_html).with_context(|| {
     format!("Failed to write output HTML: {}", output_path.display())
   })?;
 

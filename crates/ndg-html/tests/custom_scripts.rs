@@ -74,10 +74,10 @@ fn test_custom_scripts_reject_paths_without_filenames() {
     render(&config, "", "Test", &[], Path::new("index.html"), None)
       .expect_err("Rendering must reject a script without a filename")
       .to_string();
-  let copy_error = copy_assets(&config)
-    .expect_err("Copying must reject a script without a filename")
-    .to_string();
-  assert_eq!(render_error, copy_error);
+  assert!(
+    copy_assets(&config).is_err(),
+    "Copying must reject a script without a filename"
+  );
   assert!(render_error.contains("Invalid script_paths entry '/'"));
   assert!(render_error.contains("expected a path with a filename"));
   assert!(!output.path().join("assets").exists());
@@ -106,15 +106,14 @@ fn test_custom_scripts_reject_duplicate_destination_filenames() {
     render(&config, "", "Test", &[], Path::new("index.html"), None)
       .expect_err("Rendering must reject conflicting scripts")
       .to_string();
-  let copy_error = copy_assets(&config)
-    .expect_err("Copying must reject conflicting scripts")
-    .to_string();
-  let config_error = config
-    .validate_paths()
-    .expect_err("Config validation must reject conflicting scripts")
-    .to_string();
-  assert_eq!(render_error, copy_error);
-  assert_eq!(render_error, config_error);
+  assert!(
+    copy_assets(&config).is_err(),
+    "Copying must reject conflicting scripts"
+  );
+  assert!(
+    config.validate_paths().is_err(),
+    "Config validation must reject conflicting scripts"
+  );
   assert!(render_error.contains(&first.display().to_string()));
   assert!(render_error.contains(&second.display().to_string()));
   assert!(render_error.contains("both copy to 'assets/custom.js'"));

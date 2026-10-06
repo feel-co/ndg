@@ -1,10 +1,12 @@
 use std::{
   fs,
+  io::{self, Write},
   path::{Path, PathBuf},
+  process::ExitCode,
 };
 
-use color_eyre::eyre::{Context, Result, bail};
 use log::info;
+use misstep::{Result, ResultExt, bail, report};
 use ndg::{config, html, manpage, pdf, utils};
 use rayon::prelude::*;
 use rustc_hash::FxHashSet;
@@ -19,9 +21,19 @@ use config::{
 #[cfg(feature = "nrd")] mod nrd;
 #[cfg(feature = "serve")] mod serve;
 
-fn main() -> Result<()> {
-  color_eyre::install()?;
+fn main() -> ExitCode {
+  misstep::install_panic_hook();
 
+  match run() {
+    Ok(()) => ExitCode::SUCCESS,
+    Err(error) => {
+      let _ = writeln!(io::stderr().lock(), "{error:?}");
+      ExitCode::FAILURE
+    },
+  }
+}
+
+fn run() -> Result<()> {
   #[cfg(feature = "nrd")]
   if nrd::invoked_as_nrd() {
     return nrd::run();
@@ -53,20 +65,18 @@ fn main() -> Result<()> {
         if let Some(parent) = output.parent()
           && !parent.exists()
         {
-          fs::create_dir_all(parent).wrap_err_with(|| {
+          fs::create_dir_all(parent).with_context(|| {
             format!("Failed to create directory: {}", parent.display())
           })?;
           info!("Created directory: {}", parent.display());
         }
 
-        Config::generate_default_config(format, output).wrap_err_with(
-          || {
-            format!(
-              "Failed to generate configuration file: {}",
-              output.display()
-            )
-          },
-        )?;
+        Config::generate_default_config(format, output).with_context(|| {
+          format!(
+            "Failed to generate configuration file: {}",
+            output.display()
+          )
+        })?;
         update_gitignore(output)?;
 
         info!(
@@ -82,7 +92,7 @@ fn main() -> Result<()> {
         templates,
       } => {
         Config::export_templates(output_dir, *force, Some(templates.clone()))
-          .wrap_err_with(|| {
+          .with_context(|| {
           format!("Failed to export templates to {}", output_dir.display())
         })?;
         return Ok(());
@@ -132,7 +142,7 @@ fn main() -> Result<()> {
   merge_cli_into_config(&mut config, &cli);
   config
     .validate()
-    .wrap_err("Invalid configuration after applying command-line arguments")?;
+    .context("Invalid configuration after applying command-line arguments")?;
 
   #[cfg(not(feature = "nixdoc"))]
   if !config.nixdoc_inputs.is_empty() {
@@ -198,7 +208,7 @@ fn update_gitignore(config_path: &Path) -> Result<()> {
   let path = root.join(".gitignore");
   let mut content = if path.exists() {
     fs::read_to_string(&path)
-      .wrap_err_with(|| format!("Failed to read {}", path.display()))?
+      .with_context(|| format!("Failed to read {}", path.display()))?
   } else {
     String::new()
   };
@@ -214,7 +224,7 @@ fn update_gitignore(config_path: &Path) -> Result<()> {
   }
   content.push_str(CACHE_SECTION);
   fs::write(&path, content)
-    .wrap_err_with(|| format!("Failed to update {}", path.display()))
+    .with_context(|| format!("Failed to update {}", path.display()))
 }
 
 fn project_root(config_files: &[PathBuf]) -> PathBuf {
@@ -434,7 +444,7 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
   // Validate other paths (module_options, template_path, etc.)
   config
     .validate_paths()
-    .map_err(|e| color_eyre::eyre::eyre!("Configuration error: {e}"))?;
+    .map_err(|e| report!("Configuration error: {e}"))?;
 
   // Ensure output directory exists
   fs::create_dir_all(&config.output_dir)?;
@@ -485,16 +495,13 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| {
-          color_eyre::eyre::eyre!(
-            "output path has no parent: {}",
-            item.output_path
-          )
+          report!("output path has no parent: {}", item.output_path)
         })
     })
     .collect::<Result<_>>()?;
 
   for dir in output_dirs {
-    fs::create_dir_all(&dir).wrap_err_with(|| {
+    fs::create_dir_all(&dir).with_context(|| {
       format!("Failed to create output directory: {}", dir.display())
     })?;
   }
@@ -552,7 +559,7 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
       Path::new("index.html"),
       None,
     )?;
-    fs::write(&index_path, html).wrap_err_with(|| {
+    fs::write(&index_path, html).with_context(|| {
       format!("Failed to write index.html to {}", index_path.display())
     })?;
   }

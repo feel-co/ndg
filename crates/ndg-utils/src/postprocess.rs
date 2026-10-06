@@ -1,4 +1,4 @@
-use color_eyre::{Result, eyre::eyre};
+use misstep::{Result, report};
 use ndg_config::postprocess::PostprocessConfig;
 use oxc_allocator::Allocator;
 use oxc_codegen::{Codegen, CodegenOptions};
@@ -38,7 +38,7 @@ pub fn process_html(
 
   let minified = minify_html::minify(content.as_bytes(), &cfg);
   String::from_utf8(minified)
-    .map_err(|e| eyre!("Minified HTML contains invalid UTF-8: {}", e))
+    .map_err(|e| report!("Minified HTML contains invalid UTF-8: {}", e))
 }
 
 /// Apply CSS minification if enabled
@@ -79,7 +79,7 @@ pub fn process_css(
 
   let stylesheet =
     lightningcss::stylesheet::StyleSheet::parse(content, parser_opts)
-      .map_err(|e| eyre!("Failed to parse CSS: {e}"))?;
+      .map_err(|e| report!("Failed to parse CSS: {e}"))?;
 
   let printer_opts = lightningcss::stylesheet::PrinterOptions {
     minify:               css_opts.minify,
@@ -92,7 +92,7 @@ pub fn process_css(
 
   let result = stylesheet
     .to_css(printer_opts)
-    .map_err(|e| eyre!("Failed to minify CSS: {e}"))?;
+    .map_err(|e| report!("Failed to minify CSS: {e}"))?;
 
   Ok(result.code)
 }
@@ -125,7 +125,7 @@ pub fn process_js(content: &str, config: &PostprocessConfig) -> Result<String> {
   let ret = Parser::new(&allocator, content, source_type).parse();
 
   if !ret.diagnostics.is_empty() {
-    return Err(eyre!(
+    return Err(report!(
       "Failed to parse JavaScript: {}",
       ret
         .diagnostics

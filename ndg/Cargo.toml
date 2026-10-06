@@ -42,10 +42,10 @@ ndg-utils.workspace   = true
 
 clap.workspace                = true
 clap-verbosity-flag.workspace = true
-color-eyre.workspace          = true
 comrak.workspace              = true
 env_logger.workspace          = true
 log.workspace                 = true
+misstep.workspace             = true
 num_cpus.workspace            = true
 open.workspace                = true
 rayon.workspace               = true
