@@ -388,53 +388,56 @@ Deno.test("the theme toggle goes back to the system theme", () => {
   assert(nextTheme("light", "dark") === "auto", "light goes back to auto");
 });
 
-Deno.test("rapid theme changes keep transition timing until the next paint", () => {
-  const frames = new Map();
-  let nextFrame = 0;
-  const classes = new Set();
-  const root = {
-    dataset: {},
-    classList: {
-      add: (name) => classes.add(name),
-      remove: (name) => classes.delete(name),
-    },
-  };
-  const events = [];
-  const browser = themeBrowser(false);
-  browser.cancelAnimationFrame = (id) => frames.delete(id);
-  browser.document = {
-    addEventListener() {},
-    documentElement: root,
-    querySelectorAll: () => [],
-    dispatchEvent: (event) => events.push(event.detail),
-  };
-  const { applyTheme } = loadMain((callback) => {
-    frames.set(++nextFrame, callback);
-    return nextFrame;
-  }, browser);
-  const paint = () => {
-    const pending = [...frames.values()];
-    frames.clear();
-    pending.forEach((callback) => callback());
-  };
+Deno.test(
+  "rapid theme changes keep transition timing until the next paint",
+  () => {
+    const frames = new Map();
+    let nextFrame = 0;
+    const classes = new Set();
+    const root = {
+      dataset: {},
+      classList: {
+        add: (name) => classes.add(name),
+        remove: (name) => classes.delete(name),
+      },
+    };
+    const events = [];
+    const browser = themeBrowser(false);
+    browser.cancelAnimationFrame = (id) => frames.delete(id);
+    browser.document = {
+      addEventListener() {},
+      documentElement: root,
+      querySelectorAll: () => [],
+      dispatchEvent: (event) => events.push(event.detail),
+    };
+    const { applyTheme } = loadMain((callback) => {
+      frames.set(++nextFrame, callback);
+      return nextFrame;
+    }, browser);
+    const paint = () => {
+      const pending = [...frames.values()];
+      frames.clear();
+      pending.forEach((callback) => callback());
+    };
 
-  applyTheme("dark");
-  paint();
-  applyTheme("light");
-  paint();
-  assert(
-    classes.has("theme-changing"),
-    "an older cleanup must not end the new switch",
-  );
-  assert(root.dataset.theme === "light", "the latest selection wins");
-  paint();
-  assert(
-    !classes.has("theme-changing"),
-    "normal hover timing resumes after paint",
-  );
-  assert(frames.size === 0, "no animation frames remain pending");
-  assert(
-    events.length === 2 && events[1].resolved === "light",
-    "theme events follow each selection",
-  );
-});
+    applyTheme("dark");
+    paint();
+    applyTheme("light");
+    paint();
+    assert(
+      classes.has("theme-changing"),
+      "an older cleanup must not end the new switch",
+    );
+    assert(root.dataset.theme === "light", "the latest selection wins");
+    paint();
+    assert(
+      !classes.has("theme-changing"),
+      "normal hover timing resumes after paint",
+    );
+    assert(frames.size === 0, "no animation frames remain pending");
+    assert(
+      events.length === 2 && events[1].resolved === "light",
+      "theme events follow each selection",
+    );
+  },
+);
