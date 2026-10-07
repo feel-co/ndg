@@ -38,18 +38,22 @@ in {
       virtualisation.diskSize = 512;
     };
 
-    testScript = /* py */ ''
-      machine.start()
-      machine.succeed("cat > /tmp/manpage-urls.json <<'JSON'\n{}\nJSON\n")
-      machine.succeed("cp ${sampleOptions} /tmp/options.json")
+    testScript =
+      /*
+      py
+      */
+      ''
+        machine.start()
+        machine.succeed("cat > /tmp/manpage-urls.json <<'JSON'\n{}\nJSON\n")
+        machine.succeed("cp ${sampleOptions} /tmp/options.json")
 
-      machine.succeed("${nrd}/bin/nrd options commonmark --manpage-urls /tmp/manpage-urls.json --revision local /tmp/options.json /tmp/ndg-default.md")
-      machine.succeed("${pkgs.nixos-render-docs}/bin/nixos-render-docs options commonmark --manpage-urls /tmp/manpage-urls.json --revision local /tmp/options.json /tmp/nrd-default.md")
-      machine.succeed("cmp /tmp/ndg-default.md /tmp/nrd-default.md")
+        machine.succeed("${nrd}/bin/nrd options commonmark --manpage-urls /tmp/manpage-urls.json --revision local /tmp/options.json /tmp/ndg-default.md")
+        machine.succeed("${pkgs.nixos-render-docs}/bin/nixos-render-docs options commonmark --manpage-urls /tmp/manpage-urls.json --revision local /tmp/options.json /tmp/nrd-default.md")
+        machine.succeed("cmp /tmp/ndg-default.md /tmp/nrd-default.md")
 
-      machine.succeed("${nrd}/bin/nixos-render-docs options commonmark --manpage-urls /tmp/manpage-urls.json --revision local --anchor-style legacy --anchor-prefix opt- /tmp/options.json /tmp/ndg-legacy.md")
-      machine.succeed("${pkgs.nixos-render-docs}/bin/nixos-render-docs options commonmark --manpage-urls /tmp/manpage-urls.json --revision local --anchor-style legacy --anchor-prefix opt- /tmp/options.json /tmp/nrd-legacy.md")
-      machine.succeed("cmp /tmp/ndg-legacy.md /tmp/nrd-legacy.md")
-    '';
+        machine.succeed("${nrd}/bin/nixos-render-docs options commonmark --manpage-urls /tmp/manpage-urls.json --revision local --anchor-style legacy --anchor-prefix opt- /tmp/options.json /tmp/ndg-legacy.md")
+        machine.succeed("${pkgs.nixos-render-docs}/bin/nixos-render-docs options commonmark --manpage-urls /tmp/manpage-urls.json --revision local --anchor-style legacy --anchor-prefix opt- /tmp/options.json /tmp/nrd-legacy.md")
+        machine.succeed("cmp /tmp/ndg-legacy.md /tmp/nrd-legacy.md")
+      '';
   };
 }

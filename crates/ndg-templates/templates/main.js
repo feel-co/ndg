@@ -425,7 +425,7 @@ function setupOptionKeyboardNavigation(signal) {
   const optionLinks = () =>
     Array.from(
       container.querySelectorAll(".option .option-anchor, .option-page-row"),
-    );
+    ).filter((link) => !link.closest("[hidden]"));
   const focusOption = (link) => {
     link.focus({ preventScroll: true });
     link
@@ -638,7 +638,20 @@ function setupOptionChunkLoading(signal) {
   return { hashReady, loadAll };
 }
 
-function getFilterMatches(searchTerm, originalOrder, data) {
+function getFilterRank({ name, searchText }, term) {
+  const position = name.indexOf(term);
+  return {
+    rank: position === -1 ? 1 : 0,
+    position: position === -1 ? searchText.indexOf(term) : position,
+  };
+}
+
+function getFilterMatches(
+  searchTerm,
+  originalOrder,
+  data,
+  preserveOrder = false,
+) {
   if (searchTerm === "") {
     return originalOrder.map((element, index) => ({ element, index }));
   }
@@ -646,20 +659,28 @@ function getFilterMatches(searchTerm, originalOrder, data) {
   const terms = searchTerm.split(/\s+/).filter(Boolean);
   const firstTerm = terms[0] || "";
 
-  return data
-    .filter((item) => terms.every((term) => item.searchText.includes(term)))
-    .sort((a, b) => {
-      const aRank = a.name.includes(firstTerm) ? 0 : 1;
-      const bRank = b.name.includes(firstTerm) ? 0 : 1;
-      if (aRank !== bRank) return aRank - bRank;
-      const aPos = a.name.includes(firstTerm)
-        ? a.name.indexOf(firstTerm)
-        : a.searchText.indexOf(firstTerm);
-      const bPos = b.name.includes(firstTerm)
-        ? b.name.indexOf(firstTerm)
-        : b.searchText.indexOf(firstTerm);
-      return aPos - bPos || a.index - b.index;
-    });
+  const matches = data.filter((item) =>
+    terms.every((term) => item.searchText.includes(term)),
+  );
+  if (preserveOrder) return matches;
+
+  return matches.sort((a, b) => {
+    const aRank = getFilterRank(a, firstTerm);
+    const bRank = getFilterRank(b, firstTerm);
+    return (
+      aRank.rank - bRank.rank ||
+      aRank.position - bRank.position ||
+      a.index - b.index
+    );
+  });
+}
+
+function setFilteredItemVisibility(data, matches) {
+  const visibleElements = new Set(matches.map((item) => item.element));
+  for (const { element } of data) {
+    const hidden = !visibleElements.has(element);
+    if (element.hidden !== hidden) element.hidden = hidden;
+  }
 }
 
 function reconcileFilteredItems({
@@ -670,7 +691,16 @@ function reconcileFilteredItems({
   reduceMotion,
   animateChanges,
   isCurrentRun,
+  preserveOrder = false,
 }) {
+  if (preserveOrder) {
+    setFilteredItemVisibility(data, matches);
+    return;
+  }
+
+  for (const { element } of data) {
+    element.classList.remove("filter-entering", "filter-leaving");
+  }
   const visibleElements = new Set(matches.map((item) => item.element));
   const leaving = [];
 
@@ -730,15 +760,25 @@ function reconcileFilteredItems({
 }
 
 function setupListFilter(
-  { inputId, containerSelector, itemSelector, nameSelector, noun, prepare },
+  {
+    inputId,
+    containerSelector,
+    itemSelector,
+    nameSelector,
+    noun,
+    prepare,
+    preserveOrder = false,
+  },
   signal,
 ) {
   const input = document.getElementById(inputId);
   const container = document.querySelector(containerSelector);
   if (!input || !container) return;
 
-  const hiddenContainer = document.createElement("template");
-  document.body.appendChild(hiddenContainer);
+  const hiddenContainer = preserveOrder
+    ? null
+    : document.createElement("template");
+  if (hiddenContainer) document.body.appendChild(hiddenContainer);
 
   const filterResults = document.createElement("div");
   filterResults.className = "filter-results";
@@ -790,11 +830,12 @@ function setupListFilter(
     lastTerm = searchTerm;
     filterRun += 1;
     const currentRun = filterRun;
-    for (const item of data) {
-      item.element.classList.remove("filter-entering", "filter-leaving");
-    }
-
-    const matches = getFilterMatches(searchTerm, originalOrder, data);
+    const matches = getFilterMatches(
+      searchTerm,
+      originalOrder,
+      data,
+      preserveOrder,
+    );
     reconcileFilteredItems({
       container,
       hiddenContainer,
@@ -803,6 +844,7 @@ function setupListFilter(
       reduceMotion,
       animateChanges,
       isCurrentRun: () => currentRun === filterRun,
+      preserveOrder,
     });
 
     if (searchTerm !== "" && matches.length < totalCount) {
@@ -840,7 +882,7 @@ function setupListFilter(
     "abort",
     () => {
       clearTimeout(timeout);
-      hiddenContainer.remove();
+      hiddenContainer?.remove();
     },
     { once: true },
   );
@@ -1042,6 +1084,7 @@ function setupOptionsFilter(signal, optionChunks) {
     nameSelector: ".option-name",
     noun: "options",
     prepare: optionChunks?.loadAll,
+    preserveOrder: true,
   };
   if (optionsIndexList) {
     config = {

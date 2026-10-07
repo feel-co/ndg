@@ -17,7 +17,7 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "fetch",
     "DOMParser",
     "IntersectionObserver",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme };`,
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility };`,
   )(
     window,
     document,
@@ -27,6 +27,90 @@ function loadMain(requestAnimationFrame, browser = {}) {
     browser.IntersectionObserver,
   );
 }
+
+Deno.test(
+  "option filtering preserves order and restores cards when cleared",
+  () => {
+    const { getFilterMatches, setFilteredItemVisibility } = loadMain(() => {});
+    const original = [{ hidden: false }, { hidden: false }, { hidden: false }];
+    const data = [
+      {
+        element: original[0],
+        index: 0,
+        name: "alpha",
+        searchText: "alpha files source",
+      },
+      {
+        element: original[1],
+        index: 1,
+        name: "files",
+        searchText: "files source",
+      },
+      {
+        element: original[2],
+        index: 2,
+        name: "other",
+        searchText: "other enable",
+      },
+    ];
+
+    const matches = getFilterMatches("files source", original, data, true);
+    assert(matches.length === 2, "every query term must match");
+    assert(matches[0].element === original[0], "option order stays stable");
+    setFilteredItemVisibility(data, matches);
+    assert(
+      !original[0].hidden && !original[1].hidden,
+      "matches remain visible",
+    );
+    assert(original[2].hidden, "nonmatches are hidden");
+
+    setFilteredItemVisibility(
+      data,
+      getFilterMatches("missing", original, data, true),
+    );
+    assert(
+      original.every((element) => element.hidden),
+      "no matches hides all cards",
+    );
+    setFilteredItemVisibility(data, getFilterMatches("", original, data, true));
+    assert(
+      original.every((element) => !element.hidden),
+      "clearing restores all cards",
+    );
+    assert(
+      getFilterMatches("files", original, data)[0].element === original[1],
+      "other list filters retain relevance sorting",
+    );
+  },
+);
+
+Deno.test(
+  "unchanged option visibility does not trigger attribute mutations",
+  () => {
+    const { setFilteredItemVisibility } = loadMain(() => {});
+    let hidden = false;
+    let writes = 0;
+    const element = {
+      get hidden() {
+        return hidden;
+      },
+      set hidden(value) {
+        hidden = value;
+        writes += 1;
+      },
+    };
+    const data = [{ element }];
+
+    setFilteredItemVisibility(data, data);
+    assert(writes === 0, "visible matches need no attribute write");
+    setFilteredItemVisibility(data, []);
+    assert(writes === 1 && hidden, "a newly hidden card changes once");
+    setFilteredItemVisibility(data, []);
+    assert(writes === 1, "already hidden cards need no attribute write");
+    setFilteredItemVisibility(data, data);
+    assert(writes === 2 && !hidden, "a restored card changes once");
+  },
+);
 
 Deno.test("scrolling loads one option chunk at a time", async () => {
   const requested = [];
