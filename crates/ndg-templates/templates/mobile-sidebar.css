@@ -33,7 +33,9 @@
   box-shadow: var(--shadow-lg);
   z-index: 1000;
   transform: translateX(-100%);
-  transition: transform var(--transition);
+  transition:
+    var(--theme-colors),
+    transform var(--transition);
   flex-direction: column;
 }
 
@@ -188,8 +190,9 @@ body.mobile-sidebar-open {
     font: inherit;
     cursor: pointer;
     transition:
-      background-color var(--transition-fast),
-      border-color var(--transition-fast);
+      var(--theme-colors),
+      background-color var(--theme-transition, var(--transition-fast)),
+      border-color var(--theme-transition, var(--transition-fast));
   }
 
   .mobile-sidebar-toggle:hover {

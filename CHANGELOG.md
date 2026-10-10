@@ -49,7 +49,9 @@ changes.
   theme is the same as the system theme, the page follows the system theme
   again. The toggle also selects the matching `<source>` of a `<picture>` with a
   `prefers-color-scheme` media query. The page sends an `ndg:themechange` event
-  on `document` when the theme changes.
+  on `document` when the theme changes. Colors transition consistently across
+  page elements while preserving normal hover timing, and native browser
+  controls follow the selected theme through `color-scheme`.
 
 ### Changed
 

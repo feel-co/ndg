@@ -32,10 +32,11 @@
   color: var(--text-color);
   text-decoration: none;
   transition:
+    var(--theme-colors),
     opacity var(--transition-fast),
     transform var(--transition-fast),
-    color var(--transition-fast),
-    background-color var(--transition-fast);
+    color var(--theme-transition, var(--transition-fast)),
+    background-color var(--theme-transition, var(--transition-fast));
 }
 
 .filter-entering,

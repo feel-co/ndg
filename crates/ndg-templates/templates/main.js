@@ -569,6 +569,8 @@ function setupOptionChunkLoading(signal) {
       })
       .then((html) => {
         chunk.innerHTML = html;
+        // FIXME: Sync themed pictures in this chunk with currentTheme(); images
+        // loaded after initializePage currently keep the system color scheme.
         chunk.removeAttribute("data-src");
         loadedChunks.add(index);
         updateStatus();
@@ -1442,7 +1444,17 @@ function syncThemeToggles(mode) {
   });
 }
 
+let themeTransitionFrame;
+
 function applyTheme(mode) {
+  // Use one color duration for the switch without changing normal hover timing.
+  cancelAnimationFrame(themeTransitionFrame);
+  document.documentElement.classList.add("theme-changing");
+  themeTransitionFrame = requestAnimationFrame(() => {
+    themeTransitionFrame = requestAnimationFrame(() => {
+      document.documentElement.classList.remove("theme-changing");
+    });
+  });
   if (mode === "auto") {
     delete document.documentElement.dataset.theme;
   } else {
