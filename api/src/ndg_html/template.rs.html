@@ -7,9 +7,9 @@
 <a href=#7 id=7 data-nosnippet>7</a>  sync::{Arc, LazyLock, RwLock},
 <a href=#8 id=8 data-nosnippet>8</a>};
 <a href=#9 id=9 data-nosnippet>9</a>
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>color_eyre::eyre::{Context, <span class="prelude-ty">Result</span>, bail};
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>html_escape::{encode_double_quoted_attribute, encode_text};
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>indexmap::IndexMap;
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>html_escape::{encode_double_quoted_attribute, encode_text};
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>indexmap::IndexMap;
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>misstep::{<span class="prelude-ty">Result</span>, ResultExt, bail, report};
 <a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>ndg_commonmark::{Header, MarkdownProcessor};
 <a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>ndg_config::{Config, sidebar::SidebarOrdering};
 <a href=#15 id=15 data-nosnippet>15</a><span class="kw">use </span>ndg_manpage::types::NixOption;
@@ -1160,7 +1160,7 @@
 <a href=#1160 id=1160 data-nosnippet>1160</a>    <span class="kw">let </span>template_path = template_dir.join(template_name);
 <a href=#1161 id=1161 data-nosnippet>1161</a>    <span class="kw">if </span>template_path.exists() {
 <a href=#1162 id=1162 data-nosnippet>1162</a>      <span class="macro">log::debug!</span>(<span class="string">"Loading custom template: {}"</span>, template_path.display());
-<a href=#1163 id=1163 data-nosnippet>1163</a>      <span class="kw">return </span>fs::read_to_string(<span class="kw-2">&amp;</span>template_path).wrap_err({
+<a href=#1163 id=1163 data-nosnippet>1163</a>      <span class="kw">return </span>fs::read_to_string(<span class="kw-2">&amp;</span>template_path).context({
 <a href=#1164 id=1164 data-nosnippet>1164</a>        <span class="macro">format!</span>(<span class="string">"Failed to read template file: {}"</span>, template_path.display())
 <a href=#1165 id=1165 data-nosnippet>1165</a>      });
 <a href=#1166 id=1166 data-nosnippet>1166</a>    }
@@ -1182,7 +1182,7 @@
 <a href=#1182 id=1182 data-nosnippet>1182</a>      <span class="string">"Loading custom template (backward compat): {}"</span>,
 <a href=#1183 id=1183 data-nosnippet>1183</a>      template_path.display()
 <a href=#1184 id=1184 data-nosnippet>1184</a>    );
-<a href=#1185 id=1185 data-nosnippet>1185</a>    <span class="kw">return </span>fs::read_to_string(template_path).wrap_err({
+<a href=#1185 id=1185 data-nosnippet>1185</a>    <span class="kw">return </span>fs::read_to_string(template_path).context({
 <a href=#1186 id=1186 data-nosnippet>1186</a>      <span class="macro">format!</span>(
 <a href=#1187 id=1187 data-nosnippet>1187</a>        <span class="string">"Failed to read custom template file: {}. Check file permissions and \
 <a href=#1188 id=1188 data-nosnippet>1188</a>         ensure the file is valid UTF-8"</span>,
@@ -1441,7 +1441,7 @@
 <a href=#1441 id=1441 data-nosnippet>1441</a>    <span class="kw">let </span><span class="kw-2">mut </span>items = Vec::new();
 <a href=#1442 id=1442 data-nosnippet>1442</a>    <span class="kw">let </span><span class="kw-2">mut </span>requested_parents = Vec::new();
 <a href=#1443 id=1443 data-nosnippet>1443</a>    <span class="kw">for </span>entry <span class="kw">in </span>walkdir::WalkDir::new(input_dir).follow_links(<span class="bool-val">true</span>) {
-<a href=#1444 id=1444 data-nosnippet>1444</a>      <span class="kw">let </span>entry = entry.wrap_err_with(|| {
+<a href=#1444 id=1444 data-nosnippet>1444</a>      <span class="kw">let </span>entry = entry.with_context(|| {
 <a href=#1445 id=1445 data-nosnippet>1445</a>        <span class="macro">format!</span>(
 <a href=#1446 id=1446 data-nosnippet>1446</a>          <span class="string">"failed to discover sidebar pages in {}"</span>,
 <a href=#1447 id=1447 data-nosnippet>1447</a>          input_dir.display()
@@ -1451,7 +1451,7 @@
 <a href=#1451 id=1451 data-nosnippet>1451</a>      <span class="kw">if </span>!path.is_file() || path.extension().is_none_or(|ext| ext != <span class="string">"md"</span>) {
 <a href=#1452 id=1452 data-nosnippet>1452</a>        <span class="kw">continue</span>;
 <a href=#1453 id=1453 data-nosnippet>1453</a>      }
-<a href=#1454 id=1454 data-nosnippet>1454</a>      <span class="kw">let </span>source = path.strip_prefix(input_dir).wrap_err_with(|| {
+<a href=#1454 id=1454 data-nosnippet>1454</a>      <span class="kw">let </span>source = path.strip_prefix(input_dir).with_context(|| {
 <a href=#1455 id=1455 data-nosnippet>1455</a>        <span class="macro">format!</span>(
 <a href=#1456 id=1456 data-nosnippet>1456</a>          <span class="string">"sidebar source {} is outside {}"</span>,
 <a href=#1457 id=1457 data-nosnippet>1457</a>          path.display(),
@@ -1631,7 +1631,7 @@
 <a href=#1631 id=1631 data-nosnippet>1631</a>    <span class="comment">// `copy_assets` copies each script to `assets/&lt;file name&gt;`, so link there,
 <a href=#1632 id=1632 data-nosnippet>1632</a>    // not to the configured source path.
 <a href=#1633 id=1633 data-nosnippet>1633</a>    </span><span class="kw">let </span>file_name = script_path.file_name().ok_or_else(|| {
-<a href=#1634 id=1634 data-nosnippet>1634</a>      <span class="macro">color_eyre::eyre::eyre!</span>(
+<a href=#1634 id=1634 data-nosnippet>1634</a>      <span class="macro">report!</span>(
 <a href=#1635 id=1635 data-nosnippet>1635</a>        <span class="string">"Invalid script_paths entry '{}': expected a path with a filename"</span>,
 <a href=#1636 id=1636 data-nosnippet>1636</a>        script_path.display()
 <a href=#1637 id=1637 data-nosnippet>1637</a>      )
@@ -2057,7 +2057,7 @@
 <a href=#2057 id=2057 data-nosnippet>2057</a>    html
 <a href=#2058 id=2058 data-nosnippet>2058</a>  };
 <a href=#2059 id=2059 data-nosnippet>2059</a>
-<a href=#2060 id=2060 data-nosnippet>2060</a>  fs::write(<span class="kw-2">&amp;</span>output_path, processed_html).wrap_err_with(|| {
+<a href=#2060 id=2060 data-nosnippet>2060</a>  fs::write(<span class="kw-2">&amp;</span>output_path, processed_html).with_context(|| {
 <a href=#2061 id=2061 data-nosnippet>2061</a>    <span class="macro">format!</span>(<span class="string">"Failed to write output HTML: {}"</span>, output_path.display())
 <a href=#2062 id=2062 data-nosnippet>2062</a>  })<span class="question-mark">?</span>;
 <a href=#2063 id=2063 data-nosnippet>2063</a>

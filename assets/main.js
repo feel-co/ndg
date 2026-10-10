@@ -425,7 +425,7 @@ function setupOptionKeyboardNavigation(signal) {
   const optionLinks = () =>
     Array.from(
       container.querySelectorAll(".option .option-anchor, .option-page-row"),
-    );
+    ).filter((link) => !link.closest("[hidden]"));
   const focusOption = (link) => {
     link.focus({ preventScroll: true });
     link
@@ -638,7 +638,20 @@ function setupOptionChunkLoading(signal) {
   return { hashReady, loadAll };
 }
 
-function getFilterMatches(searchTerm, originalOrder, data) {
+function getFilterRank({ name, searchText }, term) {
+  const position = name.indexOf(term);
+  return {
+    rank: position === -1 ? 1 : 0,
+    position: position === -1 ? searchText.indexOf(term) : position,
+  };
+}
+
+function getFilterMatches(
+  searchTerm,
+  originalOrder,
+  data,
+  preserveOrder = false,
+) {
   if (searchTerm === "") {
     return originalOrder.map((element, index) => ({ element, index }));
   }
@@ -646,20 +659,28 @@ function getFilterMatches(searchTerm, originalOrder, data) {
   const terms = searchTerm.split(/\s+/).filter(Boolean);
   const firstTerm = terms[0] || "";
 
-  return data
-    .filter((item) => terms.every((term) => item.searchText.includes(term)))
-    .sort((a, b) => {
-      const aRank = a.name.includes(firstTerm) ? 0 : 1;
-      const bRank = b.name.includes(firstTerm) ? 0 : 1;
-      if (aRank !== bRank) return aRank - bRank;
-      const aPos = a.name.includes(firstTerm)
-        ? a.name.indexOf(firstTerm)
-        : a.searchText.indexOf(firstTerm);
-      const bPos = b.name.includes(firstTerm)
-        ? b.name.indexOf(firstTerm)
-        : b.searchText.indexOf(firstTerm);
-      return aPos - bPos || a.index - b.index;
-    });
+  const matches = data.filter((item) =>
+    terms.every((term) => item.searchText.includes(term)),
+  );
+  if (preserveOrder) return matches;
+
+  return matches.sort((a, b) => {
+    const aRank = getFilterRank(a, firstTerm);
+    const bRank = getFilterRank(b, firstTerm);
+    return (
+      aRank.rank - bRank.rank ||
+      aRank.position - bRank.position ||
+      a.index - b.index
+    );
+  });
+}
+
+function setFilteredItemVisibility(data, matches) {
+  const visibleElements = new Set(matches.map((item) => item.element));
+  for (const { element } of data) {
+    const hidden = !visibleElements.has(element);
+    if (element.hidden !== hidden) element.hidden = hidden;
+  }
 }
 
 function reconcileFilteredItems({
@@ -670,7 +691,16 @@ function reconcileFilteredItems({
   reduceMotion,
   animateChanges,
   isCurrentRun,
+  preserveOrder = false,
 }) {
+  if (preserveOrder) {
+    setFilteredItemVisibility(data, matches);
+    return;
+  }
+
+  for (const { element } of data) {
+    element.classList.remove("filter-entering", "filter-leaving");
+  }
   const visibleElements = new Set(matches.map((item) => item.element));
   const leaving = [];
 
@@ -730,15 +760,25 @@ function reconcileFilteredItems({
 }
 
 function setupListFilter(
-  { inputId, containerSelector, itemSelector, nameSelector, noun, prepare },
+  {
+    inputId,
+    containerSelector,
+    itemSelector,
+    nameSelector,
+    noun,
+    prepare,
+    preserveOrder = false,
+  },
   signal,
 ) {
   const input = document.getElementById(inputId);
   const container = document.querySelector(containerSelector);
   if (!input || !container) return;
 
-  const hiddenContainer = document.createElement("template");
-  document.body.appendChild(hiddenContainer);
+  const hiddenContainer = preserveOrder
+    ? null
+    : document.createElement("template");
+  if (hiddenContainer) document.body.appendChild(hiddenContainer);
 
   const filterResults = document.createElement("div");
   filterResults.className = "filter-results";
@@ -790,11 +830,12 @@ function setupListFilter(
     lastTerm = searchTerm;
     filterRun += 1;
     const currentRun = filterRun;
-    for (const item of data) {
-      item.element.classList.remove("filter-entering", "filter-leaving");
-    }
-
-    const matches = getFilterMatches(searchTerm, originalOrder, data);
+    const matches = getFilterMatches(
+      searchTerm,
+      originalOrder,
+      data,
+      preserveOrder,
+    );
     reconcileFilteredItems({
       container,
       hiddenContainer,
@@ -803,6 +844,7 @@ function setupListFilter(
       reduceMotion,
       animateChanges,
       isCurrentRun: () => currentRun === filterRun,
+      preserveOrder,
     });
 
     if (searchTerm !== "" && matches.length < totalCount) {
@@ -840,7 +882,7 @@ function setupListFilter(
     "abort",
     () => {
       clearTimeout(timeout);
-      hiddenContainer.remove();
+      hiddenContainer?.remove();
     },
     { once: true },
   );
@@ -1042,6 +1084,7 @@ function setupOptionsFilter(signal, optionChunks) {
     nameSelector: ".option-name",
     noun: "options",
     prepare: optionChunks?.loadAll,
+    preserveOrder: true,
   };
   if (optionsIndexList) {
     config = {
@@ -1109,6 +1152,9 @@ function setupOptionsPage(signal, content) {
 
 function initializePage() {
   const signal = beginPageLifecycle();
+
+  // The images of a new page follow the selected theme too.
+  syncThemedImages(currentTheme());
 
   // Highlight the active nav item before the mobile nav is cloned from it.
   markActiveNav();
@@ -1338,6 +1384,112 @@ function initializePage() {
   );
 }
 
+// Light and dark theme. The inline script of each page applies the stored
+// theme to `<html data-theme>` before the first paint. Without `data-theme`,
+// the theme is `auto` and follows the color scheme of the system. The
+// stylesheet reads `data-theme`, so this code only changes it, stores it,
+// updates the images and labels, and dispatches `ndg:themechange` on
+// `document` with the `mode` and the `resolved` theme.
+const THEME_STORAGE_KEY = "theme";
+const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
+function currentTheme() {
+  const theme = document.documentElement.dataset.theme;
+  return theme === "light" || theme === "dark" ? theme : "auto";
+}
+
+function systemTheme() {
+  return window.matchMedia(DARK_SCHEME_QUERY).matches ? "dark" : "light";
+}
+
+function resolveTheme(mode) {
+  return mode === "auto" ? systemTheme() : mode;
+}
+
+// A `<source media="(prefers-color-scheme: dark)">` of a `<picture>` follows
+// only the system. For a selected theme, replace each color scheme feature
+// with a feature that always matches or never matches. A browser shows the
+// page on a bitmap screen, thus `(grid: 0)` always matches and `(grid: 1)`
+// never matches. The `data-scheme-media` attribute keeps the original query.
+function syncThemedImages(mode, root = document) {
+  const resolved = resolveTheme(mode);
+  root
+    .querySelectorAll(
+      "picture > source[media*='prefers-color-scheme'], picture > source[data-scheme-media]",
+    )
+    .forEach((source) => {
+      source.dataset.schemeMedia ??= source.media;
+      source.media =
+        mode === "auto"
+          ? source.dataset.schemeMedia
+          : source.dataset.schemeMedia.replace(
+              /\(\s*prefers-color-scheme\s*:\s*(light|dark)\s*\)/gi,
+              (_, scheme) =>
+                scheme.toLowerCase() === resolved ? "(grid: 0)" : "(grid: 1)",
+            );
+    });
+}
+
+// The label tells what a click does, as the icon does.
+function syncThemeToggles(mode) {
+  const label =
+    resolveTheme(mode) === "dark"
+      ? "Switch to the light theme"
+      : "Switch to the dark theme";
+  document.querySelectorAll("[data-theme-toggle]").forEach((toggle) => {
+    toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("title", label);
+  });
+}
+
+function applyTheme(mode) {
+  if (mode === "auto") {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = mode;
+  }
+  syncThemeToggles(mode);
+  syncThemedImages(mode);
+  document.dispatchEvent(
+    new CustomEvent("ndg:themechange", {
+      detail: { mode, resolved: resolveTheme(mode) },
+    }),
+  );
+}
+
+// The toggle selects the other theme. When the other theme is the theme of
+// the system, the toggle removes the selection and goes back to `auto`.
+function nextTheme(mode, system) {
+  const resolved = mode === "auto" ? system : mode;
+  const other = resolved === "dark" ? "light" : "dark";
+  return other === system ? "auto" : other;
+}
+
+function setupThemeToggle() {
+  syncThemeToggles(currentTheme());
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest?.("[data-theme-toggle]")) return;
+    const mode = nextTheme(currentTheme(), systemTheme());
+    try {
+      if (mode === "auto") {
+        localStorage.removeItem(THEME_STORAGE_KEY);
+      } else {
+        localStorage.setItem(THEME_STORAGE_KEY, mode);
+      }
+    } catch {
+      // localStorage unavailable: the theme applies to this page only
+    }
+    applyTheme(mode);
+  });
+
+  // In `auto`, the stylesheet follows the system, but other scripts can need
+  // the event.
+  window.matchMedia(DARK_SCHEME_QUERY).addEventListener("change", () => {
+    if (currentTheme() === "auto") applyTheme("auto");
+  });
+}
+
 function initializeGlobalBehavior() {
   if (!document.querySelector(".mobile-sidebar-toggle")) createMobileElements();
   initMobileNavigation();
@@ -1345,6 +1497,7 @@ function initializeGlobalBehavior() {
   setupNavbarKeyboardNavigation();
   setupOptionTocNavigation();
   setupClientNavigation();
+  setupThemeToggle();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

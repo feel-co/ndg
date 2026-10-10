@@ -9,11 +9,17 @@
     <script>
       document.documentElement.classList.remove("no-js");
       document.documentElement.classList.add("js");
-      // Apply sidebar state immediately to prevent flash
+      // Apply sidebar state and theme immediately to prevent flash
       (function () {
         try {
           if (localStorage.getItem("sidebar-collapsed") === "true") {
             document.documentElement.classList.add("sidebar-collapsed");
+          }
+          // Apply a theme that the reader selected. Without one, the theme
+          // follows the color scheme of the system.
+          var theme = localStorage.getItem("theme");
+          if (theme === "light" || theme === "dark") {
+            document.documentElement.dataset.theme = theme;
           }
         } catch (e) {
           // localStorage unavailable
@@ -65,6 +71,37 @@
             aria-label="Search results"
           ></div>
         </div>
+        <button
+          type="button"
+          class="theme-toggle js-only"
+          data-theme-toggle
+          aria-label="Switch the theme"
+          title="Switch the theme"
+        >
+          <svg
+            class="theme-icon-moon"
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+          >
+            <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"></path>
+          </svg>
+          <svg
+            class="theme-icon-sun"
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+          >
+            <circle cx="12" cy="12" r="4"></circle>
+            <path
+              d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"
+            ></path>
+          </svg>
+        </button>
       </header>
 
       <div class="layout">
