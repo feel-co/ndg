@@ -1473,6 +1473,7 @@ function startThemeTransition() {
   const root = document.documentElement;
   cancelAnimationFrame(themeTransitionFrame);
   root.classList.add("theme-changing");
+  // Keep the class through a paint; running transitions retain their timing.
   themeTransitionFrame = requestAnimationFrame(() => {
     themeTransitionFrame = requestAnimationFrame(() => {
       root.classList.remove("theme-changing");
