@@ -7,7 +7,7 @@
   position: fixed;
   inset: 0;
   z-index: 900;
-  background-color: rgba(15, 23, 42, 0.4);
+  background-color: light-dark(rgba(15, 23, 42, 0.4), rgba(0, 0, 0, 0.6));
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
