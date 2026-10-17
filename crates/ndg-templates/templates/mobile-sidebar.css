@@ -77,6 +77,10 @@
   cursor: pointer;
   font-size: 1.25rem;
   line-height: 1;
+  transition:
+    var(--theme-colors),
+    color var(--theme-transition, var(--transition-fast)),
+    background-color var(--theme-transition, var(--transition-fast));
 }
 
 .mobile-sidebar-close:hover {
@@ -113,6 +117,11 @@
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 600;
+  transition:
+    var(--theme-colors),
+    color var(--theme-transition, var(--transition-fast)),
+    background-color var(--theme-transition, var(--transition-fast)),
+    border-color var(--theme-transition, var(--transition-fast));
 }
 
 .mobile-sidebar-site-nav a:hover,
@@ -150,6 +159,10 @@
   border-radius: var(--radius-md);
   color: var(--text-color);
   text-decoration: none;
+  transition:
+    var(--theme-colors),
+    color var(--theme-transition, var(--transition-fast)),
+    background-color var(--theme-transition, var(--transition-fast));
 }
 
 .mobile-sidebar-content

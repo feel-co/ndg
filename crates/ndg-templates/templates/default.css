@@ -830,7 +830,10 @@ img {
 .search-result-item {
   padding: var(--space-4);
   border-bottom: 1px solid var(--border-color);
-  transition: var(--theme-colors);
+  transition:
+    color var(--theme-transition, var(--transition-fast)),
+    background-color var(--theme-transition, var(--transition-fast)),
+    border-color var(--theme-transition, var(--transition-fast));
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -914,6 +917,10 @@ img {
   border-radius: 4px;
   background-color: var(--bg-color);
   color: var(--text-color);
+  transition:
+    var(--theme-colors),
+    border-color var(--theme-transition, var(--transition-fast)),
+    box-shadow var(--theme-transition, var(--transition-fast));
 }
 
 #mobile-search-input:focus {
@@ -936,6 +943,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: color var(--theme-transition, var(--transition-fast));
 }
 
 .close-mobile-search:hover {
@@ -2428,6 +2436,7 @@ h6:hover .copy-link {
   left: var(--space-4);
   color: var(--text-muted);
   font-size: 1em;
+  transition: color var(--theme-transition, var(--transition-fast));
 }
 
 .search-result-anchor a {
