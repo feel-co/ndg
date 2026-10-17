@@ -132,12 +132,18 @@
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Color transitions compose with component movement and hover timing. */
+  /* Color transitions compose with component movement and hover timing.
+     The fast variant keeps state changes of interactive elements quick. */
   --theme-colors:
     color var(--theme-transition, var(--transition)),
     background-color var(--theme-transition, var(--transition)),
     border-color var(--theme-transition, var(--transition)),
     box-shadow var(--theme-transition, var(--transition));
+  --theme-colors-fast:
+    color var(--theme-transition, var(--transition-fast)),
+    background-color var(--theme-transition, var(--transition-fast)),
+    border-color var(--theme-transition, var(--transition-fast)),
+    box-shadow var(--theme-transition, var(--transition-fast));
 
   /* Fonts */
   --font-mono: "JetBrains Mono", monospace;
@@ -317,9 +323,7 @@ header {
     font-size: 0.95rem;
     font-weight: 500;
     padding: var(--space-2) 0;
-    transition:
-      var(--theme-colors),
-      color var(--theme-transition, var(--transition-fast));
+    transition: var(--theme-colors-fast);
     display: block;
   }
 
@@ -415,10 +419,7 @@ header {
     display: block;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
-    transition:
-      var(--theme-colors),
-      color var(--theme-transition, var(--transition-fast)),
-      background-color var(--theme-transition, var(--transition-fast));
+    transition: var(--theme-colors-fast);
     font-size: 0.875rem;
 
     &:hover {
@@ -582,8 +583,7 @@ a {
   color: var(--link-color);
   text-decoration: none;
   transition:
-    var(--theme-colors),
-    color var(--theme-transition, var(--transition-fast)),
+    var(--theme-colors-fast),
     text-decoration-color var(--theme-transition, var(--transition-fast));
   text-underline-offset: 0.15em;
 }
@@ -717,10 +717,7 @@ img {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition:
-    var(--theme-colors),
-    color var(--theme-transition, var(--transition-fast)),
-    border-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
 
   &:hover {
     color: var(--header-text);
@@ -785,10 +782,7 @@ img {
   background-color: var(--bg-surface);
   color: var(--text-color);
   transition:
-    var(--theme-colors),
-    background-color var(--theme-transition, var(--transition-fast)),
-    border-color var(--theme-transition, var(--transition-fast)),
-    box-shadow var(--theme-transition, var(--transition-fast)),
+    var(--theme-colors-fast),
     width var(--transition);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -830,10 +824,7 @@ img {
 .search-result-item {
   padding: var(--space-4);
   border-bottom: 1px solid var(--border-color);
-  transition:
-    color var(--theme-transition, var(--transition-fast)),
-    background-color var(--theme-transition, var(--transition-fast)),
-    border-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -917,10 +908,7 @@ img {
   border-radius: 4px;
   background-color: var(--bg-color);
   color: var(--text-color);
-  transition:
-    var(--theme-colors),
-    border-color var(--theme-transition, var(--transition-fast)),
-    box-shadow var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
 }
 
 #mobile-search-input:focus {
@@ -943,7 +931,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
 }
 
 .close-mobile-search:hover {
@@ -1015,9 +1003,7 @@ img {
   background-color: var(--sidebar-bg);
   color: var(--text-color);
   font-size: 1rem;
-  transition:
-    var(--theme-colors),
-    border-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
   box-sizing: border-box;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -1096,10 +1082,8 @@ img {
   border-radius: var(--radius-md);
   background-color: var(--sidebar-bg);
   transition:
-    var(--theme-colors),
-    transform var(--transition-fast),
-    border-color var(--theme-transition, var(--transition-fast)),
-    box-shadow var(--theme-transition, var(--transition-fast));
+    var(--theme-colors-fast),
+    transform var(--transition-fast);
 }
 
 .search-page-results .search-result-item:hover {
@@ -1526,9 +1510,8 @@ mark {
   cursor: pointer;
   opacity: 0;
   transition:
-    var(--theme-colors),
-    opacity var(--transition-fast),
-    background-color var(--theme-transition, var(--transition-fast));
+    var(--theme-colors-fast),
+    opacity var(--transition-fast);
   vertical-align: middle;
   border-radius: var(--radius-sm);
 }
@@ -1709,10 +1692,7 @@ h6:hover .copy-link {
     background-size: 18px;
     background-repeat: no-repeat;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    transition:
-      var(--theme-colors),
-      background-color var(--theme-transition, var(--transition-fast)),
-      border-color var(--theme-transition, var(--transition-fast));
+    transition: var(--theme-colors-fast);
   }
 
   .search-container #search-input::placeholder {
@@ -1852,10 +1832,7 @@ h6:hover .copy-link {
   display: block;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
-  transition:
-    var(--theme-colors),
-    color var(--theme-transition, var(--transition-fast)),
-    background-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
   font-size: 0.875rem;
   white-space: nowrap;
   overflow: hidden;
@@ -1894,10 +1871,8 @@ h6:hover .copy-link {
   list-style: none;
   border-radius: var(--radius-md);
   transition:
-    var(--theme-colors),
-    transform var(--transition-fast),
-    color var(--theme-transition, var(--transition-fast)),
-    background-color var(--theme-transition, var(--transition-fast));
+    var(--theme-colors-fast),
+    transform var(--transition-fast);
 }
 
 .toc-list details summary:hover {
@@ -1915,9 +1890,8 @@ h6:hover .copy-link {
   flex-shrink: 0;
   color: var(--text-muted);
   transition:
-    var(--theme-colors),
-    transform var(--transition-fast),
-    color var(--theme-transition, var(--transition-fast));
+    var(--theme-colors-fast),
+    transform var(--transition-fast);
 }
 
 .toc-list details summary span:first-of-type {
@@ -1992,10 +1966,7 @@ h6:hover .copy-link {
   border-radius: var(--radius-lg);
   margin: var(--space-6) 0;
   background-color: var(--bg-surface);
-  transition:
-    var(--theme-colors),
-    border-color var(--theme-transition, var(--transition-fast)),
-    box-shadow var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
   box-shadow: var(--shadow-sm);
   min-width: 0;
 }
@@ -2315,9 +2286,7 @@ h6:hover .copy-link {
   background-color: var(--sidebar-bg);
   color: var(--text-color);
   font-size: 1rem;
-  transition:
-    var(--theme-colors),
-    border-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
   box-sizing: border-box;
 }
 
@@ -2436,7 +2405,7 @@ h6:hover .copy-link {
   left: var(--space-4);
   color: var(--text-muted);
   font-size: 1em;
-  transition: color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
 }
 
 .search-result-anchor a {
@@ -2493,10 +2462,7 @@ h6:hover .copy-link {
   align-items: center;
   gap: var(--space-2);
   border-radius: var(--radius-md);
-  transition:
-    var(--theme-colors),
-    color var(--theme-transition, var(--transition-fast)),
-    background-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
 }
 
 .sidebar-section > summary:hover {
@@ -2619,10 +2585,7 @@ h6:hover .copy-link {
   padding: var(--space-1) var(--space-3);
   color: var(--text-muted);
   text-decoration: none;
-  transition:
-    var(--theme-colors),
-    color var(--theme-transition, var(--transition-fast)),
-    border-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
   border-left: 2px solid transparent;
 }
 
@@ -2680,9 +2643,7 @@ h6:hover .copy-link {
   cursor: pointer;
   text-decoration: none;
   font-size: 0.875rem;
-  transition:
-    var(--theme-colors),
-    background-color var(--theme-transition, var(--transition-fast));
+  transition: var(--theme-colors-fast);
 }
 
 .search-error button:hover,
@@ -2759,10 +2720,7 @@ h6:hover .copy-link {
       text-transform: uppercase;
       letter-spacing: 0.04em;
       list-style: none;
-      transition:
-        var(--theme-colors),
-        background-color var(--theme-transition, var(--transition-fast)),
-        color var(--theme-transition, var(--transition-fast));
+      transition: var(--theme-colors-fast);
 
       &::-webkit-details-marker {
         display: none;
