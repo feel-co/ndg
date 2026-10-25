@@ -17,7 +17,8 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "fetch",
     "DOMParser",
     "IntersectionObserver",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility };`,
+    "Element",
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility, setupSidebarAutoHide, setSidebarCollapsed };`,
   )(
     window,
     document,
@@ -25,6 +26,7 @@ function loadMain(requestAnimationFrame, browser = {}) {
     browser.fetch,
     browser.DOMParser,
     browser.IntersectionObserver,
+    browser.Element,
   );
 }
 
@@ -384,4 +386,70 @@ Deno.test("the theme toggle goes back to the system theme", () => {
   assert(nextTheme("auto", "dark") === "light", "auto in dark selects light");
   assert(nextTheme("light", "light") === "dark", "a pinned light selects dark");
   assert(nextTheme("light", "dark") === "auto", "light goes back to auto");
+});
+
+function sidebarBrowser(matches) {
+  const classList = () => {
+    const names = new Set();
+    return {
+      contains: (name) => names.has(name),
+      toggle: (name, force) => (force ? names.add(name) : names.delete(name)),
+    };
+  };
+  const query = { matches, listener: null };
+  query.addEventListener = (_type, listener) => {
+    query.listener = listener;
+  };
+  class Element {}
+  const browser = {
+    Element,
+    query,
+    clicks: [],
+    window: { matchMedia: () => query },
+    document: {
+      documentElement: { classList: classList() },
+      body: { classList: classList() },
+      querySelector: () => null,
+      addEventListener(type, listener) {
+        if (type === "click") browser.clicks.push(listener);
+      },
+    },
+  };
+  browser.click = (selectors) => {
+    const target = new Element();
+    target.closest = (selector) =>
+      selectors.includes(selector) ? target : null;
+    for (const listener of browser.clicks) listener({ target });
+  };
+  browser.collapsed = () =>
+    browser.document.documentElement.classList.contains("sidebar-collapsed");
+  return browser;
+}
+
+Deno.test("a narrow window hides the sidebar until the reader opens it", () => {
+  const browser = sidebarBrowser(true);
+  const { setupSidebarAutoHide, setSidebarCollapsed } = loadMain(
+    () => {},
+    browser,
+  );
+  setupSidebarAutoHide();
+  assert(browser.collapsed(), "a narrow window starts with a hidden sidebar");
+
+  setSidebarCollapsed(false);
+  browser.click([".sidebar, .sidebar-toggle"]);
+  assert(!browser.collapsed(), "a click in the sidebar keeps it open");
+
+  browser.click([".sidebar a", ".sidebar, .sidebar-toggle"]);
+  assert(browser.collapsed(), "a click on a sidebar link hides it");
+
+  setSidebarCollapsed(false);
+  browser.click([]);
+  assert(browser.collapsed(), "a click outside of the sidebar hides it");
+
+  browser.query.matches = false;
+  browser.query.listener();
+  assert(!browser.collapsed(), "a wide window shows the sidebar again");
+
+  browser.click([]);
+  assert(!browser.collapsed(), "on a wide window, a click does not hide it");
 });

@@ -1217,28 +1217,18 @@ function initializePage() {
   }
 
   if (sidebarToggle) {
-    const syncSidebarToggle = () => {
-      const isCollapsed =
-        document.documentElement.classList.contains("sidebar-collapsed");
-      sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
-      sidebarToggle.setAttribute(
-        "aria-label",
-        isCollapsed ? "Expand sidebar" : "Collapse sidebar",
-      );
-    };
     syncSidebarToggle();
 
     sidebarToggle.addEventListener(
       "click",
       function () {
-        // Toggle on both elements for consistency
-        document.documentElement.classList.toggle("sidebar-collapsed");
-        document.body.classList.toggle("sidebar-collapsed");
-
-        // Use documentElement to check state and save to localStorage
         const isCollapsed =
-          document.documentElement.classList.contains("sidebar-collapsed");
-        syncSidebarToggle();
+          !document.documentElement.classList.contains("sidebar-collapsed");
+        setSidebarCollapsed(isCollapsed);
+
+        // On a narrow window the sidebar hides automatically, so do not
+        // save that state as the preference of the reader.
+        if (window.matchMedia(NARROW_SIDEBAR_QUERY).matches) return;
         try {
           localStorage.setItem("sidebar-collapsed", isCollapsed);
         } catch {
@@ -1490,9 +1480,68 @@ function setupThemeToggle() {
   });
 }
 
+// Below this width, the open sidebar covers the centered content. Keep in
+// sync with the `<head>` script of the templates and with `default.css`.
+const NARROW_SIDEBAR_QUERY = "(max-width: 1399px)";
+
+function syncSidebarToggle() {
+  const sidebarToggle = document.querySelector(".sidebar-toggle");
+  if (!sidebarToggle) return;
+  const isCollapsed =
+    document.documentElement.classList.contains("sidebar-collapsed");
+  sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  sidebarToggle.setAttribute(
+    "aria-label",
+    isCollapsed ? "Expand sidebar" : "Collapse sidebar",
+  );
+}
+
+function setSidebarCollapsed(collapsed) {
+  document.documentElement.classList.toggle("sidebar-collapsed", collapsed);
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  syncSidebarToggle();
+}
+
+function storedSidebarCollapsed() {
+  try {
+    return localStorage.getItem("sidebar-collapsed") === "true";
+  } catch {
+    return false;
+  }
+}
+
+// Hide the sidebar on a narrow window, where it covers the content. The
+// reader can open it, and it hides again after a click on a link or outside
+// of it. On a wide window, the sidebar uses the state that the reader saved.
+function setupSidebarAutoHide() {
+  const narrow = window.matchMedia(NARROW_SIDEBAR_QUERY);
+  if (narrow.matches) setSidebarCollapsed(true);
+
+  narrow.addEventListener("change", () => {
+    setSidebarCollapsed(narrow.matches || storedSidebarCollapsed());
+  });
+
+  document.addEventListener("click", (event) => {
+    if (
+      !narrow.matches ||
+      document.documentElement.classList.contains("sidebar-collapsed") ||
+      !(event.target instanceof Element)
+    ) {
+      return;
+    }
+    if (
+      event.target.closest(".sidebar a") ||
+      !event.target.closest(".sidebar, .sidebar-toggle")
+    ) {
+      setSidebarCollapsed(true);
+    }
+  });
+}
+
 function initializeGlobalBehavior() {
   if (!document.querySelector(".mobile-sidebar-toggle")) createMobileElements();
   initMobileNavigation();
+  setupSidebarAutoHide();
   setupGlobalShortcuts();
   setupNavbarKeyboardNavigation();
   setupOptionTocNavigation();

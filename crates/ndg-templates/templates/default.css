@@ -1820,6 +1820,13 @@ h6:hover .copy-link {
   }
 }
 
+/* Between these widths, the open sidebar covers the content */
+@media (max-width: 1399px) and (min-width: 801px) {
+  body:not(.sidebar-collapsed) .sidebar {
+    box-shadow: 2px 0 10px var(--shadow-color-darker);
+  }
+}
+
 /* Medium screen adjustments for sidebar toggle */
 @media (max-width: 1000px) and (min-width: 801px) {
   .sidebar-toggle {

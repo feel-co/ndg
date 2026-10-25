@@ -65,9 +65,14 @@ changes.
 
 ### Fixed
 
+- On a window narrower than 1400px, the sidebar is hidden until the reader opens
+  it, and it hides again after a click on a link or outside of it. Before, the
+  sidebar covered part of the content. The saved sidebar state applies only to
+  wider windows.
 - Option filtering keeps cards in place and hides nonmatches, reducing delays
   from browser extensions that rescan removed and reinserted content. Results
   retain their original order, and keyboard navigation skips hidden cards.
+
 ## [2.10.2]
 
 ### Fixed
