@@ -11,6 +11,10 @@
       document.documentElement.classList.add("js");
       // Apply sidebar state and theme immediately to prevent flash
       (function () {
+        // Hide the sidebar on a narrow window, where it covers the content.
+        if (window.matchMedia("(max-width: 1399px)").matches) {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
         try {
           if (localStorage.getItem("sidebar-collapsed") === "true") {
             document.documentElement.classList.add("sidebar-collapsed");
