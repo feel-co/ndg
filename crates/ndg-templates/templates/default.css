@@ -1695,7 +1695,7 @@ h6:hover .copy-link {
     transform: translateX(-100%);
   }
 
-  body:not(.sidebar-collapsed) .sidebar {
+  html:not(.sidebar-collapsed) .sidebar {
     transform: translateX(0);
   }
 
@@ -1718,7 +1718,7 @@ h6:hover .copy-link {
     fill: var(--header-text);
   }
 
-  body:not(.sidebar-collapsed) .sidebar-toggle {
+  html:not(.sidebar-collapsed) .sidebar-toggle {
     left: 300px;
   }
 
@@ -1820,9 +1820,11 @@ h6:hover .copy-link {
   }
 }
 
-/* Between these widths, the open sidebar covers the content */
+/* Between these widths, the open sidebar covers the content. The `<head>`
+   script sets the class on `<html>` before the first paint, thus use it and
+   not the class on `<body>`. */
 @media (max-width: 1399px) and (min-width: 801px) {
-  body:not(.sidebar-collapsed) .sidebar {
+  html:not(.sidebar-collapsed) .sidebar {
     box-shadow: 2px 0 10px var(--shadow-color-darker);
   }
 }
