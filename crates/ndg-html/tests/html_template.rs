@@ -1325,6 +1325,75 @@ fn test_sidebar_subchapters_order_number_and_link_by_source_path() {
 }
 
 #[test]
+fn test_page_nav_follows_sidebar_order() {
+  let temp = TempDir::new().expect("create temp dir");
+  for (path, title) in [
+    ("index.md", "Introduction"),
+    ("configuration.md", "Configuration"),
+    ("session.md", "Session"),
+    ("alpha.md", "Alpha"),
+    ("advanced.md", "Advanced"),
+  ] {
+    fs::write(temp.path().join(path), format!("# {title}\n"))
+      .expect("write chapter");
+  }
+  let mut config = minimal_config();
+  config.input_dir = Some(temp.path().to_path_buf());
+  config.sidebar = Some(serde_json::from_value(json!({
+    "ordering": "custom",
+    "matches": [
+      {"path": {"exact": "configuration.md"}, "position": 4},
+      {
+        "path": {"exact": "session.md"},
+        "new_title": "Session <Management>",
+        "parent": "configuration.md",
+        "position": 1
+      },
+      {"path": {"exact": "alpha.md"}, "parent": "configuration.md", "position": 2},
+      {"path": {"exact": "advanced.md"}, "parent": "session.md"}
+    ]
+  })).expect("parse chapter rules"));
+  config.included_output_files.insert(
+    PathBuf::from("session.md"),
+    PathBuf::from("topics/session.html"),
+  );
+  let render = |rel_path: &str| {
+    template::render(
+      &config,
+      "<p>Body</p>",
+      "Page",
+      &[],
+      Path::new(rel_path),
+      None,
+    )
+    .expect("render page")
+  };
+
+  // Sub-chapters come directly after their parent.
+  let html = render("advanced.html");
+  assert!(html.contains(r#"href="topics/session.html" rel="prev">"#));
+  assert!(html.contains("Session &lt;Management&gt;</span>"));
+  assert!(html.contains(r#"href="alpha.html" rel="next">"#));
+
+  // Links are relative to the current page.
+  let html = render("topics/session.html");
+  assert!(html.contains(r#"href="../configuration.html" rel="prev">"#));
+  assert!(html.contains(r#"href="../advanced.html" rel="next">"#));
+
+  let html = render("index.html");
+  assert!(!html.contains(r#"rel="prev""#));
+  assert!(html.contains(r#"href="configuration.html" rel="next">"#));
+
+  let html = render("alpha.html");
+  assert!(html.contains(r#"href="advanced.html" rel="prev">"#));
+  assert!(!html.contains(r#"rel="next""#));
+
+  // Pages that are not in the sidebar get no page navigation.
+  let html = render("search.html");
+  assert!(!html.contains("class=\"page-nav\""));
+}
+
+#[test]
 fn test_sidebar_subchapters_reject_parent_cycles() {
   let temp = TempDir::new().expect("create temp dir");
   fs::write(temp.path().join("a.md"), "# A\n").expect("write A");

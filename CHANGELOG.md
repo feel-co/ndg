@@ -51,6 +51,10 @@ changes.
   `prefers-color-scheme` media query. The page sends an `ndg:themechange` event
   on `document` when the theme changes.
 
+- Links to the previous and next page in sidebar order. They show at the end of
+  each document page, and as arrows next to the content on wide screens.
+  Templates get the links through `prev_page` and `next_page`.
+
 ### Changed
 
 - `ndg init` now generates configuration from the config types and defaults,
