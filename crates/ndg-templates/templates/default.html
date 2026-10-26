@@ -128,7 +128,54 @@
           </details>
         </nav>
 
-        <main class="content">{{ content|safe }}</main>
+        <main class="content">
+          {{ content|safe }}
+          {% if prev_page or next_page %}
+          <nav class="page-nav" aria-label="Previous and next pages">
+            {% if prev_page %}
+            <a class="page-nav-link page-nav-prev" href="{{ prev_page.path|safe }}" rel="prev">
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
+              <span class="page-nav-text">
+                <span class="page-nav-label">Previous</span>
+                <span class="page-nav-title">{{ prev_page.title|safe }}</span>
+              </span>
+            </a>
+            {% endif %} {% if next_page %}
+            <a class="page-nav-link page-nav-next" href="{{ next_page.path|safe }}" rel="next">
+              <span class="page-nav-text">
+                <span class="page-nav-label">Next</span>
+                <span class="page-nav-title">{{ next_page.title|safe }}</span>
+              </span>
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M9 18l6-6-6-6"></path>
+              </svg>
+            </a>
+            {% endif %}
+          </nav>
+          <!-- Side arrows repeat the links above for wide screens. -->
+          <div class="page-nav-side" aria-hidden="true">
+            {% if prev_page %}
+            <div class="page-nav-side-track page-nav-side-prev">
+              <a href="{{ prev_page.path|safe }}" tabindex="-1" title="Previous: {{ prev_page.title|safe }}">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                  <path d="M15 18l-6-6 6-6"></path>
+                </svg>
+              </a>
+            </div>
+            {% endif %} {% if next_page %}
+            <div class="page-nav-side-track page-nav-side-next">
+              <a href="{{ next_page.path|safe }}" tabindex="-1" title="Next: {{ next_page.title|safe }}">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                  <path d="M9 18l6-6-6-6"></path>
+                </svg>
+              </a>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </main>
       </div>
 
       <aside class="page-toc">

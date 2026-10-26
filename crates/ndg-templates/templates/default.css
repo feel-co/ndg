@@ -1854,7 +1854,9 @@ h6:hover .copy-link {
   .search-container,
   .theme-toggle,
   footer,
-  .copy-link {
+  .copy-link,
+  .page-nav,
+  .page-nav-side {
     display: none !important;
   }
 
@@ -2714,6 +2716,170 @@ h6:hover .copy-link {
   color: var(--link-color);
   border-left-color: var(--link-color);
   font-weight: 500;
+}
+
+/* Previous and next page navigation */
+.page-nav {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-12);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-color);
+}
+
+.page-nav-link {
+  flex: 0 1 calc(50% - var(--space-2));
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-color);
+  box-sizing: border-box;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+
+  &:hover {
+    border-color: var(--brand);
+    background-color: var(--bg-surface);
+    text-decoration: none;
+  }
+
+  svg {
+    flex: none;
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+.page-nav-next {
+  margin-left: auto;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.page-nav-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.page-nav-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.page-nav-title {
+  color: var(--link-color);
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+/* Stack the links on narrow screens, so that titles do not break inside words. */
+@media (max-width: 480px) {
+  .page-nav {
+    flex-direction: column;
+  }
+
+  .page-nav-link {
+    flex-basis: auto;
+  }
+
+  .page-nav-next {
+    margin-left: 0;
+  }
+}
+
+/* The side arrows follow the viewport center next to the content. They show
+  only when the space next to the content is wide enough to keep them clear of
+  the sidebar toggle. When there is more space, `--page-nav-side-offset` moves
+  them out to the center of the space between the content and the sidebar
+  toggle, but not nearer than 24px to the sidebar toggle or the page-toc. */
+.page-nav-side {
+  --page-nav-side-offset: 0px;
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.page-nav-side-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+}
+
+.page-nav-side-prev {
+  left: calc(-22px - var(--page-nav-side-offset));
+}
+
+.page-nav-side-next {
+  right: calc(-22px - var(--page-nav-side-offset));
+}
+
+.page-nav-side-track a {
+  position: sticky;
+  top: calc(50vh - 22px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+  pointer-events: auto;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+
+  &:hover {
+    border-color: var(--brand);
+    box-shadow: var(--shadow-md);
+  }
+
+  svg {
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke var(--transition-fast);
+  }
+
+  &:hover svg {
+    stroke: var(--brand);
+  }
+}
+
+/* The content is 800px wide and centered in the viewport. The arrows are 44px
+  wide. The sidebar toggle ends at 328px, or at 28px when the sidebar is
+  collapsed. The page-toc starts at 268px from the right. */
+@media (min-width: 1536px) {
+  .page-nav-side {
+    --page-nav-side-offset: clamp(0px, min(50vw - 774px, 25vw - 364px), 160px);
+    display: block;
+  }
+}
+
+@media (min-width: 1000px) {
+  .sidebar-collapsed .page-nav-side {
+    --page-nav-side-offset: clamp(0px, min(50vw - 474px, 25vw - 214px), 160px);
+    display: block;
+  }
+}
+
+@media (min-width: 1600px) {
+  .sidebar-collapsed .page-nav-side {
+    --page-nav-side-offset: clamp(0px, min(50vw - 714px, 25vw - 214px), 160px);
+  }
 }
 
 /* Show page-toc only on wide screens */

@@ -529,7 +529,7 @@ pub fn render(
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("toc", &toc);
-  tera_context.insert("doc_nav", &doc_nav);
+  doc_nav.insert_into(&mut tera_context);
   tera_context.insert("custom_scripts", &custom_scripts);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
@@ -701,7 +701,7 @@ pub(crate) fn render_options_body(
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
-  tera_context.insert("doc_nav", &doc_nav);
+  doc_nav.insert_into(&mut tera_context);
   tera_context.insert("toc", options_toc);
   tera_context.insert(
     "show_option_groups_toc",
@@ -778,7 +778,7 @@ pub fn render_lib(
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
-  tera_context.insert("doc_nav", &doc_nav);
+  doc_nav.insert_into(&mut tera_context);
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
@@ -1086,7 +1086,7 @@ pub fn render_search(
   tera_context.insert("navbar_html", &navbar_html);
   tera_context.insert("footer_html", &footer_html);
   tera_context.insert("custom_scripts", &custom_scripts);
-  tera_context.insert("doc_nav", &doc_nav);
+  doc_nav.insert_into(&mut tera_context);
   tera_context.insert("toc", ""); // no TOC for search page
   tera_context.insert("generate_search", &true); // always true for search page
 
@@ -1206,6 +1206,32 @@ struct NavItem {
   position: Option<usize>,
   number:   Option<usize>,
   special:  bool,
+  /// Whether this item is the page that is being rendered.
+  current:  bool,
+}
+
+/// A neighbor page in the sidebar reading order, exposed to Tera templates as
+/// `prev_page` and `next_page`. Both fields are HTML-escaped.
+#[derive(Clone, serde::Serialize)]
+struct PageLink {
+  path:  String,
+  title: String,
+}
+
+/// Rendered sidebar navigation and the neighbors of the current page.
+struct DocNav {
+  html: String,
+  prev: Option<PageLink>,
+  next: Option<PageLink>,
+}
+
+impl DocNav {
+  /// Insert the navigation variables into a Tera context.
+  fn insert_into(&self, context: &mut tera::Context) {
+    context.insert("doc_nav", &self.html);
+    context.insert("prev_page", &self.prev);
+    context.insert("next_page", &self.next);
+  }
 }
 
 fn render_nav_link(output: &mut String, item: &NavItem, prefix: &str) {
@@ -1218,14 +1244,21 @@ fn render_nav_link(output: &mut String, item: &NavItem, prefix: &str) {
   }
 }
 
-fn render_nav_item(output: &mut String, item: &NavItem) {
-  render_nav_link(output, item, "");
+fn render_nav_item(
+  output: &mut String,
+  order: &mut Vec<usize>,
+  items: &[NavItem],
+  index: usize,
+) {
+  order.push(index);
+  render_nav_link(output, &items[index], "");
   let _ = writeln!(output, "</li>");
 }
 
 /// Render with an explicit stack and one reusable ancestor-number buffer.
 fn render_hierarchy(
   output: &mut String,
+  order: &mut Vec<usize>,
   items: &[NavItem],
   roots: &[usize],
   children: &[Vec<usize>],
@@ -1256,6 +1289,7 @@ fn render_hierarchy(
     let index = frame.siblings[frame.next];
     frame.next += 1;
     let item = &items[index];
+    order.push(index);
     render_nav_link(output, item, &prefix);
     if children[index].is_empty() {
       let _ = writeln!(output, "</li>");
@@ -1281,6 +1315,7 @@ fn render_hierarchy(
 /// `<summary>` label derived from the directory name.
 fn render_grouped(
   output: &mut String,
+  order: &mut Vec<usize>,
   items: &[NavItem],
   indices: &[usize],
   show_counts: bool,
@@ -1293,7 +1328,7 @@ fn render_grouped(
   for &index in indices {
     let item = &items[index];
     if item.rel_dir.is_empty() {
-      render_nav_item(output, item);
+      render_nav_item(output, order, items, index);
     } else {
       // Use only the first path component as the group label so that
       // `features/foo/bar.md` is still grouped under `features`.
@@ -1330,7 +1365,7 @@ fn render_grouped(
     );
 
     for index in group_items {
-      render_nav_item(output, &items[index]);
+      render_nav_item(output, order, items, index);
     }
 
     let _ = writeln!(output, "</ul></details></li>");
@@ -1423,10 +1458,13 @@ fn validate_nav_parents(
 
 /// Generate document navigation using source paths for parent identity and
 /// final output paths for links.
+///
+/// The previous and next pages follow the order of the sidebar links. The
+/// search page is not part of this order.
 fn generate_doc_nav(
   config: &Config,
   current_file_rel_path: &Path,
-) -> Result<String> {
+) -> Result<DocNav> {
   let sidebar = config.sidebar.as_ref();
   let group_by_dir = sidebar.is_some_and(|s| s.group_by_dir);
   if group_by_dir
@@ -1437,8 +1475,10 @@ fn generate_doc_nav(
 
   let mut doc_nav = String::new();
   let root_prefix = calculate_root_relative_path(current_file_rel_path);
+  let mut items = Vec::new();
+  // Pages in sidebar order as `(path, title, current)`.
+  let mut sequence: Vec<(String, &str, bool)> = Vec::new();
   if let Some(input_dir) = &config.input_dir {
-    let mut items = Vec::new();
     let mut requested_parents = Vec::new();
     for entry in walkdir::WalkDir::new(input_dir).follow_links(true) {
       let entry = entry.with_context(|| {
@@ -1499,6 +1539,7 @@ fn generate_doc_nav(
         position: matched_rule.and_then(|m| m.position),
         number: None,
         special,
+        current: html_path.as_ref() == current_file_rel_path,
       });
       requested_parents.push(matched_rule.and_then(|m| m.parent.as_deref()));
     }
@@ -1565,26 +1606,32 @@ fn generate_doc_nav(
       );
     }
 
+    let mut order = Vec::with_capacity(items.len());
     if group_by_dir {
       let show_counts = sidebar.is_some_and(|s| s.show_group_counts);
       if numbered && number_special {
-        render_grouped(&mut doc_nav, &items, &roots, show_counts);
+        render_grouped(&mut doc_nav, &mut order, &items, &roots, show_counts);
       } else {
         let regular_start =
           roots.partition_point(|&index| items[index].special);
         for &index in &roots[..regular_start] {
-          render_nav_item(&mut doc_nav, &items[index]);
+          render_nav_item(&mut doc_nav, &mut order, &items, index);
         }
         render_grouped(
           &mut doc_nav,
+          &mut order,
           &items,
           &roots[regular_start..],
           show_counts,
         );
       }
     } else {
-      render_hierarchy(&mut doc_nav, &items, &roots, &children);
+      render_hierarchy(&mut doc_nav, &mut order, &items, &roots, &children);
     }
+    sequence.extend(order.into_iter().map(|index| {
+      let item = &items[index];
+      (item.path.clone(), item.title.as_str(), item.current)
+    }));
   }
 
   // Add link to options page if module_options is configured
@@ -1593,6 +1640,11 @@ fn generate_doc_nav(
       doc_nav,
       "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>"
     );
+    sequence.push((
+      format!("{root_prefix}options.html"),
+      "Module Options",
+      current_file_rel_path == Path::new("options.html"),
+    ));
   }
 
   #[cfg(feature = "nixdoc")]
@@ -1601,6 +1653,11 @@ fn generate_doc_nav(
       doc_nav,
       "<li><a href=\"{root_prefix}lib.html\">Library Reference</a></li>"
     );
+    sequence.push((
+      format!("{root_prefix}lib.html"),
+      "Library Reference",
+      current_file_rel_path == Path::new("lib.html"),
+    ));
   }
 
   // Add search link only if search is enabled
@@ -1611,7 +1668,22 @@ fn generate_doc_nav(
     );
   }
 
-  Ok(doc_nav)
+  let link = |index: usize| {
+    let (path, title, _) = &sequence[index];
+    PageLink {
+      path:  encode_double_quoted_attribute(path).into_owned(),
+      title: encode_text(title).into_owned(),
+    }
+  };
+  let current = sequence.iter().position(|(_, _, current)| *current);
+  Ok(DocNav {
+    html: doc_nav,
+    prev: current.and_then(|index| index.checked_sub(1)).map(link),
+    next: current
+      .map(|index| index + 1)
+      .filter(|&index| index < sequence.len())
+      .map(link),
+  })
 }
 
 /// Generate custom scripts HTML
