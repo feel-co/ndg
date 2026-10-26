@@ -69,6 +69,9 @@ changes.
   it, and it hides again after a click on a link or outside of it. Before, the
   sidebar covered part of the content. The saved sidebar state applies only to
   wider windows.
+- The links of a hidden sidebar are no longer in the tab order or in the
+  accessibility tree. When the sidebar hides while it has the focus, the focus
+  moves to the sidebar toggle.
 - Option filtering keeps cards in place and hides nonmatches, reducing delays
   from browser extensions that rescan removed and reinserted content. Results
   retain their original order, and keyboard navigation skips hidden cards.

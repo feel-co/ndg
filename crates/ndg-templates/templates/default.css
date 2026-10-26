@@ -417,7 +417,11 @@ header {
   overflow-y: auto;
   z-index: 10;
   box-sizing: border-box;
-  transition: transform var(--transition);
+  /* `visibility` changes at the end of the transition to hide the sidebar,
+     and at the start to show it. */
+  transition:
+    transform var(--transition),
+    visibility var(--transition);
   font-size: 0.875rem;
   scrollbar-gutter: stable;
 
@@ -470,9 +474,12 @@ header {
     }
   }
 
+  /* `visibility` removes the hidden sidebar from the tab order and from the
+     accessibility tree. */
   .sidebar-collapsed &,
   .sidebar-collapsed-init & {
     transform: translateX(-100%);
+    visibility: hidden;
   }
 }
 
