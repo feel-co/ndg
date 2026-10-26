@@ -401,15 +401,28 @@ function sidebarBrowser(matches) {
     query.listener = listener;
   };
   class Element {}
+  const sidebarLink = new Element();
+  const toggle = new Element();
+  toggle.setAttribute = () => {};
+  toggle.focus = () => {
+    browser.document.activeElement = toggle;
+  };
+  const elements = {
+    ".sidebar": { contains: (element) => element === sidebarLink },
+    ".sidebar-toggle": toggle,
+  };
   const browser = {
     Element,
     query,
+    sidebarLink,
+    toggle,
     clicks: [],
     window: { matchMedia: () => query },
     document: {
+      activeElement: null,
       documentElement: { classList: classList() },
       body: { classList: classList() },
-      querySelector: () => null,
+      querySelector: (selector) => elements[selector] ?? null,
       addEventListener(type, listener) {
         if (type === "click") browser.clicks.push(listener);
       },
@@ -452,4 +465,25 @@ Deno.test("a narrow window hides the sidebar until the reader opens it", () => {
 
   browser.click([]);
   assert(!browser.collapsed(), "on a wide window, a click does not hide it");
+});
+
+Deno.test("a hidden sidebar gives the focus to the toggle", () => {
+  const browser = sidebarBrowser(true);
+  const { setupSidebarAutoHide, setSidebarCollapsed } = loadMain(
+    () => {},
+    browser,
+  );
+  setupSidebarAutoHide();
+  assert(
+    browser.document.activeElement === null,
+    "the first hide does not move the focus",
+  );
+
+  setSidebarCollapsed(false);
+  browser.document.activeElement = browser.sidebarLink;
+  browser.click([".sidebar a", ".sidebar, .sidebar-toggle"]);
+  assert(
+    browser.document.activeElement === browser.toggle,
+    "the focus moves from a sidebar link to the toggle",
+  );
 });

@@ -1497,6 +1497,13 @@ function syncSidebarToggle() {
 }
 
 function setSidebarCollapsed(collapsed) {
+  // A hidden sidebar cannot keep the focus, thus move it to the toggle.
+  if (collapsed) {
+    const sidebar = document.querySelector(".sidebar");
+    if (sidebar?.contains(document.activeElement)) {
+      document.querySelector(".sidebar-toggle")?.focus();
+    }
+  }
   document.documentElement.classList.toggle("sidebar-collapsed", collapsed);
   document.body.classList.toggle("sidebar-collapsed", collapsed);
   syncSidebarToggle();
