@@ -14,17 +14,21 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "window",
     "document",
     "requestAnimationFrame",
+    "cancelAnimationFrame",
     "fetch",
     "DOMParser",
     "IntersectionObserver",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility };`,
+    "localStorage",
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, applyTheme, setupThemeToggle, currentTheme, getFilterMatches, setFilteredItemVisibility };`,
   )(
     window,
     document,
     requestAnimationFrame,
+    browser.cancelAnimationFrame,
     browser.fetch,
     browser.DOMParser,
     browser.IntersectionObserver,
+    browser.localStorage,
   );
 }
 
@@ -385,3 +389,215 @@ Deno.test("the theme toggle goes back to the system theme", () => {
   assert(nextTheme("light", "light") === "dark", "a pinned light selects dark");
   assert(nextTheme("light", "dark") === "auto", "light goes back to auto");
 });
+
+function themeToggleFixture(dark, mode = "auto") {
+  const classes = new Set();
+  const schemeChanges = [];
+  const dataset = new Proxy(mode === "auto" ? {} : { theme: mode }, {
+    set(target, key, value) {
+      if (key === "themeResolved") {
+        schemeChanges.push({
+          value,
+          transitioning: classes.has("theme-changing"),
+        });
+      }
+      target[key] = value;
+      return true;
+    },
+  });
+  const root = {
+    dataset,
+    classList: {
+      add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
+    },
+  };
+  const events = [];
+  const labels = {};
+  const listeners = {};
+  const mediaListeners = {};
+  const media = {
+    matches: dark,
+    addEventListener: (type, listener) => (mediaListeners[type] = listener),
+  };
+  const stored = new Map(mode === "auto" ? [] : [["theme", mode]]);
+  const browser = themeBrowser(dark);
+  browser.window.matchMedia = () => media;
+  browser.cancelAnimationFrame = () => {};
+  browser.localStorage = {
+    setItem: (key, value) => stored.set(key, value),
+    removeItem: (key) => stored.delete(key),
+  };
+  browser.document = {
+    documentElement: root,
+    addEventListener: (type, listener) => (listeners[type] = listener),
+    querySelectorAll: (selector) =>
+      selector === "[data-theme-toggle]"
+        ? [{ setAttribute: (key, value) => (labels[key] = value) }]
+        : [],
+    dispatchEvent: (event) => events.push(event.detail),
+  };
+  const theme = loadMain(() => {}, browser);
+  theme.setupThemeToggle();
+  return {
+    ...theme,
+    root,
+    classes,
+    events,
+    labels,
+    schemeChanges,
+    stored,
+    media,
+    reportSystemChange: () => mediaListeners.change(),
+    click: () => listeners.click({ target: { closest: () => true } }),
+  };
+}
+
+Deno.test("auto mode waits for the OS listener to change the palette", () => {
+  for (const dark of [false, true]) {
+    const fixture = themeToggleFixture(dark);
+    assert(
+      fixture.root.dataset.themeResolved === (dark ? "dark" : "light"),
+      "initialization pins the current system scheme",
+    );
+    assert(fixture.events.length === 0, "initialization sends no theme event");
+    assert(fixture.classes.size === 0, "initialization starts no transition");
+
+    for (const nextDark of [!dark, dark]) {
+      const previous = fixture.root.dataset.themeResolved;
+      fixture.media.matches = nextDark;
+      assert(
+        fixture.root.dataset.themeResolved === previous,
+        "the palette stays on the old scheme before event delivery",
+      );
+      fixture.reportSystemChange();
+      const resolved = nextDark ? "dark" : "light";
+      assert(fixture.currentTheme() === "auto", "OS changes keep auto mode");
+      assert(
+        fixture.root.dataset.themeResolved === resolved &&
+          fixture.schemeChanges.at(-1).transitioning,
+        "the new palette is applied with shared transition timing",
+      );
+      const event = fixture.events.at(-1);
+      assert(
+        event.mode === "auto" && event.resolved === resolved,
+        "events report auto mode and the new system scheme",
+      );
+      assert(
+        fixture.labels["aria-label"] ===
+          `Switch to the ${nextDark ? "light" : "dark"} theme`,
+        "the toggle label follows the resolved scheme",
+      );
+      assert(
+        !fixture.stored.has("theme"),
+        "OS changes save no explicit choice",
+      );
+    }
+  }
+});
+
+Deno.test("explicit choices ignore OS changes and can return to auto", () => {
+  for (const mode of ["light", "dark"]) {
+    const fixture = themeToggleFixture(mode !== "dark", mode);
+    fixture.media.matches = mode === "dark";
+    fixture.reportSystemChange();
+    assert(
+      fixture.currentTheme() === mode,
+      "the explicit choice remains active",
+    );
+    assert(fixture.events.length === 0, "OS changes send no override event");
+    assert(
+      fixture.classes.size === 0,
+      "OS changes start no override transition",
+    );
+
+    fixture.click();
+    const other = mode === "dark" ? "light" : "dark";
+    assert(
+      fixture.stored.get("theme") === other,
+      "a click saves the other theme",
+    );
+    assert(
+      !fixture.root.dataset.themeResolved,
+      "explicit choices use data-theme without an auto scheme",
+    );
+    fixture.click();
+    assert(
+      fixture.currentTheme() === "auto",
+      "the second click returns to auto",
+    );
+    assert(
+      !fixture.stored.has("theme"),
+      "returning to auto clears the saved choice",
+    );
+    assert(
+      fixture.root.dataset.themeResolved === mode,
+      "auto uses the system scheme",
+    );
+
+    fixture.media.matches = mode !== "dark";
+    fixture.reportSystemChange();
+    assert(
+      fixture.root.dataset.themeResolved === other,
+      "auto follows later OS changes",
+    );
+    assert(
+      fixture.currentTheme() === "auto",
+      "the resolved scheme is not a choice",
+    );
+  }
+});
+
+Deno.test(
+  "rapid theme changes keep transition timing until the next paint",
+  () => {
+    const frames = new Map();
+    let nextFrame = 0;
+    const classes = new Set();
+    const root = {
+      dataset: {},
+      classList: {
+        add: (name) => classes.add(name),
+        remove: (name) => classes.delete(name),
+      },
+    };
+    const events = [];
+    const browser = themeBrowser(false);
+    browser.cancelAnimationFrame = (id) => frames.delete(id);
+    browser.document = {
+      addEventListener() {},
+      documentElement: root,
+      querySelectorAll: () => [],
+      dispatchEvent: (event) => events.push(event.detail),
+    };
+    const { applyTheme } = loadMain((callback) => {
+      frames.set(++nextFrame, callback);
+      return nextFrame;
+    }, browser);
+    const paint = () => {
+      const pending = [...frames.values()];
+      frames.clear();
+      pending.forEach((callback) => callback());
+    };
+
+    applyTheme("dark");
+    paint();
+    applyTheme("light");
+    paint();
+    assert(
+      classes.has("theme-changing"),
+      "an older cleanup must not end the new switch",
+    );
+    assert(root.dataset.theme === "light", "the latest selection wins");
+    paint();
+    assert(
+      !classes.has("theme-changing"),
+      "normal hover timing resumes after paint",
+    );
+    assert(frames.size === 0, "no animation frames remain pending");
+    assert(
+      events.length === 2 && events[1].resolved === "light",
+      "theme events follow each selection",
+    );
+  },
+);
