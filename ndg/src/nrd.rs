@@ -526,7 +526,7 @@ impl CommonMarkConverter {
           == Some("literalExpression") =>
       {
         let text = object.get("text").and_then(Value::as_str).unwrap_or("");
-        let code = md_make_code(text, "", None);
+        let code = md_make_code(text, "nix", None);
         Ok(vec![self.render_markdown(
           &format!("*{}:*\n{code}", capitalize(key)),
           renderer,
@@ -800,7 +800,7 @@ impl ManpageConverter {
           == Some("literalExpression") =>
       {
         let text = object.get("text").and_then(Value::as_str).unwrap_or("");
-        let code = md_make_code(text, "", None);
+        let code = md_make_code(text, "nix", None);
         Ok(vec![renderer.render_markdown(&format!(
           "*{}:*\n{code}",
           capitalize(key)
@@ -1842,7 +1842,13 @@ mod tests {
     ".sp\n",
     "\\fIType:\\fR boolean\n",
     ".sp\n",
-    "\\fIDefault:\\fR false\n",
+    "\\fIDefault:\\fR\n",
+    ".sp\n",
+    ".RS 4\n",
+    ".nf\n",
+    "false\n",
+    ".fi\n",
+    ".RE\n",
     ".sp\n",
     "\\fIExample:\\fR true\n",
     ".sp\n",
@@ -1878,7 +1884,13 @@ mod tests {
     "\\fIType:\\fR one of \\[u201C]auto\\[u201D], \\[u201C]manual\\[u201D] \
      \\fI(read only)\\fR\n",
     ".sp\n",
-    "\\fIDefault:\\fR \\(dqauto\\(dq\n",
+    "\\fIDefault:\\fR\n",
+    ".sp\n",
+    ".RS 4\n",
+    ".nf\n",
+    "\\(dqauto\\(dq\n",
+    ".fi\n",
+    ".RE\n",
     ".sp\n",
     "\\fIDeclared by:\\fP\n",
     ".RS 4\n",
@@ -1931,6 +1943,24 @@ mod tests {
   #[test]
   fn options_commonmark_matches_simple_fixture() {
     assert_eq!(render_simple(AnchorStyle::None, ""), SIMPLE_DEFAULT);
+  }
+
+  #[test]
+  fn options_commonmark_renders_literal_expression_as_nix_fence() {
+    let options = serde_json::from_str(COMPLEX_OPTIONS).unwrap();
+    let mut converter = CommonMarkConverter::new(
+      HashMap::new(),
+      "local".to_string(),
+      AnchorStyle::None,
+      String::new(),
+    );
+    converter.add_options(&options).unwrap();
+    let output = converter.finalize();
+
+    assert!(
+      output.contains("*Default:*\n\n```nix\nfalse\n```"),
+      "literal expression output was not fenced as Nix: {output}"
+    );
   }
 
   #[test]
