@@ -303,12 +303,14 @@ fn run_options_commonmark(args: CommonMarkArgs) -> Result<()> {
     args.anchor_prefix,
   );
   converter.add_options(&options)?;
-  fs::write(&args.outfile, converter.finalize()).with_context(|| {
-    format!(
-      "failed to write commonmark output to {}",
-      args.outfile.display()
-    )
-  })
+  Ok(
+    fs::write(&args.outfile, converter.finalize()).with_context(|| {
+      format!(
+        "failed to write commonmark output to {}",
+        args.outfile.display()
+      )
+    })?,
+  )
 }
 
 fn run_options_manpage(args: ManpageArgs) -> Result<()> {
@@ -319,21 +321,25 @@ fn run_options_manpage(args: ManpageArgs) -> Result<()> {
     read_optional_lines(args.footer.as_ref())?,
   );
   converter.add_options(&options)?;
-  fs::write(&args.outfile, converter.finalize()?).with_context(|| {
-    format!(
-      "failed to write manpage output to {}",
-      args.outfile.display()
-    )
-  })
+  Ok(
+    fs::write(&args.outfile, converter.finalize()?).with_context(|| {
+      format!(
+        "failed to write manpage output to {}",
+        args.outfile.display()
+      )
+    })?,
+  )
 }
 
 fn read_optional_text(path: Option<&PathBuf>) -> Result<Option<String>> {
-  path
-    .map(|path| {
-      fs::read_to_string(path)
-        .with_context(|| format!("failed to read {}", path.display()))
-    })
-    .transpose()
+  Ok(
+    path
+      .map(|path| {
+        fs::read_to_string(path)
+          .with_context(|| format!("failed to read {}", path.display()))
+      })
+      .transpose()?,
+  )
 }
 
 fn read_optional_lines(path: Option<&PathBuf>) -> Result<Option<Vec<String>>> {
@@ -356,8 +362,10 @@ fn read_options(path: &PathBuf) -> Result<Map<String, Value>> {
 fn read_string_map(path: &PathBuf) -> Result<HashMap<String, String>> {
   let content = fs::read_to_string(path)
     .with_context(|| format!("failed to read {}", path.display()))?;
-  serde_json::from_str(&content)
-    .with_context(|| format!("failed to parse {}", path.display()))
+  Ok(
+    serde_json::from_str(&content)
+      .with_context(|| format!("failed to parse {}", path.display()))?,
+  )
 }
 
 fn parse_anchor_style(value: &str) -> Result<AnchorStyle> {

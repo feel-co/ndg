@@ -1160,9 +1160,9 @@ fn load_template_content(
     let template_path = template_dir.join(template_name);
     if template_path.exists() {
       log::debug!("Loading custom template: {}", template_path.display());
-      return fs::read_to_string(&template_path).context({
+      return Ok(fs::read_to_string(&template_path).context({
         format!("Failed to read template file: {}", template_path.display())
-      });
+      })?);
     }
     // Custom template directory is set but this specific template is missing
     log::warn!(
@@ -1182,13 +1182,13 @@ fn load_template_content(
       "Loading custom template (backward compat): {}",
       template_path.display()
     );
-    return fs::read_to_string(template_path).context({
+    return Ok(fs::read_to_string(template_path).context({
       format!(
         "Failed to read custom template file: {}. Check file permissions and \
          ensure the file is valid UTF-8",
         template_path.display()
       )
-    });
+    })?);
   }
   // Use fallback embedded template if no custom template found
   // If fallback is empty, return empty string (used for optional templates)

@@ -138,8 +138,11 @@ fn copy_template_asset(
     content
   };
 
-  fs::write(assets_dir.join(filename), processed_content)
-    .with_context(|| format!("Failed to write {filename} to assets directory"))
+  Ok(
+    fs::write(assets_dir.join(filename), processed_content).with_context(
+      || format!("Failed to write {filename} to assets directory"),
+    )?,
+  )
 }
 
 /// Copies custom assets from the configured assets directory, if any, into the

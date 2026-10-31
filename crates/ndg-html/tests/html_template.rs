@@ -474,7 +474,7 @@ fn process_options_reports_invalid_field_path() {
   config.output_dir = temp.path().join("output");
   let error =
     process_options(&config, &options_path).expect_err("invalid options JSON");
-  let message = format!("{error:#}");
+  let message = format!("{error:?}");
 
   assert!(message.contains(&options_path.display().to_string()));
   assert!(message.contains("services.example.enable"));

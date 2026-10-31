@@ -223,8 +223,10 @@ fn update_gitignore(config_path: &Path) -> Result<()> {
     content.push('\n');
   }
   content.push_str(CACHE_SECTION);
-  fs::write(&path, content)
-    .with_context(|| format!("Failed to update {}", path.display()))
+  Ok(
+    fs::write(&path, content)
+      .with_context(|| format!("Failed to update {}", path.display()))?,
+  )
 }
 
 fn project_root(config_files: &[PathBuf]) -> PathBuf {

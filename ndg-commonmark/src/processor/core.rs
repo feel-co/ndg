@@ -706,7 +706,7 @@ impl MarkdownProcessor {
             // Check if this comment is inside an <li> element
             if let Some(parent) = comment.parent()
               && let Some(element) = parent.as_element()
-              && element.name.local.as_ref() == "li"
+              && AsRef::<str>::as_ref(&element.name.local) == "li"
             {
               to_modify.push((comment.clone(), id.to_string()));
             }
@@ -762,7 +762,7 @@ impl MarkdownProcessor {
             if let Some(parent) = comment.parent()
               && let Some(element) = parent.as_element()
               && matches!(
-                element.name.local.as_ref(),
+                AsRef::<str>::as_ref(&element.name.local),
                 "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
               )
             {
