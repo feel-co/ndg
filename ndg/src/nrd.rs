@@ -394,8 +394,9 @@ impl CommonMarkConverter {
 
   fn add_options(&mut self, options: &Map<String, Value>) -> Result<()> {
     for (name, option) in options {
+      let continuing = !self.options.is_empty();
       let rendered = self
-        .render_option(name, option)
+        .render_option(name, option, continuing)
         .with_context(|| format!("failed to render option {name}"))?;
       self.options.insert(name.clone(), rendered);
     }
@@ -406,11 +407,12 @@ impl CommonMarkConverter {
     &self,
     name: &str,
     option: &Value,
+    continuing: bool,
   ) -> Result<RenderedOption> {
     let Value::Object(option) = option else {
       bail!("option value must be a JSON object")
     };
-    let mut renderer = CommonMarkRenderer::new();
+    let mut renderer = CommonMarkRenderer::new(continuing);
     let loc = option_loc(name, option);
     Ok(RenderedOption {
       loc,
@@ -634,7 +636,8 @@ impl CommonMarkConverter {
   ) -> Result<String> {
     let rewritten = rewrite_roles(markdown, &self.manpage_urls);
     let arena = Arena::new();
-    let options = Options::default();
+    let mut options = Options::default();
+    options.parse.smart = true;
     let root = parse_document(&arena, &rewritten, &options);
     renderer.render(root)
   }
@@ -917,11 +920,11 @@ impl ManpageConverter {
 }
 
 impl CommonMarkRenderer {
-  fn new() -> Self {
+  fn new(continuing: bool) -> Self {
     Self {
       parstack:   vec![ParagraphState {
-        indent:     String::new(),
-        continuing: false,
+        indent: String::new(),
+        continuing,
       }],
       list_stack: Vec::new(),
       link_stack: Vec::new(),
