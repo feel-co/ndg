@@ -284,6 +284,10 @@ modify.</p>
 <li><code>{{ toc|safe }}</code> - Table of contents HTML (empty when frontmatter sets
 <code>toc = false</code>)</li>
 <li><code>{{ doc_nav|safe }}</code> - Document navigation HTML</li>
+<li><code>{{ prev_page }}</code> and <code>{{ next_page }}</code> - The previous and next pages in
+sidebar order, or empty for the first and last page. Each has a <code>path</code> and a
+<code>title</code> field. Both fields are HTML-escaped, so use them with <code>|safe</code>, for
+example <code>{{ next_page.title|safe }}</code>. The search page is not in this order.</li>
 <li><code>{{ navbar_html|safe }}</code> - Rendered navbar HTML</li>
 <li><code>{{ footer_html|safe }}</code> - Rendered footer HTML</li>
 <li><code>{{ has_options }}</code> - Options link styling attributes</li>
