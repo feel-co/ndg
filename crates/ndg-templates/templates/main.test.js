@@ -129,6 +129,7 @@ Deno.test("scrolling loads one option chunk at a time", async () => {
   const chunks = [0, 1].map((index) => ({
     dataset: { src: `chunk-${index}.html` },
     removeAttribute() {},
+    querySelectorAll: () => [],
     set innerHTML(_html) {},
   }));
   const status = { textContent: "", remove() {} };
@@ -138,6 +139,7 @@ Deno.test("scrolling loads one option chunk at a time", async () => {
   };
   const document = {
     addEventListener() {},
+    documentElement: { dataset: {} },
     getElementById: () => ({
       textContent: JSON.stringify({ option_chunks: {} }),
     }),
@@ -191,6 +193,7 @@ Deno.test("deep option anchors load every preceding chunk", async () => {
     dataset: { src: `chunk-${index}.html` },
     classList: { add() {} },
     removeAttribute() {},
+    querySelectorAll: () => [],
     set innerHTML(_html) {
       if (index === 1) targetAvailable = true;
     },
@@ -205,6 +208,7 @@ Deno.test("deep option anchors load every preceding chunk", async () => {
   };
   const document = {
     addEventListener() {},
+    documentElement: { dataset: {} },
     getElementById(id) {
       if (id === "options-chunk-manifest") return manifest;
       return id === "option-deep" && targetAvailable ? target : null;
@@ -235,6 +239,50 @@ Deno.test("deep option anchors load every preceding chunk", async () => {
     "a deep anchor must load every preceding chunk to keep its position stable",
   );
   assert(targetClasses.has("highlight"), "the deep option must be highlighted");
+});
+
+Deno.test("a loaded option chunk follows the selected theme", async () => {
+  const source = { dataset: {}, media: "(prefers-color-scheme: dark)" };
+  let loaded = false;
+  const chunk = {
+    dataset: { src: "chunk-0.html" },
+    removeAttribute() {},
+    querySelectorAll: () => (loaded ? [source] : []),
+    set innerHTML(_html) {
+      loaded = true;
+    },
+  };
+  const loader = {
+    querySelector: () => ({ textContent: "", remove() {} }),
+    querySelectorAll: () => [chunk],
+  };
+  // The page has no pictures of its own, so only a sync of the chunk finds one.
+  const document = {
+    addEventListener() {},
+    documentElement: { dataset: { theme: "dark" } },
+    getElementById: () => ({ textContent: "{}" }),
+    querySelector: () => loader,
+    querySelectorAll: () => [],
+  };
+  const window = {
+    location: { hash: "" },
+    addEventListener() {},
+    requestIdleCallback() {},
+  };
+  const fetch = () =>
+    Promise.resolve({ ok: true, text: () => Promise.resolve("<picture>") });
+  const { setupOptionChunkLoading } = loadMain(() => {}, {
+    document,
+    fetch,
+    window,
+  });
+
+  await setupOptionChunkLoading(new AbortController().signal).loadAll();
+
+  assert(
+    source.media === "(grid: 0)",
+    "a picture in a loaded chunk must follow the selected dark theme",
+  );
 });
 
 Deno.test("client navigation parses only a complete response", async () => {

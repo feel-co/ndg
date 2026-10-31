@@ -569,8 +569,8 @@ function setupOptionChunkLoading(signal) {
       })
       .then((html) => {
         chunk.innerHTML = html;
-        // FIXME: Sync themed pictures in this chunk with currentTheme(); images
-        // loaded after initializePage currently keep the system color scheme.
+        // Late chunks miss the page sync, so match their pictures to the theme.
+        syncThemedImages(currentTheme(), chunk);
         chunk.removeAttribute("data-src");
         loadedChunks.add(index);
         updateStatus();
