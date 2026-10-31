@@ -37,6 +37,10 @@ changes.
 
 ### Added
 
+- `Ctrl+K` now focuses search alongside the existing `/` shortcut, prioritizing
+  the options filter when present. The header search field shows a `Ctrl+K`
+  keycap, and the search page lists both shortcuts in its keyboard hints.
+
 - Document sidebars now support explicit sub-chapters through `parent` in
   `[[sidebar.matches]]`. Parents remain clickable, integer positions order
   siblings, and numbering follows the hierarchy, such as `4.1` and `4.1.1`.

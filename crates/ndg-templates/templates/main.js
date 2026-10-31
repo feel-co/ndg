@@ -364,17 +364,25 @@ function isEditableTarget(target) {
   );
 }
 
+function isSearchShortcut(event) {
+  if (
+    event.defaultPrevented ||
+    event.isComposing ||
+    event.metaKey ||
+    event.altKey
+  )
+    return false;
+
+  if (event.ctrlKey) {
+    return event.key.toLowerCase() === "k" && !event.shiftKey;
+  }
+
+  return event.key === "/" && !isEditableTarget(event.target);
+}
+
 function setupGlobalShortcuts() {
   document.addEventListener("keydown", (event) => {
-    if (
-      event.key !== "/" ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.altKey ||
-      isEditableTarget(event.target)
-    ) {
-      return;
-    }
+    if (!isSearchShortcut(event)) return;
 
     const input =
       document.getElementById("options-filter") ??
