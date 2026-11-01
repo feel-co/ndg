@@ -2618,9 +2618,7 @@ h6:hover .copy-link {
   border-radius: var(--radius-lg);
   color: var(--text-color);
   box-sizing: border-box;
-  transition:
-    border-color var(--transition-fast),
-    background-color var(--transition-fast);
+  transition: var(--theme-colors-fast);
 
   &:hover {
     border-color: var(--brand);
@@ -2717,9 +2715,7 @@ h6:hover .copy-link {
   background-color: var(--bg-surface);
   box-shadow: var(--shadow-sm);
   pointer-events: auto;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: var(--theme-colors-fast);
 
   &:hover {
     border-color: var(--brand);
@@ -2732,7 +2728,7 @@ h6:hover .copy-link {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
-    transition: stroke var(--transition-fast);
+    transition: stroke var(--theme-transition, var(--transition-fast));
   }
 
   &:hover svg {
