@@ -19,7 +19,8 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "DOMParser",
     "IntersectionObserver",
     "localStorage",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, applyTheme, setupThemeToggle, currentTheme, getFilterMatches, setFilteredItemVisibility };`,
+    "Element",
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, applyTheme, setupThemeToggle, currentTheme, getFilterMatches, setFilteredItemVisibility, setupSidebarAutoHide, setSidebarCollapsed };`,
   )(
     window,
     document,
@@ -29,6 +30,7 @@ function loadMain(requestAnimationFrame, browser = {}) {
     browser.DOMParser,
     browser.IntersectionObserver,
     browser.localStorage,
+    browser.Element,
   );
 }
 
@@ -649,3 +651,103 @@ Deno.test(
     );
   },
 );
+
+function sidebarBrowser(matches) {
+  const classList = () => {
+    const names = new Set();
+    return {
+      contains: (name) => names.has(name),
+      toggle: (name, force) => (force ? names.add(name) : names.delete(name)),
+    };
+  };
+  const query = { matches, listener: null };
+  query.addEventListener = (_type, listener) => {
+    query.listener = listener;
+  };
+  class Element {}
+  const sidebarLink = new Element();
+  const toggle = new Element();
+  toggle.setAttribute = () => {};
+  toggle.focus = () => {
+    browser.document.activeElement = toggle;
+  };
+  const elements = {
+    ".sidebar": { contains: (element) => element === sidebarLink },
+    ".sidebar-toggle": toggle,
+  };
+  const browser = {
+    Element,
+    query,
+    sidebarLink,
+    toggle,
+    clicks: [],
+    window: { matchMedia: () => query },
+    document: {
+      activeElement: null,
+      documentElement: { classList: classList() },
+      body: { classList: classList() },
+      querySelector: (selector) => elements[selector] ?? null,
+      addEventListener(type, listener) {
+        if (type === "click") browser.clicks.push(listener);
+      },
+    },
+  };
+  browser.click = (selectors) => {
+    const target = new Element();
+    target.closest = (selector) =>
+      selectors.includes(selector) ? target : null;
+    for (const listener of browser.clicks) listener({ target });
+  };
+  browser.collapsed = () =>
+    browser.document.documentElement.classList.contains("sidebar-collapsed");
+  return browser;
+}
+
+Deno.test("a narrow window hides the sidebar until the reader opens it", () => {
+  const browser = sidebarBrowser(true);
+  const { setupSidebarAutoHide, setSidebarCollapsed } = loadMain(
+    () => {},
+    browser,
+  );
+  setupSidebarAutoHide();
+  assert(browser.collapsed(), "a narrow window starts with a hidden sidebar");
+
+  setSidebarCollapsed(false);
+  browser.click([".sidebar, .sidebar-toggle"]);
+  assert(!browser.collapsed(), "a click in the sidebar keeps it open");
+
+  browser.click([".sidebar a", ".sidebar, .sidebar-toggle"]);
+  assert(browser.collapsed(), "a click on a sidebar link hides it");
+
+  setSidebarCollapsed(false);
+  browser.click([]);
+  assert(browser.collapsed(), "a click outside of the sidebar hides it");
+
+  browser.query.matches = false;
+  browser.query.listener();
+  assert(!browser.collapsed(), "a wide window shows the sidebar again");
+
+  browser.click([]);
+  assert(!browser.collapsed(), "on a wide window, a click does not hide it");
+});
+
+Deno.test("a hidden sidebar gives the focus to the toggle", () => {
+  const browser = sidebarBrowser(true);
+  const { setupSidebarAutoHide, setSidebarCollapsed } = loadMain(
+    () => {},
+    browser,
+  );
+  setupSidebarAutoHide();
+  assert(
+    browser.document.activeElement === null,
+    "the first hide does not move the focus",
+  );
+
+  setSidebarCollapsed(false);
+  browser.document.activeElement = browser.sidebarLink;
+  browser.click([".sidebar a", ".sidebar, .sidebar-toggle"]);
+  assert(
+    browser.document.activeElement === browser.toggle,
+    "the focus moves from a sidebar link to the toggle",
+  );
+});

@@ -5,8 +5,8 @@ use std::{
   sync::LazyLock,
 };
 
-use color_eyre::eyre::{Context, Result};
 use log::{error, info};
+use misstep::{Result, ResultExt};
 use ndg_commonmark::{
   MarkdownOptions,
   MarkdownProcessor,
@@ -133,11 +133,11 @@ pub fn generate_manpage(
   section: u8,
 ) -> Result<()> {
   // Read options JSON
-  let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
+  let json_content = fs::read_to_string(options_path).with_context(|| {
     format!("Failed to read options file: {}", options_path.display())
   })?;
 
-  let options_data = parse_options_json(&json_content).wrap_err_with(|| {
+  let options_data = parse_options_json(&json_content).with_context(|| {
     format!(
       "Failed to validate options JSON at {}",
       options_path.display()
@@ -176,7 +176,7 @@ pub fn generate_manpage(
   );
 
   // Create output file
-  let mut file = fs::File::create(&output_file).wrap_err_with(|| {
+  let mut file = fs::File::create(&output_file).with_context(|| {
     format!("Failed to create output file: {}", output_file.display())
   })?;
 

@@ -28,7 +28,6 @@ ndg-utils     = { path = "./crates/ndg-utils", version = "2.10.2", default-featu
 # Library, detached from the CLI tool
 ndg-commonmark = { path = "./ndg-commonmark", version = "2.10.2", default-features = false }
 
-anyhow = "1.0.104"
 clap = { version = "4.6.6", default-features = false, features = [
   "std",
   "derive",
@@ -39,11 +38,11 @@ clap = { version = "4.6.6", default-features = false, features = [
 clap-verbosity-flag = "3.0.4"
 clap_complete = "4.6.9"
 clap_mangen = "0.3.3"
-color-eyre = "0.6.5"
 env_logger = "0.11.11"
 indicatif = { version = "0.18.6", features = [ "rayon" ] }
 jiff = "0.2.37"
 log = "0.4.34"
+misstep = { version = "0.3.0", features = [ "pretty", "color", "backtrace", "panic-hook" ] }
 num_cpus = "1.17.0"
 open = "5.4.4"
 rustc-hash = "2.1.3"
@@ -193,8 +192,6 @@ opt-level = 1
 [profile.dev.package.clap_derive]
 opt-level = 1
 
-[profile.dev.package.backtrace]
-opt-level = 3
 [profile.dev.package.oxc_allocator]
 opt-level = 3
 [profile.dev.package.oxc_ast]

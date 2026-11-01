@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use axum::Router;
-use color_eyre::eyre::{Context, Result};
+use misstep::{Result, ResultExt};
 use tower_http::services::ServeDir;
 
 /// Start a local web server to serve the generated documentation.
@@ -20,13 +20,13 @@ pub async fn serve_docs(output_dir: &Path, port: u16) -> Result<()> {
 
   let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))
     .await
-    .wrap_err_with(|| format!("Failed to bind to port {}", port))?;
+    .with_context(|| format!("Failed to bind to port {}", port))?;
 
   println!("Starting web server on http://127.0.0.1:{}", port);
   println!("Serving files from: {}", output_dir.display());
   println!("Press Ctrl+C to stop");
 
-  axum::serve(listener, app).await.wrap_err("Server error")?;
+  axum::serve(listener, app).await.context("Server error")?;
 
   Ok(())
 }

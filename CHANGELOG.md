@@ -54,6 +54,10 @@ changes.
   preserving normal hover timing. Native browser controls follow the selected
   theme through `color-scheme`.
 
+- Links to the previous and next page in sidebar order. They show at the end of
+  each document page, and as arrows next to the content on wide screens.
+  Templates get the links through `prev_page` and `next_page`.
+
 ### Changed
 
 - `ndg init` now generates configuration from the config types and defaults,
@@ -61,8 +65,20 @@ changes.
   are added. JSON uses the same starter values without activating example paths
   or sidebar rules. Long time coming honestly.
 
+- NDG's error reporting stack, previously handled by `color-eyre` and `anyhow`,
+  have been replaced with our own in-house crate `misstep` for lighter
+  dependency graphs. Error context and backtraces should be preserved with no
+  issues, but please do open issues if you notice anything.
+
 ### Fixed
 
+- On a window narrower than 1400px, the sidebar is hidden until the reader opens
+  it, and it hides again after a click on a link or outside of it. Before, the
+  sidebar covered part of the content. The saved sidebar state applies only to
+  wider windows.
+- The links of a hidden sidebar are no longer in the tab order or in the
+  accessibility tree. When the sidebar hides while it has the focus, the focus
+  moves to the sidebar toggle.
 - Option filtering keeps cards in place and hides nonmatches, reducing delays
   from browser extensions that rescan removed and reinserted content. Results
   retain their original order, and keyboard navigation skips hidden cards.

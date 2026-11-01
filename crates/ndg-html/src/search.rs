@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf, sync::OnceLock};
 
-use color_eyre::eyre::{Context, Result};
 use log::info;
+use misstep::{Result, ResultExt};
 use ndg_config::Config;
 use ndg_utils::{html, options::parse_options_json, postprocess};
 use rayon::prelude::*;
@@ -220,11 +220,11 @@ pub fn generate_search_index(
   let mut options_count = 0;
   if let Some(options_path) = &config.module_options {
     let options_content =
-      fs::read_to_string(options_path).wrap_err_with(|| {
+      fs::read_to_string(options_path).with_context(|| {
         format!("Failed to read options file: {}", options_path.display())
       })?;
     let options_data =
-      parse_options_json(&options_content).wrap_err_with(|| {
+      parse_options_json(&options_content).with_context(|| {
         format!(
           "Failed to validate options JSON at {}",
           options_path.display()
@@ -299,7 +299,7 @@ pub fn generate_search_index(
 
   let search_data_path = search_dir.join("search-data.json");
   fs::write(&search_data_path, serde_json::to_string(&search_data)?)
-    .wrap_err_with(|| {
+    .with_context(|| {
       format!(
         "Failed to write search data to {}",
         search_data_path.display()
@@ -343,7 +343,7 @@ pub fn create_search_page(config: &Config) -> Result<()> {
   };
 
   let search_page_path = config.output_dir.join("search.html");
-  fs::write(&search_page_path, &processed_html).wrap_err_with(|| {
+  fs::write(&search_page_path, &processed_html).with_context(|| {
     format!(
       "Failed to write search page to {}",
       search_page_path.display()

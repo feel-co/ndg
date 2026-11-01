@@ -20,9 +20,9 @@ default            = [ "commonmark-ndg" ]
 ndg-commonmark.workspace = true
 ndg-utils.workspace      = true
 
-color-eyre.workspace = true
 jiff.workspace       = true
 log.workspace        = true
+misstep.workspace    = true
 rayon.workspace      = true
 regex.workspace      = true
 rustc-hash.workspace = true

@@ -4,8 +4,8 @@ use std::{
   sync::OnceLock,
 };
 
-use color_eyre::eyre::{Context, Result};
 use html_escape::decode_html_entities;
+use misstep::{Result, ResultExt};
 use ndg_commonmark::{MarkdownProcessor, ProcessorPreset, create_processor};
 use ndg_utils::options::{
   DocumentationText,
@@ -47,10 +47,10 @@ pub fn generate_pdf(
   header: Option<&str>,
   footer: Option<&str>,
 ) -> Result<()> {
-  let json_content = fs::read_to_string(options_path).wrap_err_with(|| {
+  let json_content = fs::read_to_string(options_path).with_context(|| {
     format!("Failed to read options file: {}", options_path.display())
   })?;
-  let options_data = parse_options_json(&json_content).wrap_err_with(|| {
+  let options_data = parse_options_json(&json_content).with_context(|| {
     format!(
       "Failed to validate options JSON at {}",
       options_path.display()
@@ -140,7 +140,7 @@ pub fn generate_pdf(
   }
 
   let pdf_bytes = render_pdf(&blocks);
-  fs::write(&output_file, pdf_bytes).wrap_err_with(|| {
+  fs::write(&output_file, pdf_bytes).with_context(|| {
     format!("Failed to write PDF to {}", output_file.display())
   })?;
   Ok(())

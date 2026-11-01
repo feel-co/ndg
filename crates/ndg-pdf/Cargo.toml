@@ -17,8 +17,8 @@ commonmark-nixpkgs = [ "ndg-commonmark/nixpkgs", "ndg-utils/commonmark-nixpkgs" 
 default            = [ "commonmark-ndg" ]
 
 [dependencies]
-color-eyre.workspace     = true
 html-escape.workspace    = true
+misstep.workspace        = true
 ndg-commonmark.workspace = true
 ndg-utils.workspace      = true
 printpdf.workspace       = true

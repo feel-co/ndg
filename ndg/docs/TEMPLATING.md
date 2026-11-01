@@ -173,6 +173,10 @@ ndg export-templates --output ./templates --force
 - `{{ toc|safe }}` - Table of contents HTML (empty when frontmatter sets
   `toc = false`)
 - `{{ doc_nav|safe }}` - Document navigation HTML
+- `{{ prev_page }}` and `{{ next_page }}` - The previous and next pages in
+  sidebar order, or empty for the first and last page. Each has a `path` and a
+  `title` field. Both fields are HTML-escaped, so use them with `|safe`, for
+  example `{{ next_page.title|safe }}`. The search page is not in this order.
 - `{{ navbar_html|safe }}` - Rendered navbar HTML
 - `{{ footer_html|safe }}` - Rendered footer HTML
 - `{{ has_options }}` - Options link styling attributes
