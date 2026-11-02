@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["ndg","ndg_commonmark","ndg_config","ndg_html","ndg_macros","ndg_manpage","ndg_nixdoc","ndg_pdf","ndg_templates","ndg_utils"];
-//{"start":21,"fragment_lengths":[5,17,13,11,13,14,13,10,16,12]}
+window.ALL_CRATES = [{"c":"ndg"},{"c":"ndg_commonmark"},{"c":"ndg_config"},{"c":"ndg_html"},{"c":"ndg_macros"},{"c":"ndg_manpage"},{"c":"ndg_nixdoc"},{"c":"ndg_pdf"},{"c":"ndg_templates"},{"c":"ndg_utils"}];
+//{"start":21,"fragment_lengths":[11,23,19,17,19,20,19,16,22,18]}
