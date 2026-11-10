@@ -55,6 +55,11 @@ changes.
   each document page, and as arrows next to the content on wide screens.
   Templates get the links through `prev_page` and `next_page`.
 
+- The sidebar marks the link of the current page with the `active` class and
+  `aria-current="page"`. The sidebar keeps its scroll position between pages. If
+  the link of the current page is then out of view, the sidebar scrolls to put
+  it in the center.
+
 ### Changed
 
 - `ndg init` now generates configuration from the config types and defaults,

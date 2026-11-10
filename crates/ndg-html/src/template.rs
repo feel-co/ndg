@@ -1234,13 +1234,26 @@ impl DocNav {
   }
 }
 
+/// Attributes that mark the sidebar link of the current page.
+const fn current_link_attributes(current: bool) -> &'static str {
+  if current {
+    " class=\"active\" aria-current=\"page\""
+  } else {
+    ""
+  }
+}
+
 fn render_nav_link(output: &mut String, item: &NavItem, prefix: &str) {
   let path = encode_double_quoted_attribute(&item.path);
   let title = encode_text(&item.title);
+  let current = current_link_attributes(item.current);
   if let Some(num) = item.number {
-    let _ = write!(output, "<li><a href=\"{path}\">{prefix}{num}. {title}</a>");
+    let _ = write!(
+      output,
+      "<li><a href=\"{path}\"{current}>{prefix}{num}. {title}</a>"
+    );
   } else {
-    let _ = write!(output, "<li><a href=\"{path}\">{title}</a>");
+    let _ = write!(output, "<li><a href=\"{path}\"{current}>{title}</a>");
   }
 }
 
@@ -1636,9 +1649,13 @@ fn generate_doc_nav(
 
   // Add link to options page if module_options is configured
   if doc_nav.is_empty() && config.module_options.is_some() {
+    let current = current_link_attributes(
+      current_file_rel_path == Path::new("options.html"),
+    );
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}options.html\">Module Options</a></li>"
+      "<li><a href=\"{root_prefix}options.html\"{current}>Module \
+       Options</a></li>"
     );
     sequence.push((
       format!("{root_prefix}options.html"),
@@ -1649,9 +1666,12 @@ fn generate_doc_nav(
 
   #[cfg(feature = "nixdoc")]
   if !config.nixdoc_inputs.is_empty() {
+    let current =
+      current_link_attributes(current_file_rel_path == Path::new("lib.html"));
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}lib.html\">Library Reference</a></li>"
+      "<li><a href=\"{root_prefix}lib.html\"{current}>Library \
+       Reference</a></li>"
     );
     sequence.push((
       format!("{root_prefix}lib.html"),
@@ -1662,9 +1682,12 @@ fn generate_doc_nav(
 
   // Add search link only if search is enabled
   if config.is_search_enabled() {
+    let current = current_link_attributes(
+      current_file_rel_path == Path::new("search.html"),
+    );
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}search.html\">Search</a></li>"
+      "<li><a href=\"{root_prefix}search.html\"{current}>Search</a></li>"
     );
   }
 

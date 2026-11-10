@@ -18,7 +18,7 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "DOMParser",
     "IntersectionObserver",
     "Element",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility, setupSidebarAutoHide, setSidebarCollapsed };`,
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility, setupSidebarAutoHide, setSidebarCollapsed, restoreSidebarScroll };`,
   )(
     window,
     document,
@@ -485,5 +485,55 @@ Deno.test("a hidden sidebar gives the focus to the toggle", () => {
   assert(
     browser.document.activeElement === browser.toggle,
     "the focus moves from a sidebar link to the toggle",
+  );
+});
+
+function scrollBrowser(linkTop, linkHeight = 30) {
+  // A sidebar 400px high at the top of the window. `linkTop` is the offset
+  // of the active link in the sidebar content.
+  const sidebar = {
+    scrollTop: 0,
+    clientHeight: 400,
+    getBoundingClientRect: () => ({ top: 0, bottom: 400 }),
+    querySelector: () => link,
+  };
+  const link = {
+    getBoundingClientRect: () => ({
+      top: linkTop - sidebar.scrollTop,
+      bottom: linkTop - sidebar.scrollTop + linkHeight,
+      height: linkHeight,
+    }),
+  };
+  return {
+    sidebar,
+    document: { addEventListener() {}, querySelector: () => sidebar },
+  };
+}
+
+Deno.test("the sidebar keeps its scroll position when the active link is in view", () => {
+  const browser = scrollBrowser(700);
+  const { restoreSidebarScroll } = loadMain(() => {}, browser);
+  restoreSidebarScroll(500);
+  assert(browser.sidebar.scrollTop === 500, "the links stay in position");
+
+  const top = scrollBrowser(0);
+  loadMain(() => {}, top).restoreSidebarScroll(NaN);
+  assert(top.sidebar.scrollTop === 0, "the first link stays at the top");
+});
+
+Deno.test("the sidebar centers an active link that is out of view", () => {
+  const browser = scrollBrowser(1000);
+  const { restoreSidebarScroll } = loadMain(() => {}, browser);
+  restoreSidebarScroll(NaN);
+  assert(
+    browser.sidebar.scrollTop === 815,
+    "the link moves to the center of the sidebar",
+  );
+
+  browser.sidebar.scrollTop = 0;
+  restoreSidebarScroll(2000);
+  assert(
+    browser.sidebar.scrollTop === 815,
+    "a stored position that hides the link is not kept",
   );
 });

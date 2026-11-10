@@ -1375,6 +1375,12 @@ fn test_page_nav_follows_sidebar_order() {
   assert!(html.contains("Session &lt;Management&gt;</span>"));
   assert!(html.contains(r#"href="alpha.html" rel="next">"#));
 
+  // Only the sidebar link of the current page is marked.
+  assert!(html.contains(
+    r#"<li><a href="advanced.html" class="active" aria-current="page">"#
+  ));
+  assert_eq!(html.matches(r#"aria-current="page""#).count(), 1);
+
   // Links are relative to the current page.
   let html = render("topics/session.html");
   assert!(html.contains(r#"href="../configuration.html" rel="prev">"#));
