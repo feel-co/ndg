@@ -42,6 +42,15 @@ pub struct SidebarConfig {
   #[serde(default = "default_true")]
   pub show_group_counts: bool,
 
+  /// Whether pages with sub-chapters fold in the sidebar.
+  ///
+  /// When enabled, a page that has children through `parent` matches is a
+  /// `<details>` element. Only the chain from the root to the current page is
+  /// open, and the link of the current page has the class `active`. Has no
+  /// effect when `group_by_dir` is `true`.
+  #[serde(default)]
+  pub collapsible: bool,
+
   /// Pattern-based matching rules for sidebar items.
   #[serde(default)]
   #[template(nested)]
@@ -820,6 +829,7 @@ mod tests {
       ordering:             SidebarOrdering::Custom,
       group_by_dir:         false,
       show_group_counts:    true,
+      collapsible:          false,
       toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![
@@ -861,6 +871,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
       show_group_counts:    true,
+      collapsible:          false,
       toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![
@@ -896,6 +907,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
       show_group_counts:    true,
+      collapsible:          false,
       toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![SidebarMatch {
@@ -924,6 +936,7 @@ mod tests {
       ordering:             SidebarOrdering::Alphabetical,
       group_by_dir:         false,
       show_group_counts:    true,
+      collapsible:          false,
       toc:                  SidebarTocConfig::default(),
       options:              None,
       matches:              vec![SidebarMatch {

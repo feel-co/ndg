@@ -3011,6 +3011,36 @@ h6:hover .copy-link {
   animation: highlight-pulse-active-dark 1s ease-in-out infinite alternate;
 }
 
+/* Sidebar chapters that fold their sub-chapters */
+.sidebar-chapter > details > summary {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  > a {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &::after {
+    content: "\25B6";
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    padding: var(--space-2) var(--space-3);
+    transition: transform var(--transition-fast);
+    flex-shrink: 0;
+  }
+}
+
+.sidebar-chapter > details[open] > summary::after {
+  transform: rotate(90deg);
+}
+
 /* Sidebar directory groups */
 .sidebar-dir-group {
   list-style: none;

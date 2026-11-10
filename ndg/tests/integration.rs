@@ -199,6 +199,7 @@ fn test_sidebar_integration() {
     ordering:             SidebarOrdering::Alphabetical,
     group_by_dir:         false,
     show_group_counts:    true,
+    collapsible:          false,
     matches:              vec![],
     toc:                  SidebarTocConfig::default(),
     options:              None,
@@ -231,6 +232,7 @@ fn test_sidebar_integration() {
     ordering:             SidebarOrdering::Custom,
     group_by_dir:         false,
     show_group_counts:    true,
+    collapsible:          false,
     matches:              vec![
       SidebarMatch {
         path:      Some(PathMatch {
@@ -300,6 +302,7 @@ fn test_sidebar_integration() {
     ordering:             SidebarOrdering::Alphabetical,
     group_by_dir:         false,
     show_group_counts:    true,
+    collapsible:          false,
     matches:              vec![SidebarMatch {
       path:      Some(PathMatch {
         exact:          None,

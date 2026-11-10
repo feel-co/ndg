@@ -301,6 +301,20 @@ for missing parents, self-parenting, and parent cycles. Explicit parents cannot
 be combined with `sidebar.group_by_dir = true`, which groups pages by directory
 instead of page relationships.
 
+### Collapsible Sub-chapters
+
+A large hierarchy makes a long sidebar. Set `collapsible` to fold it:
+
+```toml
+[sidebar]
+collapsible = true
+```
+
+Each page with sub-chapters then becomes a `<details>` element. The link of the
+parent page stays clickable, and a marker next to it opens and closes the
+sub-chapters. On each page, only the chain from the root to that page is open.
+`collapsible` has no effect with `sidebar.group_by_dir = true`.
+
 ### Custom Titles
 
 ```toml
