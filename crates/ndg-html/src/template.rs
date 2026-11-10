@@ -1331,9 +1331,7 @@ fn render_hierarchy(
     } else {
       render_nav_link(output, item, &prefix);
     }
-    if !has_children {
-      let _ = writeln!(output, "</li>");
-    } else {
+    if has_children {
       let prefix_len = prefix.len();
       if let Some(number) = item.number {
         let _ = write!(prefix, "{number}.");
@@ -1344,6 +1342,8 @@ fn render_hierarchy(
         next: 0,
         prefix_len,
       });
+    } else {
+      let _ = writeln!(output, "</li>");
     }
   }
 }
