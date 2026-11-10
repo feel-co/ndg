@@ -285,6 +285,9 @@ function initMobileNavigation() {
     mobileSidebarContainer.setAttribute("aria-hidden", "false");
     document.body.classList.add("mobile-sidebar-open");
     mobileSidebarClose?.focus();
+    revealActiveSidebarLink(
+      mobileSidebarContainer.querySelector(".mobile-sidebar-content"),
+    );
   };
 
   const closeMobileSidebar = (restoreFocus = true) => {
@@ -972,6 +975,7 @@ function replaceClientPage(next, url, push, scrollX, scrollY) {
   document.body.className = next.body.className;
   if (collapsed) document.body.classList.add("sidebar-collapsed");
 
+  const sidebarScroll = currentSidebar.scrollTop;
   currentSidebar.replaceWith(nextSidebar);
   currentContent.replaceWith(nextContent);
   document.querySelector(".page-toc")?.remove();
@@ -981,6 +985,7 @@ function replaceClientPage(next, url, push, scrollX, scrollY) {
   }
 
   initializePage();
+  restoreSidebarScroll(sidebarScroll);
   refreshMobileNavigation();
   requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
 }
@@ -1545,10 +1550,55 @@ function setupSidebarAutoHide() {
   });
 }
 
+const SIDEBAR_SCROLL_KEY = "sidebar-scroll";
+
+// Scroll a sidebar to put the link of the current page in the center, unless
+// the full link is in view.
+function revealActiveSidebarLink(sidebar) {
+  const link = sidebar?.querySelector("a.active");
+  if (!link) return;
+  const view = sidebar.getBoundingClientRect();
+  const rect = link.getBoundingClientRect();
+  if (rect.top >= view.top && rect.bottom <= view.bottom) return;
+  sidebar.scrollTop += rect.top - view.top -
+    (sidebar.clientHeight - rect.height) / 2;
+}
+
+// Keep the sidebar links in the same position after a page load. If the
+// link of the current page is then out of view, put it in the center.
+function restoreSidebarScroll(scrollTop) {
+  const sidebar = document.querySelector(".sidebar");
+  if (!sidebar) return;
+  if (Number.isFinite(scrollTop)) sidebar.scrollTop = scrollTop;
+  revealActiveSidebarLink(sidebar);
+}
+
+function storedSidebarScroll() {
+  try {
+    const value = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    return value === null ? NaN : Number(value);
+  } catch {
+    return NaN;
+  }
+}
+
+function setupSidebarScrollMemory() {
+  window.addEventListener("pagehide", () => {
+    const sidebar = document.querySelector(".sidebar");
+    if (!sidebar) return;
+    try {
+      sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(sidebar.scrollTop));
+    } catch {
+      // sessionStorage unavailable
+    }
+  });
+}
+
 function initializeGlobalBehavior() {
   if (!document.querySelector(".mobile-sidebar-toggle")) createMobileElements();
   initMobileNavigation();
   setupSidebarAutoHide();
+  setupSidebarScrollMemory();
   setupGlobalShortcuts();
   setupNavbarKeyboardNavigation();
   setupOptionTocNavigation();
@@ -1559,4 +1609,5 @@ function initializeGlobalBehavior() {
 document.addEventListener("DOMContentLoaded", () => {
   initializeGlobalBehavior();
   initializePage();
+  restoreSidebarScroll(storedSidebarScroll());
 });
