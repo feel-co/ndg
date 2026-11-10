@@ -44,6 +44,10 @@ changes.
   `sidebar.group_by_dir` report errors
   ([#290](https://github.com/feel-co/ndg/issues/290)).
 
+- `sidebar.collapsible` folds the sub-chapters of the document sidebar. Each
+  page with children is a `<details>` element, and only the chain to the
+  current page is open.
+
 - A theme toggle in the page header. A click selects the light or the dark
   theme, and the page keeps the selection in `localStorage`. When the selected
   theme is the same as the system theme, the page follows the system theme
