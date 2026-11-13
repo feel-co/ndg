@@ -2,7 +2,7 @@
   description = "Fast, customizable and convenient documentation generator for the Nix ecosystem";
 
   inputs = {
-    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
+    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst";
   };
 
   outputs = {
