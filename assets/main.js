@@ -285,6 +285,9 @@ function initMobileNavigation() {
     mobileSidebarContainer.setAttribute("aria-hidden", "false");
     document.body.classList.add("mobile-sidebar-open");
     mobileSidebarClose?.focus();
+    revealActiveSidebarLink(
+      mobileSidebarContainer.querySelector(".mobile-sidebar-content"),
+    );
   };
 
   const closeMobileSidebar = (restoreFocus = true) => {
@@ -972,6 +975,7 @@ function replaceClientPage(next, url, push, scrollX, scrollY) {
   document.body.className = next.body.className;
   if (collapsed) document.body.classList.add("sidebar-collapsed");
 
+  const sidebarScroll = currentSidebar.scrollTop;
   currentSidebar.replaceWith(nextSidebar);
   currentContent.replaceWith(nextContent);
   document.querySelector(".page-toc")?.remove();
@@ -981,6 +985,7 @@ function replaceClientPage(next, url, push, scrollX, scrollY) {
   }
 
   initializePage();
+  restoreSidebarScroll(sidebarScroll);
   refreshMobileNavigation();
   requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
 }
@@ -1217,28 +1222,18 @@ function initializePage() {
   }
 
   if (sidebarToggle) {
-    const syncSidebarToggle = () => {
-      const isCollapsed =
-        document.documentElement.classList.contains("sidebar-collapsed");
-      sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
-      sidebarToggle.setAttribute(
-        "aria-label",
-        isCollapsed ? "Expand sidebar" : "Collapse sidebar",
-      );
-    };
     syncSidebarToggle();
 
     sidebarToggle.addEventListener(
       "click",
       function () {
-        // Toggle on both elements for consistency
-        document.documentElement.classList.toggle("sidebar-collapsed");
-        document.body.classList.toggle("sidebar-collapsed");
-
-        // Use documentElement to check state and save to localStorage
         const isCollapsed =
-          document.documentElement.classList.contains("sidebar-collapsed");
-        syncSidebarToggle();
+          !document.documentElement.classList.contains("sidebar-collapsed");
+        setSidebarCollapsed(isCollapsed);
+
+        // On a narrow window the sidebar hides automatically, so do not
+        // save that state as the preference of the reader.
+        if (window.matchMedia(NARROW_SIDEBAR_QUERY).matches) return;
         try {
           localStorage.setItem("sidebar-collapsed", isCollapsed);
         } catch {
@@ -1490,9 +1485,120 @@ function setupThemeToggle() {
   });
 }
 
+// Below this width, the open sidebar covers the centered content. Keep in
+// sync with the `<head>` script of the templates and with `default.css`.
+const NARROW_SIDEBAR_QUERY = "(max-width: 1399px)";
+
+function syncSidebarToggle() {
+  const sidebarToggle = document.querySelector(".sidebar-toggle");
+  if (!sidebarToggle) return;
+  const isCollapsed =
+    document.documentElement.classList.contains("sidebar-collapsed");
+  sidebarToggle.setAttribute("aria-expanded", String(!isCollapsed));
+  sidebarToggle.setAttribute(
+    "aria-label",
+    isCollapsed ? "Expand sidebar" : "Collapse sidebar",
+  );
+}
+
+function setSidebarCollapsed(collapsed) {
+  // A hidden sidebar cannot keep the focus, thus move it to the toggle.
+  if (collapsed) {
+    const sidebar = document.querySelector(".sidebar");
+    if (sidebar?.contains(document.activeElement)) {
+      document.querySelector(".sidebar-toggle")?.focus();
+    }
+  }
+  document.documentElement.classList.toggle("sidebar-collapsed", collapsed);
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  syncSidebarToggle();
+}
+
+function storedSidebarCollapsed() {
+  try {
+    return localStorage.getItem("sidebar-collapsed") === "true";
+  } catch {
+    return false;
+  }
+}
+
+// Hide the sidebar on a narrow window, where it covers the content. The
+// reader can open it, and it hides again after a click on a link or outside
+// of it. On a wide window, the sidebar uses the state that the reader saved.
+function setupSidebarAutoHide() {
+  const narrow = window.matchMedia(NARROW_SIDEBAR_QUERY);
+  if (narrow.matches) setSidebarCollapsed(true);
+
+  narrow.addEventListener("change", () => {
+    setSidebarCollapsed(narrow.matches || storedSidebarCollapsed());
+  });
+
+  document.addEventListener("click", (event) => {
+    if (
+      !narrow.matches ||
+      document.documentElement.classList.contains("sidebar-collapsed") ||
+      !(event.target instanceof Element)
+    ) {
+      return;
+    }
+    if (
+      event.target.closest(".sidebar a") ||
+      !event.target.closest(".sidebar, .sidebar-toggle")
+    ) {
+      setSidebarCollapsed(true);
+    }
+  });
+}
+
+const SIDEBAR_SCROLL_KEY = "sidebar-scroll";
+
+// Scroll a sidebar to put the link of the current page in the center, unless
+// the full link is in view.
+function revealActiveSidebarLink(sidebar) {
+  const link = sidebar?.querySelector("a.active");
+  if (!link) return;
+  const view = sidebar.getBoundingClientRect();
+  const rect = link.getBoundingClientRect();
+  if (rect.top >= view.top && rect.bottom <= view.bottom) return;
+  sidebar.scrollTop += rect.top - view.top -
+    (sidebar.clientHeight - rect.height) / 2;
+}
+
+// Keep the sidebar links in the same position after a page load. If the
+// link of the current page is then out of view, put it in the center.
+function restoreSidebarScroll(scrollTop) {
+  const sidebar = document.querySelector(".sidebar");
+  if (!sidebar) return;
+  if (Number.isFinite(scrollTop)) sidebar.scrollTop = scrollTop;
+  revealActiveSidebarLink(sidebar);
+}
+
+function storedSidebarScroll() {
+  try {
+    const value = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+    return value === null ? NaN : Number(value);
+  } catch {
+    return NaN;
+  }
+}
+
+function setupSidebarScrollMemory() {
+  window.addEventListener("pagehide", () => {
+    const sidebar = document.querySelector(".sidebar");
+    if (!sidebar) return;
+    try {
+      sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(sidebar.scrollTop));
+    } catch {
+      // sessionStorage unavailable
+    }
+  });
+}
+
 function initializeGlobalBehavior() {
   if (!document.querySelector(".mobile-sidebar-toggle")) createMobileElements();
   initMobileNavigation();
+  setupSidebarAutoHide();
+  setupSidebarScrollMemory();
   setupGlobalShortcuts();
   setupNavbarKeyboardNavigation();
   setupOptionTocNavigation();
@@ -1503,4 +1609,5 @@ function initializeGlobalBehavior() {
 document.addEventListener("DOMContentLoaded", () => {
   initializeGlobalBehavior();
   initializePage();
+  restoreSidebarScroll(storedSidebarScroll());
 });

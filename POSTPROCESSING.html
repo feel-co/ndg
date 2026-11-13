@@ -11,6 +11,10 @@
       document.documentElement.classList.add("js");
       // Apply sidebar state and theme immediately to prevent flash
       (function () {
+        // Hide the sidebar on a narrow window, where it covers the content.
+        if (window.matchMedia("(max-width: 1399px)").matches) {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
         try {
           if (localStorage.getItem("sidebar-collapsed") === "true") {
             document.documentElement.classList.add("sidebar-collapsed");
@@ -121,7 +125,7 @@
             <div class="sidebar-section-content">
               <ul>
                 <li><a href="index.html">1. Introduction</a></li>
-<li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
+<li><a href="POSTPROCESSING.html" class="active" aria-current="page">2. Postprocessing</a></li>
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
 <li><a href="SEARCH.html">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
@@ -157,7 +161,8 @@
           </details>
         </nav>
 
-        <main class="content"><html><head></head><body><h1 id="postprocessing">Postprocessing</h1>
+        <main class="content">
+          <html><head></head><body><h1 id="postprocessing">Postprocessing</h1>
 <p>NDG supports postprocessing of generated HTML, CSS, and JavaScript files to
 optimize output size and performance. Postprocessing is optional and disabled by
 default, however, testing and bug reports are welcome :)</p>
@@ -362,7 +367,53 @@ configuration options. This design is obviously not for fun, as future
 postprocessing capabilities are planned. Though, do not expect anything crazy. I
 find postprocessing to be a little hacky, and it is only a last resort after
 actual feature implementations.</p>
-</body></html><!-- markdownlint-enable MD014 --></main>
+</body></html><!-- markdownlint-enable MD014 -->
+          
+          <nav class="page-nav" aria-label="Previous and next pages">
+            
+            <a class="page-nav-link page-nav-prev" href="index.html" rel="prev">
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
+              <span class="page-nav-text">
+                <span class="page-nav-label">Previous</span>
+                <span class="page-nav-title">Introduction</span>
+              </span>
+            </a>
+             
+            <a class="page-nav-link page-nav-next" href="SIDEBAR.html" rel="next">
+              <span class="page-nav-text">
+                <span class="page-nav-label">Next</span>
+                <span class="page-nav-title">Sidebar</span>
+              </span>
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M9 18l6-6-6-6"></path>
+              </svg>
+            </a>
+            
+          </nav>
+          <!-- Side arrows repeat the links above for wide screens. -->
+          <div class="page-nav-side" aria-hidden="true">
+            
+            <div class="page-nav-side-track page-nav-side-prev">
+              <a href="index.html" tabindex="-1" title="Previous: Introduction">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                  <path d="M15 18l-6-6 6-6"></path>
+                </svg>
+              </a>
+            </div>
+             
+            <div class="page-nav-side-track page-nav-side-next">
+              <a href="SIDEBAR.html" tabindex="-1" title="Next: Sidebar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                  <path d="M9 18l6-6-6-6"></path>
+                </svg>
+              </a>
+            </div>
+            
+          </div>
+          
+        </main>
       </div>
 
       <aside class="page-toc">

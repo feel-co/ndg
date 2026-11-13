@@ -706,7 +706,7 @@
 <a href=#706 id=706 data-nosnippet>706</a>            <span class="comment">// Check if this comment is inside an &lt;li&gt; element
 <a href=#707 id=707 data-nosnippet>707</a>            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = comment.parent()
 <a href=#708 id=708 data-nosnippet>708</a>              &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(element) = parent.as_element()
-<a href=#709 id=709 data-nosnippet>709</a>              &amp;&amp; element.name.local.as_ref() == <span class="string">"li"
+<a href=#709 id=709 data-nosnippet>709</a>              &amp;&amp; AsRef::&lt;str&gt;::as_ref(<span class="kw-2">&amp;</span>element.name.local) == <span class="string">"li"
 <a href=#710 id=710 data-nosnippet>710</a>            </span>{
 <a href=#711 id=711 data-nosnippet>711</a>              to_modify.push((comment.clone(), id.to_string()));
 <a href=#712 id=712 data-nosnippet>712</a>            }
@@ -762,7 +762,7 @@
 <a href=#762 id=762 data-nosnippet>762</a>            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = comment.parent()
 <a href=#763 id=763 data-nosnippet>763</a>              &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(element) = parent.as_element()
 <a href=#764 id=764 data-nosnippet>764</a>              &amp;&amp; <span class="macro">matches!</span>(
-<a href=#765 id=765 data-nosnippet>765</a>                element.name.local.as_ref(),
+<a href=#765 id=765 data-nosnippet>765</a>                AsRef::&lt;str&gt;::as_ref(<span class="kw-2">&amp;</span>element.name.local),
 <a href=#766 id=766 data-nosnippet>766</a>                <span class="string">"h1" </span>| <span class="string">"h2" </span>| <span class="string">"h3" </span>| <span class="string">"h4" </span>| <span class="string">"h5" </span>| <span class="string">"h6"
 <a href=#767 id=767 data-nosnippet>767</a>              </span>)
 <a href=#768 id=768 data-nosnippet>768</a>            {

@@ -11,6 +11,10 @@
       document.documentElement.classList.add("js");
       // Apply sidebar state and theme immediately to prevent flash
       (function () {
+        // Hide the sidebar on a narrow window, where it covers the content.
+        if (window.matchMedia("(max-width: 1399px)").matches) {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
         try {
           if (localStorage.getItem("sidebar-collapsed") === "true") {
             document.documentElement.classList.add("sidebar-collapsed");
@@ -123,7 +127,7 @@
                 <li><a href="index.html">1. Introduction</a></li>
 <li><a href="POSTPROCESSING.html">2. Postprocessing</a></li>
 <li><a href="SIDEBAR.html">3. Sidebar</a></li>
-<li><a href="SEARCH.html">4. Search</a></li>
+<li><a href="SEARCH.html" class="active" aria-current="page">4. Search</a></li>
 <li><a href="TEMPLATING.html">5. Templating Guide</a></li>
 <li><a href="SYNTAX.html">6. Syntax Reference</a></li>
 <li><a href="HIGHLIGHTING.html">7. Syntax Highlighting</a></li>
@@ -153,7 +157,8 @@
           </details>
         </nav>
 
-        <main class="content"><html><head></head><body><h1 id="search">Search</h1>
+        <main class="content">
+          <html><head></head><body><h1 id="search">Search</h1>
 <p>NDG includes a built-in search system that indexes your documentation pages and
 their headings, enabling quick navigation through your content. Search is
 optional and can be configured to control indexing depth and behavior.</p>
@@ -239,7 +244,53 @@ shown, preventing irrelevant section matches from cluttering results.</p>
 <li>Amount of text content per page</li>
 <li><code>max_heading_level</code> setting (higher = more headings indexed)</li>
 </ul>
-</body></html></main>
+</body></html>
+          
+          <nav class="page-nav" aria-label="Previous and next pages">
+            
+            <a class="page-nav-link page-nav-prev" href="SIDEBAR.html" rel="prev">
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
+              <span class="page-nav-text">
+                <span class="page-nav-label">Previous</span>
+                <span class="page-nav-title">Sidebar</span>
+              </span>
+            </a>
+             
+            <a class="page-nav-link page-nav-next" href="TEMPLATING.html" rel="next">
+              <span class="page-nav-text">
+                <span class="page-nav-label">Next</span>
+                <span class="page-nav-title">Templating Guide</span>
+              </span>
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M9 18l6-6-6-6"></path>
+              </svg>
+            </a>
+            
+          </nav>
+          <!-- Side arrows repeat the links above for wide screens. -->
+          <div class="page-nav-side" aria-hidden="true">
+            
+            <div class="page-nav-side-track page-nav-side-prev">
+              <a href="SIDEBAR.html" tabindex="-1" title="Previous: Sidebar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                  <path d="M15 18l-6-6 6-6"></path>
+                </svg>
+              </a>
+            </div>
+             
+            <div class="page-nav-side-track page-nav-side-next">
+              <a href="TEMPLATING.html" tabindex="-1" title="Next: Templating Guide">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                  <path d="M9 18l6-6-6-6"></path>
+                </svg>
+              </a>
+            </div>
+            
+          </div>
+          
+        </main>
       </div>
 
       <aside class="page-toc">
