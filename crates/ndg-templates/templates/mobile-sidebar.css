@@ -138,11 +138,22 @@
   list-style: none;
 }
 
-.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li {
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) li {
   margin-bottom: var(--space-1);
 }
 
-.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) > li > a {
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) ul {
+  list-style: none;
+}
+
+.mobile-sidebar-content .sidebar-section-content ul.sidebar-subchapters {
+  margin: var(--space-1) 0;
+  padding-inline-start: var(--space-4);
+}
+
+/* Descendant selectors include the links in nested chapters and in directory
+   groups. */
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) a {
   display: block;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
@@ -150,16 +161,8 @@
   text-decoration: none;
 }
 
-.mobile-sidebar-content
-  .sidebar-section-content
-  > ul:not(.toc-list)
-  > li
-  > a:hover,
-.mobile-sidebar-content
-  .sidebar-section-content
-  > ul:not(.toc-list)
-  > li
-  > a.active {
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) a:hover,
+.mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) a.active {
   background-color: var(--sidebar-hover);
   color: var(--link-color);
 }
