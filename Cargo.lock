@@ -2336,6 +2336,7 @@ dependencies = [
  "html-escape",
  "indexmap 2.14.2",
  "indicatif",
+ "kuchikikiki",
  "lightningcss",
  "log",
  "minify-html",

@@ -78,6 +78,11 @@ changes.
 
 ### Fixed
 
+- The search index includes the body text of each page, which includes the text
+  of included files and of code blocks. Before, the index held only the titles
+  and headings of pages, so a search for a word in the body text found no
+  results.
+
 - On a window narrower than 1400px, the sidebar is hidden until the reader opens
   it, and it hides again after a click on a link or outside of it. Before, the
   sidebar covered part of the content. The saved sidebar state applies only to
