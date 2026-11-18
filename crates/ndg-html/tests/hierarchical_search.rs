@@ -602,3 +602,51 @@ fn test_multiple_documents_with_anchors() {
   let doc3_anchors = doc3["anchors"].as_array().expect("Should have anchors");
   assert_eq!(doc3_anchors.len(), 1, "Doc3 should have 1 anchor");
 }
+
+/// Test that the body text of a page is in the search index
+#[test]
+fn test_document_body_is_indexed() {
+  let temp_dir = TempDir::new().expect("Failed to create temp dir");
+  let input_dir = temp_dir.path().join("input");
+  let output_dir = temp_dir.path().join("output");
+  fs::create_dir_all(&input_dir).expect("Failed to create input dir");
+  fs::create_dir_all(&output_dir).expect("Failed to create output dir");
+
+  let md_content = "# Access\n\nUse your wallet to log in.\n\n- One *item*\n- \
+                    Two `items`\n\n```sh\nsecret-command\n```\n";
+  fs::write(input_dir.join("access.md"), md_content)
+    .expect("Failed to write markdown file");
+
+  let config = Config {
+    search: Some(SearchConfig {
+      enable: true,
+      ..Default::default()
+    }),
+    ..test_input_config(&input_dir, &output_dir)
+  };
+
+  let markdown_files = collect_markdown_files(&input_dir);
+  let processor = create_processor(&config, None).expect("create processor");
+  let processed_docs =
+    files_to_processed_docs(&markdown_files, &input_dir, &processor);
+
+  generate_search_index(&config, &processed_docs)
+    .expect("Failed to generate search index");
+
+  let search_data =
+    fs::read_to_string(output_dir.join("assets").join("search-data.json"))
+      .expect("Failed to read search-data.json");
+  let search_data: SearchData = serde_json::from_str(&search_data)
+    .expect("Failed to parse search-data.json");
+  let doc = serde_json::to_value(&search_data.documents[0])
+    .expect("Failed to convert document to Value");
+
+  assert_eq!(
+    doc["content"].as_str(),
+    Some(
+      "Access\nUse your wallet to log in.\nOne item\nTwo items\nsecret-command"
+    )
+  );
+  let tokens = doc["tokens"].as_array().expect("Should have tokens");
+  assert!(tokens.iter().any(|token| token == "wallet"));
+}

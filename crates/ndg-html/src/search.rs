@@ -159,7 +159,7 @@ pub fn generate_search_index(
       .map(|doc| {
         // Convert HTML to plain text for indexing
         // This includes all content from expanded includes
-        let plain_text = html::content_to_plaintext(&doc.html_content);
+        let plain_text = html::html_to_plaintext(&doc.html_content);
 
         let title = doc.title.clone().unwrap_or_else(|| {
           doc

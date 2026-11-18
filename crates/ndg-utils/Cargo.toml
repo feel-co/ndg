@@ -29,6 +29,7 @@ grass.workspace               = true
 html-escape.workspace         = true
 indexmap.workspace            = true
 indicatif.workspace           = true
+kuchikikiki.workspace         = true
 lightningcss.workspace        = true
 log.workspace                 = true
 minify-html.workspace         = true
