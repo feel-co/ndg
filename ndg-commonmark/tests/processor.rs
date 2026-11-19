@@ -390,3 +390,25 @@ fn keeps_anchor_link_around_image_without_text() {
     "anchor link around an image should get no humanized text: {html}"
   );
 }
+
+#[test]
+fn enables_smart_punctuation() {
+  let processor = MarkdownProcessor::new(
+    MarkdownOptionsBuilder::new()
+      .highlight_code(false)
+      .extensions(vec![MarkdownExtension::Smart])
+      .build(),
+  );
+
+  let html = processor.render("a -- b --- \"c\" d... `e -- f`").html;
+
+  assert!(html.contains("a \u{2013} b \u{2014} \u{201c}c\u{201d} d\u{2026}"));
+  assert!(html.contains("<code>e -- f</code>"));
+}
+
+#[test]
+fn keeps_straight_punctuation_by_default() {
+  let html = processor().render("a -- b").html;
+
+  assert!(html.contains("a -- b"));
+}
