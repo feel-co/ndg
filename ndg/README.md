@@ -427,9 +427,12 @@ Supported `markdown.extensions` values are:
 - `alerts`, `autolink`, `block-directive`, `cjk-friendly-emphasis`
 - `description-lists`, `footnotes`, `greentext`, `highlight`, `insert`
 - `inline-footnotes`, `math-code`, `math-dollars`, `math-latex`
-- `multiline-block-quotes`, `spoiler`, `strikethrough`, `subscript`, `subtext`
+- `multiline-block-quotes`, `smart`, `spoiler`, `strikethrough`, `subscript`
+- `subtext`
 - `superscript`, `table`, `tasklist`, `underline`
 - `wikilinks-title-after-pipe`, `wikilinks-title-before-pipe`
+
+(`smart` is Comrak's parse option to recognize markdown punctuation.)
 
 ### Rendering math with KaTeX
 

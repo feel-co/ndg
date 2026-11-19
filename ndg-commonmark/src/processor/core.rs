@@ -592,6 +592,7 @@ impl MarkdownProcessor {
         MarkdownExtension::MultilineBlockQuotes => {
           options.extension.multiline_block_quotes = true;
         },
+        MarkdownExtension::Smart => options.parse.smart = true,
         MarkdownExtension::Spoiler => options.extension.spoiler = true,
         MarkdownExtension::Strikethrough => {
           options.extension.strikethrough = true;

@@ -209,6 +209,9 @@ pub enum MarkdownExtension {
   MathLatex,
   /// Multiline block quotes.
   MultilineBlockQuotes,
+  /// Typographic punctuation: `--` and `---` become en and em dashes, `...`
+  /// becomes an ellipsis, and straight quotes become curly quotes.
+  Smart,
   /// Spoiler text using `||`.
   Spoiler,
   /// Strikethrough text.
@@ -250,6 +253,7 @@ impl FromStr for MarkdownExtension {
       "math-dollars" => Ok(Self::MathDollars),
       "math-latex" => Ok(Self::MathLatex),
       "multiline-block-quotes" => Ok(Self::MultilineBlockQuotes),
+      "smart" => Ok(Self::Smart),
       "spoiler" => Ok(Self::Spoiler),
       "strikethrough" => Ok(Self::Strikethrough),
       "subscript" => Ok(Self::Subscript),
