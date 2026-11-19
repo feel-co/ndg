@@ -126,7 +126,8 @@ let processor = MarkdownProcessor::new(options);
 - `Alerts`, `Autolink`, `BlockDirective`, `CjkFriendlyEmphasis`
 - `DescriptionLists`, `Footnotes`, `Greentext`, `Highlight`, `Insert`
 - `InlineFootnotes`, `MathCode`, `MathDollars`, `MathLatex`
-- `MultilineBlockQuotes`, `Spoiler`, `Strikethrough`, `Subscript`, `Subtext`
+- `MultilineBlockQuotes`, `Smart`, `Spoiler`, `Strikethrough`, `Subscript`
+- `Subtext`
 - `Superscript`, `Table`, `Tasklist`, `Underline`
 - `WikilinksTitleAfterPipe`, `WikilinksTitleBeforePipe`
 
