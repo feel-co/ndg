@@ -171,7 +171,7 @@ pub fn generate_search_index(
         });
 
         // Use the provided HTML path
-        let path = doc.html_path.clone();
+        let path = html::page_href(&doc.html_path, config.pretty_urls);
 
         // Extract anchors from headers, filtering by max level
         let anchors: Vec<SearchAnchor> = doc
@@ -266,10 +266,13 @@ pub fn generate_search_index(
         id: doc_id.to_string(),
         title,
         content: plain_description,
-        path: format!(
-          "{}#{}",
-          option_pages::option_page_path(config, &key),
-          sanitize_option_id(&key)
+        path: html::page_href(
+          &format!(
+            "{}#{}",
+            option_pages::option_page_path(config, &key),
+            sanitize_option_id(&key)
+          ),
+          config.pretty_urls,
         ),
         tokens,
         title_tokens,
@@ -342,7 +345,15 @@ pub fn create_search_page(config: &Config) -> Result<()> {
     html
   };
 
-  let search_page_path = config.output_dir.join("search.html");
+  let search_page_path = config.output_dir.join(html::page_file(
+    std::path::Path::new("search.html"),
+    config.pretty_urls,
+  ));
+  if let Some(parent) = search_page_path.parent() {
+    fs::create_dir_all(parent).with_context(|| {
+      format!("Failed to create search directory: {}", parent.display())
+    })?;
+  }
   fs::write(&search_page_path, &processed_html).with_context(|| {
     format!(
       "Failed to write search page to {}",
@@ -350,5 +361,5 @@ pub fn create_search_page(config: &Config) -> Result<()> {
     )
   })?;
 
-  Ok(())
+  ndg_utils::write_legacy_redirect(config, std::path::Path::new("search.html"))
 }

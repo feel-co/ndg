@@ -911,9 +911,23 @@ function markActiveNav() {
   });
 }
 
+// Get a URL's page name, like `options.html` for `options/`.
 function clientPageName(url) {
-  const name = new URL(url, window.location.href).pathname.split("/").pop();
-  return name === "" ? "index.html" : name;
+  const segments = new URL(url, window.location.href).pathname.split("/");
+  const name = segments.pop();
+  if (name !== "" && name !== "index.html") return name;
+  const dir = segments.pop();
+  return dir ? `${dir}.html` : "index.html";
+}
+
+// Get a URL's directory depth.
+function clientPageDepth(url) {
+  return new URL(".", new URL(url, window.location.href)).pathname.split("/")
+    .length;
+}
+
+function sameClientPageDepth(a, b) {
+  return clientPageDepth(a) === clientPageDepth(b);
 }
 
 function isOptionsPageUrl(url) {
@@ -1034,7 +1048,8 @@ function setupClientNavigation() {
     const url = new URL(link.href, window.location.href);
     if (
       !isOptionsPageUrl(url) ||
-      clientPageName(window.location.href) === "options.html"
+      isOptionsPageUrl(window.location.href) ||
+      !sameClientPageDepth(url, window.location.href)
     ) {
       return;
     }
