@@ -40,6 +40,9 @@ changes.
 - Add `smart` to `markdown.extensions`, to turn on the typographic punctuation
   of Comrak: `--`/`---` become en/em dashes, `...` an ellipsis.
 
+- The `pretty_urls` option (default `false`) uses URLs like `<name>/` over
+  `<name>.html`. Redirects links the `.html` URLs to the prettified ones
+  ([#326](https://github.com/feel-co/ndg/pull/326)).
 - Document sidebars now support explicit sub-chapters through `parent` in
   `[[sidebar.matches]]`. Parents remain clickable, integer positions order
   siblings, and numbering follows the hierarchy, such as `4.1` and `4.1.1`.

@@ -18,7 +18,7 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "DOMParser",
     "IntersectionObserver",
     "Element",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility, setupSidebarAutoHide, setSidebarCollapsed, restoreSidebarScroll };`,
+    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, getFilterMatches, setFilteredItemVisibility, setupSidebarAutoHide, setSidebarCollapsed, restoreSidebarScroll, clientPageName, isOptionsPageUrl, sameClientPageDepth };`,
   )(
     window,
     document,
@@ -535,5 +535,39 @@ Deno.test("the sidebar centers an active link that is out of view", () => {
   assert(
     browser.sidebar.scrollTop === 815,
     "a stored position that hides the link is not kept",
+  );
+});
+
+Deno.test("client page names match for pretty and .html URLs", () => {
+  const { clientPageName, isOptionsPageUrl, sameClientPageDepth } = loadMain(
+    () => {},
+    {
+      window: {
+        requestIdleCallback() {},
+        cancelIdleCallback() {},
+        location: {
+          href: "https://example.org/docs/reference/database/",
+          origin: "https://example.org",
+        },
+      },
+    },
+  );
+  const base = "https://example.org/docs/";
+  assert(clientPageName(`${base}options.html`) === "options.html", "html");
+  assert(clientPageName(`${base}options/`) === "options.html", "pretty");
+  assert(
+    clientPageName(`${base}options/index.html`) === "options.html",
+    "pretty index",
+  );
+  assert(clientPageName("https://example.org/") === "index.html", "root");
+  assert(isOptionsPageUrl("../../options/#foo"), "relative pretty options");
+  assert(!isOptionsPageUrl("../../search/"), "search is not options");
+  assert(
+    sameClientPageDepth("../../options/", `${base}lib/`),
+    "same depth",
+  );
+  assert(
+    !sameClientPageDepth("../../options/", `${base}reference/database/`),
+    "different depth",
   );
 });

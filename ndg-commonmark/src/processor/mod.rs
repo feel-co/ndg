@@ -26,6 +26,7 @@ pub use core::{
   collect_markdown_files,
   extract_inline_text,
   rewrite_cross_page_anchor_links,
+  rewrite_urls,
 };
 
 // Re-export extension functions for third-party use

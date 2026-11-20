@@ -183,7 +183,7 @@
 
   const isOptionDocument = (doc) =>
     doc?.title?.toLowerCase().startsWith("option: ") ||
-    doc?.path?.startsWith("options.html#");
+    /^options(\.html|\/)#/.test(doc?.path ?? "");
 
   const textMatchInfo = (text, rawQuery, searchTerms) => {
     const lowerText = typeof text === "string" ? text.toLowerCase() : "";
