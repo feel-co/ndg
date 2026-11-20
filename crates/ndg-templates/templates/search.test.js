@@ -463,3 +463,26 @@ Deno.test("stopword-only phrase search can return visible title", async () => {
   );
   assertEquals(results[0].doc.title, "What is");
 });
+
+Deno.test("pretty option path is an option document", async () => {
+  await loadDocs([
+    {
+      id: "option",
+      title: "nvf.enable",
+      content: "Enable nvf integration.",
+      path: "options/#nvf.enable",
+      anchors: [],
+    },
+    {
+      id: "page",
+      title: "nvf.enable",
+      content: "Enable nvf integration.",
+      path: "guide/",
+      anchors: [],
+    },
+  ]);
+
+  const results = await engine.search("nvf.enable", 8);
+  assertEquals(results.length, 2);
+  assertEquals(results[0].doc.path, "guide/");
+});

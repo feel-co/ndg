@@ -3,10 +3,13 @@ use std::{
   path::{Component, Path, PathBuf},
 };
 
-use misstep::{Result, bail};
+use misstep::{Result, ResultExt, bail};
 use ndg_config::Config;
 
-use crate::markdown::extract_page_title;
+use crate::{
+  html::{join_href, legacy_redirect_html, page_href},
+  markdown::extract_page_title,
+};
 
 /// Join an output-relative path to an output directory.
 ///
@@ -27,6 +30,27 @@ pub fn output_path(output_dir: &Path, relative: &Path) -> Result<PathBuf> {
   }
 
   Ok(output_dir.join(relative))
+}
+
+/// Under `pretty_urls`, redirect `.html` paths to their prettified URLs.
+///
+/// # Errors
+///
+/// Returns an error if `logical` is invalid or we can't write the redirect.
+pub fn write_legacy_redirect(config: &Config, logical: &Path) -> Result<()> {
+  let Some(html) = legacy_redirect_html(logical, config.pretty_urls) else {
+    return Ok(());
+  };
+  let path = output_path(&config.output_dir, logical)?;
+  if let Some(parent) = path.parent() {
+    std::fs::create_dir_all(parent).with_context(|| {
+      format!("Failed to create redirect directory: {}", parent.display())
+    })?;
+  }
+  std::fs::write(&path, html).with_context(|| {
+    format!("Failed to write redirect page: {}", path.display())
+  })?;
+  Ok(())
 }
 
 /// Creates a fallback index page listing available documents.
@@ -77,9 +101,10 @@ pub fn create_fallback_index(
         let _ = writeln!(
           file_list,
           "  <li><a href=\"{}\">{}</a></li>",
-          html_escape::encode_double_quoted_attribute(
-            &html_path.to_string_lossy()
-          ),
+          html_escape::encode_double_quoted_attribute(&join_href(
+            "",
+            &page_href(&html_path.to_string_lossy(), config.pretty_urls)
+          )),
           html_escape::encode_text(&page_title)
         );
       }

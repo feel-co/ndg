@@ -15,7 +15,13 @@ use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
 use ndg_templates as templates;
 use ndg_utils::{
-  html::{calculate_root_relative_path, generate_asset_paths},
+  html::{
+    calculate_root_relative_path,
+    generate_asset_paths,
+    join_href,
+    page_file,
+    page_href,
+  },
   markdown::{PageFrontmatter, create_processor},
   options::DocumentedValue,
 };
@@ -507,8 +513,8 @@ pub fn render(
   };
 
   let custom_scripts = generate_custom_scripts(config, rel_path)?;
-  let asset_paths = generate_asset_paths(rel_path);
-  let root_prefix = calculate_root_relative_path(rel_path);
+  let asset_paths = generate_asset_paths(rel_path, config.pretty_urls);
+  let root_prefix = calculate_root_relative_path(rel_path, config.pretty_urls);
 
   // Generate meta tags (per-page frontmatter overrides global config).
   let meta_tags_html = generate_meta_tags_html(config, frontmatter);
@@ -681,8 +687,8 @@ pub(crate) fn render_options_body(
   // Generate document navigation and paths
   let doc_nav = generate_doc_nav(config, root_path)?;
   let custom_scripts = generate_custom_scripts(config, root_path)?;
-  let asset_paths = generate_asset_paths(root_path);
-  let root_prefix = calculate_root_relative_path(root_path);
+  let asset_paths = generate_asset_paths(root_path, config.pretty_urls);
+  let root_prefix = calculate_root_relative_path(root_path, config.pretty_urls);
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -752,8 +758,8 @@ pub fn render_lib(
   let root_path = Path::new("lib.html");
   let doc_nav = generate_doc_nav(config, root_path)?;
   let custom_scripts = generate_custom_scripts(config, root_path)?;
-  let asset_paths = generate_asset_paths(root_path);
-  let root_prefix = calculate_root_relative_path(root_path);
+  let asset_paths = generate_asset_paths(root_path, config.pretty_urls);
+  let root_prefix = calculate_root_relative_path(root_path, config.pretty_urls);
 
   // Determine has_options value
   let has_options = if config.module_options.is_some() {
@@ -1071,8 +1077,12 @@ pub fn render_search(
   };
 
   // Generate asset and navigation paths
-  let asset_paths = ndg_utils::html::generate_asset_paths(root_path);
-  let root_prefix = ndg_utils::html::calculate_root_relative_path(root_path);
+  let asset_paths =
+    ndg_utils::html::generate_asset_paths(root_path, config.pretty_urls);
+  let root_prefix = ndg_utils::html::calculate_root_relative_path(
+    root_path,
+    config.pretty_urls,
+  );
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -1514,7 +1524,11 @@ fn generate_doc_nav(
   }
 
   let mut doc_nav = String::new();
-  let root_prefix = calculate_root_relative_path(current_file_rel_path);
+  let root_prefix =
+    calculate_root_relative_path(current_file_rel_path, config.pretty_urls);
+  let page_link = |prefix: &str, logical: &str| {
+    join_href(prefix, &page_href(logical, config.pretty_urls))
+  };
   let mut items = Vec::new();
   // Pages in sidebar order as `(path, title, current)`.
   let mut sequence: Vec<(String, &str, bool)> = Vec::new();
@@ -1565,7 +1579,7 @@ fn generate_doc_nav(
         });
       items.push(NavItem {
         source: source.to_path_buf(),
-        path: format!("{root_prefix}{}", html_path.to_string_lossy()),
+        path: page_link(&root_prefix, &html_path.to_string_lossy()),
         title,
         rel_dir: if group_by_dir {
           html_path
@@ -1694,16 +1708,16 @@ fn generate_doc_nav(
 
   // Add link to options page if module_options is configured
   if doc_nav.is_empty() && config.module_options.is_some() {
+    let options_href = page_link(&root_prefix, "options.html");
     let current = current_link_attributes(
       current_file_rel_path == Path::new("options.html"),
     );
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}options.html\"{current}>Module \
-       Options</a></li>"
+      "<li><a href=\"{options_href}\"{current}>Module Options</a></li>"
     );
     sequence.push((
-      format!("{root_prefix}options.html"),
+      options_href,
       "Module Options",
       current_file_rel_path == Path::new("options.html"),
     ));
@@ -1711,15 +1725,15 @@ fn generate_doc_nav(
 
   #[cfg(feature = "nixdoc")]
   if !config.nixdoc_inputs.is_empty() {
+    let lib_href = page_link(&root_prefix, "lib.html");
     let current =
       current_link_attributes(current_file_rel_path == Path::new("lib.html"));
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}lib.html\"{current}>Library \
-       Reference</a></li>"
+      "<li><a href=\"{lib_href}\"{current}>Library Reference</a></li>"
     );
     sequence.push((
-      format!("{root_prefix}lib.html"),
+      lib_href,
       "Library Reference",
       current_file_rel_path == Path::new("lib.html"),
     ));
@@ -1727,12 +1741,13 @@ fn generate_doc_nav(
 
   // Add search link only if search is enabled
   if config.is_search_enabled() {
+    let search_href = page_link(&root_prefix, "search.html");
     let current = current_link_attributes(
       current_file_rel_path == Path::new("search.html"),
     );
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}search.html\"{current}>Search</a></li>"
+      "<li><a href=\"{search_href}\"{current}>Search</a></li>"
     );
   }
 
@@ -1761,8 +1776,10 @@ fn generate_custom_scripts(
 ) -> Result<String> {
   config.validate_script_destinations()?;
   let mut custom_scripts = String::new();
-  let root_prefix =
-    ndg_utils::html::calculate_root_relative_path(current_file_rel_path);
+  let root_prefix = ndg_utils::html::calculate_root_relative_path(
+    current_file_rel_path,
+    config.pretty_urls,
+  );
 
   // Add any user scripts from script_paths. This is additive, not replacing. To
   // replace default content, the user should specify `--template-dir` or
@@ -2178,7 +2195,10 @@ pub fn render_and_write(
   use ndg_utils::postprocess;
 
   let rel_path = std::path::Path::new(&item.output_path);
-  let output_path = ndg_utils::output_path(&config.output_dir, rel_path)?;
+  let output_path = ndg_utils::output_path(
+    &config.output_dir,
+    &page_file(rel_path, config.pretty_urls),
+  )?;
 
   let html = render(
     config,
@@ -2201,5 +2221,5 @@ pub fn render_and_write(
     format!("Failed to write output HTML: {}", output_path.display())
   })?;
 
-  Ok(())
+  ndg_utils::write_legacy_redirect(config, rel_path)
 }

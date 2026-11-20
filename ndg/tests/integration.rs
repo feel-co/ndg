@@ -1246,3 +1246,99 @@ fn test_readme_as_homepage_disabled() {
      disabled"
   );
 }
+
+#[test]
+#[expect(
+  clippy::disallowed_methods,
+  reason = "Regression test must exercise the ndg CLI output layout"
+)]
+fn test_html_pretty_urls() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let input_dir = temp_dir.path().join("input");
+  let output_dir = temp_dir.path().join("output");
+  fs::create_dir_all(input_dir.join("reference"))
+    .expect("Failed to create input dir in test");
+  fs::write(
+    input_dir.join("index.md"),
+    "# Home\n\n[DB](reference/database.md)",
+  )
+  .expect("Failed to write index.md in test");
+  fs::write(
+    input_dir.join("reference/database.md"),
+    "# Database\n\n[Home](../index.md) [Guide](../guide.md#setup) \
+     ![logo](../logo.png)",
+  )
+  .expect("Failed to write database.md in test");
+  fs::write(input_dir.join("guide.md"), "# Guide\n\n## Setup {#setup}")
+    .expect("Failed to write guide.md in test");
+  let options = temp_dir.path().join("options.json");
+  fs::write(
+    &options,
+    r#"{"foo.enable":{"description":"Enable foo.","type":"boolean","default":{"_type":"literalExpression","text":"false"},"declarations":[],"loc":["foo","enable"],"readOnly":false}}"#,
+  )
+  .expect("Failed to write options.json in test");
+
+  let output = Command::new(env!("CARGO_BIN_EXE_ndg"))
+    .args([
+      "--config",
+      "pretty_urls=true",
+      "html",
+      "--input-dir",
+      input_dir.to_str().expect("UTF-8 input path"),
+      "--output-dir",
+      output_dir.to_str().expect("UTF-8 output path"),
+      "--module-options",
+      options.to_str().expect("UTF-8 options path"),
+    ])
+    .output()
+    .expect("Failed to run ndg");
+  assert!(
+    output.status.success(),
+    "ndg failed: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+
+  for file in [
+    "index.html",
+    "guide/index.html",
+    "reference/database/index.html",
+    "options/index.html",
+    "search/index.html",
+  ] {
+    assert!(output_dir.join(file).is_file(), "missing {file}");
+  }
+  for (file, target) in [
+    ("guide.html", "guide/"),
+    ("reference/database.html", "database/"),
+    ("options.html", "options/"),
+    ("search.html", "search/"),
+  ] {
+    let redirect = fs::read_to_string(output_dir.join(file))
+      .expect("Failed to read redirect page in test");
+    assert!(
+      redirect.contains(&format!(r#"<link rel="canonical" href="{target}">"#)),
+      "{file}: {redirect}"
+    );
+  }
+
+  let index = fs::read_to_string(output_dir.join("index.html"))
+    .expect("Failed to read index.html in test");
+  assert!(index.contains(r#"href="reference/database/""#), "{index}");
+  assert!(index.contains(r#"href="options/""#), "{index}");
+  assert!(index.contains(r#"href="assets/style.css""#), "{index}");
+  assert!(!index.contains(".html\""), "{index}");
+
+  let db = fs::read_to_string(output_dir.join("reference/database/index.html"))
+    .expect("Failed to read database page in test");
+  assert!(db.contains(r#"href="../../assets/style.css""#), "{db}");
+  assert!(db.contains(r#"href="../../guide/#setup""#), "{db}");
+  assert!(db.contains(r#"href="../../options/""#), "{db}");
+  assert!(db.contains(r#"src="../../logo.png""#), "{db}");
+  assert!(db.contains(r#"href="../../""#), "{db}");
+  assert!(!db.contains(".html\""), "{db}");
+
+  let options_page = fs::read_to_string(output_dir.join("options/index.html"))
+    .expect("Failed to read options page in test");
+  assert!(options_page.contains(r#"href="../assets/style.css""#));
+  assert!(!options_page.contains(".html\""), "{options_page}");
+}

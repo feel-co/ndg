@@ -7,6 +7,7 @@ use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
 use ndg_manpage::types::NixOption;
 use ndg_utils::{
+  html::{calculate_root_relative_path, join_href, page_file, page_href},
   markdown::create_processor,
   options::{OptionLocation, compare_option_locs, parse_options_json},
   postprocess,
@@ -219,12 +220,22 @@ fn write_chunked_options(
     for name in chunk_options.keys() {
       option_chunks.insert(template::sanitize_option_id(name), chunk_index - 1);
     }
-    write_options_html(config, &path, chunk_html)?;
+    write_options_file(config, Path::new(&path), chunk_html)?;
     rendered_chunks.push(path);
   }
 
-  let options_html =
-    generate_chunk_loader_html(rendered_chunks, option_chunks)?;
+  let root_prefix =
+    calculate_root_relative_path(Path::new("options.html"), config.pretty_urls);
+  let full_href = join_href(
+    &root_prefix,
+    &page_href("options-full.html", config.pretty_urls),
+  );
+  let options_html = generate_chunk_loader_html(
+    rendered_chunks,
+    option_chunks,
+    &root_prefix,
+    &full_href,
+  )?;
   let options_toc = template::render_options_toc_with_order(
     config,
     options,
@@ -255,6 +266,8 @@ fn write_chunked_options(
 fn generate_chunk_loader_html(
   mut chunks: Vec<String>,
   option_chunks: IndexMap<String, usize>,
+  root_prefix: &str,
+  full_href: &str,
 ) -> Result<String> {
   let first_chunk = chunks.remove(0);
   let manifest =
@@ -265,7 +278,7 @@ fn generate_chunk_loader_html(
     let _ = writeln!(
       html,
       "  <div class=\"options-chunk\" data-options-chunk=\"{index}\" \
-       data-src=\"{path}\"></div>"
+       data-src=\"{root_prefix}{path}\"></div>"
     );
   }
   html.push_str(
@@ -277,10 +290,11 @@ fn generate_chunk_loader_html(
     "<script type=\"application/json\" \
      id=\"options-chunk-manifest\">{manifest}</script>"
   );
-  html.push_str(
+  let full_href = html_escape::encode_double_quoted_attribute(full_href);
+  let _ = writeln!(
+    html,
     "<noscript><p class=\"options-chunk-noscript\"><a \
-     href=\"options-full.html\">Open the complete options \
-     page</a>.</p></noscript>\n",
+     href=\"{full_href}\">Open the complete options page</a>.</p></noscript>"
   );
   Ok(html)
 }
@@ -310,9 +324,24 @@ fn write_split_options(
   Ok(())
 }
 
+/// Write an options page to a logical path
 fn write_options_html(
   config: &Config,
-  relative_path: &str,
+  logical_path: &str,
+  html: String,
+) -> Result<()> {
+  write_options_file(
+    config,
+    &page_file(Path::new(logical_path), config.pretty_urls),
+    html,
+  )?;
+  ndg_utils::write_legacy_redirect(config, Path::new(logical_path))
+}
+
+/// Write an options page to a relative path
+fn write_options_file(
+  config: &Config,
+  relative_path: &Path,
   html: String,
 ) -> Result<()> {
   let processed_html = if let Some(ref postprocess) = config.postprocess {

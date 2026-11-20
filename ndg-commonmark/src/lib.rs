@@ -138,6 +138,7 @@ pub use crate::{
     process_safe,
     process_with_recovery,
     rewrite_cross_page_anchor_links,
+    rewrite_urls,
   },
   syntax::{
     SyntaxConfig,
