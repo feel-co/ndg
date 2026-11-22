@@ -463,3 +463,54 @@ Deno.test("stopword-only phrase search can return visible title", async () => {
   );
   assertEquals(results[0].doc.title, "What is");
 });
+
+// Sections
+Deno.test("match maps to the section of its heading", () => {
+  const doc = {
+    content: "Intro text\nFirst\nalpha here\nSecond\nbeta here",
+    anchors: [
+      { id: "first", text: "First" },
+      { id: "second", text: "Second" },
+    ],
+  };
+  const section = (term) =>
+    globalThis.searchCore.findContainingSection(doc, doc.content.indexOf(term))
+      ?.id ?? null;
+
+  assertEquals(section("Intro"), null, "text before the first heading");
+  assertEquals(section("alpha"), "first");
+  assertEquals(section("beta"), "second");
+  assertEquals(
+    globalThis.searchCore.findContainingSection(doc, doc.content.length),
+    null,
+    "offset after the content",
+  );
+});
+
+Deno.test("many matches on a long page stay fast", async () => {
+  const sections = 300;
+  const paragraphs = [];
+  const anchors = [];
+  for (let i = 0; i < sections; i++) {
+    paragraphs.push(`Heading ${i}`, `term in section ${i}`, `term again ${i}`);
+    anchors.push({ id: `heading-${i}`, text: `Heading ${i}` });
+  }
+  await loadDocs([
+    {
+      title: "Long",
+      content: paragraphs.join("\n"),
+      path: "long.html",
+      anchors,
+    },
+  ]);
+
+  const start = performance.now();
+  const results = await engine.search("term", 10);
+  const elapsed = performance.now() - start;
+
+  assertEquals(results.length, 1);
+  assertEquals(results[0].matchingAnchors.length, sections);
+  if (elapsed > 2000) {
+    throw new Error(`search took ${Math.round(elapsed)} ms`);
+  }
+});

@@ -88,6 +88,7 @@ changes.
 - Option filtering keeps cards in place and hides nonmatches, reducing delays
   from browser extensions that rescan removed and reinserted content. Results
   retain their original order, and keyboard navigation skips hidden cards.
+- Search finds sections in `O(log n)`, improving search performance.
 
 ## [2.10.2]
 

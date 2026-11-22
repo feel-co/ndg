@@ -221,6 +221,40 @@
       .split("\n")
       .filter((p) => p.trim());
 
+  // index of document sections' start offsets, calculated once
+  const sectionIndexCache = new WeakMap();
+
+  const sectionIndex = (doc) => {
+    let index = sectionIndexCache.get(doc);
+    if (index) return index;
+
+    const anchorsByText = new Map();
+    doc.anchors.forEach((a) => {
+      const text = normalizeForComparison(a.text);
+      if (!anchorsByText.has(text)) anchorsByText.set(text, a);
+    });
+
+    const starts = [];
+    const ends = [];
+    const sections = [];
+    let currentPos = 0;
+    let containingAnchor = null;
+    documentParagraphs(doc).forEach((paragraph) => {
+      const matchingAnchor = anchorsByText.get(
+        normalizeForComparison(paragraph.trim()),
+      );
+      if (matchingAnchor) containingAnchor = matchingAnchor;
+      starts.push(currentPos);
+      ends.push(currentPos + paragraph.length);
+      sections.push(containingAnchor);
+      currentPos += paragraph.length + 1;
+    });
+
+    index = { starts, ends, sections };
+    sectionIndexCache.set(doc, index);
+    return index;
+  };
+
   const findContainingSection = (doc, matchIndex) => {
     if (
       !doc?.content ||
@@ -230,30 +264,16 @@
       return null;
     }
 
-    const paragraphs = documentParagraphs(doc);
-    let currentPos = 0;
-    let matchParagraphIndex = -1;
-
-    for (let i = 0; i < paragraphs.length; i++) {
-      const paragraphEnd = currentPos + paragraphs[i].length;
-      if (matchIndex >= currentPos && matchIndex < paragraphEnd) {
-        matchParagraphIndex = i;
-        break;
-      }
-      currentPos = paragraphEnd + 1;
+    const { starts, ends, sections } = sectionIndex(doc);
+    let low = 0;
+    let high = starts.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (matchIndex < starts[mid]) high = mid - 1;
+      else if (matchIndex >= ends[mid]) low = mid + 1;
+      else return sections[mid];
     }
-
-    if (matchParagraphIndex === -1) return null;
-
-    let containingAnchor = null;
-    for (let i = 0; i <= matchParagraphIndex; i++) {
-      const normalizedPara = normalizeForComparison(paragraphs[i].trim());
-      const matchingAnchor = doc.anchors.find(
-        (a) => normalizeForComparison(a.text) === normalizedPara,
-      );
-      if (matchingAnchor) containingAnchor = matchingAnchor;
-    }
-    return containingAnchor;
+    return null;
   };
 
   const sectionContent = (doc, anchor) => {
