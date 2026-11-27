@@ -1,1 +1,1253 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `SEARCH_JS` constant in crate `ndg_templates`."><title>SEARCH_JS in ndg_templates - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1e18a8e7.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ndg_templates" data-themes="" data-resource-suffix="" data-rustdoc-version="1.102.0-nightly (137d1d494 2026-11-22)" data-channel="nightly" data-search-js="search-085293d4.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-9b351432.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-419f3a3f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-101b5a15.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc constant"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SEARCH_JS</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ndg_templates/index.html">ndg_<wbr>templates</a><span class="version">2.10.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ndg_templates</a></div><h1>Constant <span class="constant">SEARCH_<wbr>JS</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ndg_templates/lib.rs.html#22">Source</a> </span></div><pre class="rust item-decl"><code>pub const SEARCH_JS: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a> = &quot;if (!window.searchNamespace) window.searchNamespace = {};\n\nclass SearchEngine {\n  constructor() {\n    this.documents = [];\n    this.searchDocuments = [];\n    this.isLoaded = false;\n    this.loadError = false;\n    // Whether the current document set has been transferred to the worker yet.\n    this.workerDocsSent = false;\n    this.rootPath = window.searchNamespace?.rootPath || \&quot;\&quot;;\n    // Search configuration (loaded from search data)\n    this.config = {\n      minWordLength: 2,\n      stopwords: [],\n      boostTitle: 100.0,\n      boostContent: 30.0,\n      boostAnchor: 10.0,\n    };\n  }\n\n  // Check if we can use Web Worker\n  get useWebWorker() {\n    if (searchWorker === false) return false; // previously failed\n    const worker = initializeSearchWorker();\n    return worker !== null;\n  }\n\n  // Load search data from JSON\n  async loadData() {\n    if (this.isLoaded &amp;&amp; !this.loadError) return;\n\n    // Clear previous error state on retry\n    this.loadError = false;\n\n    try {\n      // Load JSON data, try multiple possible paths\n      // FIXME: There is only one possible path for now, and this search data is guaranteed\n      // to generate at this location, but we\&#39;ll want to extend this in the future.\n      const possiblePaths = [\n        `${this.rootPath}assets/search-data.json`,\n        \&quot;/assets/search-data.json\&quot;, // fallback for root-level sites\n      ];\n\n      let response = null;\n\n      for (const path of possiblePaths) {\n        try {\n          const testResponse = await fetch(path);\n          if (testResponse.ok) {\n            response = testResponse;\n            break;\n          }\n        } catch {\n          // Continue to next path\n        }\n      }\n\n      if (!response) {\n        throw new Error(\&quot;Search data file not found at any expected location\&quot;);\n      }\n\n      if (!response.ok) {\n        throw new Error(`HTTP ${response.status}: ${response.statusText}`);\n      }\n\n      const documents = await response.json();\n      if (!Array.isArray(documents)) {\n        // New format with config\n        if (documents.documents &amp;&amp; Array.isArray(documents.documents)) {\n          this.config = {\n            minWordLength: documents.min_word_length || 2,\n            stopwords: documents.stopwords || [],\n            boostTitle: documents.boost_title || 100.0,\n            boostContent: documents.boost_content || 30.0,\n            boostAnchor: documents.boost_anchor || 10.0,\n          };\n          await this.initializeFromDocuments(documents.documents);\n        } else {\n          throw new Error(\&quot;Invalid search data format\&quot;);\n        }\n      } else {\n        // Legacy format - just an array of documents\n        await this.initializeFromDocuments(documents);\n      }\n      this.isLoaded = true;\n    } catch (error) {\n      console.error(\&quot;Error loading search data:\&quot;, error);\n      this.documents = [];\n      this.searchDocuments = [];\n      this.loadError = true;\n    }\n  }\n\n  // Initialize from documents array\n  initializeFromDocuments(documents) {\n    if (!Array.isArray(documents)) {\n      console.error(\&quot;Invalid documents format:\&quot;, typeof documents);\n      this.documents = [];\n    } else {\n      this.documents = documents;\n    }\n    this.searchDocuments = window.searchCore.prepareDocuments(this.documents);\n    // The document set changed, so the worker\&#39;s cached copy is now stale.\n    this.workerDocsSent = false;\n  }\n\n  // Initialize from search index structure\n  initializeIndex(indexData) {\n    this.documents = indexData.documents || [];\n    this.searchDocuments = window.searchCore.prepareDocuments(this.documents);\n    this.workerDocsSent = false;\n  }\n\n  // Build token map for faster searching\n  buildTokenMap() {\n    this.searchDocuments = window.searchCore.prepareDocuments(this.documents);\n    return Promise.resolve();\n  }\n\n  tokenize(text) {\n    return window.searchCore.tokenizeQuery(text, this.config);\n  }\n\n  normalizeSearchText(text) {\n    return window.searchCore.normalizeSearchText(text);\n  }\n\n  // Advanced search with ranking\n  async search(query, limit = 10, options = {}) {\n    if (!query || typeof query !== \&quot;string\&quot; || !query.trim()) {\n      return [];\n    }\n\n    if (options.signal?.aborted) {\n      return [];\n    }\n\n    // Wait for data to be loaded\n    if (!this.isLoaded) {\n      await this.loadData();\n    }\n\n    if (options.signal?.aborted) {\n      return [];\n    }\n\n    if (!this.isLoaded || this.documents.length === 0) {\n      return [];\n    }\n\n    if (this.useWebWorker) {\n      if (options.signal?.aborted) return [];\n      try {\n        const results = await this.searchWithWorker(query, limit);\n        if (options.signal?.aborted) return [];\n        return results;\n      } catch {\n        // Worker failed; fall through to main-thread search\n      }\n    }\n\n    if (options.signal?.aborted) return [];\n    return window.searchCore.runSearch(\n      this.searchDocuments,\n      query,\n      limit,\n      this.config,\n    );\n  }\n\n  // Generate search preview with highlighting\n  generatePreview(content, query, maxLength = 200) {\n    if (!content || typeof content !== \&quot;string\&quot;) {\n      return \&quot;\&quot;;\n    }\n\n    const lowerContent = content.toLowerCase();\n    const queryWords = this.tokenize(query);\n\n    // Find the best match position\n    let bestIndex = -1;\n    let bestMatch = \&quot;\&quot;;\n\n    for (const word of queryWords) {\n      const index = lowerContent.indexOf(word);\n      if (index !== -1 &amp;&amp; word.length &gt; bestMatch.length) {\n        bestIndex = index;\n        bestMatch = word;\n      }\n    }\n\n    // If no match found, show beginning\n    if (bestIndex === -1) {\n      const preview = content.slice(0, maxLength).trim();\n      const escaped = this.escapeHtml(preview);\n      return escaped + (content.length &gt; maxLength ? \&quot;...\&quot; : \&quot;\&quot;);\n    }\n\n    // Find paragraph boundaries around the match\n    const paragraphs = content.split(\&quot;\\n\&quot;).filter((p) =&gt; p.trim());\n    let currentPos = 0;\n    let matchParagraphIndex = -1;\n\n    for (let i = 0; i &lt; paragraphs.length; i++) {\n      const paragraphEnd = currentPos + paragraphs[i].length;\n      if (bestIndex &gt;= currentPos &amp;&amp; bestIndex &lt; paragraphEnd) {\n        matchParagraphIndex = i;\n        break;\n      }\n      currentPos = paragraphEnd + 1;\n    }\n\n    if (matchParagraphIndex === -1) {\n      matchParagraphIndex = 0;\n    }\n\n    // If matching paragraph is very short (likely a title/heading),\n    // prefer showing the next paragraph if it also contains the search term\n    if (\n      matchParagraphIndex &lt; paragraphs.length - 1 &amp;&amp;\n      paragraphs[matchParagraphIndex].length &lt; 50\n    ) {\n      const nextParagraph = paragraphs[matchParagraphIndex + 1];\n      if (nextParagraph.toLowerCase().includes(bestMatch)) {\n        matchParagraphIndex++;\n      }\n    }\n\n    // Get the matching paragraph\n    let preview = paragraphs[matchParagraphIndex];\n\n    // If paragraph is too long, extract context around match\n    if (preview.length &gt; maxLength) {\n      const matchInParagraph = preview.toLowerCase().indexOf(bestMatch);\n      if (matchInParagraph !== -1) {\n        const contextBefore = 60;\n        const contextAfter = 100;\n        const start = Math.max(0, matchInParagraph - contextBefore);\n        const end = Math.min(\n          preview.length,\n          matchInParagraph + bestMatch.length + contextAfter,\n        );\n        preview = preview.slice(start, end).trim();\n        if (start &gt; 0) preview = \&quot;...\&quot; + preview;\n        if (end &lt; paragraphs[matchParagraphIndex].length) preview += \&quot;...\&quot;;\n      } else {\n        preview = preview.slice(0, maxLength) + \&quot;...\&quot;;\n      }\n    }\n\n    return this.escapeHtml(preview);\n  }\n\n  // Escape HTML to prevent XSS\n  escapeHtml(text) {\n    if (!text || typeof text !== \&quot;string\&quot;) return \&quot;\&quot;;\n\n    const escapeMap = {\n      \&quot;&amp;\&quot;: \&quot;&amp;amp;\&quot;,\n      \&quot;&lt;\&quot;: \&quot;&amp;lt;\&quot;,\n      \&quot;&gt;\&quot;: \&quot;&amp;gt;\&quot;,\n      \&#39;\&quot;\&#39;: \&quot;&amp;quot;\&quot;,\n      \&quot;\&#39;\&quot;: \&quot;&amp;#x27;\&quot;,\n      \&quot;/\&quot;: \&quot;&amp;#x2F;\&quot;,\n    };\n\n    return text.replace(/[&amp;&lt;&gt;\&quot;\&#39;\\/]/g, (char) =&gt; escapeMap[char]);\n  }\n\n  // Highlight search terms in text\n  highlightTerms(text, terms) {\n    if (!text || typeof text !== \&quot;string\&quot;) return \&quot;\&quot;;\n    if (!Array.isArray(terms) || terms.length === 0) {\n      return this.escapeHtml(text);\n    }\n\n    // Escape HTML first\n    let highlighted = this.escapeHtml(text);\n\n    // Sort terms by length (longer first) to avoid overlapping highlights\n    const sortedTerms = [...terms].sort((a, b) =&gt; b.length - a.length);\n\n    sortedTerms.forEach((term) =&gt; {\n      if (!term || typeof term !== \&quot;string\&quot;) return;\n      const regex = new RegExp(`(${this.escapeRegex(term)})`, \&quot;gi\&quot;);\n      highlighted = highlighted.replace(regex, \&quot;&lt;mark&gt;$1&lt;/mark&gt;\&quot;);\n    });\n\n    return highlighted;\n  }\n\n  /**\n   * Web Worker search for large datasets\n   * @param {string} query - Search query\n   * @param {number} limit - Maximum results\n   * @returns {Promise&lt;Array&gt;} Search results\n   */\n  searchWithWorker(query, limit) {\n    const worker = initializeSearchWorker();\n    if (!worker) {\n      return window.searchCore.runSearch(\n        this.searchDocuments,\n        query,\n        limit,\n        this.config,\n      );\n    }\n\n    // Transfer the document set (and search config) to the worker once. Sending\n    // it on every keystroke meant structured-cloning the entire index per\n    // search, which is the main reason worker-backed search felt slow on large\n    // option sets.\n    if (!this.workerDocsSent) {\n      worker.postMessage({\n        type: \&quot;init\&quot;,\n        data: { preparedDocuments: this.searchDocuments, config: this.config },\n      });\n      this.workerDocsSent = true;\n    }\n\n    return new Promise((resolve, reject) =&gt; {\n      const messageId = `search_${Date.now()}_${Math.random()\n        .toString(36)\n        .substring(2, 11)}`;\n      const timeout = setTimeout(() =&gt; {\n        cleanup();\n        // A worker that never answers is treated as unavailable so we stop\n        // paying the timeout on every subsequent search and use the main thread.\n        searchWorker = false;\n        reject(new Error(\&quot;Web Worker search timeout\&quot;));\n      }, 5000);\n\n      const handleMessage = (e) =&gt; {\n        if (e.data.messageId !== messageId) return;\n\n        clearTimeout(timeout);\n        cleanup();\n\n        if (e.data.type === \&quot;results\&quot;) {\n          resolve(e.data.data);\n        } else if (e.data.type === \&quot;error\&quot;) {\n          reject(new Error(e.data.error || \&quot;Unknown worker error\&quot;));\n        }\n      };\n\n      const handleError = (error) =&gt; {\n        clearTimeout(timeout);\n        cleanup();\n        searchWorker = false;\n        reject(error);\n      };\n\n      const cleanup = () =&gt; {\n        worker.removeEventListener(\&quot;message\&quot;, handleMessage);\n        worker.removeEventListener(\&quot;error\&quot;, handleError);\n      };\n\n      worker.addEventListener(\&quot;message\&quot;, handleMessage);\n      worker.addEventListener(\&quot;error\&quot;, handleError);\n\n      worker.postMessage({\n        messageId,\n        type: \&quot;search\&quot;,\n        data: { query, limit },\n      });\n    });\n  }\n\n  // Normalize text for comparison\n  normalizeForComparison(text) {\n    return window.searchCore.normalizeForComparison(text);\n  }\n\n  // Find which section/heading a content match belongs to\n  findContainingSection(doc, matchIndex) {\n    return window.searchCore.findContainingSection?.(doc, matchIndex) ?? null;\n  }\n\n  // Generate preview for a specific section\n  generateSectionPreview(doc, anchor, query, maxLength = 200) {\n    if (!doc.content || !anchor) {\n      return \&quot;\&quot;;\n    }\n    return this.generatePreview(\n      window.searchCore.sectionContent(doc, anchor),\n      query,\n      maxLength,\n    );\n  }\n\n  // Escape regex special characters\n  escapeRegex(string) {\n    return string.replace(/[.*+?^${}()|[\\]\\\\]/g, \&quot;\\\\$&amp;\&quot;);\n  }\n\n  // Resolve path relative to current page location\n  resolvePath(path) {\n    // If path already starts with \&#39;/\&#39;, it\&#39;s absolute from domain root\n    if (path.startsWith(\&quot;/\&quot;)) {\n      return path;\n    }\n\n    // If path starts with \&#39;#\&#39;, it\&#39;s a fragment on current page\n    if (path.startsWith(\&quot;#\&quot;)) {\n      return path;\n    }\n\n    // Prepend root path for relative navigation\n    return this.rootPath + path;\n  }\n\n  // Lazy loading for search results\n  lazyLoadDocuments(docIds, limit = 10) {\n    return docIds.slice(0, limit).map((id) =&gt; this.documents[id]);\n  }\n\n  // Fallback search method via simple string matching\n  fallbackSearch(query, limit = 10) {\n    return window.searchCore.runSearch(\n      this.searchDocuments,\n      query,\n      limit,\n      this.config,\n    );\n  }\n}\n\n// Web Worker for background search processing\n// Create Web Worker if supported - initialized lazily to use rootPath\nlet searchWorker = null;\n\n// Keyboard navigation helper class\nclass SearchKeyboardNav {\n  constructor(container, selector) {\n    this.container = container;\n    this.selector = selector;\n    this.activeIndex = -1;\n    this.items = [];\n    this.navigationPending = false;\n  }\n\n  updateItems() {\n    this.items = Array.from(this.container.querySelectorAll(this.selector));\n    if (this.activeIndex &gt;= this.items.length) {\n      this.activeIndex = -1;\n    }\n  }\n\n  clear() {\n    this.setActive(-1);\n    this.items = [];\n  }\n\n  setActive(index) {\n    // Remove active class from previous item\n    if (this.activeIndex &gt;= 0 &amp;&amp; this.activeIndex &lt; this.items.length) {\n      this.items[this.activeIndex].classList.remove(\&quot;search-result-active\&quot;);\n    }\n\n    this.activeIndex = index;\n\n    // Add active class to new item\n    if (this.activeIndex &gt;= 0 &amp;&amp; this.activeIndex &lt; this.items.length) {\n      this.items[this.activeIndex].classList.add(\&quot;search-result-active\&quot;);\n      this.items[this.activeIndex].scrollIntoView({\n        block: \&quot;nearest\&quot;,\n        behavior: \&quot;smooth\&quot;,\n      });\n    }\n  }\n\n  moveDown() {\n    if (this.items.length === 0) return;\n    const newIndex = Math.min(this.activeIndex + 1, this.items.length - 1);\n    this.setActive(newIndex);\n  }\n\n  moveUp() {\n    if (this.items.length === 0) return;\n    const newIndex = Math.max(this.activeIndex - 1, -1);\n    this.setActive(newIndex);\n  }\n\n  moveToFirst() {\n    if (this.items.length === 0) return;\n    this.setActive(0);\n  }\n\n  moveToLast() {\n    if (this.items.length === 0) return;\n    this.setActive(this.items.length - 1);\n  }\n\n  select() {\n    // Guard against double-navigation\n    if (this.navigationPending) return false;\n\n    if (this.activeIndex &gt;= 0 &amp;&amp; this.activeIndex &lt; this.items.length) {\n      const link = this.items[this.activeIndex].querySelector(\&quot;a\&quot;);\n      if (link) {\n        this.navigationPending = true;\n\n        // Add search query to URL if it\&#39;s a result link\n        const currentQuery =\n          this.container.closest(\&quot;.search-container\&quot;)?.querySelector(\&quot;input\&quot;)\n            ?.value || document.getElementById(\&quot;search-page-input\&quot;)?.value;\n        if (currentQuery) {\n          const url = new URL(link.href, window.location.origin);\n          url.searchParams.set(\&quot;highlight\&quot;, currentQuery);\n\n          // Clear flag after navigation starts\n          setTimeout(() =&gt; {\n            this.navigationPending = false;\n          }, 100);\n\n          link.href = url.toString();\n          link.click();\n        } else {\n          // Clear flag before click to allow navigation\n          setTimeout(() =&gt; {\n            this.navigationPending = false;\n          }, 100);\n          link.click();\n        }\n        return true;\n      }\n    }\n    return false;\n  }\n}\n\nfunction debounce(func, wait) {\n  let timeout = null;\n  return function (...args) {\n    clearTimeout(timeout);\n    timeout = setTimeout(() =&gt; func.apply(this, args), wait);\n  };\n}\n\nfunction initializeSearchWorker() {\n  if (searchWorker !== null || typeof Worker === \&quot;undefined\&quot;) {\n    return searchWorker;\n  }\n\n  try {\n    const rootPath = window.searchNamespace?.rootPath || \&quot;\&quot;;\n    const workerPath = `${rootPath}assets/search-worker.js`;\n    searchWorker = new Worker(workerPath);\n    // If the worker script fails to load (for example it was not emitted for a\n    // custom template set), disable it so searches fall back to the main thread\n    // immediately instead of waiting for the per-search timeout.\n    searchWorker.addEventListener(\&quot;error\&quot;, () =&gt; {\n      searchWorker = false;\n    });\n    return searchWorker;\n  } catch (error) {\n    console.warn(\&quot;Web Worker creation failed, using main thread:\&quot;, error);\n    searchWorker = false; // mark as failed so we don\&#39;t retry\n    return null;\n  }\n}\n\n// Global search engine instance\nwindow.searchNamespace.engine = new SearchEngine();\n\n// Mobile search timeout for debouncing\nlet mobileSearchTimeout = null;\n\n// AbortController for cancelling pending search requests\nlet searchPageController = null;\n\ndocument.addEventListener(\&quot;DOMContentLoaded\&quot;, function () {\n  // Initialize search engine immediately\n  window.searchNamespace.engine\n    .loadData()\n    .then(() =&gt; {})\n    .catch((error) =&gt; {\n      console.error(\&quot;Failed to initialize search:\&quot;, error);\n    });\n\n  // Search page specific functionality\n  const searchPageInput = document.getElementById(\&quot;search-page-input\&quot;);\n  if (searchPageInput) {\n    // Initialize keyboard navigation for search page\n    const searchPageResults = document.getElementById(\&quot;search-page-results\&quot;);\n    const searchPageKeyboardNav = new SearchKeyboardNav(\n      searchPageResults,\n      \&quot;.search-result-item\&quot;,\n    );\n\n    // Keyboard navigation for search page\n    searchPageInput.addEventListener(\&quot;keydown\&quot;, function (event) {\n      if (event.key === \&quot;Escape\&quot;) {\n        event.preventDefault();\n        searchPageKeyboardNav.clear();\n        searchPageInput.blur();\n        return;\n      }\n\n      const hasResults =\n        searchPageResults &amp;&amp;\n        searchPageResults.querySelector(\&quot;.search-result-item\&quot;);\n\n      if (!hasResults) return;\n\n      if (event.key === \&quot;ArrowDown\&quot;) {\n        event.preventDefault();\n        searchPageKeyboardNav.moveDown();\n      } else if (event.key === \&quot;ArrowUp\&quot;) {\n        event.preventDefault();\n        searchPageKeyboardNav.moveUp();\n      } else if (event.key === \&quot;Home\&quot;) {\n        event.preventDefault();\n        searchPageKeyboardNav.moveToFirst();\n      } else if (event.key === \&quot;End\&quot;) {\n        event.preventDefault();\n        searchPageKeyboardNav.moveToLast();\n      } else if (\n        event.key === \&quot;Enter\&quot; &amp;&amp;\n        searchPageKeyboardNav.activeIndex &gt;= 0\n      ) {\n        event.preventDefault();\n        searchPageKeyboardNav.select();\n      }\n    });\n\n    // Set up event listener with debouncing\n    searchPageInput.addEventListener(\n      \&quot;input\&quot;,\n      debounce(function () {\n        const query = this.value.trim();\n        if (query.length &gt;= 2) {\n          performSearch(query, searchPageKeyboardNav);\n        } else {\n          const resultsContainer = document.getElementById(\n            \&quot;search-page-results\&quot;,\n          );\n          if (resultsContainer) {\n            resultsContainer.innerHTML =\n              \&quot;&lt;p&gt;Please enter at least 2 characters to search&lt;/p&gt;\&quot;;\n          }\n          searchPageKeyboardNav.clear();\n        }\n      }, 200),\n    );\n\n    // Perform search if URL has query\n    const params = new URLSearchParams(window.location.search);\n    const query = params.get(\&quot;q\&quot;);\n    if (query) {\n      searchPageInput.value = query;\n      performSearch(query, searchPageKeyboardNav);\n    }\n  }\n\n  // Desktop Sidebar Toggle\n  const searchInput = document.getElementById(\&quot;search-input\&quot;);\n  if (searchInput) {\n    const searchResults = document.getElementById(\&quot;search-results\&quot;);\n    const searchContainer = searchInput.closest(\&quot;.search-container\&quot;);\n    // Initialize keyboard navigation for desktop search\n    const desktopKeyboardNav = new SearchKeyboardNav(\n      searchResults,\n      \&quot;.search-result-item\&quot;,\n    );\n\n    searchInput.addEventListener(\n      \&quot;input\&quot;,\n      debounce(async function () {\n        const searchTerm = this.value.trim();\n\n        if (searchTerm.length &lt; 2) {\n          searchResults.innerHTML = \&quot;\&quot;;\n          searchResults.style.display = \&quot;none\&quot;;\n          if (searchContainer) searchContainer.classList.remove(\&quot;has-results\&quot;);\n          desktopKeyboardNav.clear();\n          return;\n        }\n\n        searchResults.innerHTML =\n          \&#39;&lt;div class=\&quot;search-result-item\&quot;&gt;Loading...&lt;/div&gt;\&#39;;\n        searchResults.style.display = \&quot;block\&quot;;\n        if (searchContainer) searchContainer.classList.add(\&quot;has-results\&quot;);\n\n        try {\n          const results = await window.searchNamespace.engine.search(\n            searchTerm,\n            8,\n          );\n\n          // Drop stale responses: if the user kept typing while this search was\n          // running, the input no longer matches and a newer search will render.\n          if (searchInput.value.trim() !== searchTerm) return;\n\n          if (results.length &gt; 0) {\n            searchResults.innerHTML = results\n              .map((result) =&gt; {\n                const { doc, matchingAnchors } = result;\n                const queryTerms =\n                  window.searchNamespace.engine.tokenize(searchTerm);\n                const highlightedTitle =\n                  window.searchNamespace.engine.highlightTerms(\n                    doc.title,\n                    queryTerms,\n                  );\n                const resolvedPath = window.searchNamespace.engine.resolvePath(\n                  doc.path,\n                );\n\n                let html = `\n                &lt;div class=\&quot;search-result-item search-result-page\&quot;&gt;\n                  &lt;a href=\&quot;${resolvedPath}\&quot;&gt;${highlightedTitle}&lt;/a&gt;\n                &lt;/div&gt;\n              `;\n\n                if (matchingAnchors &amp;&amp; matchingAnchors.length &gt; 0) {\n                  matchingAnchors.forEach((anchor) =&gt; {\n                    // Skip anchors that duplicate the page title\n                    const normalizedAnchor =\n                      window.searchNamespace.engine.normalizeForComparison(\n                        anchor.text,\n                      );\n                    const normalizedTitle =\n                      window.searchNamespace.engine.normalizeForComparison(\n                        doc.title,\n                      );\n                    if (normalizedAnchor === normalizedTitle) {\n                      return;\n                    }\n\n                    const highlightedAnchor =\n                      window.searchNamespace.engine.highlightTerms(\n                        anchor.text,\n                        queryTerms,\n                      );\n                    const anchorPath = `${resolvedPath}#${anchor.id}`;\n                    html += `\n                    &lt;div class=\&quot;search-result-item search-result-anchor\&quot;&gt;\n                      &lt;a href=\&quot;${anchorPath}\&quot;&gt;${highlightedAnchor}&lt;/a&gt;\n                    &lt;/div&gt;\n                  `;\n                  });\n                }\n\n                return html;\n              })\n              .join(\&quot;\&quot;);\n            searchResults.style.display = \&quot;block\&quot;;\n            if (searchContainer) searchContainer.classList.add(\&quot;has-results\&quot;);\n            desktopKeyboardNav.updateItems();\n          } else {\n            searchResults.innerHTML =\n              \&#39;&lt;div class=\&quot;search-result-item\&quot;&gt;No results found&lt;/div&gt;\&#39;;\n            searchResults.style.display = \&quot;block\&quot;;\n            if (searchContainer) searchContainer.classList.add(\&quot;has-results\&quot;);\n          }\n        } catch (error) {\n          console.error(\&quot;Search error:\&quot;, error);\n          searchResults.innerHTML =\n            \&#39;&lt;div class=\&quot;search-result-item search-error\&quot; role=\&quot;alert\&quot;&gt;Search unavailable. &lt;a href=\&quot;#\&quot; onclick=\&quot;event.preventDefault(); window.searchNamespace.engine.loadData();\&quot;&gt;Retry&lt;/a&gt;&lt;/div&gt;\&#39;;\n          searchResults.style.display = \&quot;block\&quot;;\n          if (searchContainer) searchContainer.classList.add(\&quot;has-results\&quot;);\n        }\n      }, 150),\n    );\n\n    // Hide results when clicking outside\n    document.addEventListener(\&quot;click\&quot;, function (event) {\n      if (\n        !searchInput.contains(event.target) &amp;&amp;\n        !searchResults.contains(event.target)\n      ) {\n        searchResults.style.display = \&quot;none\&quot;;\n        if (searchContainer) searchContainer.classList.remove(\&quot;has-results\&quot;);\n        desktopKeyboardNav.clear();\n      }\n    });\n\n    // Keyboard navigation for desktop search\n    searchInput.addEventListener(\&quot;keydown\&quot;, function (event) {\n      if (searchResults.style.display !== \&quot;block\&quot;) return;\n\n      if (event.key === \&quot;ArrowDown\&quot;) {\n        event.preventDefault();\n        desktopKeyboardNav.moveDown();\n      } else if (event.key === \&quot;ArrowUp\&quot;) {\n        event.preventDefault();\n        desktopKeyboardNav.moveUp();\n      } else if (event.key === \&quot;Home\&quot;) {\n        event.preventDefault();\n        desktopKeyboardNav.moveToFirst();\n      } else if (event.key === \&quot;End\&quot;) {\n        event.preventDefault();\n        desktopKeyboardNav.moveToLast();\n      } else if (event.key === \&quot;Enter\&quot; &amp;&amp; desktopKeyboardNav.activeIndex &gt;= 0) {\n        event.preventDefault();\n        desktopKeyboardNav.select();\n      } else if (event.key === \&quot;Escape\&quot;) {\n        event.preventDefault();\n        searchResults.style.display = \&quot;none\&quot;;\n        if (searchContainer) searchContainer.classList.remove(\&quot;has-results\&quot;);\n        desktopKeyboardNav.clear();\n        searchInput.blur();\n      }\n    });\n\n    setupDocumentEventHandlers(searchInput, searchResults, searchContainer);\n  }\n\n  function setupDocumentEventHandlers(\n    searchInput,\n    searchResults,\n    searchContainer,\n  ) {\n    document.addEventListener(\&quot;click\&quot;, function (event) {\n      const isMobileSearchActive =\n        mobileSearchPopup &amp;&amp; mobileSearchPopup.classList.contains(\&quot;active\&quot;);\n      const isDesktopResultsVisible = searchResults.style.display === \&quot;block\&quot;;\n\n      if (\n        isMobileSearchActive &amp;&amp;\n        !mobileSearchPopup.contains(event.target) &amp;&amp;\n        !searchInput.contains(event.target)\n      ) {\n        closeMobileSearch();\n      }\n\n      if (\n        isDesktopResultsVisible &amp;&amp;\n        !searchInput.contains(event.target) &amp;&amp;\n        !searchResults.contains(event.target)\n      ) {\n        searchResults.style.display = \&quot;none\&quot;;\n        if (searchContainer) searchContainer.classList.remove(\&quot;has-results\&quot;);\n      }\n    });\n\n    document.addEventListener(\&quot;keydown\&quot;, function (event) {\n      if (\n        event.key === \&quot;Escape\&quot; &amp;&amp;\n        (document.activeElement === searchInput ||\n          searchResults.style.display === \&quot;block\&quot;)\n      ) {\n        searchResults.style.display = \&quot;none\&quot;;\n        if (searchContainer) searchContainer.classList.remove(\&quot;has-results\&quot;);\n        searchInput.blur();\n      }\n\n      if (\n        event.key === \&quot;Escape\&quot; &amp;&amp;\n        mobileSearchPopup &amp;&amp;\n        mobileSearchPopup.classList.contains(\&quot;active\&quot;)\n      ) {\n        closeMobileSearch();\n      }\n    });\n  }\n\n  // Mobile search functionality\n  // This detects mobile viewport and adds click behavior\n  function isMobile() {\n    return window.innerWidth &lt;= 800;\n  }\n\n  if (searchInput) {\n    // Add mobile search behavior\n    searchInput.addEventListener(\&quot;click\&quot;, function (e) {\n      if (isMobile()) {\n        e.preventDefault();\n        e.stopPropagation();\n        openMobileSearch();\n      }\n      // On desktop, we let the normal click behavior work (focus the input)\n    });\n\n    // Prevent typing on mobile (input should only open popup)\n    searchInput.addEventListener(\&quot;keydown\&quot;, function (e) {\n      if (isMobile()) {\n        e.preventDefault();\n        openMobileSearch();\n      }\n    });\n  }\n\n  // Mobile search popup functionality\n  const mobileSearchPopup = document.getElementById(\&quot;mobile-search-popup\&quot;);\n  const mobileSearchInput = document.getElementById(\&quot;mobile-search-input\&quot;);\n  const mobileSearchResults = document.getElementById(\&quot;mobile-search-results\&quot;);\n  const closeMobileSearchBtn = document.getElementById(\&quot;close-mobile-search\&quot;);\n\n  // Store cleanup function to prevent memory leaks\n  let mobileFocusTrapCleanup = null;\n\n  function setupMobileFocusTrap() {\n    if (!mobileSearchPopup || !mobileSearchPopup.classList.contains(\&quot;active\&quot;)) {\n      return;\n    }\n\n    const focusableElements = [\n      mobileSearchInput,\n      closeMobileSearchBtn,\n      ...Array.from(mobileSearchResults.querySelectorAll(\&quot;a[href]\&quot;)),\n    ].filter((el) =&gt; el !== null);\n\n    if (focusableElements.length === 0) return;\n\n    const firstFocusable = focusableElements[0];\n    const lastFocusable = focusableElements[focusableElements.length - 1];\n\n    const handleKeyDown = (e) =&gt; {\n      if (e.key === \&quot;Tab\&quot;) {\n        if (e.shiftKey &amp;&amp; document.activeElement === firstFocusable) {\n          e.preventDefault();\n          lastFocusable.focus();\n        } else if (!e.shiftKey &amp;&amp; document.activeElement === lastFocusable) {\n          e.preventDefault();\n          firstFocusable.focus();\n        }\n      }\n\n      if (e.key === \&quot;Escape\&quot;) {\n        closeMobileSearch();\n      }\n\n      // Arrow key navigation in results\n      if ([\&quot;ArrowDown\&quot;, \&quot;ArrowUp\&quot;].includes(e.key)) {\n        const links = Array.from(\n          mobileSearchResults.querySelectorAll(\&quot;a[href]\&quot;),\n        );\n        if (links.length === 0) return;\n\n        const currentIndex = links.indexOf(document.activeElement);\n\n        if (e.key === \&quot;ArrowDown\&quot;) {\n          e.preventDefault();\n          if (currentIndex === -1) {\n            links[0].focus();\n          } else {\n            const nextIndex = Math.min(currentIndex + 1, links.length - 1);\n            links[nextIndex].focus();\n          }\n        } else if (e.key === \&quot;ArrowUp\&quot;) {\n          e.preventDefault();\n          if (currentIndex &gt; 0) {\n            links[currentIndex - 1].focus();\n          } else if (currentIndex === 0) {\n            mobileSearchInput.focus();\n          }\n        }\n      }\n    };\n\n    mobileSearchPopup.addEventListener(\&quot;keydown\&quot;, handleKeyDown);\n\n    // Return cleanup function\n    return () =&gt; {\n      mobileSearchPopup.removeEventListener(\&quot;keydown\&quot;, handleKeyDown);\n    };\n  }\n\n  function openMobileSearch() {\n    if (mobileSearchPopup) {\n      mobileSearchPopup.classList.add(\&quot;active\&quot;);\n      // Focus the input after a small delay to ensure the popup is visible\n      setTimeout(() =&gt; {\n        if (mobileSearchInput) {\n          mobileSearchInput.focus();\n        }\n        // Clean up previous session\&#39;s listeners before setting up new ones\n        if (mobileFocusTrapCleanup) {\n          mobileFocusTrapCleanup();\n          mobileFocusTrapCleanup = null;\n        }\n        mobileFocusTrapCleanup = setupMobileFocusTrap();\n      }, 100);\n    }\n  }\n\n  function closeMobileSearch() {\n    if (mobileSearchPopup) {\n      // Clean up event listeners before closing\n      if (mobileFocusTrapCleanup) {\n        mobileFocusTrapCleanup();\n        mobileFocusTrapCleanup = null;\n      }\n      mobileSearchPopup.classList.remove(\&quot;active\&quot;);\n      if (mobileSearchInput) {\n        mobileSearchInput.value = \&quot;\&quot;;\n      }\n      if (mobileSearchResults) {\n        mobileSearchResults.innerHTML = \&quot;\&quot;;\n        mobileSearchResults.style.display = \&quot;none\&quot;;\n      }\n    }\n  }\n\n  if (closeMobileSearchBtn) {\n    closeMobileSearchBtn.addEventListener(\&quot;click\&quot;, closeMobileSearch);\n  }\n\n  // Mobile search input\n  if (mobileSearchInput &amp;&amp; mobileSearchResults) {\n    function handleMobileSearchInput() {\n      clearTimeout(mobileSearchTimeout);\n      const searchTerm = mobileSearchInput.value.trim();\n      if (searchTerm.length &lt; 2) {\n        mobileSearchResults.innerHTML = \&quot;\&quot;;\n        mobileSearchResults.style.display = \&quot;none\&quot;;\n        return;\n      }\n\n      mobileSearchTimeout = setTimeout(async () =&gt; {\n        // Verify the input still matches before proceeding\n        if (mobileSearchInput.value.trim() !== searchTerm) return;\n\n        // Show loading state\n        mobileSearchResults.innerHTML =\n          \&#39;&lt;div class=\&quot;search-result-item\&quot;&gt;Loading...&lt;/div&gt;\&#39;;\n        mobileSearchResults.style.display = \&quot;block\&quot;;\n\n        try {\n          const results = await window.searchNamespace.engine.search(\n            searchTerm,\n            8,\n          );\n          // Verify again after async operation\n          if (mobileSearchInput.value.trim() !== searchTerm) return;\n\n          if (results.length &gt; 0) {\n            mobileSearchResults.innerHTML = results\n              .map((result) =&gt; {\n                const { doc, matchingAnchors } = result;\n                const queryTerms =\n                  window.searchNamespace.engine.tokenize(searchTerm);\n                const highlightedTitle =\n                  window.searchNamespace.engine.highlightTerms(\n                    doc.title,\n                    queryTerms,\n                  );\n                const resolvedPath = window.searchNamespace.engine.resolvePath(\n                  doc.path,\n                );\n\n                // Build page result\n                let html = `\n                  &lt;div class=\&quot;search-result-item search-result-page\&quot;&gt;\n                    &lt;a href=\&quot;${resolvedPath}\&quot;&gt;${highlightedTitle}&lt;/a&gt;\n                  &lt;/div&gt;\n                `;\n\n                // Add anchor results if any\n                if (matchingAnchors &amp;&amp; matchingAnchors.length &gt; 0) {\n                  matchingAnchors.forEach((anchor) =&gt; {\n                    // Skip anchors that duplicate the page title\n                    const normalizedAnchor =\n                      window.searchNamespace.engine.normalizeForComparison(\n                        anchor.text,\n                      );\n                    const normalizedTitle =\n                      window.searchNamespace.engine.normalizeForComparison(\n                        doc.title,\n                      );\n                    if (normalizedAnchor === normalizedTitle) {\n                      return;\n                    }\n\n                    const highlightedAnchor =\n                      window.searchNamespace.engine.highlightTerms(\n                        anchor.text,\n                        queryTerms,\n                      );\n                    const sectionPreview =\n                      window.searchNamespace.engine.generateSectionPreview(\n                        doc,\n                        anchor,\n                        searchTerm,\n                        100,\n                      );\n                    const anchorPath = `${resolvedPath}#${anchor.id}`;\n                    html += `\n                      &lt;div class=\&quot;search-result-item search-result-anchor\&quot;&gt;\n                        &lt;a href=\&quot;${anchorPath}\&quot;&gt;\n                          &lt;div class=\&quot;search-result-anchor-text\&quot;&gt;${highlightedAnchor}&lt;/div&gt;\n                          &lt;div class=\&quot;search-result-preview\&quot;&gt;${sectionPreview}&lt;/div&gt;\n                        &lt;/a&gt;\n                      &lt;/div&gt;\n                    `;\n                  });\n                }\n\n                return html;\n              })\n              .join(\&quot;\&quot;);\n            mobileSearchResults.style.display = \&quot;block\&quot;;\n            // Clean up previous listeners before setting up new ones\n            if (mobileFocusTrapCleanup) {\n              mobileFocusTrapCleanup();\n              mobileFocusTrapCleanup = null;\n            }\n            mobileFocusTrapCleanup = setupMobileFocusTrap();\n          } else {\n            mobileSearchResults.innerHTML =\n              \&#39;&lt;div class=\&quot;search-result-item\&quot;&gt;No results found&lt;/div&gt;\&#39;;\n            mobileSearchResults.style.display = \&quot;block\&quot;;\n          }\n        } catch (error) {\n          console.error(\&quot;Mobile search error:\&quot;, error);\n          // Verify once more\n          if (mobileSearchInput.value.trim() !== searchTerm) return;\n          mobileSearchResults.innerHTML =\n            \&#39;&lt;div class=\&quot;search-result-item search-error\&quot; role=\&quot;alert\&quot;&gt;Search unavailable. &lt;a href=\&quot;#\&quot; onclick=\&quot;event.preventDefault(); window.searchNamespace.engine.loadData();\&quot;&gt;Retry&lt;/a&gt;&lt;/div&gt;\&#39;;\n          mobileSearchResults.style.display = \&quot;block\&quot;;\n        }\n      }, 300);\n    }\n\n    mobileSearchInput.addEventListener(\&quot;input\&quot;, handleMobileSearchInput);\n  }\n\n  // Handle window resize to update mobile behavior\n  window.addEventListener(\&quot;resize\&quot;, function () {\n    // Close mobile search if window is resized to desktop size\n    if (\n      !isMobile() &amp;&amp;\n      mobileSearchPopup &amp;&amp;\n      mobileSearchPopup.classList.contains(\&quot;active\&quot;)\n    ) {\n      closeMobileSearch();\n    }\n  });\n});\n\nasync function performSearch(query, keyboardNav = null) {\n  query = query.trim();\n  const resultsContainer = document.getElementById(\&quot;search-page-results\&quot;);\n\n  if (query.length &lt; 2) {\n    resultsContainer.innerHTML =\n      \&quot;&lt;p&gt;Please enter at least 2 characters to search&lt;/p&gt;\&quot;;\n    if (keyboardNav) keyboardNav.clear();\n    return;\n  }\n\n  // Cancel any pending search\n  if (searchPageController) {\n    searchPageController.abort();\n  }\n  searchPageController = new AbortController();\n\n  // Show loading state\n  resultsContainer.innerHTML = \&quot;&lt;p&gt;Searching...&lt;/p&gt;\&quot;;\n  if (keyboardNav) keyboardNav.clear();\n\n  try {\n    const results = await window.searchNamespace.engine.search(query, 50, {\n      signal: searchPageController.signal,\n    });\n\n    // Check if aborted before rendering\n    if (searchPageController.signal.aborted) {\n      return;\n    }\n\n    // Display results\n    if (results.length &gt; 0) {\n      let html = \&#39;&lt;ul class=\&quot;search-results-list\&quot;&gt;\&#39;;\n      const queryTerms = window.searchNamespace.engine.tokenize(query);\n\n      for (const result of results) {\n        const { doc, matchingAnchors } = result;\n        const highlightedTitle = window.searchNamespace.engine.highlightTerms(\n          doc.title,\n          queryTerms,\n        );\n        const preview = window.searchNamespace.engine.generatePreview(\n          doc.content,\n          query,\n        );\n        const resolvedPath = window.searchNamespace.engine.resolvePath(\n          doc.path,\n        );\n\n        // Page result\n        html += `&lt;li class=\&quot;search-result-item search-result-page\&quot;&gt;\n          &lt;a href=\&quot;${resolvedPath}\&quot;&gt;\n            &lt;div class=\&quot;search-result-title\&quot;&gt;${highlightedTitle}&lt;/div&gt;\n            &lt;div class=\&quot;search-result-preview\&quot;&gt;${preview}&lt;/div&gt;\n          &lt;/a&gt;\n        &lt;/li&gt;`;\n\n        // Anchor results\n        if (matchingAnchors &amp;&amp; matchingAnchors.length &gt; 0) {\n          matchingAnchors.forEach((anchor) =&gt; {\n            // Skip anchors that have the same text as the page title to avoid duplication\n            const normalizedAnchor =\n              window.searchNamespace.engine.normalizeForComparison(anchor.text);\n            const normalizedTitle =\n              window.searchNamespace.engine.normalizeForComparison(doc.title);\n            if (normalizedAnchor === normalizedTitle) {\n              return;\n            }\n\n            const highlightedAnchor =\n              window.searchNamespace.engine.highlightTerms(\n                anchor.text,\n                queryTerms,\n              );\n            const sectionPreview =\n              window.searchNamespace.engine.generateSectionPreview(\n                doc,\n                anchor,\n                query,\n              );\n            const anchorPath = `${resolvedPath}#${anchor.id}`;\n            html += `&lt;li class=\&quot;search-result-item search-result-anchor\&quot;&gt;\n              &lt;a href=\&quot;${anchorPath}\&quot;&gt;\n                &lt;div class=\&quot;search-result-anchor-text\&quot;&gt;${highlightedAnchor}&lt;/div&gt;\n                &lt;div class=\&quot;search-result-preview\&quot;&gt;${sectionPreview}&lt;/div&gt;\n              &lt;/a&gt;\n            &lt;/li&gt;`;\n          });\n        }\n      }\n      html += \&quot;&lt;/ul&gt;\&quot;;\n      resultsContainer.innerHTML = html;\n      if (keyboardNav) keyboardNav.updateItems();\n    } else {\n      resultsContainer.innerHTML = \&quot;&lt;p&gt;No results found&lt;/p&gt;\&quot;;\n      if (keyboardNav) keyboardNav.clear();\n    }\n\n    // Update URL with query\n    const url = new URL(window.location.href);\n    url.searchParams.set(\&quot;q\&quot;, query);\n    window.history.replaceState({}, \&quot;\&quot;, url.toString());\n  } catch (error) {\n    if (error.name === \&quot;AbortError\&quot;) {\n      return;\n    }\n    console.error(\&quot;Search error:\&quot;, error);\n    resultsContainer.innerHTML = `\n      &lt;div class=\&quot;search-error\&quot; role=\&quot;alert\&quot;&gt;\n        &lt;p&gt;Search is temporarily unavailable. Please try again.&lt;/p&gt;\n        &lt;button type=\&quot;button\&quot; onclick=\&quot;window.searchNamespace.engine.loadData().then(() =&gt; { this.closest(\&#39;.search-error\&#39;).innerHTML = \&#39;&lt;p&gt;Search reloaded. Please try your search again.&lt;/p&gt;\&#39;; })\&quot;&gt;\n          Retry\n        &lt;/button&gt;\n      &lt;/div&gt;\n    `;\n    if (keyboardNav) keyboardNav.clear();\n  }\n}\n&quot;;</code></pre></section></div></main></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `SEARCH_JS` constant in crate `ndg_templates`."><title>SEARCH_JS in ndg_templates - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1e18a8e7.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ndg_templates" data-themes="" data-resource-suffix="" data-rustdoc-version="1.102.0-nightly (6c709eb42 2026-11-25)" data-channel="nightly" data-search-js="search-085293d4.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-9b351432.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-419f3a3f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-101b5a15.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc constant"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SEARCH_JS</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ndg_templates/index.html">ndg_<wbr>templates</a><span class="version">2.10.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ndg_templates</a></div><h1>Constant <span class="constant">SEARCH_<wbr>JS</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ndg_templates/lib.rs.html#22">Source</a> </span></div><pre class="rust item-decl"><code>pub const SEARCH_JS: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a> = if (!window.searchNamespace) window.searchNamespace = {};
+
+class SearchEngine {
+  constructor() {
+    this.documents = [];
+    this.searchDocuments = [];
+    this.isLoaded = false;
+    this.loadError = false;
+    // Whether the current document set has been transferred to the worker yet.
+    this.workerDocsSent = false;
+    this.rootPath = window.searchNamespace?.rootPath || &quot;&quot;;
+    // Search configuration (loaded from search data)
+    this.config = {
+      minWordLength: 2,
+      stopwords: [],
+      boostTitle: 100.0,
+      boostContent: 30.0,
+      boostAnchor: 10.0,
+    };
+  }
+
+  // Check if we can use Web Worker
+  get useWebWorker() {
+    if (searchWorker === false) return false; // previously failed
+    const worker = initializeSearchWorker();
+    return worker !== null;
+  }
+
+  // Load search data from JSON
+  async loadData() {
+    if (this.isLoaded &amp;&amp; !this.loadError) return;
+
+    // Clear previous error state on retry
+    this.loadError = false;
+
+    try {
+      // Load JSON data, try multiple possible paths
+      // FIXME: There is only one possible path for now, and this search data is guaranteed
+      // to generate at this location, but we&#39;ll want to extend this in the future.
+      const possiblePaths = [
+        `${this.rootPath}assets/search-data.json`,
+        &quot;/assets/search-data.json&quot;, // fallback for root-level sites
+      ];
+
+      let response = null;
+
+      for (const path of possiblePaths) {
+        try {
+          const testResponse = await fetch(path);
+          if (testResponse.ok) {
+            response = testResponse;
+            break;
+          }
+        } catch {
+          // Continue to next path
+        }
+      }
+
+      if (!response) {
+        throw new Error(&quot;Search data file not found at any expected location&quot;);
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const documents = await response.json();
+      if (!Array.isArray(documents)) {
+        // New format with config
+        if (documents.documents &amp;&amp; Array.isArray(documents.documents)) {
+          this.config = {
+            minWordLength: documents.min_word_length || 2,
+            stopwords: documents.stopwords || [],
+            boostTitle: documents.boost_title || 100.0,
+            boostContent: documents.boost_content || 30.0,
+            boostAnchor: documents.boost_anchor || 10.0,
+          };
+          await this.initializeFromDocuments(documents.documents);
+        } else {
+          throw new Error(&quot;Invalid search data format&quot;);
+        }
+      } else {
+        // Legacy format - just an array of documents
+        await this.initializeFromDocuments(documents);
+      }
+      this.isLoaded = true;
+    } catch (error) {
+      console.error(&quot;Error loading search data:&quot;, error);
+      this.documents = [];
+      this.searchDocuments = [];
+      this.loadError = true;
+    }
+  }
+
+  // Initialize from documents array
+  initializeFromDocuments(documents) {
+    if (!Array.isArray(documents)) {
+      console.error(&quot;Invalid documents format:&quot;, typeof documents);
+      this.documents = [];
+    } else {
+      this.documents = documents;
+    }
+    this.searchDocuments = window.searchCore.prepareDocuments(this.documents);
+    // The document set changed, so the worker&#39;s cached copy is now stale.
+    this.workerDocsSent = false;
+  }
+
+  // Initialize from search index structure
+  initializeIndex(indexData) {
+    this.documents = indexData.documents || [];
+    this.searchDocuments = window.searchCore.prepareDocuments(this.documents);
+    this.workerDocsSent = false;
+  }
+
+  // Build token map for faster searching
+  buildTokenMap() {
+    this.searchDocuments = window.searchCore.prepareDocuments(this.documents);
+    return Promise.resolve();
+  }
+
+  tokenize(text) {
+    return window.searchCore.tokenizeQuery(text, this.config);
+  }
+
+  normalizeSearchText(text) {
+    return window.searchCore.normalizeSearchText(text);
+  }
+
+  // Advanced search with ranking
+  async search(query, limit = 10, options = {}) {
+    if (!query || typeof query !== &quot;string&quot; || !query.trim()) {
+      return [];
+    }
+
+    if (options.signal?.aborted) {
+      return [];
+    }
+
+    // Wait for data to be loaded
+    if (!this.isLoaded) {
+      await this.loadData();
+    }
+
+    if (options.signal?.aborted) {
+      return [];
+    }
+
+    if (!this.isLoaded || this.documents.length === 0) {
+      return [];
+    }
+
+    if (this.useWebWorker) {
+      if (options.signal?.aborted) return [];
+      try {
+        const results = await this.searchWithWorker(query, limit);
+        if (options.signal?.aborted) return [];
+        return results;
+      } catch {
+        // Worker failed; fall through to main-thread search
+      }
+    }
+
+    if (options.signal?.aborted) return [];
+    return window.searchCore.runSearch(
+      this.searchDocuments,
+      query,
+      limit,
+      this.config,
+    );
+  }
+
+  // Generate search preview with highlighting
+  generatePreview(content, query, maxLength = 200) {
+    if (!content || typeof content !== &quot;string&quot;) {
+      return &quot;&quot;;
+    }
+
+    const lowerContent = content.toLowerCase();
+    const queryWords = this.tokenize(query);
+
+    // Find the best match position
+    let bestIndex = -1;
+    let bestMatch = &quot;&quot;;
+
+    for (const word of queryWords) {
+      const index = lowerContent.indexOf(word);
+      if (index !== -1 &amp;&amp; word.length &gt; bestMatch.length) {
+        bestIndex = index;
+        bestMatch = word;
+      }
+    }
+
+    // If no match found, show beginning
+    if (bestIndex === -1) {
+      const preview = content.slice(0, maxLength).trim();
+      const escaped = this.escapeHtml(preview);
+      return escaped + (content.length &gt; maxLength ? &quot;...&quot; : &quot;&quot;);
+    }
+
+    // Find paragraph boundaries around the match
+    const paragraphs = content.split(&quot;\n&quot;).filter((p) =&gt; p.trim());
+    let currentPos = 0;
+    let matchParagraphIndex = -1;
+
+    for (let i = 0; i &lt; paragraphs.length; i++) {
+      const paragraphEnd = currentPos + paragraphs[i].length;
+      if (bestIndex &gt;= currentPos &amp;&amp; bestIndex &lt; paragraphEnd) {
+        matchParagraphIndex = i;
+        break;
+      }
+      currentPos = paragraphEnd + 1;
+    }
+
+    if (matchParagraphIndex === -1) {
+      matchParagraphIndex = 0;
+    }
+
+    // If matching paragraph is very short (likely a title/heading),
+    // prefer showing the next paragraph if it also contains the search term
+    if (
+      matchParagraphIndex &lt; paragraphs.length - 1 &amp;&amp;
+      paragraphs[matchParagraphIndex].length &lt; 50
+    ) {
+      const nextParagraph = paragraphs[matchParagraphIndex + 1];
+      if (nextParagraph.toLowerCase().includes(bestMatch)) {
+        matchParagraphIndex++;
+      }
+    }
+
+    // Get the matching paragraph
+    let preview = paragraphs[matchParagraphIndex];
+
+    // If paragraph is too long, extract context around match
+    if (preview.length &gt; maxLength) {
+      const matchInParagraph = preview.toLowerCase().indexOf(bestMatch);
+      if (matchInParagraph !== -1) {
+        const contextBefore = 60;
+        const contextAfter = 100;
+        const start = Math.max(0, matchInParagraph - contextBefore);
+        const end = Math.min(
+          preview.length,
+          matchInParagraph + bestMatch.length + contextAfter,
+        );
+        preview = preview.slice(start, end).trim();
+        if (start &gt; 0) preview = &quot;...&quot; + preview;
+        if (end &lt; paragraphs[matchParagraphIndex].length) preview += &quot;...&quot;;
+      } else {
+        preview = preview.slice(0, maxLength) + &quot;...&quot;;
+      }
+    }
+
+    return this.escapeHtml(preview);
+  }
+
+  // Escape HTML to prevent XSS
+  escapeHtml(text) {
+    if (!text || typeof text !== &quot;string&quot;) return &quot;&quot;;
+
+    const escapeMap = {
+      &quot;&amp;&quot;: &quot;&amp;amp;&quot;,
+      &quot;&lt;&quot;: &quot;&amp;lt;&quot;,
+      &quot;&gt;&quot;: &quot;&amp;gt;&quot;,
+      &#39;&quot;&#39;: &quot;&amp;quot;&quot;,
+      &quot;&#39;&quot;: &quot;&amp;#x27;&quot;,
+      &quot;/&quot;: &quot;&amp;#x2F;&quot;,
+    };
+
+    return text.replace(/[&amp;&lt;&gt;&quot;&#39;\/]/g, (char) =&gt; escapeMap[char]);
+  }
+
+  // Highlight search terms in text
+  highlightTerms(text, terms) {
+    if (!text || typeof text !== &quot;string&quot;) return &quot;&quot;;
+    if (!Array.isArray(terms) || terms.length === 0) {
+      return this.escapeHtml(text);
+    }
+
+    // Escape HTML first
+    let highlighted = this.escapeHtml(text);
+
+    // Sort terms by length (longer first) to avoid overlapping highlights
+    const sortedTerms = [...terms].sort((a, b) =&gt; b.length - a.length);
+
+    sortedTerms.forEach((term) =&gt; {
+      if (!term || typeof term !== &quot;string&quot;) return;
+      const regex = new RegExp(`(${this.escapeRegex(term)})`, &quot;gi&quot;);
+      highlighted = highlighted.replace(regex, &quot;&lt;mark&gt;$1&lt;/mark&gt;&quot;);
+    });
+
+    return highlighted;
+  }
+
+  /**
+   * Web Worker search for large datasets
+   * @param {string} query - Search query
+   * @param {number} limit - Maximum results
+   * @returns {Promise&lt;Array&gt;} Search results
+   */
+  searchWithWorker(query, limit) {
+    const worker = initializeSearchWorker();
+    if (!worker) {
+      return window.searchCore.runSearch(
+        this.searchDocuments,
+        query,
+        limit,
+        this.config,
+      );
+    }
+
+    // Transfer the document set (and search config) to the worker once. Sending
+    // it on every keystroke meant structured-cloning the entire index per
+    // search, which is the main reason worker-backed search felt slow on large
+    // option sets.
+    if (!this.workerDocsSent) {
+      worker.postMessage({
+        type: &quot;init&quot;,
+        data: { preparedDocuments: this.searchDocuments, config: this.config },
+      });
+      this.workerDocsSent = true;
+    }
+
+    return new Promise((resolve, reject) =&gt; {
+      const messageId = `search_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 11)}`;
+      const timeout = setTimeout(() =&gt; {
+        cleanup();
+        // A worker that never answers is treated as unavailable so we stop
+        // paying the timeout on every subsequent search and use the main thread.
+        searchWorker = false;
+        reject(new Error(&quot;Web Worker search timeout&quot;));
+      }, 5000);
+
+      const handleMessage = (e) =&gt; {
+        if (e.data.messageId !== messageId) return;
+
+        clearTimeout(timeout);
+        cleanup();
+
+        if (e.data.type === &quot;results&quot;) {
+          resolve(e.data.data);
+        } else if (e.data.type === &quot;error&quot;) {
+          reject(new Error(e.data.error || &quot;Unknown worker error&quot;));
+        }
+      };
+
+      const handleError = (error) =&gt; {
+        clearTimeout(timeout);
+        cleanup();
+        searchWorker = false;
+        reject(error);
+      };
+
+      const cleanup = () =&gt; {
+        worker.removeEventListener(&quot;message&quot;, handleMessage);
+        worker.removeEventListener(&quot;error&quot;, handleError);
+      };
+
+      worker.addEventListener(&quot;message&quot;, handleMessage);
+      worker.addEventListener(&quot;error&quot;, handleError);
+
+      worker.postMessage({
+        messageId,
+        type: &quot;search&quot;,
+        data: { query, limit },
+      });
+    });
+  }
+
+  // Normalize text for comparison
+  normalizeForComparison(text) {
+    return window.searchCore.normalizeForComparison(text);
+  }
+
+  // Find which section/heading a content match belongs to
+  findContainingSection(doc, matchIndex) {
+    return window.searchCore.findContainingSection?.(doc, matchIndex) ?? null;
+  }
+
+  // Generate preview for a specific section
+  generateSectionPreview(doc, anchor, query, maxLength = 200) {
+    if (!doc.content || !anchor) {
+      return &quot;&quot;;
+    }
+    return this.generatePreview(
+      window.searchCore.sectionContent(doc, anchor),
+      query,
+      maxLength,
+    );
+  }
+
+  // Escape regex special characters
+  escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, &quot;\\$&amp;&quot;);
+  }
+
+  // Resolve path relative to current page location
+  resolvePath(path) {
+    // If path already starts with &#39;/&#39;, it&#39;s absolute from domain root
+    if (path.startsWith(&quot;/&quot;)) {
+      return path;
+    }
+
+    // If path starts with &#39;#&#39;, it&#39;s a fragment on current page
+    if (path.startsWith(&quot;#&quot;)) {
+      return path;
+    }
+
+    // Prepend root path for relative navigation
+    return this.rootPath + path;
+  }
+
+  // Lazy loading for search results
+  lazyLoadDocuments(docIds, limit = 10) {
+    return docIds.slice(0, limit).map((id) =&gt; this.documents[id]);
+  }
+
+  // Fallback search method via simple string matching
+  fallbackSearch(query, limit = 10) {
+    return window.searchCore.runSearch(
+      this.searchDocuments,
+      query,
+      limit,
+      this.config,
+    );
+  }
+}
+
+// Web Worker for background search processing
+// Create Web Worker if supported - initialized lazily to use rootPath
+let searchWorker = null;
+
+// Keyboard navigation helper class
+class SearchKeyboardNav {
+  constructor(container, selector) {
+    this.container = container;
+    this.selector = selector;
+    this.activeIndex = -1;
+    this.items = [];
+    this.navigationPending = false;
+  }
+
+  updateItems() {
+    this.items = Array.from(this.container.querySelectorAll(this.selector));
+    if (this.activeIndex &gt;= this.items.length) {
+      this.activeIndex = -1;
+    }
+  }
+
+  clear() {
+    this.setActive(-1);
+    this.items = [];
+  }
+
+  setActive(index) {
+    // Remove active class from previous item
+    if (this.activeIndex &gt;= 0 &amp;&amp; this.activeIndex &lt; this.items.length) {
+      this.items[this.activeIndex].classList.remove(&quot;search-result-active&quot;);
+    }
+
+    this.activeIndex = index;
+
+    // Add active class to new item
+    if (this.activeIndex &gt;= 0 &amp;&amp; this.activeIndex &lt; this.items.length) {
+      this.items[this.activeIndex].classList.add(&quot;search-result-active&quot;);
+      this.items[this.activeIndex].scrollIntoView({
+        block: &quot;nearest&quot;,
+        behavior: &quot;smooth&quot;,
+      });
+    }
+  }
+
+  moveDown() {
+    if (this.items.length === 0) return;
+    const newIndex = Math.min(this.activeIndex + 1, this.items.length - 1);
+    this.setActive(newIndex);
+  }
+
+  moveUp() {
+    if (this.items.length === 0) return;
+    const newIndex = Math.max(this.activeIndex - 1, -1);
+    this.setActive(newIndex);
+  }
+
+  moveToFirst() {
+    if (this.items.length === 0) return;
+    this.setActive(0);
+  }
+
+  moveToLast() {
+    if (this.items.length === 0) return;
+    this.setActive(this.items.length - 1);
+  }
+
+  select() {
+    // Guard against double-navigation
+    if (this.navigationPending) return false;
+
+    if (this.activeIndex &gt;= 0 &amp;&amp; this.activeIndex &lt; this.items.length) {
+      const link = this.items[this.activeIndex].querySelector(&quot;a&quot;);
+      if (link) {
+        this.navigationPending = true;
+
+        // Add search query to URL if it&#39;s a result link
+        const currentQuery =
+          this.container.closest(&quot;.search-container&quot;)?.querySelector(&quot;input&quot;)
+            ?.value || document.getElementById(&quot;search-page-input&quot;)?.value;
+        if (currentQuery) {
+          const url = new URL(link.href, window.location.origin);
+          url.searchParams.set(&quot;highlight&quot;, currentQuery);
+
+          // Clear flag after navigation starts
+          setTimeout(() =&gt; {
+            this.navigationPending = false;
+          }, 100);
+
+          link.href = url.toString();
+          link.click();
+        } else {
+          // Clear flag before click to allow navigation
+          setTimeout(() =&gt; {
+            this.navigationPending = false;
+          }, 100);
+          link.click();
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+function debounce(func, wait) {
+  let timeout = null;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() =&gt; func.apply(this, args), wait);
+  };
+}
+
+function initializeSearchWorker() {
+  if (searchWorker !== null || typeof Worker === &quot;undefined&quot;) {
+    return searchWorker;
+  }
+
+  try {
+    const rootPath = window.searchNamespace?.rootPath || &quot;&quot;;
+    const workerPath = `${rootPath}assets/search-worker.js`;
+    searchWorker = new Worker(workerPath);
+    // If the worker script fails to load (for example it was not emitted for a
+    // custom template set), disable it so searches fall back to the main thread
+    // immediately instead of waiting for the per-search timeout.
+    searchWorker.addEventListener(&quot;error&quot;, () =&gt; {
+      searchWorker = false;
+    });
+    return searchWorker;
+  } catch (error) {
+    console.warn(&quot;Web Worker creation failed, using main thread:&quot;, error);
+    searchWorker = false; // mark as failed so we don&#39;t retry
+    return null;
+  }
+}
+
+// Global search engine instance
+window.searchNamespace.engine = new SearchEngine();
+
+// Mobile search timeout for debouncing
+let mobileSearchTimeout = null;
+
+// AbortController for cancelling pending search requests
+let searchPageController = null;
+
+document.addEventListener(&quot;DOMContentLoaded&quot;, function () {
+  // Initialize search engine immediately
+  window.searchNamespace.engine
+    .loadData()
+    .then(() =&gt; {})
+    .catch((error) =&gt; {
+      console.error(&quot;Failed to initialize search:&quot;, error);
+    });
+
+  // Search page specific functionality
+  const searchPageInput = document.getElementById(&quot;search-page-input&quot;);
+  if (searchPageInput) {
+    // Initialize keyboard navigation for search page
+    const searchPageResults = document.getElementById(&quot;search-page-results&quot;);
+    const searchPageKeyboardNav = new SearchKeyboardNav(
+      searchPageResults,
+      &quot;.search-result-item&quot;,
+    );
+
+    // Keyboard navigation for search page
+    searchPageInput.addEventListener(&quot;keydown&quot;, function (event) {
+      if (event.key === &quot;Escape&quot;) {
+        event.preventDefault();
+        searchPageKeyboardNav.clear();
+        searchPageInput.blur();
+        return;
+      }
+
+      const hasResults =
+        searchPageResults &amp;&amp;
+        searchPageResults.querySelector(&quot;.search-result-item&quot;);
+
+      if (!hasResults) return;
+
+      if (event.key === &quot;ArrowDown&quot;) {
+        event.preventDefault();
+        searchPageKeyboardNav.moveDown();
+      } else if (event.key === &quot;ArrowUp&quot;) {
+        event.preventDefault();
+        searchPageKeyboardNav.moveUp();
+      } else if (event.key === &quot;Home&quot;) {
+        event.preventDefault();
+        searchPageKeyboardNav.moveToFirst();
+      } else if (event.key === &quot;End&quot;) {
+        event.preventDefault();
+        searchPageKeyboardNav.moveToLast();
+      } else if (
+        event.key === &quot;Enter&quot; &amp;&amp;
+        searchPageKeyboardNav.activeIndex &gt;= 0
+      ) {
+        event.preventDefault();
+        searchPageKeyboardNav.select();
+      }
+    });
+
+    // Set up event listener with debouncing
+    searchPageInput.addEventListener(
+      &quot;input&quot;,
+      debounce(function () {
+        const query = this.value.trim();
+        if (query.length &gt;= 2) {
+          performSearch(query, searchPageKeyboardNav);
+        } else {
+          const resultsContainer = document.getElementById(
+            &quot;search-page-results&quot;,
+          );
+          if (resultsContainer) {
+            resultsContainer.innerHTML =
+              &quot;&lt;p&gt;Please enter at least 2 characters to search&lt;/p&gt;&quot;;
+          }
+          searchPageKeyboardNav.clear();
+        }
+      }, 200),
+    );
+
+    // Perform search if URL has query
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get(&quot;q&quot;);
+    if (query) {
+      searchPageInput.value = query;
+      performSearch(query, searchPageKeyboardNav);
+    }
+  }
+
+  // Desktop Sidebar Toggle
+  const searchInput = document.getElementById(&quot;search-input&quot;);
+  if (searchInput) {
+    const searchResults = document.getElementById(&quot;search-results&quot;);
+    const searchContainer = searchInput.closest(&quot;.search-container&quot;);
+    // Initialize keyboard navigation for desktop search
+    const desktopKeyboardNav = new SearchKeyboardNav(
+      searchResults,
+      &quot;.search-result-item&quot;,
+    );
+
+    searchInput.addEventListener(
+      &quot;input&quot;,
+      debounce(async function () {
+        const searchTerm = this.value.trim();
+
+        if (searchTerm.length &lt; 2) {
+          searchResults.innerHTML = &quot;&quot;;
+          searchResults.style.display = &quot;none&quot;;
+          if (searchContainer) searchContainer.classList.remove(&quot;has-results&quot;);
+          desktopKeyboardNav.clear();
+          return;
+        }
+
+        searchResults.innerHTML =
+          &#39;&lt;div class=&quot;search-result-item&quot;&gt;Loading...&lt;/div&gt;&#39;;
+        searchResults.style.display = &quot;block&quot;;
+        if (searchContainer) searchContainer.classList.add(&quot;has-results&quot;);
+
+        try {
+          const results = await window.searchNamespace.engine.search(
+            searchTerm,
+            8,
+          );
+
+          // Drop stale responses: if the user kept typing while this search was
+          // running, the input no longer matches and a newer search will render.
+          if (searchInput.value.trim() !== searchTerm) return;
+
+          if (results.length &gt; 0) {
+            searchResults.innerHTML = results
+              .map((result) =&gt; {
+                const { doc, matchingAnchors } = result;
+                const queryTerms =
+                  window.searchNamespace.engine.tokenize(searchTerm);
+                const highlightedTitle =
+                  window.searchNamespace.engine.highlightTerms(
+                    doc.title,
+                    queryTerms,
+                  );
+                const resolvedPath = window.searchNamespace.engine.resolvePath(
+                  doc.path,
+                );
+
+                let html = `
+                &lt;div class=&quot;search-result-item search-result-page&quot;&gt;
+                  &lt;a href=&quot;${resolvedPath}&quot;&gt;${highlightedTitle}&lt;/a&gt;
+                &lt;/div&gt;
+              `;
+
+                if (matchingAnchors &amp;&amp; matchingAnchors.length &gt; 0) {
+                  matchingAnchors.forEach((anchor) =&gt; {
+                    // Skip anchors that duplicate the page title
+                    const normalizedAnchor =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        anchor.text,
+                      );
+                    const normalizedTitle =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        doc.title,
+                      );
+                    if (normalizedAnchor === normalizedTitle) {
+                      return;
+                    }
+
+                    const highlightedAnchor =
+                      window.searchNamespace.engine.highlightTerms(
+                        anchor.text,
+                        queryTerms,
+                      );
+                    const anchorPath = `${resolvedPath}#${anchor.id}`;
+                    html += `
+                    &lt;div class=&quot;search-result-item search-result-anchor&quot;&gt;
+                      &lt;a href=&quot;${anchorPath}&quot;&gt;${highlightedAnchor}&lt;/a&gt;
+                    &lt;/div&gt;
+                  `;
+                  });
+                }
+
+                return html;
+              })
+              .join(&quot;&quot;);
+            searchResults.style.display = &quot;block&quot;;
+            if (searchContainer) searchContainer.classList.add(&quot;has-results&quot;);
+            desktopKeyboardNav.updateItems();
+          } else {
+            searchResults.innerHTML =
+              &#39;&lt;div class=&quot;search-result-item&quot;&gt;No results found&lt;/div&gt;&#39;;
+            searchResults.style.display = &quot;block&quot;;
+            if (searchContainer) searchContainer.classList.add(&quot;has-results&quot;);
+          }
+        } catch (error) {
+          console.error(&quot;Search error:&quot;, error);
+          searchResults.innerHTML =
+            &#39;&lt;div class=&quot;search-result-item search-error&quot; role=&quot;alert&quot;&gt;Search unavailable. &lt;a href=&quot;#&quot; onclick=&quot;event.preventDefault(); window.searchNamespace.engine.loadData();&quot;&gt;Retry&lt;/a&gt;&lt;/div&gt;&#39;;
+          searchResults.style.display = &quot;block&quot;;
+          if (searchContainer) searchContainer.classList.add(&quot;has-results&quot;);
+        }
+      }, 150),
+    );
+
+    // Hide results when clicking outside
+    document.addEventListener(&quot;click&quot;, function (event) {
+      if (
+        !searchInput.contains(event.target) &amp;&amp;
+        !searchResults.contains(event.target)
+      ) {
+        searchResults.style.display = &quot;none&quot;;
+        if (searchContainer) searchContainer.classList.remove(&quot;has-results&quot;);
+        desktopKeyboardNav.clear();
+      }
+    });
+
+    // Keyboard navigation for desktop search
+    searchInput.addEventListener(&quot;keydown&quot;, function (event) {
+      if (searchResults.style.display !== &quot;block&quot;) return;
+
+      if (event.key === &quot;ArrowDown&quot;) {
+        event.preventDefault();
+        desktopKeyboardNav.moveDown();
+      } else if (event.key === &quot;ArrowUp&quot;) {
+        event.preventDefault();
+        desktopKeyboardNav.moveUp();
+      } else if (event.key === &quot;Home&quot;) {
+        event.preventDefault();
+        desktopKeyboardNav.moveToFirst();
+      } else if (event.key === &quot;End&quot;) {
+        event.preventDefault();
+        desktopKeyboardNav.moveToLast();
+      } else if (event.key === &quot;Enter&quot; &amp;&amp; desktopKeyboardNav.activeIndex &gt;= 0) {
+        event.preventDefault();
+        desktopKeyboardNav.select();
+      } else if (event.key === &quot;Escape&quot;) {
+        event.preventDefault();
+        searchResults.style.display = &quot;none&quot;;
+        if (searchContainer) searchContainer.classList.remove(&quot;has-results&quot;);
+        desktopKeyboardNav.clear();
+        searchInput.blur();
+      }
+    });
+
+    setupDocumentEventHandlers(searchInput, searchResults, searchContainer);
+  }
+
+  function setupDocumentEventHandlers(
+    searchInput,
+    searchResults,
+    searchContainer,
+  ) {
+    document.addEventListener(&quot;click&quot;, function (event) {
+      const isMobileSearchActive =
+        mobileSearchPopup &amp;&amp; mobileSearchPopup.classList.contains(&quot;active&quot;);
+      const isDesktopResultsVisible = searchResults.style.display === &quot;block&quot;;
+
+      if (
+        isMobileSearchActive &amp;&amp;
+        !mobileSearchPopup.contains(event.target) &amp;&amp;
+        !searchInput.contains(event.target)
+      ) {
+        closeMobileSearch();
+      }
+
+      if (
+        isDesktopResultsVisible &amp;&amp;
+        !searchInput.contains(event.target) &amp;&amp;
+        !searchResults.contains(event.target)
+      ) {
+        searchResults.style.display = &quot;none&quot;;
+        if (searchContainer) searchContainer.classList.remove(&quot;has-results&quot;);
+      }
+    });
+
+    document.addEventListener(&quot;keydown&quot;, function (event) {
+      if (
+        event.key === &quot;Escape&quot; &amp;&amp;
+        (document.activeElement === searchInput ||
+          searchResults.style.display === &quot;block&quot;)
+      ) {
+        searchResults.style.display = &quot;none&quot;;
+        if (searchContainer) searchContainer.classList.remove(&quot;has-results&quot;);
+        searchInput.blur();
+      }
+
+      if (
+        event.key === &quot;Escape&quot; &amp;&amp;
+        mobileSearchPopup &amp;&amp;
+        mobileSearchPopup.classList.contains(&quot;active&quot;)
+      ) {
+        closeMobileSearch();
+      }
+    });
+  }
+
+  // Mobile search functionality
+  // This detects mobile viewport and adds click behavior
+  function isMobile() {
+    return window.innerWidth &lt;= 800;
+  }
+
+  if (searchInput) {
+    // Add mobile search behavior
+    searchInput.addEventListener(&quot;click&quot;, function (e) {
+      if (isMobile()) {
+        e.preventDefault();
+        e.stopPropagation();
+        openMobileSearch();
+      }
+      // On desktop, we let the normal click behavior work (focus the input)
+    });
+
+    // Prevent typing on mobile (input should only open popup)
+    searchInput.addEventListener(&quot;keydown&quot;, function (e) {
+      if (isMobile()) {
+        e.preventDefault();
+        openMobileSearch();
+      }
+    });
+  }
+
+  // Mobile search popup functionality
+  const mobileSearchPopup = document.getElementById(&quot;mobile-search-popup&quot;);
+  const mobileSearchInput = document.getElementById(&quot;mobile-search-input&quot;);
+  const mobileSearchResults = document.getElementById(&quot;mobile-search-results&quot;);
+  const closeMobileSearchBtn = document.getElementById(&quot;close-mobile-search&quot;);
+
+  // Store cleanup function to prevent memory leaks
+  let mobileFocusTrapCleanup = null;
+
+  function setupMobileFocusTrap() {
+    if (!mobileSearchPopup || !mobileSearchPopup.classList.contains(&quot;active&quot;)) {
+      return;
+    }
+
+    const focusableElements = [
+      mobileSearchInput,
+      closeMobileSearchBtn,
+      ...Array.from(mobileSearchResults.querySelectorAll(&quot;a[href]&quot;)),
+    ].filter((el) =&gt; el !== null);
+
+    if (focusableElements.length === 0) return;
+
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+
+    const handleKeyDown = (e) =&gt; {
+      if (e.key === &quot;Tab&quot;) {
+        if (e.shiftKey &amp;&amp; document.activeElement === firstFocusable) {
+          e.preventDefault();
+          lastFocusable.focus();
+        } else if (!e.shiftKey &amp;&amp; document.activeElement === lastFocusable) {
+          e.preventDefault();
+          firstFocusable.focus();
+        }
+      }
+
+      if (e.key === &quot;Escape&quot;) {
+        closeMobileSearch();
+      }
+
+      // Arrow key navigation in results
+      if ([&quot;ArrowDown&quot;, &quot;ArrowUp&quot;].includes(e.key)) {
+        const links = Array.from(
+          mobileSearchResults.querySelectorAll(&quot;a[href]&quot;),
+        );
+        if (links.length === 0) return;
+
+        const currentIndex = links.indexOf(document.activeElement);
+
+        if (e.key === &quot;ArrowDown&quot;) {
+          e.preventDefault();
+          if (currentIndex === -1) {
+            links[0].focus();
+          } else {
+            const nextIndex = Math.min(currentIndex + 1, links.length - 1);
+            links[nextIndex].focus();
+          }
+        } else if (e.key === &quot;ArrowUp&quot;) {
+          e.preventDefault();
+          if (currentIndex &gt; 0) {
+            links[currentIndex - 1].focus();
+          } else if (currentIndex === 0) {
+            mobileSearchInput.focus();
+          }
+        }
+      }
+    };
+
+    mobileSearchPopup.addEventListener(&quot;keydown&quot;, handleKeyDown);
+
+    // Return cleanup function
+    return () =&gt; {
+      mobileSearchPopup.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    };
+  }
+
+  function openMobileSearch() {
+    if (mobileSearchPopup) {
+      mobileSearchPopup.classList.add(&quot;active&quot;);
+      // Focus the input after a small delay to ensure the popup is visible
+      setTimeout(() =&gt; {
+        if (mobileSearchInput) {
+          mobileSearchInput.focus();
+        }
+        // Clean up previous session&#39;s listeners before setting up new ones
+        if (mobileFocusTrapCleanup) {
+          mobileFocusTrapCleanup();
+          mobileFocusTrapCleanup = null;
+        }
+        mobileFocusTrapCleanup = setupMobileFocusTrap();
+      }, 100);
+    }
+  }
+
+  function closeMobileSearch() {
+    if (mobileSearchPopup) {
+      // Clean up event listeners before closing
+      if (mobileFocusTrapCleanup) {
+        mobileFocusTrapCleanup();
+        mobileFocusTrapCleanup = null;
+      }
+      mobileSearchPopup.classList.remove(&quot;active&quot;);
+      if (mobileSearchInput) {
+        mobileSearchInput.value = &quot;&quot;;
+      }
+      if (mobileSearchResults) {
+        mobileSearchResults.innerHTML = &quot;&quot;;
+        mobileSearchResults.style.display = &quot;none&quot;;
+      }
+    }
+  }
+
+  if (closeMobileSearchBtn) {
+    closeMobileSearchBtn.addEventListener(&quot;click&quot;, closeMobileSearch);
+  }
+
+  // Mobile search input
+  if (mobileSearchInput &amp;&amp; mobileSearchResults) {
+    function handleMobileSearchInput() {
+      clearTimeout(mobileSearchTimeout);
+      const searchTerm = mobileSearchInput.value.trim();
+      if (searchTerm.length &lt; 2) {
+        mobileSearchResults.innerHTML = &quot;&quot;;
+        mobileSearchResults.style.display = &quot;none&quot;;
+        return;
+      }
+
+      mobileSearchTimeout = setTimeout(async () =&gt; {
+        // Verify the input still matches before proceeding
+        if (mobileSearchInput.value.trim() !== searchTerm) return;
+
+        // Show loading state
+        mobileSearchResults.innerHTML =
+          &#39;&lt;div class=&quot;search-result-item&quot;&gt;Loading...&lt;/div&gt;&#39;;
+        mobileSearchResults.style.display = &quot;block&quot;;
+
+        try {
+          const results = await window.searchNamespace.engine.search(
+            searchTerm,
+            8,
+          );
+          // Verify again after async operation
+          if (mobileSearchInput.value.trim() !== searchTerm) return;
+
+          if (results.length &gt; 0) {
+            mobileSearchResults.innerHTML = results
+              .map((result) =&gt; {
+                const { doc, matchingAnchors } = result;
+                const queryTerms =
+                  window.searchNamespace.engine.tokenize(searchTerm);
+                const highlightedTitle =
+                  window.searchNamespace.engine.highlightTerms(
+                    doc.title,
+                    queryTerms,
+                  );
+                const resolvedPath = window.searchNamespace.engine.resolvePath(
+                  doc.path,
+                );
+
+                // Build page result
+                let html = `
+                  &lt;div class=&quot;search-result-item search-result-page&quot;&gt;
+                    &lt;a href=&quot;${resolvedPath}&quot;&gt;${highlightedTitle}&lt;/a&gt;
+                  &lt;/div&gt;
+                `;
+
+                // Add anchor results if any
+                if (matchingAnchors &amp;&amp; matchingAnchors.length &gt; 0) {
+                  matchingAnchors.forEach((anchor) =&gt; {
+                    // Skip anchors that duplicate the page title
+                    const normalizedAnchor =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        anchor.text,
+                      );
+                    const normalizedTitle =
+                      window.searchNamespace.engine.normalizeForComparison(
+                        doc.title,
+                      );
+                    if (normalizedAnchor === normalizedTitle) {
+                      return;
+                    }
+
+                    const highlightedAnchor =
+                      window.searchNamespace.engine.highlightTerms(
+                        anchor.text,
+                        queryTerms,
+                      );
+                    const sectionPreview =
+                      window.searchNamespace.engine.generateSectionPreview(
+                        doc,
+                        anchor,
+                        searchTerm,
+                        100,
+                      );
+                    const anchorPath = `${resolvedPath}#${anchor.id}`;
+                    html += `
+                      &lt;div class=&quot;search-result-item search-result-anchor&quot;&gt;
+                        &lt;a href=&quot;${anchorPath}&quot;&gt;
+                          &lt;div class=&quot;search-result-anchor-text&quot;&gt;${highlightedAnchor}&lt;/div&gt;
+                          &lt;div class=&quot;search-result-preview&quot;&gt;${sectionPreview}&lt;/div&gt;
+                        &lt;/a&gt;
+                      &lt;/div&gt;
+                    `;
+                  });
+                }
+
+                return html;
+              })
+              .join(&quot;&quot;);
+            mobileSearchResults.style.display = &quot;block&quot;;
+            // Clean up previous listeners before setting up new ones
+            if (mobileFocusTrapCleanup) {
+              mobileFocusTrapCleanup();
+              mobileFocusTrapCleanup = null;
+            }
+            mobileFocusTrapCleanup = setupMobileFocusTrap();
+          } else {
+            mobileSearchResults.innerHTML =
+              &#39;&lt;div class=&quot;search-result-item&quot;&gt;No results found&lt;/div&gt;&#39;;
+            mobileSearchResults.style.display = &quot;block&quot;;
+          }
+        } catch (error) {
+          console.error(&quot;Mobile search error:&quot;, error);
+          // Verify once more
+          if (mobileSearchInput.value.trim() !== searchTerm) return;
+          mobileSearchResults.innerHTML =
+            &#39;&lt;div class=&quot;search-result-item search-error&quot; role=&quot;alert&quot;&gt;Search unavailable. &lt;a href=&quot;#&quot; onclick=&quot;event.preventDefault(); window.searchNamespace.engine.loadData();&quot;&gt;Retry&lt;/a&gt;&lt;/div&gt;&#39;;
+          mobileSearchResults.style.display = &quot;block&quot;;
+        }
+      }, 300);
+    }
+
+    mobileSearchInput.addEventListener(&quot;input&quot;, handleMobileSearchInput);
+  }
+
+  // Handle window resize to update mobile behavior
+  window.addEventListener(&quot;resize&quot;, function () {
+    // Close mobile search if window is resized to desktop size
+    if (
+      !isMobile() &amp;&amp;
+      mobileSearchPopup &amp;&amp;
+      mobileSearchPopup.classList.contains(&quot;active&quot;)
+    ) {
+      closeMobileSearch();
+    }
+  });
+});
+
+async function performSearch(query, keyboardNav = null) {
+  query = query.trim();
+  const resultsContainer = document.getElementById(&quot;search-page-results&quot;);
+
+  if (query.length &lt; 2) {
+    resultsContainer.innerHTML =
+      &quot;&lt;p&gt;Please enter at least 2 characters to search&lt;/p&gt;&quot;;
+    if (keyboardNav) keyboardNav.clear();
+    return;
+  }
+
+  // Cancel any pending search
+  if (searchPageController) {
+    searchPageController.abort();
+  }
+  searchPageController = new AbortController();
+
+  // Show loading state
+  resultsContainer.innerHTML = &quot;&lt;p&gt;Searching...&lt;/p&gt;&quot;;
+  if (keyboardNav) keyboardNav.clear();
+
+  try {
+    const results = await window.searchNamespace.engine.search(query, 50, {
+      signal: searchPageController.signal,
+    });
+
+    // Check if aborted before rendering
+    if (searchPageController.signal.aborted) {
+      return;
+    }
+
+    // Display results
+    if (results.length &gt; 0) {
+      let html = &#39;&lt;ul class=&quot;search-results-list&quot;&gt;&#39;;
+      const queryTerms = window.searchNamespace.engine.tokenize(query);
+
+      for (const result of results) {
+        const { doc, matchingAnchors } = result;
+        const highlightedTitle = window.searchNamespace.engine.highlightTerms(
+          doc.title,
+          queryTerms,
+        );
+        const preview = window.searchNamespace.engine.generatePreview(
+          doc.content,
+          query,
+        );
+        const resolvedPath = window.searchNamespace.engine.resolvePath(
+          doc.path,
+        );
+
+        // Page result
+        html += `&lt;li class=&quot;search-result-item search-result-page&quot;&gt;
+          &lt;a href=&quot;${resolvedPath}&quot;&gt;
+            &lt;div class=&quot;search-result-title&quot;&gt;${highlightedTitle}&lt;/div&gt;
+            &lt;div class=&quot;search-result-preview&quot;&gt;${preview}&lt;/div&gt;
+          &lt;/a&gt;
+        &lt;/li&gt;`;
+
+        // Anchor results
+        if (matchingAnchors &amp;&amp; matchingAnchors.length &gt; 0) {
+          matchingAnchors.forEach((anchor) =&gt; {
+            // Skip anchors that have the same text as the page title to avoid duplication
+            const normalizedAnchor =
+              window.searchNamespace.engine.normalizeForComparison(anchor.text);
+            const normalizedTitle =
+              window.searchNamespace.engine.normalizeForComparison(doc.title);
+            if (normalizedAnchor === normalizedTitle) {
+              return;
+            }
+
+            const highlightedAnchor =
+              window.searchNamespace.engine.highlightTerms(
+                anchor.text,
+                queryTerms,
+              );
+            const sectionPreview =
+              window.searchNamespace.engine.generateSectionPreview(
+                doc,
+                anchor,
+                query,
+              );
+            const anchorPath = `${resolvedPath}#${anchor.id}`;
+            html += `&lt;li class=&quot;search-result-item search-result-anchor&quot;&gt;
+              &lt;a href=&quot;${anchorPath}&quot;&gt;
+                &lt;div class=&quot;search-result-anchor-text&quot;&gt;${highlightedAnchor}&lt;/div&gt;
+                &lt;div class=&quot;search-result-preview&quot;&gt;${sectionPreview}&lt;/div&gt;
+              &lt;/a&gt;
+            &lt;/li&gt;`;
+          });
+        }
+      }
+      html += &quot;&lt;/ul&gt;&quot;;
+      resultsContainer.innerHTML = html;
+      if (keyboardNav) keyboardNav.updateItems();
+    } else {
+      resultsContainer.innerHTML = &quot;&lt;p&gt;No results found&lt;/p&gt;&quot;;
+      if (keyboardNav) keyboardNav.clear();
+    }
+
+    // Update URL with query
+    const url = new URL(window.location.href);
+    url.searchParams.set(&quot;q&quot;, query);
+    window.history.replaceState({}, &quot;&quot;, url.toString());
+  } catch (error) {
+    if (error.name === &quot;AbortError&quot;) {
+      return;
+    }
+    console.error(&quot;Search error:&quot;, error);
+    resultsContainer.innerHTML = `
+      &lt;div class=&quot;search-error&quot; role=&quot;alert&quot;&gt;
+        &lt;p&gt;Search is temporarily unavailable. Please try again.&lt;/p&gt;
+        &lt;button type=&quot;button&quot; onclick=&quot;window.searchNamespace.engine.loadData().then(() =&gt; { this.closest(&#39;.search-error&#39;).innerHTML = &#39;&lt;p&gt;Search reloaded. Please try your search again.&lt;/p&gt;&#39;; })&quot;&gt;
+          Retry
+        &lt;/button&gt;
+      &lt;/div&gt;
+    `;
+    if (keyboardNav) keyboardNav.clear();
+  }
+}
+;</code></pre></section></div></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["calculate_root_relative_path","content_to_plaintext","generate_asset_paths"]};
+window.SIDEBAR_ITEMS = {"fn":["calculate_root_relative_path","content_to_plaintext","generate_asset_paths","html_to_plaintext","is_block_element","normalize_plaintext"]};

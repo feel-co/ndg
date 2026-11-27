@@ -1,1 +1,458 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `SEARCH_CORE_JS` constant in crate `ndg_templates`."><title>SEARCH_CORE_JS in ndg_templates - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1e18a8e7.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ndg_templates" data-themes="" data-resource-suffix="" data-rustdoc-version="1.102.0-nightly (137d1d494 2026-11-22)" data-channel="nightly" data-search-js="search-085293d4.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-9b351432.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-419f3a3f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-101b5a15.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc constant"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SEARCH_CORE_JS</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ndg_templates/index.html">ndg_<wbr>templates</a><span class="version">2.10.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ndg_templates</a></div><h1>Constant <span class="constant">SEARCH_<wbr>CORE_<wbr>JS</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ndg_templates/lib.rs.html#21">Source</a> </span></div><pre class="rust item-decl"><code>pub const SEARCH_CORE_JS: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a> = &quot;(function (root) {\n  const defaultConfig = () =&gt; ({\n    minWordLength: 2,\n    stopwords: [],\n    boostTitle: 100.0,\n    boostContent: 30.0,\n    boostAnchor: 10.0,\n  });\n\n  const normalizeConfig = (config) =&gt; {\n    const defaults = defaultConfig();\n    if (!config || typeof config !== \&quot;object\&quot;) return defaults;\n    return {\n      minWordLength: config.minWordLength ?? defaults.minWordLength,\n      stopwords: Array.isArray(config.stopwords)\n        ? config.stopwords\n        : defaults.stopwords,\n      boostTitle: config.boostTitle ?? defaults.boostTitle,\n      boostContent: config.boostContent ?? defaults.boostContent,\n      boostAnchor: config.boostAnchor ?? defaults.boostAnchor,\n    };\n  };\n\n  const normalizeSearchText = (text) =&gt;\n    (typeof text === \&quot;string\&quot; ? text : \&quot;\&quot;)\n      .toLowerCase()\n      .replace(/[^a-z0-9]+/g, \&quot; \&quot;)\n      .trim()\n      .replace(/\\s+/g, \&quot; \&quot;);\n\n  const anchorSearchText = (anchor) =&gt;\n    `${anchor?.text || \&quot;\&quot;} ${anchor?.id || \&quot;\&quot;}`;\n\n  const tokenizeQuery = (text, config = defaultConfig()) =&gt; {\n    const searchConfig = normalizeConfig(config);\n    const words =\n      (typeof text === \&quot;string\&quot; ? text : \&quot;\&quot;)\n        .toLowerCase()\n        .match(/\\b[a-zA-Z0-9_-]+\\b/g) || [];\n    const stopwords = new Set(\n      searchConfig.stopwords.map((w) =&gt; w.toLowerCase()),\n    );\n    return Array.from(\n      new Set(\n        words.filter(\n          (word) =&gt;\n            word.length &gt;= searchConfig.minWordLength &amp;&amp; !stopwords.has(word),\n        ),\n      ),\n    );\n  };\n\n  const prepareDocuments = (documents) =&gt;\n    (Array.isArray(documents) ? documents : []).map((doc, docId) =&gt; {\n      const title = typeof doc?.title === \&quot;string\&quot; ? doc.title : \&quot;\&quot;;\n      const content = typeof doc?.content === \&quot;string\&quot; ? doc.content : \&quot;\&quot;;\n      const lowerAnchors = Array.isArray(doc?.anchors)\n        ? doc.anchors\n            .map((anchor) =&gt; normalizeSearchText(anchorSearchText(anchor)))\n            .join(\&quot; \&quot;)\n        : \&quot;\&quot;;\n\n      return {\n        docId,\n        doc,\n        lowerTitle: title.toLowerCase(),\n        lowerContent: content.toLowerCase(),\n        lowerAnchors,\n      };\n    });\n\n  const isWordBoundary = (char) =&gt;\n    /[A-Z]/.test(char) || /[-_\\/.]/.test(char) || /\\s/.test(char);\n\n  const isCaseTransition = (prev, curr) =&gt; {\n    const prevIsUpper = prev.toLowerCase() !== prev;\n    const currIsUpper = curr.toLowerCase() !== curr;\n    return (\n      prevIsUpper &amp;&amp; currIsUpper &amp;&amp; prev.toLowerCase() !== curr.toLowerCase()\n    );\n  };\n\n  const calculateMatchScore = (query, target, positions, consecutive) =&gt; {\n    const n = positions.length;\n    const m = target.length;\n    if (n === 0) return 0;\n\n    let score = 1.0;\n    score += ((m - positions[0]) / m) * 0.5;\n\n    let gapPenalty = 0;\n    for (let i = 1; i &lt; n; i++) {\n      const gap = positions[i] - positions[i - 1] - 1;\n      if (gap &gt; 0) gapPenalty += Math.min(gap / m, 1.0) * 0.3;\n    }\n    score -= gapPenalty;\n    score += (consecutive / n) * 0.3;\n\n    let boundaryBonus = 0;\n    for (let i = 0; i &lt; n; i++) {\n      const char = target[positions[i]];\n      if (i === 0 || isWordBoundary(char)) boundaryBonus += 0.05;\n      if (i &gt; 0 &amp;&amp; isCaseTransition(target[positions[i - 1]], char)) {\n        boundaryBonus += 0.03;\n      }\n    }\n    score = Math.min(1.0, score + boundaryBonus);\n\n    const lengthPenalty =\n      Math.abs(query.length - n) / Math.max(query.length, m);\n    score -= lengthPenalty * 0.2;\n    return Math.max(0, Math.min(1.0, score));\n  };\n\n  const findBestSubsequenceMatch = (query, target) =&gt; {\n    const n = query.length;\n    const m = target.length;\n    if (n === 0 || m === 0) return null;\n\n    const positions = [];\n    const memo = new Map();\n    const key = (qIdx, tIdx, gap) =&gt; `${qIdx}:${tIdx}:${gap}`;\n\n    const findBest = (qIdx, tIdx, currentGap) =&gt; {\n      if (qIdx === n) {\n        return { positions: [...positions], gap: currentGap };\n      }\n\n      const memoKey = key(qIdx, tIdx, currentGap);\n      if (memo.has(memoKey)) return memo.get(memoKey);\n\n      let bestResult = null;\n      for (let i = tIdx; i &lt; m; i++) {\n        if (target[i] !== query[qIdx]) continue;\n\n        positions.push(i);\n        const gap = qIdx === 0 ? 0 : i - positions[positions.length - 2] - 1;\n        const newGap = currentGap + gap;\n        if (newGap &lt;= m) {\n          const result = findBest(qIdx + 1, i + 1, newGap);\n          if (result &amp;&amp; (!bestResult || result.gap &lt; bestResult.gap)) {\n            bestResult = result;\n            if (result.gap === 0) {\n              positions.pop();\n              break;\n            }\n          }\n        }\n        positions.pop();\n      }\n\n      memo.set(memoKey, bestResult);\n      return bestResult;\n    };\n\n    const result = findBest(0, 0, 0);\n    if (!result) return null;\n\n    let consecutive = 1;\n    for (let i = 1; i &lt; result.positions.length; i++) {\n      if (result.positions[i] === result.positions[i - 1] + 1) consecutive++;\n    }\n\n    return {\n      positions: result.positions,\n      consecutive,\n      score: calculateMatchScore(query, target, result.positions, consecutive),\n    };\n  };\n\n  const fuzzyMatch = (query, target) =&gt; {\n    const lowerQuery = query.toLowerCase();\n    const lowerTarget = target.toLowerCase();\n    if (lowerQuery.length === 0 || lowerTarget.length === 0) return null;\n    if (lowerTarget === lowerQuery) return 1.0;\n    if (lowerTarget.includes(lowerQuery)) {\n      return 0.8 + (lowerQuery.length / lowerTarget.length) * 0.2;\n    }\n\n    const match = findBestSubsequenceMatch(lowerQuery, lowerTarget);\n    return match ? Math.min(1.0, match.score) : null;\n  };\n\n  const isOptionDocument = (doc) =&gt;\n    doc?.title?.toLowerCase().startsWith(\&quot;option: \&quot;) ||\n    doc?.path?.startsWith(\&quot;options.html#\&quot;);\n\n  const textMatchInfo = (text, rawQuery, searchTerms) =&gt; {\n    const lowerText = typeof text === \&quot;string\&quot; ? text.toLowerCase() : \&quot;\&quot;;\n    const normalizedText = normalizeSearchText(text);\n    const normalizedQuery = normalizeSearchText(rawQuery);\n    const matchedTerms = searchTerms.filter(\n      (term) =&gt; lowerText.includes(term) || normalizedText.includes(term),\n    );\n\n    return {\n      exactText: lowerText === rawQuery || normalizedText === normalizedQuery,\n      exactPhrase:\n        lowerText.includes(rawQuery) ||\n        normalizedText.includes(normalizedQuery),\n      matchedTerms,\n      allTerms:\n        searchTerms.length &gt; 0 &amp;&amp; matchedTerms.length === searchTerms.length,\n      anyTerm: matchedTerms.length &gt; 0,\n    };\n  };\n\n  const updateBestRank = (match, rank) =&gt; {\n    match.bestRank = Math.min(match.bestRank, rank);\n  };\n\n  const normalizeForComparison = (text) =&gt;\n    (typeof text === \&quot;string\&quot; ? text : \&quot;\&quot;)\n      .toLowerCase()\n      .replace(/\\s+/g, \&quot; \&quot;)\n      .replace(/[.,!?;:\&#39;\&quot;\u{2026}\u{2014}\u{2013}-]+$/g, \&quot;\&quot;)\n      .trim();\n\n  const documentParagraphs = (doc) =&gt;\n    (typeof doc?.content === \&quot;string\&quot; ? doc.content : \&quot;\&quot;)\n      .split(\&quot;\\n\&quot;)\n      .filter((p) =&gt; p.trim());\n\n  // index of document sections\&#39; start offsets, calculated once\n  const sectionIndexCache = new WeakMap();\n\n  const sectionIndex = (doc) =&gt; {\n    let index = sectionIndexCache.get(doc);\n    if (index) return index;\n\n    const anchorsByText = new Map();\n    doc.anchors.forEach((a) =&gt; {\n      const text = normalizeForComparison(a.text);\n      if (!anchorsByText.has(text)) anchorsByText.set(text, a);\n    });\n\n    const starts = [];\n    const ends = [];\n    const sections = [];\n    let currentPos = 0;\n    let containingAnchor = null;\n    documentParagraphs(doc).forEach((paragraph) =&gt; {\n      const matchingAnchor = anchorsByText.get(\n        normalizeForComparison(paragraph.trim()),\n      );\n      if (matchingAnchor) containingAnchor = matchingAnchor;\n      starts.push(currentPos);\n      ends.push(currentPos + paragraph.length);\n      sections.push(containingAnchor);\n      currentPos += paragraph.length + 1;\n    });\n\n    index = { starts, ends, sections };\n    sectionIndexCache.set(doc, index);\n    return index;\n  };\n\n  const findContainingSection = (doc, matchIndex) =&gt; {\n    if (\n      !doc?.content ||\n      !Array.isArray(doc.anchors) ||\n      doc.anchors.length === 0\n    ) {\n      return null;\n    }\n\n    const { starts, ends, sections } = sectionIndex(doc);\n    let low = 0;\n    let high = starts.length - 1;\n    while (low &lt;= high) {\n      const mid = (low + high) &gt;&gt; 1;\n      if (matchIndex &lt; starts[mid]) high = mid - 1;\n      else if (matchIndex &gt;= ends[mid]) low = mid + 1;\n      else return sections[mid];\n    }\n    return null;\n  };\n\n  const sectionContent = (doc, anchor) =&gt; {\n    if (!doc?.content || !anchor) return \&quot;\&quot;;\n\n    const paragraphs = documentParagraphs(doc);\n    let sectionStart = -1;\n    let sectionEnd = paragraphs.length;\n    const normalizedAnchor = normalizeForComparison(anchor.text);\n\n    for (let i = 0; i &lt; paragraphs.length; i++) {\n      const normalizedPara = normalizeForComparison(paragraphs[i].trim());\n      if (normalizedPara === normalizedAnchor) {\n        sectionStart = i;\n      } else if (\n        sectionStart !== -1 &amp;&amp;\n        Array.isArray(doc.anchors) &amp;&amp;\n        doc.anchors.some(\n          (a) =&gt; normalizeForComparison(a.text) === normalizedPara,\n        )\n      ) {\n        sectionEnd = i;\n        break;\n      }\n    }\n\n    return sectionStart === -1\n      ? \&quot;\&quot;\n      : paragraphs.slice(sectionStart + 1, sectionEnd).join(\&quot;\\n\&quot;);\n  };\n\n  const runSearch = (processedDocs, query, limit, config = defaultConfig()) =&gt; {\n    const searchConfig = normalizeConfig(config);\n    const rawQuery = query.toLowerCase();\n    const searchTerms = tokenizeQuery(query, searchConfig);\n    const useFuzzySearch = rawQuery.length &gt;= 3;\n\n    if (searchTerms.length === 0 &amp;&amp; rawQuery.length &lt; 2) return [];\n    if (!Array.isArray(processedDocs) || processedDocs.length === 0) return [];\n\n    const { boostTitle, boostContent, boostAnchor } = searchConfig;\n    const normalizedQuery = normalizeSearchText(rawQuery);\n    const pageMatches = new Map();\n\n    processedDocs.forEach(\n      ({ docId, doc, lowerTitle, lowerContent, lowerAnchors }) =&gt; {\n        const hasRelevantToken =\n          lowerTitle.includes(rawQuery) ||\n          lowerContent.includes(rawQuery) ||\n          lowerAnchors.includes(normalizedQuery) ||\n          searchTerms.some(\n            (term) =&gt;\n              lowerTitle.includes(term) ||\n              lowerContent.includes(term) ||\n              lowerAnchors.includes(term),\n          );\n        if (!hasRelevantToken) return;\n\n        const match = { doc, pageScore: 0, matchingAnchors: [], bestRank: 99 };\n        pageMatches.set(docId, match);\n\n        const titleMatch = textMatchInfo(lowerTitle, rawQuery, searchTerms);\n        const contentMatch = textMatchInfo(lowerContent, rawQuery, searchTerms);\n\n        if (titleMatch.exactText) {\n          match.pageScore += boostTitle * 3;\n          updateBestRank(match, isOptionDocument(doc) ? 3 : 0);\n        } else if (titleMatch.exactPhrase) {\n          match.pageScore += boostTitle * 2;\n          updateBestRank(match, isOptionDocument(doc) ? 4 : 1);\n        } else if (titleMatch.allTerms) {\n          match.pageScore += boostTitle;\n          updateBestRank(match, isOptionDocument(doc) ? 5 : 2);\n        } else if (titleMatch.anyTerm) {\n          match.pageScore += titleMatch.matchedTerms.length * (boostTitle / 10);\n          updateBestRank(match, isOptionDocument(doc) ? 8 : 6);\n        }\n\n        if (contentMatch.exactPhrase) {\n          match.pageScore += boostContent;\n          updateBestRank(match, isOptionDocument(doc) ? 9 : 7);\n        } else if (contentMatch.allTerms) {\n          match.pageScore += boostContent / 2;\n          updateBestRank(match, isOptionDocument(doc) ? 10 : 8);\n        } else if (contentMatch.anyTerm) {\n          match.pageScore +=\n            contentMatch.matchedTerms.length * (boostContent / 10);\n          updateBestRank(match, isOptionDocument(doc) ? 11 : 9);\n        }\n\n        if (\n          isOptionDocument(doc) &amp;&amp;\n          !titleMatch.exactPhrase &amp;&amp;\n          !titleMatch.anyTerm\n        ) {\n          match.pageScore *= 0.25;\n        }\n      },\n    );\n\n    pageMatches.forEach((match) =&gt; {\n      const doc = match.doc;\n      if (!Array.isArray(doc?.anchors) || doc.anchors.length === 0) return;\n\n      const anchorSet = new Set();\n      doc.anchors.forEach((anchor) =&gt; {\n        if (!anchor?.text) return;\n\n        const anchorText = anchorSearchText(anchor).toLowerCase();\n        const anchorMatch = textMatchInfo(anchorText, rawQuery, searchTerms);\n        let anchorMatches = anchorMatch.exactPhrase || anchorMatch.allTerms;\n\n        if (!anchorMatches &amp;&amp; useFuzzySearch) {\n          const fuzzyScore = fuzzyMatch(rawQuery, anchorText);\n          anchorMatches = fuzzyScore !== null &amp;&amp; fuzzyScore &gt;= 0.8;\n        }\n\n        if (!anchorMatches) {\n          anchorMatches = searchTerms.some((term) =&gt; anchorText.includes(term));\n        }\n\n        if (!anchorMatches) return;\n        anchorSet.add(anchor.id);\n\n        if (anchorMatch.exactText) {\n          match.pageScore += boostTitle * 3;\n          updateBestRank(match, 0);\n        } else if (anchorMatch.exactPhrase) {\n          match.pageScore += boostTitle * 2;\n          updateBestRank(match, 1);\n        } else if (anchorMatch.allTerms) {\n          match.pageScore += boostTitle;\n          updateBestRank(match, 2);\n        } else {\n          match.pageScore += boostAnchor;\n          updateBestRank(match, 6);\n        }\n      });\n\n      if (typeof doc.content === \&quot;string\&quot;) {\n        const lowerContent = doc.content.toLowerCase();\n        searchTerms.forEach((term) =&gt; {\n          let searchPos = 0;\n          let matchIndex;\n          while ((matchIndex = lowerContent.indexOf(term, searchPos)) !== -1) {\n            const containingAnchor = findContainingSection(doc, matchIndex);\n            if (containingAnchor) anchorSet.add(containingAnchor.id);\n            searchPos = matchIndex + term.length;\n          }\n        });\n      }\n\n      doc.anchors.forEach((anchor) =&gt; {\n        if (anchorSet.has(anchor.id)) match.matchingAnchors.push(anchor);\n      });\n    });\n\n    return Array.from(pageMatches.values())\n      .filter((m) =&gt; m.pageScore &gt; 5)\n      .sort((a, b) =&gt; {\n        if (a.bestRank !== b.bestRank) return a.bestRank - b.bestRank;\n        if (b.pageScore !== a.pageScore) return b.pageScore - a.pageScore;\n        return (\n          Number(isOptionDocument(a.doc)) - Number(isOptionDocument(b.doc))\n        );\n      })\n      .slice(0, limit);\n  };\n\n  root.searchCore = {\n    defaultConfig,\n    normalizeConfig,\n    normalizeSearchText,\n    normalizeForComparison,\n    tokenizeQuery,\n    prepareDocuments,\n    runSearch,\n    findContainingSection,\n    sectionContent,\n  };\n})(typeof self !== \&quot;undefined\&quot; ? self : window);\n&quot;;</code></pre></section></div></main></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `SEARCH_CORE_JS` constant in crate `ndg_templates`."><title>SEARCH_CORE_JS in ndg_templates - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1e18a8e7.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ndg_templates" data-themes="" data-resource-suffix="" data-rustdoc-version="1.102.0-nightly (6c709eb42 2026-11-25)" data-channel="nightly" data-search-js="search-085293d4.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-9b351432.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-419f3a3f.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-101b5a15.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc constant"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">SEARCH_CORE_JS</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ndg_templates/index.html">ndg_<wbr>templates</a><span class="version">2.10.2</span></h2></div><div class="sidebar-elems"><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">ndg_templates</a></div><h1>Constant <span class="constant">SEARCH_<wbr>CORE_<wbr>JS</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ndg_templates/lib.rs.html#21">Source</a> </span></div><pre class="rust item-decl"><code>pub const SEARCH_CORE_JS: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a> = (function (root) {
+  const defaultConfig = () =&gt; ({
+    minWordLength: 2,
+    stopwords: [],
+    boostTitle: 100.0,
+    boostContent: 30.0,
+    boostAnchor: 10.0,
+  });
+
+  const normalizeConfig = (config) =&gt; {
+    const defaults = defaultConfig();
+    if (!config || typeof config !== &quot;object&quot;) return defaults;
+    return {
+      minWordLength: config.minWordLength ?? defaults.minWordLength,
+      stopwords: Array.isArray(config.stopwords)
+        ? config.stopwords
+        : defaults.stopwords,
+      boostTitle: config.boostTitle ?? defaults.boostTitle,
+      boostContent: config.boostContent ?? defaults.boostContent,
+      boostAnchor: config.boostAnchor ?? defaults.boostAnchor,
+    };
+  };
+
+  const normalizeSearchText = (text) =&gt;
+    (typeof text === &quot;string&quot; ? text : &quot;&quot;)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, &quot; &quot;)
+      .trim()
+      .replace(/\s+/g, &quot; &quot;);
+
+  const anchorSearchText = (anchor) =&gt;
+    `${anchor?.text || &quot;&quot;} ${anchor?.id || &quot;&quot;}`;
+
+  const tokenizeQuery = (text, config = defaultConfig()) =&gt; {
+    const searchConfig = normalizeConfig(config);
+    const words =
+      (typeof text === &quot;string&quot; ? text : &quot;&quot;)
+        .toLowerCase()
+        .match(/\b[a-zA-Z0-9_-]+\b/g) || [];
+    const stopwords = new Set(
+      searchConfig.stopwords.map((w) =&gt; w.toLowerCase()),
+    );
+    return Array.from(
+      new Set(
+        words.filter(
+          (word) =&gt;
+            word.length &gt;= searchConfig.minWordLength &amp;&amp; !stopwords.has(word),
+        ),
+      ),
+    );
+  };
+
+  const prepareDocuments = (documents) =&gt;
+    (Array.isArray(documents) ? documents : []).map((doc, docId) =&gt; {
+      const title = typeof doc?.title === &quot;string&quot; ? doc.title : &quot;&quot;;
+      const content = typeof doc?.content === &quot;string&quot; ? doc.content : &quot;&quot;;
+      const lowerAnchors = Array.isArray(doc?.anchors)
+        ? doc.anchors
+            .map((anchor) =&gt; normalizeSearchText(anchorSearchText(anchor)))
+            .join(&quot; &quot;)
+        : &quot;&quot;;
+
+      return {
+        docId,
+        doc,
+        lowerTitle: title.toLowerCase(),
+        lowerContent: content.toLowerCase(),
+        lowerAnchors,
+      };
+    });
+
+  const isWordBoundary = (char) =&gt;
+    /[A-Z]/.test(char) || /[-_\/.]/.test(char) || /\s/.test(char);
+
+  const isCaseTransition = (prev, curr) =&gt; {
+    const prevIsUpper = prev.toLowerCase() !== prev;
+    const currIsUpper = curr.toLowerCase() !== curr;
+    return (
+      prevIsUpper &amp;&amp; currIsUpper &amp;&amp; prev.toLowerCase() !== curr.toLowerCase()
+    );
+  };
+
+  const calculateMatchScore = (query, target, positions, consecutive) =&gt; {
+    const n = positions.length;
+    const m = target.length;
+    if (n === 0) return 0;
+
+    let score = 1.0;
+    score += ((m - positions[0]) / m) * 0.5;
+
+    let gapPenalty = 0;
+    for (let i = 1; i &lt; n; i++) {
+      const gap = positions[i] - positions[i - 1] - 1;
+      if (gap &gt; 0) gapPenalty += Math.min(gap / m, 1.0) * 0.3;
+    }
+    score -= gapPenalty;
+    score += (consecutive / n) * 0.3;
+
+    let boundaryBonus = 0;
+    for (let i = 0; i &lt; n; i++) {
+      const char = target[positions[i]];
+      if (i === 0 || isWordBoundary(char)) boundaryBonus += 0.05;
+      if (i &gt; 0 &amp;&amp; isCaseTransition(target[positions[i - 1]], char)) {
+        boundaryBonus += 0.03;
+      }
+    }
+    score = Math.min(1.0, score + boundaryBonus);
+
+    const lengthPenalty =
+      Math.abs(query.length - n) / Math.max(query.length, m);
+    score -= lengthPenalty * 0.2;
+    return Math.max(0, Math.min(1.0, score));
+  };
+
+  const findBestSubsequenceMatch = (query, target) =&gt; {
+    const n = query.length;
+    const m = target.length;
+    if (n === 0 || m === 0) return null;
+
+    const positions = [];
+    const memo = new Map();
+    const key = (qIdx, tIdx, gap) =&gt; `${qIdx}:${tIdx}:${gap}`;
+
+    const findBest = (qIdx, tIdx, currentGap) =&gt; {
+      if (qIdx === n) {
+        return { positions: [...positions], gap: currentGap };
+      }
+
+      const memoKey = key(qIdx, tIdx, currentGap);
+      if (memo.has(memoKey)) return memo.get(memoKey);
+
+      let bestResult = null;
+      for (let i = tIdx; i &lt; m; i++) {
+        if (target[i] !== query[qIdx]) continue;
+
+        positions.push(i);
+        const gap = qIdx === 0 ? 0 : i - positions[positions.length - 2] - 1;
+        const newGap = currentGap + gap;
+        if (newGap &lt;= m) {
+          const result = findBest(qIdx + 1, i + 1, newGap);
+          if (result &amp;&amp; (!bestResult || result.gap &lt; bestResult.gap)) {
+            bestResult = result;
+            if (result.gap === 0) {
+              positions.pop();
+              break;
+            }
+          }
+        }
+        positions.pop();
+      }
+
+      memo.set(memoKey, bestResult);
+      return bestResult;
+    };
+
+    const result = findBest(0, 0, 0);
+    if (!result) return null;
+
+    let consecutive = 1;
+    for (let i = 1; i &lt; result.positions.length; i++) {
+      if (result.positions[i] === result.positions[i - 1] + 1) consecutive++;
+    }
+
+    return {
+      positions: result.positions,
+      consecutive,
+      score: calculateMatchScore(query, target, result.positions, consecutive),
+    };
+  };
+
+  const fuzzyMatch = (query, target) =&gt; {
+    const lowerQuery = query.toLowerCase();
+    const lowerTarget = target.toLowerCase();
+    if (lowerQuery.length === 0 || lowerTarget.length === 0) return null;
+    if (lowerTarget === lowerQuery) return 1.0;
+    if (lowerTarget.includes(lowerQuery)) {
+      return 0.8 + (lowerQuery.length / lowerTarget.length) * 0.2;
+    }
+
+    const match = findBestSubsequenceMatch(lowerQuery, lowerTarget);
+    return match ? Math.min(1.0, match.score) : null;
+  };
+
+  const isOptionDocument = (doc) =&gt;
+    doc?.title?.toLowerCase().startsWith(&quot;option: &quot;) ||
+    doc?.path?.startsWith(&quot;options.html#&quot;);
+
+  const textMatchInfo = (text, rawQuery, searchTerms) =&gt; {
+    const lowerText = typeof text === &quot;string&quot; ? text.toLowerCase() : &quot;&quot;;
+    const normalizedText = normalizeSearchText(text);
+    const normalizedQuery = normalizeSearchText(rawQuery);
+    const matchedTerms = searchTerms.filter(
+      (term) =&gt; lowerText.includes(term) || normalizedText.includes(term),
+    );
+
+    return {
+      exactText: lowerText === rawQuery || normalizedText === normalizedQuery,
+      exactPhrase:
+        lowerText.includes(rawQuery) ||
+        normalizedText.includes(normalizedQuery),
+      matchedTerms,
+      allTerms:
+        searchTerms.length &gt; 0 &amp;&amp; matchedTerms.length === searchTerms.length,
+      anyTerm: matchedTerms.length &gt; 0,
+    };
+  };
+
+  const updateBestRank = (match, rank) =&gt; {
+    match.bestRank = Math.min(match.bestRank, rank);
+  };
+
+  const normalizeForComparison = (text) =&gt;
+    (typeof text === &quot;string&quot; ? text : &quot;&quot;)
+      .toLowerCase()
+      .replace(/\s+/g, &quot; &quot;)
+      .replace(/[.,!?;:&#39;&quot;…—–-]+$/g, &quot;&quot;)
+      .trim();
+
+  const documentParagraphs = (doc) =&gt;
+    (typeof doc?.content === &quot;string&quot; ? doc.content : &quot;&quot;)
+      .split(&quot;\n&quot;)
+      .filter((p) =&gt; p.trim());
+
+  // index of document sections&#39; start offsets, calculated once
+  const sectionIndexCache = new WeakMap();
+
+  const sectionIndex = (doc) =&gt; {
+    let index = sectionIndexCache.get(doc);
+    if (index) return index;
+
+    const anchorsByText = new Map();
+    doc.anchors.forEach((a) =&gt; {
+      const text = normalizeForComparison(a.text);
+      if (!anchorsByText.has(text)) anchorsByText.set(text, a);
+    });
+
+    const starts = [];
+    const ends = [];
+    const sections = [];
+    let currentPos = 0;
+    let containingAnchor = null;
+    documentParagraphs(doc).forEach((paragraph) =&gt; {
+      const matchingAnchor = anchorsByText.get(
+        normalizeForComparison(paragraph.trim()),
+      );
+      if (matchingAnchor) containingAnchor = matchingAnchor;
+      starts.push(currentPos);
+      ends.push(currentPos + paragraph.length);
+      sections.push(containingAnchor);
+      currentPos += paragraph.length + 1;
+    });
+
+    index = { starts, ends, sections };
+    sectionIndexCache.set(doc, index);
+    return index;
+  };
+
+  const findContainingSection = (doc, matchIndex) =&gt; {
+    if (
+      !doc?.content ||
+      !Array.isArray(doc.anchors) ||
+      doc.anchors.length === 0
+    ) {
+      return null;
+    }
+
+    const { starts, ends, sections } = sectionIndex(doc);
+    let low = 0;
+    let high = starts.length - 1;
+    while (low &lt;= high) {
+      const mid = (low + high) &gt;&gt; 1;
+      if (matchIndex &lt; starts[mid]) high = mid - 1;
+      else if (matchIndex &gt;= ends[mid]) low = mid + 1;
+      else return sections[mid];
+    }
+    return null;
+  };
+
+  const sectionContent = (doc, anchor) =&gt; {
+    if (!doc?.content || !anchor) return &quot;&quot;;
+
+    const paragraphs = documentParagraphs(doc);
+    let sectionStart = -1;
+    let sectionEnd = paragraphs.length;
+    const normalizedAnchor = normalizeForComparison(anchor.text);
+
+    for (let i = 0; i &lt; paragraphs.length; i++) {
+      const normalizedPara = normalizeForComparison(paragraphs[i].trim());
+      if (normalizedPara === normalizedAnchor) {
+        sectionStart = i;
+      } else if (
+        sectionStart !== -1 &amp;&amp;
+        Array.isArray(doc.anchors) &amp;&amp;
+        doc.anchors.some(
+          (a) =&gt; normalizeForComparison(a.text) === normalizedPara,
+        )
+      ) {
+        sectionEnd = i;
+        break;
+      }
+    }
+
+    return sectionStart === -1
+      ? &quot;&quot;
+      : paragraphs.slice(sectionStart + 1, sectionEnd).join(&quot;\n&quot;);
+  };
+
+  const runSearch = (processedDocs, query, limit, config = defaultConfig()) =&gt; {
+    const searchConfig = normalizeConfig(config);
+    const rawQuery = query.toLowerCase();
+    const searchTerms = tokenizeQuery(query, searchConfig);
+    const useFuzzySearch = rawQuery.length &gt;= 3;
+
+    if (searchTerms.length === 0 &amp;&amp; rawQuery.length &lt; 2) return [];
+    if (!Array.isArray(processedDocs) || processedDocs.length === 0) return [];
+
+    const { boostTitle, boostContent, boostAnchor } = searchConfig;
+    const normalizedQuery = normalizeSearchText(rawQuery);
+    const pageMatches = new Map();
+
+    processedDocs.forEach(
+      ({ docId, doc, lowerTitle, lowerContent, lowerAnchors }) =&gt; {
+        const hasRelevantToken =
+          lowerTitle.includes(rawQuery) ||
+          lowerContent.includes(rawQuery) ||
+          lowerAnchors.includes(normalizedQuery) ||
+          searchTerms.some(
+            (term) =&gt;
+              lowerTitle.includes(term) ||
+              lowerContent.includes(term) ||
+              lowerAnchors.includes(term),
+          );
+        if (!hasRelevantToken) return;
+
+        const match = { doc, pageScore: 0, matchingAnchors: [], bestRank: 99 };
+        pageMatches.set(docId, match);
+
+        const titleMatch = textMatchInfo(lowerTitle, rawQuery, searchTerms);
+        const contentMatch = textMatchInfo(lowerContent, rawQuery, searchTerms);
+
+        if (titleMatch.exactText) {
+          match.pageScore += boostTitle * 3;
+          updateBestRank(match, isOptionDocument(doc) ? 3 : 0);
+        } else if (titleMatch.exactPhrase) {
+          match.pageScore += boostTitle * 2;
+          updateBestRank(match, isOptionDocument(doc) ? 4 : 1);
+        } else if (titleMatch.allTerms) {
+          match.pageScore += boostTitle;
+          updateBestRank(match, isOptionDocument(doc) ? 5 : 2);
+        } else if (titleMatch.anyTerm) {
+          match.pageScore += titleMatch.matchedTerms.length * (boostTitle / 10);
+          updateBestRank(match, isOptionDocument(doc) ? 8 : 6);
+        }
+
+        if (contentMatch.exactPhrase) {
+          match.pageScore += boostContent;
+          updateBestRank(match, isOptionDocument(doc) ? 9 : 7);
+        } else if (contentMatch.allTerms) {
+          match.pageScore += boostContent / 2;
+          updateBestRank(match, isOptionDocument(doc) ? 10 : 8);
+        } else if (contentMatch.anyTerm) {
+          match.pageScore +=
+            contentMatch.matchedTerms.length * (boostContent / 10);
+          updateBestRank(match, isOptionDocument(doc) ? 11 : 9);
+        }
+
+        if (
+          isOptionDocument(doc) &amp;&amp;
+          !titleMatch.exactPhrase &amp;&amp;
+          !titleMatch.anyTerm
+        ) {
+          match.pageScore *= 0.25;
+        }
+      },
+    );
+
+    pageMatches.forEach((match) =&gt; {
+      const doc = match.doc;
+      if (!Array.isArray(doc?.anchors) || doc.anchors.length === 0) return;
+
+      const anchorSet = new Set();
+      doc.anchors.forEach((anchor) =&gt; {
+        if (!anchor?.text) return;
+
+        const anchorText = anchorSearchText(anchor).toLowerCase();
+        const anchorMatch = textMatchInfo(anchorText, rawQuery, searchTerms);
+        let anchorMatches = anchorMatch.exactPhrase || anchorMatch.allTerms;
+
+        if (!anchorMatches &amp;&amp; useFuzzySearch) {
+          const fuzzyScore = fuzzyMatch(rawQuery, anchorText);
+          anchorMatches = fuzzyScore !== null &amp;&amp; fuzzyScore &gt;= 0.8;
+        }
+
+        if (!anchorMatches) {
+          anchorMatches = searchTerms.some((term) =&gt; anchorText.includes(term));
+        }
+
+        if (!anchorMatches) return;
+        anchorSet.add(anchor.id);
+
+        if (anchorMatch.exactText) {
+          match.pageScore += boostTitle * 3;
+          updateBestRank(match, 0);
+        } else if (anchorMatch.exactPhrase) {
+          match.pageScore += boostTitle * 2;
+          updateBestRank(match, 1);
+        } else if (anchorMatch.allTerms) {
+          match.pageScore += boostTitle;
+          updateBestRank(match, 2);
+        } else {
+          match.pageScore += boostAnchor;
+          updateBestRank(match, 6);
+        }
+      });
+
+      if (typeof doc.content === &quot;string&quot;) {
+        const lowerContent = doc.content.toLowerCase();
+        searchTerms.forEach((term) =&gt; {
+          let searchPos = 0;
+          let matchIndex;
+          while ((matchIndex = lowerContent.indexOf(term, searchPos)) !== -1) {
+            const containingAnchor = findContainingSection(doc, matchIndex);
+            if (containingAnchor) anchorSet.add(containingAnchor.id);
+            searchPos = matchIndex + term.length;
+          }
+        });
+      }
+
+      doc.anchors.forEach((anchor) =&gt; {
+        if (anchorSet.has(anchor.id)) match.matchingAnchors.push(anchor);
+      });
+    });
+
+    return Array.from(pageMatches.values())
+      .filter((m) =&gt; m.pageScore &gt; 5)
+      .sort((a, b) =&gt; {
+        if (a.bestRank !== b.bestRank) return a.bestRank - b.bestRank;
+        if (b.pageScore !== a.pageScore) return b.pageScore - a.pageScore;
+        return (
+          Number(isOptionDocument(a.doc)) - Number(isOptionDocument(b.doc))
+        );
+      })
+      .slice(0, limit);
+  };
+
+  root.searchCore = {
+    defaultConfig,
+    normalizeConfig,
+    normalizeSearchText,
+    normalizeForComparison,
+    tokenizeQuery,
+    prepareDocuments,
+    runSearch,
+    findContainingSection,
+    sectionContent,
+  };
+})(typeof self !== &quot;undefined&quot; ? self : window);
+;</code></pre></section></div></main></body></html>
