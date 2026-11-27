@@ -1,21 +1,68 @@
 # feel-co/ndg
 
-This repository contains our in-house documentation tooling, designed to
-accommodate our various documentation needs, and the relevant dependencies that
-are needed to make it happen. The most critical component stored here, which you
-might be the most interested in, is [NDG](./ndg); a fast, robust and
-customizable documentation utility to generate a complete documentation website
-for your Nix-adjacent projects on the fly. [ndg-commonmark](./ndg-commonmark) is
-a Rust crate that handles parsing flavored CommonMark, which does not provide
-any CLI features but appears as a _very_ powerful Nixpkgs-flavored CommonMark
-parser library.
+## At a Glance
+
+NDG ("Not A Docs Generator") is a fast, extensible documentation tool for Nix
+and Nix-adjacent projects. It turns Markdown and Nix module options into HTML
+sites, manpages and PDFs. It is powered by ndg-commonmark, our Nixpkgs-flavored
+CommonMark parser, which is also published as a standalone Rust library. Some of
+its noteworthy features are:
+
+- Nix support: renders `options.json`, RFC 145 doc comments, and offers a
+  `nixos-render-docs` compatibility mode in the form of a `nrd` compat CLI.
+- Not only for Nix: the Nix features are optional, so NDG also works as an
+  MdBook replacement.
+- Included: Nixpkgs-flavored CommonMark rendering, fuzzy search, automatic
+  tables of contents, heading anchors, per-page frontmatter, customizable
+  templates, multi-threaded builds, extensible configuration, user-styling.
+- Optional local dev server (serve feature).
+- Packaging: Nix, with or without flakes.
+
+[issues]: https://github.com/feel-co/ndg/issues
+[pull requests]: https://github.com/feel-co/ndg/pulls
+
+Get started with the generated NDG documentation at <https://ndg.feel-co.org>,
+which is also rendered by NDG. If you're interested in reading more about the
+project, read the about section below. If you're here to contribute, see the
+[contributing section](#contributing) below. Feature requests and new features
+to match the functionality of your favorite documentation generator are welcome
+through [issues] and [pull requests] tabs.
+
+## About
+
+[Hjem]: https://github.com/feel-co/hjem
+[NVF]: https://github.com/notashelf/nvf
+[tack]: https://github.com/manic-systems/tack
+
+This repository contains our in-house documentation tooling. We built it to
+accommodate our varying documentation needs and in the absence of tooling that
+felt right. MdBook, unless you install or add a postprocessing step, knows
+nothing about Nix modules, and nixos-render-docs, while capable, is hard to
+customize and _strongly_ tied to Nixpkgs. What we wanted was something that
+renders module options properly, looks the way we want, and does not break when
+it meets syntax it does not recognize. Projects like [Hjem], [NVF], and [tack]
+already build their manuals with it.
+
+[quickstart section]: https://ndg.feel-co.org/#quickstart
+[ndg-commonmark]: ./ndg-commonmark/
+
+NDG is arguably our "flagship" product here. It is the command line tool that
+turns your Markdown and options into a finished documentation site. Most readers
+will want its [quickstart section] and not much else. Though the documentation
+aims to be a comprehensive reference to everything you can do with NDG and is
+recommended to be read in full.
+
+For those interested, [ndg-commonmark] is the parser that powers NDG's rendering
+capabilities. Nixpkgs-flavored CommonMark has no formal specification, so we
+wrote our own implementation and published it as a standalone Rust crate. If you
+are building a documentation tool of your own and need to handle this dialect,
+use it directly. NDG is merely one of the many possible consumers.
 
 If you plan to make use of NDG, or the ndg-commonmark library, please read the
 appropriate sections below. More advanced documentation can be found in each
-crate's own directory. If you are here to contribute to one of those projects,
-please see the [Contributing](#contributing) section.
+crate's own directory and rendered on <https://ndg.feel-co.org>
 
-## Repository Structure
+### Repository Structure
 
 [Github Flavored Markdown]: https://github.github.com/gfm/
 
@@ -44,7 +91,7 @@ crates that assist in repository maintenance or packaging---such as `xtask`.
 ### ndg
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/feel-co/ndg/rust.yml?branch=main)](https://github.com/feel-co/ndg/actions/workflows/rust.yml)
-[![Rust Version](https://img.shields.io/badge/rust-1.95.0+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.97.0+-orange.svg)](https://www.rust-lang.org)
 [![GitHub Release](https://img.shields.io/github/v/release/feel-co/ndg)](https://github.com/feel-co/ndg/releases/latest)
 
 [quickstart document]: ./ndg/README.md
@@ -66,9 +113,6 @@ customization**, **more intuitive architecture**, **graceful error recovery**
 and most critically _a lot_ of room for further extension as NDG is not tied to
 Nixpkgs, and is not constrained by backwards compatibility with legacy baggage.
 
-[Hjem]: https://github.com/feel-co/hjem
-[NVF]: https://github.com/notashelf/nvf
-
 While the _main_ focus of this tool is to generate documentation for projects
 that provide Nix module systems (such as [Hjem] and [NVF]) or NixOS
 configurations, you may _easily_ use it as a MdBook replacement in your
@@ -83,7 +127,7 @@ documentation for you...
 ### ndg-commonmark
 
 [![Documentation](https://img.shields.io/docsrs/ndg-commonmark/latest)](https://docs.rs/ndg-commonmark/latest/)
-[![Rust Version](https://img.shields.io/badge/rust-1.95.0+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.97.0+-orange.svg)](https://www.rust-lang.org)
 [![Crates.io Version](https://img.shields.io/crates/v/ndg-commonmark)](https://crates.io/crates/ndg-commonmark)
 
 [documentation for latest tagged release]: https://docs.rs/ndg-commonmark/latest/
@@ -97,7 +141,7 @@ documentation for you...
 > [documentation for latest tagged release] or
 > [documentation for the nightly variant].
 
-The CLI component of this repository, NDG, has began as a Pandoc wrapper that
+The CLI component of this repository, NDG, began as a Pandoc wrapper that
 preprocessed some of your options and structured them into a format more
 suitable for Pandoc. This was fine, of course, but it required a lot of Lua
 filter work and it could not deal with Nixpkgs flavored CommonMark---which is to
@@ -111,14 +155,15 @@ hacks (such as Regex) and was not very robust. In NDG 2.0.0, we have migrated to
 Comrak and opted in for a more _robust_, AST-based parser powered by
 Comrak--which in itself is a very fast Markdown parser.
 
-It is also worth nothing that the official documentation generator for Nixpkgs,
+It is also worth noting that the official documentation generator for Nixpkgs,
 `nixos-render-docs`, uses an in-house tokenizer that is not formally available
-elsewhere. This is not a flaw of course, but the lack in the ecosystem lead to
-the gradual refactoring of NDG's Markdown parser components into a standalone
-crate with increased robustness, better documentation, and generous integration
-options for usage by other projects into ecosystems that want to create their
-own documentation generators. NDG was eventually updated to use the
-`ndg-commonmark`, and has been successfully doing so since the v2.2.0 release.
+elsewhere. This is not a flaw of course, but the absence of an authoritative and
+concrete specification in the ecosystem led to the gradual refactoring of NDG's
+Markdown parser components into a standalone crate with increased robustness,
+better documentation, and generous integration options for usage by other
+projects into ecosystems that want to create their own documentation generators.
+NDG was eventually updated to use the `ndg-commonmark`, and has been
+successfully doing so since the v2.2.0 release.
 
 Thus, the gap in the ecosystem is filled. Rejoice!
 
