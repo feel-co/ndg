@@ -7,19 +7,17 @@ use ndg_nixdoc::NixDocEntry;
 
 use crate::{libdoc, search, template};
 
-/// Process nixdoc inputs and write `lib.html`.
+/// Nonempty library documentation ready to render.
+pub struct PreparedNixdoc(Vec<NixDocEntry>);
+
+/// Extract library documentation before planning output paths.
 ///
-/// Returns the rendered HTML as a [`search::ProcessedDocument`] so the caller
-/// can include the lib page in the search index, or `None` when there are no
-/// nixdoc inputs or no entries were found.
+/// Returns `None` when there are no documented entries.
 ///
 /// # Errors
 ///
-/// Returns an error if all nixdoc inputs fail, lib page rendering fails, or the
-/// generated `lib.html` cannot be written.
-pub fn process_nixdoc(
-  config: &Config,
-) -> Result<Option<search::ProcessedDocument>> {
+/// Returns an error if all configured inputs fail to load.
+pub fn prepare_nixdoc(config: &Config) -> Result<Option<PreparedNixdoc>> {
   if config.nixdoc_inputs.is_empty() {
     info!("No nixdoc inputs configured, skipping lib generation");
     return Ok(None);
@@ -56,36 +54,44 @@ pub fn process_nixdoc(
     return Ok(None);
   }
 
-  let page = libdoc::LibDocPage::new(&all_entries, &config.revision);
-  let entries_html = page.entries_html();
-  let toc_html = page.toc_html();
-  let lib_html = template::render_lib(config, &entries_html, &toc_html)
-    .context("Failed to render lib page")?;
+  Ok(Some(PreparedNixdoc(all_entries)))
+}
 
-  let lib_path = config.output_dir.join(ndg_utils::html::page_file(
-    std::path::Path::new("lib.html"),
-    config.pretty_urls,
-  ));
-  if let Some(parent) = lib_path.parent() {
-    fs::create_dir_all(parent).with_context(|| {
-      format!("Failed to create lib directory: {}", parent.display())
+impl PreparedNixdoc {
+  /// Write the library reference and retain its rendered HTML for indexing.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error on template rendering or output I/O failure.
+  pub fn write(self, config: &Config) -> Result<search::ProcessedDocument> {
+    let page = libdoc::LibDocPage::new(&self.0, &config.revision);
+    let entries_html = page.entries_html();
+    let toc_html = page.toc_html();
+    let lib_html = template::render_lib(config, &entries_html, &toc_html)
+      .context("Failed to render lib page")?;
+
+    let lib_path = config.output_dir.join(ndg_utils::html::page_file(
+      std::path::Path::new("lib.html"),
+      config.pretty_urls,
+    ));
+    if let Some(parent) = lib_path.parent() {
+      fs::create_dir_all(parent).with_context(|| {
+        format!("Failed to create lib directory: {}", parent.display())
+      })?;
+    }
+    fs::write(&lib_path, &lib_html).with_context(|| {
+      format!("Failed to write lib.html to {}", lib_path.display())
     })?;
+    ndg_utils::write_legacy_redirect(config, std::path::Path::new("lib.html"))?;
+
+    info!("Generated lib.html with {} entries", self.0.len());
+
+    Ok(search::ProcessedDocument {
+      source_path:  PathBuf::from("lib.html"),
+      html_content: lib_html,
+      headers:      vec![],
+      title:        Some(format!("{} Library Reference", config.title)),
+      html_path:    String::from("lib.html"),
+    })
   }
-  fs::write(&lib_path, &lib_html).with_context(|| {
-    format!("Failed to write lib.html to {}", lib_path.display())
-  })?;
-  ndg_utils::write_legacy_redirect(config, std::path::Path::new("lib.html"))?;
-
-  info!("Generated lib.html with {} entries", all_entries.len());
-
-  // Return a ProcessedDocument so the caller can include lib.html in the
-  // search index alongside markdown-derived pages.
-  let doc = search::ProcessedDocument {
-    source_path:  PathBuf::from("lib.html"),
-    html_content: lib_html,
-    headers:      vec![],
-    title:        Some(format!("{} Library Reference", config.title)),
-    html_path:    String::from("lib.html"),
-  };
-  Ok(Some(doc))
 }

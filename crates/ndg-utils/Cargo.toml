@@ -39,6 +39,7 @@ oxc_codegen.workspace         = true
 oxc_minifier.workspace        = true
 oxc_parser.workspace          = true
 oxc_span.workspace            = true
+percent-encoding.workspace    = true
 rayon.workspace               = true
 rustc-hash.workspace          = true
 serde.workspace               = true

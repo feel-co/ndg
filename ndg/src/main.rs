@@ -9,7 +9,7 @@ use log::info;
 use misstep::{Result, ResultExt, bail, report};
 use ndg::{config, html, manpage, pdf, utils};
 use rayon::prelude::*;
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 mod cli;
 use cli::{Cli, Commands};
@@ -432,6 +432,91 @@ fn has_root_homepage(
     .any(|item| Path::new(&item.output_path) == Path::new("index.html"))
 }
 
+fn validate_pretty_outputs(
+  config: &Config,
+  pages: &[PathBuf],
+  chunks: impl IntoIterator<Item = PathBuf>,
+) -> Result<()> {
+  // Page paths carry their logical name; generated asset paths do not.
+  let mut destinations = FxHashMap::default();
+  for logical in pages {
+    utils::output_path(Path::new(""), logical)?;
+    let physical = utils::html::page_file(logical, true);
+    for path in std::iter::once(physical.clone())
+      .chain((physical != *logical).then(|| logical.clone()))
+    {
+      if let Some(Some(previous)) =
+        destinations.insert(path.clone(), Some(logical.as_path()))
+      {
+        bail!(
+          "output path collision at '{}': '{}' and '{}'",
+          path.display(),
+          previous.display(),
+          logical.display()
+        );
+      }
+    }
+  }
+  for path in chunks {
+    if let Some(previous) = destinations.insert(path.clone(), None) {
+      bail!(
+        "output path collision at '{}': '{}' and an options chunk",
+        path.display(),
+        previous.unwrap_or(&path).display()
+      );
+    }
+  }
+  let mut directories = FxHashMap::default();
+  for path in destinations.keys() {
+    for parent in path.ancestors().skip(1) {
+      if destinations.contains_key(parent) {
+        bail!(
+          "output path collision: '{}' must be both a file and a directory \
+           for '{}'",
+          parent.display(),
+          path.display()
+        );
+      }
+      if directories.insert(parent, path).is_some() {
+        break;
+      }
+    }
+  }
+
+  utils::assets::visit_asset_destinations(config, |path, is_dir| {
+    if let Some(logical) = destinations.get(path)
+      && (is_dir || logical.is_some())
+    {
+      bail!(
+        "output path collision at '{}': '{}' and an asset",
+        path.display(),
+        logical.unwrap_or(path).display()
+      );
+    }
+    let conflict = path
+      .ancestors()
+      .skip(1)
+      .find(|parent| destinations.contains_key(*parent))
+      .map(|parent| (parent, path))
+      .or_else(|| {
+        if is_dir {
+          None
+        } else {
+          directories.get(path).map(|child| (path, child.as_path()))
+        }
+      });
+    if let Some((parent, child)) = conflict {
+      bail!(
+        "output path collision: '{}' must be both a file and a directory for \
+         '{}'",
+        parent.display(),
+        child.display()
+      );
+    }
+    Ok(())
+  })
+}
+
 /// Main documentation generation process
 fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
   info!("Starting documentation generation...");
@@ -487,18 +572,45 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
     &xref_registry,
   );
 
-  // Pretty URLs drop the `.html` suffix
-  if config.pretty_urls {
-    processed_markdown
-      .par_iter_mut()
+  let options = config
+    .module_options
+    .as_deref()
+    .map(|path| html::options::prepare_options(config, path))
+    .transpose()?;
+  #[cfg(feature = "nixdoc")]
+  let nixdoc = html::nixdoc::prepare_nixdoc(config)?;
+  let pretty_pages = if config.pretty_urls {
+    let mut pages: Vec<_> = processed_markdown
+      .iter()
       .filter(|item| !item.is_included)
-      .for_each(|item| {
-        item.html_content = utils::html::rewrite_pretty_content_urls(
-          &item.html_content,
-          Path::new(&item.output_path),
-        );
-      });
-  }
+      .map(|item| PathBuf::from(&item.output_path))
+      .collect();
+    if let Some(options) = &options {
+      pages.extend(options.logical_pages(config));
+    }
+    if config.is_search_enabled() {
+      pages.push(PathBuf::from("search.html"));
+    }
+    #[cfg(feature = "nixdoc")]
+    if nixdoc.is_some() {
+      pages.push(PathBuf::from("lib.html"));
+    }
+    if !has_root_homepage(&processed_markdown)
+      && config.generate_fallback_index()
+    {
+      pages.push(PathBuf::from("index.html"));
+    }
+    validate_pretty_outputs(
+      config,
+      &pages,
+      options
+        .iter()
+        .flat_map(|options| options.chunk_paths(config)),
+    )?;
+    pages.into_iter().collect()
+  } else {
+    FxHashSet::default()
+  };
 
   // Collect all output directories upfront (sequential, then parallelize
   // writes)
@@ -532,9 +644,9 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
     .collect();
 
   if !render_items.is_empty() {
-    render_items
-      .into_par_iter()
-      .try_for_each(|item| html::template::render_and_write(config, item))?;
+    render_items.into_par_iter().try_for_each(|item| {
+      html::template::render_and_write(config, item, &pretty_pages)
+    })?;
   }
 
   // Extract source file paths for later use
@@ -544,9 +656,8 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
     .collect();
 
   // Process options if provided
-  let options_processed = if let Some(options_path) = &config.module_options {
-    info!("Processing options.json from {}", options_path.display());
-    html::options::process_options(config, options_path)?;
+  let options_processed = if let Some(options) = options {
+    options.write(config, &pretty_pages)?;
     true
   } else {
     info!("Module options were not set, skipping options processing");
@@ -554,7 +665,7 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
   };
 
   #[cfg(feature = "nixdoc")]
-  let nixdoc_doc = html::nixdoc::process_nixdoc(config)?;
+  let nixdoc_doc = nixdoc.map(|library| library.write(config)).transpose()?;
   #[cfg(not(feature = "nixdoc"))]
   let nixdoc_doc = None;
   let nixdoc_processed = nixdoc_doc.is_some();
@@ -651,6 +762,30 @@ mod tests {
     let processed_markdown = vec![processed("index.html")];
 
     assert!(has_root_homepage(&processed_markdown));
+  }
+
+  #[test]
+  fn pretty_urls_ignore_assets_beyond_copy_depth() {
+    let temp = tempdir().unwrap();
+    let assets_dir = temp.path().join("custom-assets");
+    fs::create_dir_all(assets_dir.join("guide")).unwrap();
+    fs::write(assets_dir.join("guide/index.html"), "asset").unwrap();
+    let mut config = Config {
+      assets_dir: Some(assets_dir),
+      assets: Some(config::assets::AssetsConfig {
+        max_depth: Some(1),
+        ..config::assets::AssetsConfig::default()
+      }),
+      ..Config::default()
+    };
+
+    let pages = ["assets/guide.html".into()];
+    let limited = validate_pretty_outputs(&config, &pages, []);
+    assert!(limited.is_ok(), "{limited:?}");
+
+    config.assets = None;
+    let collision = validate_pretty_outputs(&config, &pages, []).unwrap_err();
+    assert!(collision.to_string().contains("assets/guide/index.html"));
   }
 
   #[test]

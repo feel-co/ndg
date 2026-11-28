@@ -1,14 +1,18 @@
-use std::{fmt::Write, path::Path};
+use std::{
+  fmt::Write,
+  path::{Path, PathBuf},
+};
 
 use html_escape::encode_text;
 use misstep::Result;
 use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
 use ndg_utils::html::{calculate_root_relative_path, join_href, page_href};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
   option_pages::{OptionPage, OptionPageSet},
+  options::render_options_content,
   template::{self, OptionsSidebarHtml},
   toc_tree::{TocPathPart, TocTree},
 };
@@ -40,7 +44,8 @@ impl PageLinks {
 /// Returns an error if the options template or TOC template cannot be rendered.
 #[expect(
   clippy::implicit_hasher,
-  reason = "the source-order map is internal and deliberately uses FxHashMap"
+  reason = "the shared page set and source-order map deliberately use Fx \
+            hashing"
 )]
 pub fn render_option_page(
   config: &Config,
@@ -48,14 +53,17 @@ pub fn render_option_page(
   pages: &[OptionPage],
   input_order: &FxHashMap<String, usize>,
   processor: &MarkdownProcessor,
+  pretty_pages: &FxHashSet<PathBuf>,
 ) -> Result<String> {
   let root_path = Path::new(&page.path);
   let links = PageLinks::new(config, root_path);
   let mut options_html = generate_option_page_header(page, &links);
-  options_html.push_str(&template::generate_options_html(
-    &page.options,
+  options_html.push_str(&render_options_content(
     config,
+    root_path,
+    &page.options,
     processor,
+    pretty_pages,
   ));
   let options_toc = template::render_options_toc_with_order(
     config,
@@ -84,24 +92,32 @@ pub fn render_option_page(
 /// # Errors
 ///
 /// Returns an error if the options template cannot be rendered.
+#[expect(
+  clippy::implicit_hasher,
+  reason = "the shared page set deliberately uses Fx hashing"
+)]
 pub fn render_options_index(
   config: &Config,
   page_set: &OptionPageSet,
   processor: &MarkdownProcessor,
+  pretty_pages: &FxHashSet<PathBuf>,
 ) -> Result<String> {
-  let links = PageLinks::new(config, Path::new("options.html"));
+  let root_path = Path::new("options.html");
+  let links = PageLinks::new(config, root_path);
   let mut options_html = generate_options_index_html(&page_set.pages, &links);
   if !page_set.root_options.is_empty() {
-    options_html.push_str(&template::generate_options_html(
-      &page_set.root_options,
+    options_html.push_str(&render_options_content(
       config,
+      root_path,
+      &page_set.root_options,
       processor,
+      pretty_pages,
     ));
   }
   let toc_html = generate_option_pages_toc(&page_set.pages, None, &links);
   template::render_options_body(
     config,
-    Path::new("options.html"),
+    root_path,
     &format!("{} Options", config.title),
     "Options",
     &options_html,

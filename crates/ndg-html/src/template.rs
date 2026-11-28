@@ -1,8 +1,14 @@
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrow caller-owned sets without constraining their hasher"
+)]
+use std::collections::HashSet;
 use std::{
   borrow::Cow,
   cmp::Ordering,
   fmt::Write,
   fs,
+  hash::BuildHasher,
   path::{Path, PathBuf},
   sync::{Arc, LazyLock, RwLock},
 };
@@ -21,6 +27,7 @@ use ndg_utils::{
     join_href,
     page_file,
     page_href,
+    rewrite_pretty_content_urls,
   },
   markdown::{PageFrontmatter, create_processor},
   options::DocumentedValue,
@@ -477,6 +484,30 @@ pub fn render(
   rel_path: &Path,
   frontmatter: Option<&PageFrontmatter>,
 ) -> Result<String> {
+  render_page(
+    config,
+    content,
+    title,
+    headers,
+    rel_path,
+    frontmatter,
+    None::<&FxHashSet<PathBuf>>,
+  )
+}
+
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrows the caller's set with its existing hasher"
+)]
+fn render_page(
+  config: &Config,
+  content: &str,
+  title: &str,
+  headers: &[Header],
+  rel_path: &Path,
+  frontmatter: Option<&PageFrontmatter>,
+  pretty_pages: Option<&HashSet<PathBuf, impl BuildHasher>>,
+) -> Result<String> {
   // Effective title: frontmatter wins over the caller-supplied value.
   let effective_title = frontmatter
     .and_then(|fm| fm.title.as_deref())
@@ -526,6 +557,12 @@ pub fn render(
 
   // Substitute variables in content (e.g. {{ project_version }} in markdown)
   let substituted_content = substitute_content_vars(content, &config.vars);
+  let substituted_content = match pretty_pages {
+    Some(pages) => {
+      rewrite_pretty_content_urls(&substituted_content, rel_path, pages)
+    },
+    None => substituted_content,
+  };
 
   // Build common context and add page-specific fields
   let mut tera_context =
@@ -2188,9 +2225,14 @@ fn build_opengraph_html(config: &Config) -> String {
 ///
 /// Returns an error if template rendering, postprocessing, or file writing
 /// fails.
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrows the caller's set with its existing hasher"
+)]
 pub fn render_and_write(
   config: &Config,
   item: &ndg_utils::markdown::ProcessedMarkdown,
+  pretty_pages: &HashSet<PathBuf, impl BuildHasher>,
 ) -> Result<()> {
   use ndg_utils::postprocess;
 
@@ -2200,13 +2242,14 @@ pub fn render_and_write(
     &page_file(rel_path, config.pretty_urls),
   )?;
 
-  let html = render(
+  let html = render_page(
     config,
     &item.html_content,
     item.title.as_deref().unwrap_or(&config.title),
     &item.headers,
     rel_path,
     item.frontmatter.as_ref(),
+    config.pretty_urls.then_some(pretty_pages),
   )?;
 
   // Apply postprocessing if requested

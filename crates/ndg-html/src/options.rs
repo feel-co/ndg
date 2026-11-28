@@ -1,13 +1,23 @@
-use std::{fmt::Write, fs, path::Path};
+use std::{
+  fmt::Write,
+  fs,
+  path::{Path, PathBuf},
+};
 
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use log::debug;
 use misstep::{Result, ResultExt};
 use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
 use ndg_manpage::types::NixOption;
 use ndg_utils::{
-  html::{calculate_root_relative_path, join_href, page_file, page_href},
+  html::{
+    calculate_root_relative_path,
+    join_href,
+    page_file,
+    page_href,
+    rewrite_pretty_content_urls,
+  },
   markdown::create_processor,
   options::{OptionLocation, compare_option_locs, parse_options_json},
   postprocess,
@@ -40,6 +50,92 @@ struct OptionsChunkManifest {
 ///
 /// Returns an error if the file cannot be read, parsed, or written.
 pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
+  let prepared = prepare_options(config, options_path)?;
+  let pretty_pages = if config.pretty_urls {
+    prepared.logical_pages(config).into_iter().collect()
+  } else {
+    FxHashSet::default()
+  };
+  prepared.write(config, &pretty_pages)
+}
+
+/// Parsed and sorted options ready to be written with the site's page paths.
+pub struct PreparedOptions {
+  options:     IndexMap<String, NixOption>,
+  input_order: FxHashMap<String, usize>,
+  processor:   MarkdownProcessor,
+}
+
+impl PreparedOptions {
+  /// Return the logical destinations for the generated pages, excluding assets.
+  #[must_use]
+  pub fn logical_pages(&self, config: &Config) -> Vec<PathBuf> {
+    let root = PathBuf::from("options.html");
+    if option_pages::pages_enabled(config) {
+      let mut paths = IndexSet::new();
+      paths.insert(root);
+      paths.extend(self.options.values().map(|option| {
+        PathBuf::from(option_pages::option_page_path(config, &option.name))
+      }));
+      return paths.into_iter().collect();
+    }
+    let mut paths = vec![root];
+    if self.options.len() > OPTIONS_PER_CHUNK {
+      paths.push(PathBuf::from("options-full.html"));
+    }
+    paths
+  }
+
+  /// Return the physical paths of deferred option fragments.
+  pub fn chunk_paths(&self, config: &Config) -> impl Iterator<Item = PathBuf> {
+    let count = if option_pages::pages_enabled(config) {
+      0
+    } else {
+      self.options.len().div_ceil(OPTIONS_PER_CHUNK)
+    };
+    (1..count).map(|index| PathBuf::from(chunk_path(index)))
+  }
+
+  /// Render and write the generated option pages and assets.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if rendering or writing fails.
+  pub fn write(
+    self,
+    config: &Config,
+    pretty_pages: &FxHashSet<PathBuf>,
+  ) -> Result<()> {
+    if option_pages::pages_enabled(config) {
+      let page_set = option_pages::build_option_pages(config, &self.options);
+      write_split_options(
+        config,
+        &page_set,
+        &self.input_order,
+        &self.processor,
+        pretty_pages,
+      )
+    } else {
+      write_chunked_options(
+        config,
+        self.options,
+        &self.input_order,
+        &self.processor,
+        pretty_pages,
+      )
+    }
+  }
+}
+
+/// Read, filter, and sort options without writing output files.
+///
+/// # Errors
+///
+/// Returns an error if the options file or Markdown processor cannot be loaded.
+pub fn prepare_options(
+  config: &Config,
+  options_path: &Path,
+) -> Result<PreparedOptions> {
   // Read options JSON
   let json_content = fs::read_to_string(options_path).with_context(|| {
     format!("Failed to read options file: {}", options_path.display())
@@ -160,55 +256,64 @@ pub fn process_options(config: &Config, options_path: &Path) -> Result<()> {
     compare_option_locs(&option_a.loc, &option_b.loc)
       .then_with(|| name_a.cmp(name_b))
   });
-  let customized_options = sorted.into_iter().collect();
-
-  write_options(config, &customized_options, &input_order, &processor)?;
-
-  Ok(())
-}
-
-fn write_options(
-  config: &Config,
-  options: &IndexMap<String, NixOption>,
-  input_order: &FxHashMap<String, usize>,
-  processor: &MarkdownProcessor,
-) -> Result<()> {
-  if option_pages::pages_enabled(config) {
-    write_split_options(config, options, input_order, processor)
-  } else {
-    write_chunked_options(config, options, input_order, processor)
-  }
+  Ok(PreparedOptions {
+    options: sorted.into_iter().collect(),
+    input_order,
+    processor,
+  })
 }
 
 fn write_chunked_options(
   config: &Config,
-  options: &IndexMap<String, NixOption>,
+  options: IndexMap<String, NixOption>,
   input_order: &FxHashMap<String, usize>,
   processor: &MarkdownProcessor,
+  pretty_pages: &FxHashSet<PathBuf>,
 ) -> Result<()> {
+  let logical = Path::new("options.html");
+  let options_toc = template::render_options_toc_with_order(
+    config,
+    &options,
+    Some(input_order),
+  )?;
+  let heading = format!("{} Options", config.title);
   if options.len() <= OPTIONS_PER_CHUNK {
-    let html = template::render_options_with_order(
+    let options_html = render_options_content(
       config,
-      options,
-      Some(input_order),
+      logical,
+      &options,
       processor,
+      pretty_pages,
+    );
+    let html = template::render_options_body(
+      config,
+      logical,
+      &heading,
+      "Options",
+      &options_html,
+      &options_toc,
+      template::OptionsSidebarHtml::default(),
     )?;
     return write_options_html(config, "options.html", html);
   }
 
-  let option_refs: Vec<_> = options.iter().collect();
+  let chunk_count = options.len().div_ceil(OPTIONS_PER_CHUNK);
+  let mut options = options.into_iter();
   let mut full_options_html = String::new();
-  let mut rendered_chunks = Vec::new();
+  let mut rendered_chunks = Vec::with_capacity(chunk_count);
   let mut option_chunks = IndexMap::new();
 
-  for (chunk_index, chunk) in option_refs.chunks(OPTIONS_PER_CHUNK).enumerate()
-  {
-    let chunk_options: IndexMap<_, _> = chunk
-      .iter()
-      .map(|(name, option)| ((*name).clone(), (*option).clone()))
-      .collect();
-    let chunk_html =
-      template::generate_options_html(&chunk_options, config, processor);
+  // Deferred fragments are inserted into the initial page. The full fallback
+  // also shares its logical parent and output depth.
+  for chunk_index in 0..chunk_count {
+    let chunk_options = options.by_ref().take(OPTIONS_PER_CHUNK).collect();
+    let chunk_html = render_options_content(
+      config,
+      logical,
+      &chunk_options,
+      processor,
+      pretty_pages,
+    );
     full_options_html.push_str(&chunk_html);
 
     if chunk_index == 0 {
@@ -216,7 +321,7 @@ fn write_chunked_options(
       continue;
     }
 
-    let path = format!("assets/options-chunk-{chunk_index:04}.html");
+    let path = chunk_path(chunk_index);
     for name in chunk_options.keys() {
       option_chunks.insert(template::sanitize_option_id(name), chunk_index - 1);
     }
@@ -224,8 +329,7 @@ fn write_chunked_options(
     rendered_chunks.push(path);
   }
 
-  let root_prefix =
-    calculate_root_relative_path(Path::new("options.html"), config.pretty_urls);
+  let root_prefix = calculate_root_relative_path(logical, config.pretty_urls);
   let full_href = join_href(
     &root_prefix,
     &page_href("options-full.html", config.pretty_urls),
@@ -236,15 +340,10 @@ fn write_chunked_options(
     &root_prefix,
     &full_href,
   )?;
-  let options_toc = template::render_options_toc_with_order(
-    config,
-    options,
-    Some(input_order),
-  )?;
   let fallback_html = template::render_options_body(
     config,
     Path::new("options-full.html"),
-    &format!("{} Options", config.title),
+    &heading,
     "Options",
     &full_options_html,
     &options_toc,
@@ -253,14 +352,33 @@ fn write_chunked_options(
   write_options_html(config, "options-full.html", fallback_html)?;
   let html = template::render_options_body(
     config,
-    Path::new("options.html"),
-    &format!("{} Options", config.title),
+    logical,
+    &heading,
     "Options",
     &options_html,
     &options_toc,
     template::OptionsSidebarHtml::default(),
   )?;
   write_options_html(config, "options.html", html)
+}
+
+fn chunk_path(index: usize) -> String {
+  format!("assets/options-chunk-{index:04}.html")
+}
+
+pub(crate) fn render_options_content(
+  config: &Config,
+  logical: &Path,
+  options: &IndexMap<String, NixOption>,
+  processor: &MarkdownProcessor,
+  pretty_pages: &FxHashSet<PathBuf>,
+) -> String {
+  let html = template::generate_options_html(options, config, processor);
+  if config.pretty_urls {
+    rewrite_pretty_content_urls(&html, logical, pretty_pages)
+  } else {
+    html
+  }
 }
 
 fn generate_chunk_loader_html(
@@ -301,13 +419,17 @@ fn generate_chunk_loader_html(
 
 fn write_split_options(
   config: &Config,
-  options: &IndexMap<String, NixOption>,
+  page_set: &option_pages::OptionPageSet,
   input_order: &FxHashMap<String, usize>,
   processor: &MarkdownProcessor,
+  pretty_pages: &FxHashSet<PathBuf>,
 ) -> Result<()> {
-  let page_set = option_pages::build_option_pages(config, options);
-  let index_html =
-    option_page_render::render_options_index(config, &page_set, processor)?;
+  let index_html = option_page_render::render_options_index(
+    config,
+    page_set,
+    processor,
+    pretty_pages,
+  )?;
   write_options_html(config, "options.html", index_html)?;
 
   for page in &page_set.pages {
@@ -317,6 +439,7 @@ fn write_split_options(
       &page_set.pages,
       input_order,
       processor,
+      pretty_pages,
     )?;
     write_options_html(config, &page.path, html)?;
   }

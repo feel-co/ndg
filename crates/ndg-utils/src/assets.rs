@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{ffi::OsStr, fs, path::Path};
 
 use log::debug;
 use misstep::{Result, ResultExt, report};
@@ -9,10 +9,41 @@ use walkdir::WalkDir;
 use crate::postprocess;
 
 const DEFAULT_CSS: &str = templates::DEFAULT_CSS;
-const SEARCH_CORE_JS: &str = templates::SEARCH_CORE_JS;
-const SEARCH_JS: &str = templates::SEARCH_JS;
-const SEARCH_WORKER_JS: &str = templates::SEARCH_WORKER_JS;
-const MAIN_JS: &str = templates::MAIN_JS;
+const ASSETS_DIR: &str = "assets";
+const STYLE_FILENAME: &str = "style.css";
+const MAIN_FILENAME: &str = "main.js";
+const SEARCH_WORKER_FILENAME: &str = "search-worker.js";
+
+/// Visits each output-relative asset destination, including custom asset
+/// directories. The second argument indicates whether it is a directory.
+///
+/// # Errors
+///
+/// Stops at the first visitor error or asset without an output filename.
+pub fn visit_asset_destinations(
+  config: &Config,
+  mut visit: impl FnMut(&Path, bool) -> Result<()>,
+) -> Result<()> {
+  for entry in favicon_files(config) {
+    let (_, filename) = entry?;
+    visit(Path::new(filename), false)?;
+  }
+
+  let assets_dir = Path::new(ASSETS_DIR);
+  visit(&assets_dir.join(STYLE_FILENAME), false)?;
+  visit(&assets_dir.join(MAIN_FILENAME), false)?;
+  visit_custom_assets(config, |_, relative, is_dir| {
+    visit(&assets_dir.join(relative), is_dir)
+  })?;
+  for entry in script_files(config) {
+    let (_, filename) = entry?;
+    visit(&assets_dir.join(filename), false)?;
+  }
+  for (filename, _) in search_asset_templates(config) {
+    visit(&assets_dir.join(filename), false)?;
+  }
+  Ok(())
+}
 
 /// Copies all required assets (CSS, JS, custom assets, scripts) to the output
 /// directory.
@@ -32,26 +63,20 @@ const MAIN_JS: &str = templates::MAIN_JS;
 pub fn copy_assets(config: &Config) -> Result<()> {
   config.validate_script_destinations()?;
   // Create assets directory
-  let assets_dir = config.output_dir.join("assets");
+  let assets_dir = config.output_dir.join(ASSETS_DIR);
   fs::create_dir_all(&assets_dir)?;
 
   // Copy favicon files to output root if configured
-  if let Some(ref meta) = config.meta {
-    for entry in &meta.favicon {
-      if entry.href.exists() && entry.href.is_file() {
-        let file_name = entry.output_filename().ok_or_else(|| {
-          report!("Favicon entry has no filename: {}", entry.href.display())
-        })?;
-        let dest_path = config.output_dir.join(file_name);
-        fs::copy(&entry.href, &dest_path).with_context(|| {
-          format!(
-            "Failed to copy favicon from {} to {}",
-            entry.href.display(),
-            dest_path.display()
-          )
-        })?;
-      }
-    }
+  for entry in favicon_files(config) {
+    let (source, filename) = entry?;
+    let dest_path = config.output_dir.join(filename);
+    fs::copy(source, &dest_path).with_context(|| {
+      format!(
+        "Failed to copy favicon from {} to {}",
+        source.display(),
+        dest_path.display()
+      )
+    })?;
   }
 
   // Generate and write CSS
@@ -61,11 +86,11 @@ pub fn copy_assets(config: &Config) -> Result<()> {
   } else {
     css
   };
-  fs::write(assets_dir.join("style.css"), processed_css)
+  fs::write(assets_dir.join(STYLE_FILENAME), processed_css)
     .context("Failed to write CSS file")?;
 
   // Copy main.js, which is always needed for the default templates
-  copy_template_asset(config, &assets_dir, "main.js", MAIN_JS)?;
+  copy_template_asset(config, &assets_dir, MAIN_FILENAME, templates::MAIN_JS)?;
 
   // Copy custom assets if they exist
   copy_custom_assets(config, &assets_dir)?;
@@ -73,28 +98,46 @@ pub fn copy_assets(config: &Config) -> Result<()> {
   // Copy script files to assets directory
   copy_script_files(config, &assets_dir)?;
 
-  // Create search.js for search functionality
-  if config.is_search_enabled() {
-    copy_template_asset(config, &assets_dir, "search-core.js", SEARCH_CORE_JS)?;
-    copy_template_asset(config, &assets_dir, "search.js", SEARCH_JS)?;
-
-    // Only copy search-worker.js if using default templates or if custom
-    // template provides it
-    if config.get_template_path().is_none()
-      || config
-        .get_template_file("search-worker.js")
-        .is_some_and(|path| path.exists())
-    {
-      copy_template_asset(
-        config,
-        &assets_dir,
-        "search-worker.js",
-        SEARCH_WORKER_JS,
-      )?;
-    }
+  for (filename, fallback) in search_asset_templates(config) {
+    copy_template_asset(config, &assets_dir, filename, fallback)?;
   }
 
   Ok(())
+}
+
+fn favicon_files(
+  config: &Config,
+) -> impl Iterator<Item = Result<(&Path, &OsStr)>> {
+  config
+    .meta
+    .iter()
+    .flat_map(|meta| &meta.favicon)
+    .filter(|entry| entry.href.is_file())
+    .map(|entry| {
+      let filename = entry.output_filename().ok_or_else(|| {
+        report!("Favicon entry has no filename: {}", entry.href.display())
+      })?;
+      Ok((entry.href.as_path(), filename))
+    })
+}
+
+fn search_asset_templates(
+  config: &Config,
+) -> impl Iterator<Item = (&'static str, &'static str)> {
+  let enabled = config.is_search_enabled();
+  // Custom templates opt into the worker by providing their own.
+  let worker = enabled
+    && (config.get_template_path().is_none()
+      || config
+        .get_template_file(SEARCH_WORKER_FILENAME)
+        .is_some_and(|path| path.exists()));
+  [
+    enabled.then_some(("search-core.js", templates::SEARCH_CORE_JS)),
+    enabled.then_some(("search.js", templates::SEARCH_JS)),
+    worker.then_some((SEARCH_WORKER_FILENAME, templates::SEARCH_WORKER_JS)),
+  ]
+  .into_iter()
+  .flatten()
 }
 
 /// Copies a template asset to the assets directory, allowing user override if
@@ -165,15 +208,32 @@ fn copy_template_asset(
 ///
 /// Returns an error if copying fails.
 fn copy_custom_assets(config: &Config, assets_dir: &Path) -> Result<()> {
+  visit_custom_assets(config, |path, relative, is_dir| {
+    let dest_path = assets_dir.join(relative);
+    if is_dir {
+      fs::create_dir_all(&dest_path).with_context(|| {
+        format!("Failed to create directory {}", dest_path.display())
+      })?;
+    } else {
+      process_asset_file(path, &dest_path, config)?;
+    }
+    Ok(())
+  })
+}
+
+fn visit_custom_assets(
+  config: &Config,
+  mut visit: impl FnMut(&Path, &Path, bool) -> Result<()>,
+) -> Result<()> {
   let Some(custom_assets_dir) = &config.assets_dir else {
     return Ok(());
   };
 
-  if !custom_assets_dir.exists() || !custom_assets_dir.is_dir() {
+  if !custom_assets_dir.is_dir() {
     return Ok(());
   }
 
-  debug!("Copying custom assets from {}", custom_assets_dir.display());
+  debug!("Scanning custom assets in {}", custom_assets_dir.display());
 
   let assets_opts = config.assets.clone().unwrap_or_default();
 
@@ -184,16 +244,13 @@ fn copy_custom_assets(config: &Config, assets_dir: &Path) -> Result<()> {
     walker = walker.max_depth(depth);
   }
 
-  let iter = walker.into_iter();
-
-  let iter: Box<dyn Iterator<Item = walkdir::Result<walkdir::DirEntry>>> =
-    if assets_opts.skip_hidden {
-      Box::new(iter.filter_entry(|e| {
-        e.file_name().to_str().is_none_or(|s| !s.starts_with('.'))
-      }))
-    } else {
-      Box::new(iter)
-    };
+  let iter = walker.into_iter().filter_entry(|entry| {
+    !assets_opts.skip_hidden
+      || entry
+        .file_name()
+        .to_str()
+        .is_none_or(|s| !s.starts_with('.'))
+  });
 
   for entry in iter.filter_map(std::result::Result::ok) {
     let path = entry.path();
@@ -203,30 +260,18 @@ fn copy_custom_assets(config: &Config, assets_dir: &Path) -> Result<()> {
       continue;
     }
 
-    // Calculate relative path and destination
     let rel_path = path
       .strip_prefix(custom_assets_dir)
       .context("Failed to compute relative path")?;
-    let dest_path = assets_dir.join(rel_path);
-
     let file_type = entry.file_type();
-
-    if file_type.is_dir() {
-      fs::create_dir_all(&dest_path).with_context(|| {
-        format!("Failed to create directory {}", dest_path.display())
-      })?;
-    } else {
-      #[expect(
-        clippy::filetype_is_file,
-        reason = "Explicitly checking for regular files to skip symlinks and \
-                  special files"
-      )]
-      if file_type.is_file() {
-        // Parent directory already created by walkdir's depth-first traversal
-        process_asset_file(path, &dest_path, config)?;
-      }
+    let is_dir = file_type.is_dir();
+    #[expect(
+      clippy::filetype_is_file,
+      reason = "Skip symlinks and special files"
+    )]
+    if is_dir || file_type.is_file() {
+      visit(path, rel_path, is_dir)?;
     }
-    // Symlinks and other special files are silently skipped
   }
 
   Ok(())
@@ -284,31 +329,40 @@ fn process_asset_file(
 ///
 /// Returns an error if any script file cannot be read or written.
 fn copy_script_files(config: &Config, assets_dir: &Path) -> Result<()> {
-  for script_path in &config.script_paths {
-    if script_path.exists() {
-      let file_name = script_path
-        .file_name()
-        .ok_or_else(|| report!("Invalid script filename"))?;
-      let dest_path = assets_dir.join(file_name);
+  for entry in script_files(config) {
+    let (script_path, filename) = entry?;
+    let dest_path = assets_dir.join(filename);
 
-      let content = fs::read_to_string(script_path).with_context(|| {
-        format!("Failed to read script file {}", script_path.display())
-      })?;
+    let content = fs::read_to_string(script_path).with_context(|| {
+      format!("Failed to read script file {}", script_path.display())
+    })?;
 
-      // Apply postprocessing if enabled
-      let processed_content = if let Some(ref postprocess) = config.postprocess
-      {
-        postprocess::process_js(&content, postprocess)?
-      } else {
-        content
-      };
+    let processed_content = if let Some(postprocess) = &config.postprocess {
+      postprocess::process_js(&content, postprocess)?
+    } else {
+      content
+    };
 
-      fs::write(&dest_path, processed_content).with_context(|| {
-        format!("Failed to write script file to {}", dest_path.display())
-      })?;
-    }
+    fs::write(&dest_path, processed_content).with_context(|| {
+      format!("Failed to write script file to {}", dest_path.display())
+    })?;
   }
   Ok(())
+}
+
+fn script_files(
+  config: &Config,
+) -> impl Iterator<Item = Result<(&Path, &OsStr)>> {
+  config
+    .script_paths
+    .iter()
+    .filter(|path| path.exists())
+    .map(|path| {
+      let filename = path
+        .file_name()
+        .ok_or_else(|| report!("Invalid script filename"))?;
+      Ok((path.as_path(), filename))
+    })
 }
 
 /// Generates the combined CSS for the documentation output.

@@ -1,4 +1,12 @@
-use std::path::{Path, PathBuf};
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrow caller-owned sets without constraining their hasher"
+)]
+use std::collections::HashSet;
+use std::{
+  hash::BuildHasher,
+  path::{Component, Path, PathBuf},
+};
 
 use kuchikikiki::{NodeRef, traits::TendrilSink};
 use ndg_commonmark::utils::strip_markdown;
@@ -97,12 +105,16 @@ pub fn legacy_redirect_html(logical: &Path, pretty: bool) -> Option<String> {
   ))
 }
 
-/// Prettify a relative URL, or return `None` for an absolute one.
-#[must_use]
-pub fn pretty_content_url(
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrows the caller's set with its existing hasher"
+)]
+fn pretty_content_url(
   url: &str,
   is_link: bool,
-  logical: &Path,
+  parent: &Path,
+  moved: bool,
+  pages: &HashSet<PathBuf, impl BuildHasher>,
 ) -> Option<String> {
   let url_trimmed = url.trim();
   if url_trimmed.is_empty()
@@ -111,26 +123,52 @@ pub fn pretty_content_url(
   {
     return None;
   }
-  let href = if is_link {
+  let path = url_trimmed.split(['?', '#']).next().unwrap_or_default();
+  let href = if is_link
+    && Path::new(path).extension().is_some_and(|ext| ext == "html")
+    && logical_link_target(parent, path)
+      .is_some_and(|path| pages.contains(&path))
+  {
     page_href(url_trimmed, true)
   } else {
     url_trimmed.to_string()
   };
-  // Only a page that moves into its own directory needs one more `../`.
-  let href = if page_file(logical, true) == logical {
-    href
-  } else {
-    format!("../{href}")
-  };
+  let href = if moved { format!("../{href}") } else { href };
   let href = join_href("", &href);
   (href != url).then_some(href)
 }
 
-/// Prettify URLs to drop `.html`.
+fn logical_link_target(parent: &Path, url_path: &str) -> Option<PathBuf> {
+  let decoded = percent_encoding::percent_decode_str(url_path)
+    .decode_utf8()
+    .ok()?;
+  let mut target = parent.to_path_buf();
+  for component in Path::new(decoded.as_ref()).components() {
+    match component {
+      Component::Normal(name) => target.push(name),
+      Component::CurDir => {},
+      Component::ParentDir if target.pop() => {},
+      _ => return None,
+    }
+  }
+  Some(target)
+}
+
+/// Rebase relative content URLs and prettify links to generated pages.
 #[must_use]
-pub fn rewrite_pretty_content_urls(html: &str, logical: &Path) -> String {
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrows the caller's set with its existing hasher"
+)]
+pub fn rewrite_pretty_content_urls(
+  html: &str,
+  logical: &Path,
+  pages: &HashSet<PathBuf, impl BuildHasher>,
+) -> String {
+  let parent = logical.parent().unwrap_or_else(|| Path::new(""));
+  let moved = page_file(logical, true) != logical;
   ndg_commonmark::rewrite_urls(html, |url, is_link| {
-    pretty_content_url(url, is_link, logical)
+    pretty_content_url(url, is_link, parent, moved, pages)
   })
 }
 
@@ -309,6 +347,8 @@ fn normalize_plaintext(
 
 #[cfg(test)]
 mod tests {
+  use rustc_hash::FxHashSet;
+
   use super::*;
 
   #[test]
@@ -408,7 +448,19 @@ mod tests {
   fn pretty_content_urls() {
     let page = Path::new("reference/database.html");
     let index = Path::new("reference/index.html");
-    let url = |u, link, p| pretty_content_url(u, link, p);
+    let pages: FxHashSet<_> = ["reference/other.html", "reference/index.html"]
+      .map(PathBuf::from)
+      .into_iter()
+      .collect();
+    let url = |u, link, p: &Path| {
+      pretty_content_url(
+        u,
+        link,
+        p.parent().unwrap_or_else(|| Path::new("")),
+        page_file(p, true) != p,
+        &pages,
+      )
+    };
     assert_eq!(url("other.html", true, page).as_deref(), Some("../other/"));
     assert_eq!(
       url("other.html#x", true, page).as_deref(),
@@ -452,8 +504,12 @@ mod tests {
   #[test]
   fn rewrite_content_for_pretty_urls() {
     let html = rewrite_pretty_content_urls(
-      r#"<p><a href="b.html#x">b</a> <img src="i.png" srcset="i.png 1x, j.png 2x"> <input type="image" src="k.png"> <a href="https://e.org">e</a></p>"#,
+      concat!(
+        r#"<p><a href="b.html#x">b</a> <img src="i.png" srcset="i.png 1x, j.png 2x">"#,
+        r#" <input type="image" src="k.png"> <a href="https://e.org">e</a></p>"#,
+      ),
       Path::new("a.html"),
+      &FxHashSet::from_iter([PathBuf::from("b.html")]),
     );
     assert!(html.contains(r#"href="../b/#x""#), "{html}");
     assert!(html.contains(r#"src="../i.png""#), "{html}");
@@ -468,7 +524,7 @@ mod tests {
   #[test]
   fn pretty_urls_keep_targets_relative_to_the_explicit_base() {
     let logical = Path::new("docs/intro.html");
-    let pages = ["docs/static.html", "docs/guide.html"]
+    let pages: FxHashSet<_> = ["docs/static.html", "docs/guide.html"]
       .map(PathBuf::from)
       .into_iter()
       .collect();
