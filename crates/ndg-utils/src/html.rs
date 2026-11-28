@@ -464,4 +464,51 @@ mod tests {
     assert!(html.contains(r#"src="../k.png""#), "{html}");
     assert!(html.contains(r#"href="https://e.org""#), "{html}");
   }
+
+  #[test]
+  fn pretty_urls_keep_targets_relative_to_the_explicit_base() {
+    let logical = Path::new("docs/intro.html");
+    let pages = ["docs/static.html", "docs/guide.html"]
+      .map(PathBuf::from)
+      .into_iter()
+      .collect();
+    for (base, expected) in [
+      ("static/", "../static/"),
+      (
+        "static.html?theme=dark#icons",
+        "../static.html?theme=dark#icons",
+      ),
+      ("/docs/static/", "/docs/static/"),
+      ("https://example.org/static/", "https://example.org/static/"),
+    ] {
+      let input = format!(
+        r#"<base target="_blank"><base href="{base}"><base href="ignored/">
+           <img src="logo.png" srcset="logo.png 1x, logo-2x.png 2x">
+           <a href="guide.html">Guide</a>"#,
+      );
+      let html = rewrite_pretty_content_urls(&input, logical, &pages);
+      assert!(
+        html.contains(&format!(r#"<base href="{expected}">"#)),
+        "{html}"
+      );
+      assert!(html.contains(r#"<base href="ignored/">"#), "{html}");
+      assert!(html.contains(r#"src="logo.png""#), "{html}");
+      assert!(
+        html.contains(r#"srcset="logo.png 1x, logo-2x.png 2x""#),
+        "{html}"
+      );
+      assert!(html.contains(r#"href="guide.html""#), "{html}");
+    }
+  }
+
+  #[test]
+  fn pretty_urls_rebase_image_with_query_only_base() {
+    let html = rewrite_pretty_content_urls(
+      r#"<base href="?theme=dark"><img src="logo.png">"#,
+      Path::new("docs/intro.html"),
+      &FxHashSet::default(),
+    );
+    assert!(html.contains(r#"<base href="?theme=dark">"#), "{html}");
+    assert!(html.contains(r#"src="../logo.png""#), "{html}");
+  }
 }
