@@ -1,8 +1,14 @@
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrow caller-owned sets without constraining their hasher"
+)]
+use std::collections::HashSet;
 use std::{
   borrow::Cow,
   cmp::Ordering,
   fmt::Write,
   fs,
+  hash::BuildHasher,
   path::{Path, PathBuf},
   sync::{Arc, LazyLock, RwLock},
 };
@@ -15,7 +21,14 @@ use ndg_config::{Config, sidebar::SidebarOrdering};
 use ndg_manpage::types::NixOption;
 use ndg_templates as templates;
 use ndg_utils::{
-  html::{calculate_root_relative_path, generate_asset_paths},
+  html::{
+    calculate_root_relative_path,
+    generate_asset_paths,
+    join_href,
+    page_file,
+    page_href,
+    rewrite_pretty_content_urls,
+  },
   markdown::{PageFrontmatter, create_processor},
   options::DocumentedValue,
 };
@@ -471,6 +484,30 @@ pub fn render(
   rel_path: &Path,
   frontmatter: Option<&PageFrontmatter>,
 ) -> Result<String> {
+  render_page(
+    config,
+    content,
+    title,
+    headers,
+    rel_path,
+    frontmatter,
+    None::<&FxHashSet<PathBuf>>,
+  )
+}
+
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrows the caller's set with its existing hasher"
+)]
+fn render_page(
+  config: &Config,
+  content: &str,
+  title: &str,
+  headers: &[Header],
+  rel_path: &Path,
+  frontmatter: Option<&PageFrontmatter>,
+  pretty_pages: Option<&HashSet<PathBuf, impl BuildHasher>>,
+) -> Result<String> {
   // Effective title: frontmatter wins over the caller-supplied value.
   let effective_title = frontmatter
     .and_then(|fm| fm.title.as_deref())
@@ -507,12 +544,12 @@ pub fn render(
   };
 
   let custom_scripts = generate_custom_scripts(config, rel_path)?;
-  let asset_paths = generate_asset_paths(rel_path);
-  let root_prefix = calculate_root_relative_path(rel_path);
+  let asset_paths = generate_asset_paths(rel_path, config.pretty_urls);
+  let root_prefix = calculate_root_relative_path(rel_path, config.pretty_urls);
 
   // Generate meta tags (per-page frontmatter overrides global config).
   let meta_tags_html = generate_meta_tags_html(config, frontmatter);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -520,6 +557,12 @@ pub fn render(
 
   // Substitute variables in content (e.g. {{ project_version }} in markdown)
   let substituted_content = substitute_content_vars(content, &config.vars);
+  let substituted_content = match pretty_pages {
+    Some(pages) => {
+      rewrite_pretty_content_urls(&substituted_content, rel_path, pages)
+    },
+    None => substituted_content,
+  };
 
   // Build common context and add page-specific fields
   let mut tera_context =
@@ -681,8 +724,8 @@ pub(crate) fn render_options_body(
   // Generate document navigation and paths
   let doc_nav = generate_doc_nav(config, root_path)?;
   let custom_scripts = generate_custom_scripts(config, root_path)?;
-  let asset_paths = generate_asset_paths(root_path);
-  let root_prefix = calculate_root_relative_path(root_path);
+  let asset_paths = generate_asset_paths(root_path, config.pretty_urls);
+  let root_prefix = calculate_root_relative_path(root_path, config.pretty_urls);
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -718,7 +761,7 @@ pub(crate) fn render_options_body(
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -752,8 +795,8 @@ pub fn render_lib(
   let root_path = Path::new("lib.html");
   let doc_nav = generate_doc_nav(config, root_path)?;
   let custom_scripts = generate_custom_scripts(config, root_path)?;
-  let asset_paths = generate_asset_paths(root_path);
-  let root_prefix = calculate_root_relative_path(root_path);
+  let asset_paths = generate_asset_paths(root_path, config.pretty_urls);
+  let root_prefix = calculate_root_relative_path(root_path, config.pretty_urls);
 
   // Determine has_options value
   let has_options = if config.module_options.is_some() {
@@ -782,7 +825,7 @@ pub fn render_lib(
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -1071,8 +1114,12 @@ pub fn render_search(
   };
 
   // Generate asset and navigation paths
-  let asset_paths = ndg_utils::html::generate_asset_paths(root_path);
-  let root_prefix = ndg_utils::html::calculate_root_relative_path(root_path);
+  let asset_paths =
+    ndg_utils::html::generate_asset_paths(root_path, config.pretty_urls);
+  let root_prefix = ndg_utils::html::calculate_root_relative_path(
+    root_path,
+    config.pretty_urls,
+  );
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -1092,7 +1139,7 @@ pub fn render_search(
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -1514,7 +1561,11 @@ fn generate_doc_nav(
   }
 
   let mut doc_nav = String::new();
-  let root_prefix = calculate_root_relative_path(current_file_rel_path);
+  let root_prefix =
+    calculate_root_relative_path(current_file_rel_path, config.pretty_urls);
+  let page_link = |prefix: &str, logical: &str| {
+    join_href(prefix, &page_href(logical, config.pretty_urls))
+  };
   let mut items = Vec::new();
   // Pages in sidebar order as `(path, title, current)`.
   let mut sequence: Vec<(String, &str, bool)> = Vec::new();
@@ -1565,7 +1616,7 @@ fn generate_doc_nav(
         });
       items.push(NavItem {
         source: source.to_path_buf(),
-        path: format!("{root_prefix}{}", html_path.to_string_lossy()),
+        path: page_link(&root_prefix, &html_path.to_string_lossy()),
         title,
         rel_dir: if group_by_dir {
           html_path
@@ -1694,16 +1745,16 @@ fn generate_doc_nav(
 
   // Add link to options page if module_options is configured
   if doc_nav.is_empty() && config.module_options.is_some() {
+    let options_href = page_link(&root_prefix, "options.html");
     let current = current_link_attributes(
       current_file_rel_path == Path::new("options.html"),
     );
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}options.html\"{current}>Module \
-       Options</a></li>"
+      "<li><a href=\"{options_href}\"{current}>Module Options</a></li>"
     );
     sequence.push((
-      format!("{root_prefix}options.html"),
+      options_href,
       "Module Options",
       current_file_rel_path == Path::new("options.html"),
     ));
@@ -1711,15 +1762,15 @@ fn generate_doc_nav(
 
   #[cfg(feature = "nixdoc")]
   if !config.nixdoc_inputs.is_empty() {
+    let lib_href = page_link(&root_prefix, "lib.html");
     let current =
       current_link_attributes(current_file_rel_path == Path::new("lib.html"));
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}lib.html\"{current}>Library \
-       Reference</a></li>"
+      "<li><a href=\"{lib_href}\"{current}>Library Reference</a></li>"
     );
     sequence.push((
-      format!("{root_prefix}lib.html"),
+      lib_href,
       "Library Reference",
       current_file_rel_path == Path::new("lib.html"),
     ));
@@ -1727,12 +1778,13 @@ fn generate_doc_nav(
 
   // Add search link only if search is enabled
   if config.is_search_enabled() {
+    let search_href = page_link(&root_prefix, "search.html");
     let current = current_link_attributes(
       current_file_rel_path == Path::new("search.html"),
     );
     let _ = writeln!(
       doc_nav,
-      "<li><a href=\"{root_prefix}search.html\"{current}>Search</a></li>"
+      "<li><a href=\"{search_href}\"{current}>Search</a></li>"
     );
   }
 
@@ -1761,8 +1813,10 @@ fn generate_custom_scripts(
 ) -> Result<String> {
   config.validate_script_destinations()?;
   let mut custom_scripts = String::new();
-  let root_prefix =
-    ndg_utils::html::calculate_root_relative_path(current_file_rel_path);
+  let root_prefix = ndg_utils::html::calculate_root_relative_path(
+    current_file_rel_path,
+    config.pretty_urls,
+  );
 
   // Add any user scripts from script_paths. This is additive, not replacing. To
   // replace default content, the user should specify `--template-dir` or
@@ -2105,9 +2159,7 @@ fn longest_backtick_run(value: &str) -> usize {
     .unwrap_or(0)
 }
 
-/// Build the `OpenGraph` HTML string, handling `og:image` local paths by
-/// copying the file into `output_dir/assets/` and rewriting to a relative URL.
-fn build_opengraph_html(config: &Config) -> String {
+fn build_opengraph_html(config: &Config, root_prefix: &str) -> String {
   config
     .meta
     .as_ref()
@@ -2138,7 +2190,7 @@ fn build_opengraph_html(config: &Config) -> String {
                 dest_path.display()
               );
             }
-            let rel_path = format!("assets/{file_name}");
+            let rel_path = format!("{root_prefix}assets/{file_name}");
             format!(
               "<meta property=\"{}\" content=\"{}\" />",
               encode_text(k),
@@ -2171,22 +2223,31 @@ fn build_opengraph_html(config: &Config) -> String {
 ///
 /// Returns an error if template rendering, postprocessing, or file writing
 /// fails.
+#[expect(
+  clippy::disallowed_types,
+  reason = "Borrows the caller's set with its existing hasher"
+)]
 pub fn render_and_write(
   config: &Config,
   item: &ndg_utils::markdown::ProcessedMarkdown,
+  pretty_pages: &HashSet<PathBuf, impl BuildHasher>,
 ) -> Result<()> {
   use ndg_utils::postprocess;
 
   let rel_path = std::path::Path::new(&item.output_path);
-  let output_path = ndg_utils::output_path(&config.output_dir, rel_path)?;
+  let output_path = ndg_utils::output_path(
+    &config.output_dir,
+    &page_file(rel_path, config.pretty_urls),
+  )?;
 
-  let html = render(
+  let html = render_page(
     config,
     &item.html_content,
     item.title.as_deref().unwrap_or(&config.title),
     &item.headers,
     rel_path,
     item.frontmatter.as_ref(),
+    config.pretty_urls.then_some(pretty_pages),
   )?;
 
   // Apply postprocessing if requested
@@ -2201,5 +2262,5 @@ pub fn render_and_write(
     format!("Failed to write output HTML: {}", output_path.display())
   })?;
 
-  Ok(())
+  ndg_utils::write_legacy_redirect(config, rel_path)
 }

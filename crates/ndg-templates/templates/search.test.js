@@ -514,3 +514,26 @@ Deno.test("many matches on a long page stay fast", async () => {
     throw new Error(`search took ${Math.round(elapsed)} ms`);
   }
 });
+
+Deno.test("pretty option path is an option document", async () => {
+  await loadDocs([
+    {
+      id: "option",
+      title: "nvf.enable",
+      content: "Enable nvf integration.",
+      path: "options/#nvf.enable",
+      anchors: [],
+    },
+    {
+      id: "page",
+      title: "nvf.enable",
+      content: "Enable nvf integration.",
+      path: "guide/",
+      anchors: [],
+    },
+  ]);
+
+  const results = await engine.search("nvf.enable", 8);
+  assertEquals(results.length, 2);
+  assertEquals(results[0].doc.path, "guide/");
+});

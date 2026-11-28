@@ -572,6 +572,8 @@ function setupOptionChunkLoading(signal) {
       })
       .then((html) => {
         chunk.innerHTML = html;
+        // Late chunks miss the page sync, so match their pictures to the theme.
+        syncThemedImages(currentTheme(), chunk);
         chunk.removeAttribute("data-src");
         loadedChunks.add(index);
         updateStatus();
@@ -911,17 +913,9 @@ function markActiveNav() {
   });
 }
 
-function clientPageName(url) {
-  const name = new URL(url, window.location.href).pathname.split("/").pop();
-  return name === "" ? "index.html" : name;
-}
-
-function isOptionsPageUrl(url) {
-  const target = new URL(url, window.location.href);
-  return (
-    target.origin === window.location.origin &&
-    clientPageName(target) === "options.html"
-  );
+// Get a URL's directory depth.
+function clientPageDepth(url) {
+  return new URL(".", url).pathname.split("/").length;
 }
 
 function isPlainNavigationClick(event) {
@@ -957,15 +951,6 @@ function replaceClientPage(next, url, push, scrollX, scrollY) {
   }
 
   if (push) {
-    history.replaceState(
-      Object.assign({}, history.state, {
-        ndgClientPage: true,
-        scrollX: window.scrollX,
-        scrollY: window.scrollY,
-      }),
-      "",
-      window.location.href,
-    );
     history.pushState({ ndgClientPage: true, scrollX: 0, scrollY: 0 }, "", url);
   }
 
@@ -999,28 +984,32 @@ function transitionClientPage(update) {
 }
 
 function setupClientNavigation() {
-  history.scrollRestoration = "manual";
-  history.replaceState(
-    Object.assign({}, history.state, {
-      ndgClientPage: true,
-      scrollX: window.scrollX,
-      scrollY: window.scrollY,
-    }),
-    "",
-    window.location.href,
-  );
+  const optionsPath = document.documentElement.dataset.optionsPath;
+  if (!optionsPath) return;
+
+  let renderedPage = new URL(window.location.href);
+  const optionsUrl = new URL(optionsPath, document.baseURI);
+  if (optionsUrl.origin !== renderedPage.origin) return;
+
+  const optionsIndexPath = optionsUrl.pathname.endsWith("/")
+    ? `${optionsUrl.pathname}index.html`
+    : null;
+  const isOptionsPage = (url) =>
+    url.origin === optionsUrl.origin &&
+    (url.pathname === optionsUrl.pathname || url.pathname === optionsIndexPath);
 
   let navigating = false;
   const navigate = async (url, push, scrollX, scrollY) => {
     if (navigating) return;
     navigating = true;
     try {
-      const next = await loadClientPage(url);
-      await transitionClientPage(() =>
-        replaceClientPage(next, url, push, scrollX, scrollY),
-      );
+      const next = await loadClientPage(url.href);
+      await transitionClientPage(() => {
+        replaceClientPage(next, url.href, push, scrollX, scrollY);
+        renderedPage = url;
+      });
     } catch {
-      window.location.assign(url);
+      window.location.assign(url.href);
     } finally {
       navigating = false;
     }
@@ -1033,23 +1022,29 @@ function setupClientNavigation() {
 
     const url = new URL(link.href, window.location.href);
     if (
-      !isOptionsPageUrl(url) ||
-      clientPageName(window.location.href) === "options.html"
+      url.href.includes("#") ||
+      !isOptionsPage(url) ||
+      isOptionsPage(renderedPage) ||
+      clientPageDepth(url) !== clientPageDepth(renderedPage)
     ) {
       return;
     }
 
     event.preventDefault();
-    navigate(url.href, true, 0, 0);
+    navigate(url, true, 0, 0);
   });
 
   window.addEventListener("popstate", (event) => {
-    if (!event.state?.ndgClientPage) {
-      window.location.assign(window.location.href);
+    const url = new URL(window.location.href);
+    if (
+      url.pathname === renderedPage.pathname &&
+      url.search === renderedPage.search
+    ) {
       return;
     }
-    if (!isOptionsPageUrl(window.location.href)) {
-      history.scrollRestoration = "auto";
+    if (
+      !event.state?.ndgClientPage || !isOptionsPage(url) || url.href.includes("#")
+    ) {
       window.location.reload();
       return;
     }
@@ -1059,7 +1054,7 @@ function setupClientNavigation() {
     const scrollY = Number.isFinite(event.state.scrollY)
       ? event.state.scrollY
       : 0;
-    navigate(window.location.href, false, scrollX, scrollY);
+    navigate(url, false, scrollX, scrollY);
   });
 }
 
@@ -1381,9 +1376,9 @@ function initializePage() {
 
 // Light and dark theme. The inline script of each page applies the stored
 // theme to `<html data-theme>` before the first paint. Without `data-theme`,
-// the theme is `auto` and follows the color scheme of the system. The
-// stylesheet reads `data-theme`, so this code only changes it, stores it,
-// updates the images and labels, and dispatches `ndg:themechange` on
+// the theme is `auto`. In auto mode, `data-theme-resolved` holds the system
+// scheme so CSS waits for applyTheme before starting color transitions.
+// Changes also update images and labels and dispatch `ndg:themechange` on
 // `document` with the `mode` and the `resolved` theme.
 const THEME_STORAGE_KEY = "theme";
 const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
@@ -1401,13 +1396,35 @@ function resolveTheme(mode) {
   return mode === "auto" ? systemTheme() : mode;
 }
 
+function syncThemeAttributes(mode, resolved) {
+  const { dataset } = document.documentElement;
+  if (mode === "auto") {
+    dataset.themeResolved = resolved;
+    delete dataset.theme;
+  } else {
+    dataset.theme = mode;
+    delete dataset.themeResolved;
+  }
+}
+
+function saveThemePreference(mode) {
+  try {
+    if (mode === "auto") {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+    } else {
+      localStorage.setItem(THEME_STORAGE_KEY, mode);
+    }
+  } catch {
+    // localStorage unavailable: the theme applies to this page only
+  }
+}
+
 // A `<source media="(prefers-color-scheme: dark)">` of a `<picture>` follows
 // only the system. For a selected theme, replace each color scheme feature
 // with a feature that always matches or never matches. A browser shows the
 // page on a bitmap screen, thus `(grid: 0)` always matches and `(grid: 1)`
 // never matches. The `data-scheme-media` attribute keeps the original query.
 function syncThemedImages(mode, root = document) {
-  const resolved = resolveTheme(mode);
   root
     .querySelectorAll(
       "picture > source[media*='prefers-color-scheme'], picture > source[data-scheme-media]",
@@ -1420,15 +1437,15 @@ function syncThemedImages(mode, root = document) {
           : source.dataset.schemeMedia.replace(
               /\(\s*prefers-color-scheme\s*:\s*(light|dark)\s*\)/gi,
               (_, scheme) =>
-                scheme.toLowerCase() === resolved ? "(grid: 0)" : "(grid: 1)",
+                scheme.toLowerCase() === mode ? "(grid: 0)" : "(grid: 1)",
             );
     });
 }
 
 // The label tells what a click does, as the icon does.
-function syncThemeToggles(mode) {
+function syncThemeToggles(resolved) {
   const label =
-    resolveTheme(mode) === "dark"
+    resolved === "dark"
       ? "Switch to the light theme"
       : "Switch to the dark theme";
   document.querySelectorAll("[data-theme-toggle]").forEach((toggle) => {
@@ -1437,17 +1454,30 @@ function syncThemeToggles(mode) {
   });
 }
 
+let themeTransitionFrame;
+
+function startThemeTransition() {
+  // Use one color duration for the switch without changing normal hover timing.
+  const root = document.documentElement;
+  cancelAnimationFrame(themeTransitionFrame);
+  root.classList.add("theme-changing");
+  // Keep the class through a paint; running transitions retain their timing.
+  themeTransitionFrame = requestAnimationFrame(() => {
+    themeTransitionFrame = requestAnimationFrame(() => {
+      root.classList.remove("theme-changing");
+    });
+  });
+}
+
 function applyTheme(mode) {
-  if (mode === "auto") {
-    delete document.documentElement.dataset.theme;
-  } else {
-    document.documentElement.dataset.theme = mode;
-  }
-  syncThemeToggles(mode);
+  startThemeTransition();
+  const resolved = resolveTheme(mode);
+  syncThemeAttributes(mode, resolved);
+  syncThemeToggles(resolved);
   syncThemedImages(mode);
   document.dispatchEvent(
     new CustomEvent("ndg:themechange", {
-      detail: { mode, resolved: resolveTheme(mode) },
+      detail: { mode, resolved },
     }),
   );
 }
@@ -1461,25 +1491,19 @@ function nextTheme(mode, system) {
 }
 
 function setupThemeToggle() {
-  syncThemeToggles(currentTheme());
+  const mode = currentTheme();
+  const resolved = resolveTheme(mode);
+  syncThemeAttributes(mode, resolved);
+  syncThemeToggles(resolved);
 
   document.addEventListener("click", (event) => {
     if (!event.target.closest?.("[data-theme-toggle]")) return;
     const mode = nextTheme(currentTheme(), systemTheme());
-    try {
-      if (mode === "auto") {
-        localStorage.removeItem(THEME_STORAGE_KEY);
-      } else {
-        localStorage.setItem(THEME_STORAGE_KEY, mode);
-      }
-    } catch {
-      // localStorage unavailable: the theme applies to this page only
-    }
+    saveThemePreference(mode);
     applyTheme(mode);
   });
 
-  // In `auto`, the stylesheet follows the system, but other scripts can need
-  // the event.
+  // Change the resolved scheme and transition timing together in auto mode.
   window.matchMedia(DARK_SCHEME_QUERY).addEventListener("change", () => {
     if (currentTheme() === "auto") applyTheme("auto");
   });

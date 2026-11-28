@@ -1246,3 +1246,277 @@ fn test_readme_as_homepage_disabled() {
      disabled"
   );
 }
+
+#[test]
+#[expect(
+  clippy::disallowed_methods,
+  reason = "Regression test must exercise the ndg CLI output layout"
+)]
+fn test_html_pretty_urls() {
+  let temp_dir = tempdir().expect("Failed to create temp dir in test");
+  let input_dir = temp_dir.path().join("input");
+  let output_dir = temp_dir.path().join("output");
+  fs::create_dir_all(input_dir.join("reference"))
+    .expect("Failed to create input dir in test");
+  fs::write(
+    input_dir.join("index.md"),
+    "# Home\n\n[DB](reference/database.md)",
+  )
+  .expect("Failed to write index.md in test");
+  fs::write(
+    input_dir.join("reference/database.md"),
+    concat!(
+      "# Database\n\n[Home](../index.md) [Guide](../guide.md#setup) ",
+      "![logo](../logo.png) [Manual](../assets/manual.html)\n\n",
+      r#"<a href="{{ repo_url }}">Source</a>"#,
+      "\n\n",
+      r#"<form action="../search.html"><button formaction="../guide.html">Go</button></form>"#,
+    ),
+  )
+  .expect("Failed to write database.md in test");
+  fs::write(input_dir.join("guide.md"), "# Guide\n\n## Setup {#setup}")
+    .expect("Failed to write guide.md in test");
+  fs::write(
+    input_dir.join("forms.md"),
+    concat!(
+      "# Forms\n\n",
+      r#"<base href="https://example.org/forms/">"#,
+      "\n\n",
+      r#"<form action="submit"><button formaction="preview">Preview</button></form>"#,
+    ),
+  ).expect("write form with absolute base");
+  let assets = temp_dir.path().join("assets");
+  fs::create_dir(&assets).expect("create custom assets directory");
+  fs::write(assets.join("manual.html"), "<p>Static manual</p>")
+    .expect("write static HTML asset");
+  let preview = temp_dir.path().join("preview.png");
+  fs::write(&preview, "preview image").expect("write local preview asset");
+  let config_path = temp_dir.path().join("ndg.toml");
+  fs::write(
+    &config_path,
+    format!(
+      "assets_dir = {:?}\n[vars]\nrepo_url = 'https://example.org'\n\
+       [meta.opengraph]\n'og:image' = {:?}\n",
+      assets.to_str().expect("asset path"),
+      preview.to_str().expect("preview path")
+    ),
+  )
+  .expect("write configuration");
+  let options = temp_dir.path().join("options.json");
+  fs::write(
+    &options,
+    r#"{"foo.enable":{
+      "description":"Read the [guide](guide.md).",
+      "type":"boolean",
+      "default":{"_type":"literalExpression","text":"false"},
+      "declarations":[],"loc":["foo","enable"],"readOnly":false
+    }}"#,
+  )
+  .expect("Failed to write options.json in test");
+
+  let output = Command::new(env!("CARGO_BIN_EXE_ndg"))
+    .args([
+      "--config-file",
+      config_path.to_str().expect("UTF-8 config path"),
+      "--config",
+      "pretty_urls=true",
+      "html",
+      "--input-dir",
+      input_dir.to_str().expect("UTF-8 input path"),
+      "--output-dir",
+      output_dir.to_str().expect("UTF-8 output path"),
+      "--module-options",
+      options.to_str().expect("UTF-8 options path"),
+    ])
+    .output()
+    .expect("Failed to run ndg");
+  assert!(
+    output.status.success(),
+    "ndg failed: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+
+  for file in [
+    "index.html",
+    "guide/index.html",
+    "reference/database/index.html",
+    "options/index.html",
+    "search/index.html",
+  ] {
+    assert!(output_dir.join(file).is_file(), "missing {file}");
+  }
+  for (file, target) in [
+    ("guide.html", "guide/"),
+    ("reference/database.html", "database/"),
+    ("options.html", "options/"),
+    ("search.html", "search/"),
+  ] {
+    let redirect = fs::read_to_string(output_dir.join(file))
+      .expect("Failed to read redirect page in test");
+    assert!(
+      redirect.contains(&format!(r#"<link rel="canonical" href="{target}">"#)),
+      "{file}: {redirect}"
+    );
+  }
+
+  let index = fs::read_to_string(output_dir.join("index.html"))
+    .expect("Failed to read index.html in test");
+  assert!(index.contains(r#"href="reference/database/""#), "{index}");
+  assert!(index.contains(r#"href="options/""#), "{index}");
+  assert!(index.contains(r#"href="assets/style.css""#), "{index}");
+  assert!(!index.contains(".html\""), "{index}");
+
+  let db = fs::read_to_string(output_dir.join("reference/database/index.html"))
+    .expect("Failed to read database page in test");
+  assert!(db.contains(r#"href="../../assets/style.css""#), "{db}");
+  assert!(db.contains(r#"href="../../guide/#setup""#), "{db}");
+  assert!(db.contains(r#"href="../../options/""#), "{db}");
+  assert!(db.contains(r#"src="../../logo.png""#), "{db}");
+  assert!(db.contains(r#"href="../../""#), "{db}");
+  assert!(db.contains(r#"href="../../assets/manual.html""#), "{db}");
+  assert!(db.contains(r#"href="https://example.org""#), "{db}");
+  assert!(db.contains(r#"action="../../search/""#), "{db}");
+  assert!(db.contains(r#"formaction="../../guide/""#), "{db}");
+  assert!(
+    db.contains(r#"property="og:image" content="../../assets/preview.png""#)
+  );
+  assert!(output_dir.join("assets/preview.png").is_file());
+  assert!(output_dir.join("assets/manual.html").is_file());
+
+  let forms = fs::read_to_string(output_dir.join("forms/index.html"))
+    .expect("read pretty form page");
+  assert!(forms.contains(r#"<base href="https://example.org/forms/">"#));
+  assert!(forms.contains(r#"action="submit""#), "{forms}");
+  assert!(forms.contains(r#"formaction="preview""#), "{forms}");
+
+  let options_page = fs::read_to_string(output_dir.join("options/index.html"))
+    .expect("Failed to read options page in test");
+  assert!(options_page.contains(r#"href="../assets/style.css""#));
+  assert!(
+    options_page.contains(r#"href="../guide/""#),
+    "{options_page}"
+  );
+  assert!(!options_page.contains(".html\""), "{options_page}");
+}
+
+#[test]
+#[expect(clippy::disallowed_methods, reason = "Exercise CLI output planning")]
+fn pretty_urls_reject_collisions_before_writing_pages() {
+  let temp = tempdir().expect("temporary site");
+  let input = temp.path().join("input");
+  let output = temp.path().join("output");
+  fs::create_dir_all(input.join("guide")).expect("create input");
+  fs::write(input.join("guide.md"), "# Standalone guide").expect("write guide");
+  fs::write(input.join("guide/index.md"), "# Guide index")
+    .expect("write index");
+  let result = Command::new(env!("CARGO_BIN_EXE_ndg"))
+    .args(["--config", "pretty_urls=true", "html", "--input-dir"])
+    .arg(input)
+    .arg("--output-dir")
+    .arg(&output)
+    .output()
+    .expect("run ndg");
+  let stderr = String::from_utf8_lossy(&result.stderr);
+  assert!(
+    !result.status.success()
+      && stderr.contains("output path collision")
+      && stderr.contains("guide/index.html")
+      && stderr.contains("guide.html"),
+    "{stderr}"
+  );
+  assert!(!output.join("guide/index.html").exists());
+  assert!(!output.join("guide.html").exists());
+}
+
+#[test]
+#[expect(clippy::disallowed_methods, reason = "Exercise CLI output planning")]
+fn pretty_urls_reject_page_asset_collision() {
+  let temp = tempdir().expect("temporary site");
+  let input = temp.path().join("input");
+  let assets = temp.path().join("custom-assets");
+  let output = temp.path().join("output");
+  let config = temp.path().join("ndg.toml");
+  fs::create_dir_all(input.join("assets")).expect("create docs directory");
+  fs::create_dir_all(assets.join("guide")).expect("create assets directory");
+  fs::write(input.join("assets/guide.md"), "# Guide").expect("write guide");
+  fs::write(assets.join("guide/index.html"), "<p>Static asset</p>")
+    .expect("write conflicting asset");
+  fs::write(
+    &config,
+    "pretty_urls = true\nassets_dir = 'custom-assets'\n",
+  )
+  .expect("write configuration");
+
+  let result = Command::new(env!("CARGO_BIN_EXE_ndg"))
+    .current_dir(temp.path())
+    .arg("--config-file")
+    .arg(config)
+    .args(["html", "--input-dir"])
+    .arg(input)
+    .arg("--output-dir")
+    .arg(&output)
+    .output()
+    .expect("run ndg");
+  let stderr = String::from_utf8_lossy(&result.stderr);
+  assert!(
+    !result.status.success()
+      && stderr.contains("output path collision")
+      && stderr.contains("assets/guide/index.html"),
+    "{stderr}"
+  );
+  assert!(!output.join("assets/guide/index.html").exists());
+  assert!(!output.join("assets/guide.html").exists());
+}
+
+#[cfg(feature = "nixdoc")]
+#[test]
+#[expect(clippy::disallowed_methods, reason = "Exercise CLI output planning")]
+fn pretty_urls_nixdoc_collision() {
+  let site = tempdir().expect("temporary site");
+  let input = site.path().join("docs");
+  fs::create_dir(&input).expect("create docs");
+  fs::write(input.join("lib.md"), "# Library guide").expect("write guide");
+  let nix_input = site.path().join("lib.nix");
+  let config = site.path().join("ndg.toml");
+  fs::write(&config, "nixdoc_inputs = ['lib.nix']\n").expect("write config");
+
+  let generate_site = |nix_source: &str, output_dir: &std::path::Path| {
+    fs::write(&nix_input, nix_source).expect("write library fixture");
+    Command::new(env!("CARGO_BIN_EXE_ndg"))
+      .current_dir(site.path())
+      .arg("--config-file")
+      .arg(&config)
+      .args(["--config", "pretty_urls=true", "html", "--input-dir"])
+      .arg(&input)
+      .arg("--output-dir")
+      .arg(output_dir)
+      .output()
+      .expect("run ndg")
+  };
+
+  let library_page = "lib/index.html";
+  let undocumented_output = site.path().join("undocumented");
+  let undocumented_build =
+    generate_site("{ value = 1; }", &undocumented_output);
+  assert!(
+    undocumented_build.status.success(),
+    "{}",
+    String::from_utf8_lossy(&undocumented_build.stderr),
+  );
+  assert!(
+    fs::read_to_string(undocumented_output.join(library_page))
+      .expect("read library guide")
+      .contains("Library guide")
+  );
+
+  let documented_output = site.path().join("documented");
+  let documented_build =
+    generate_site("{\n  /** A value. */\n  value = 1;\n}", &documented_output);
+  let collision_error = String::from_utf8_lossy(&documented_build.stderr);
+  assert!(
+    !documented_build.status.success()
+      && collision_error.contains("output path collision at 'lib/index.html'"),
+    "{collision_error}"
+  );
+  assert!(!documented_output.join(library_page).exists());
+}

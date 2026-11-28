@@ -7,9 +7,11 @@
   position: fixed;
   inset: 0;
   z-index: 900;
-  background-color: rgba(15, 23, 42, 0.4);
+  background-color: light-dark(rgba(15, 23, 42, 0.4), rgba(0, 0, 0, 0.6));
   opacity: 0;
-  transition: opacity var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    background-color var(--theme-transition, var(--transition));
 }
 
 .mobile-sidebar-backdrop.active {
@@ -33,7 +35,9 @@
   box-shadow: var(--shadow-lg);
   z-index: 1000;
   transform: translateX(-100%);
-  transition: transform var(--transition);
+  transition:
+    var(--theme-colors),
+    transform var(--transition);
   flex-direction: column;
 }
 
@@ -75,6 +79,7 @@
   cursor: pointer;
   font-size: 1.25rem;
   line-height: 1;
+  transition: var(--theme-colors-fast);
 }
 
 .mobile-sidebar-close:hover {
@@ -111,6 +116,7 @@
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 600;
+  transition: var(--theme-colors-fast);
 }
 
 .mobile-sidebar-site-nav a:hover,
@@ -159,6 +165,7 @@
   border-radius: var(--radius-md);
   color: var(--text-color);
   text-decoration: none;
+  transition: var(--theme-colors-fast);
 }
 
 .mobile-sidebar-content .sidebar-section-content > ul:not(.toc-list) a:hover,
@@ -190,9 +197,7 @@ body.mobile-sidebar-open {
     color: var(--header-text);
     font: inherit;
     cursor: pointer;
-    transition:
-      background-color var(--transition-fast),
-      border-color var(--transition-fast);
+    transition: var(--theme-colors-fast);
   }
 
   .mobile-sidebar-toggle:hover {

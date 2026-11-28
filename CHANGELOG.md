@@ -40,6 +40,9 @@ changes.
 - Add `smart` to `markdown.extensions`, to turn on the typographic punctuation
   of Comrak: `--`/`---` become en/em dashes, `...` an ellipsis.
 
+- The `pretty_urls` option (default `false`) uses URLs like `<name>/` over
+  `<name>.html`. Redirects links the `.html` URLs to the prettified ones
+  ([#326](https://github.com/feel-co/ndg/pull/326)).
 - Document sidebars now support explicit sub-chapters through `parent` in
   `[[sidebar.matches]]`. Parents remain clickable, integer positions order
   siblings, and numbering follows the hierarchy, such as `4.1` and `4.1.1`.
@@ -56,7 +59,10 @@ changes.
   theme is the same as the system theme, the page follows the system theme
   again. The toggle also selects the matching `<source>` of a `<picture>` with a
   `prefers-color-scheme` media query. The page sends an `ndg:themechange` event
-  on `document` when the theme changes.
+  on `document` when the theme changes. Colors use consistent transition timing
+  across page elements, including system theme changes in auto mode, while
+  preserving normal hover timing. Native browser controls follow the selected
+  theme through `color-scheme`.
 
 - Links to the previous and next page in sidebar order. They show at the end of
   each document page, and as arrows next to the content on wide screens.

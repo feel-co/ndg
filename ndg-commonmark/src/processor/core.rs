@@ -1421,6 +1421,166 @@ fn is_setext_heading_underline(line: &str) -> bool {
       || line.chars().all(|ch| ch == '-' || ch.is_whitespace()))
 }
 
+/// HTML attributes with one URL
+const URL_ATTRIBUTES: &[(&str, &str)] = &[
+  ("a", "href"),
+  ("area", "href"),
+  ("form", "action"),
+  ("button", "formaction"),
+  ("input", "formaction"),
+  ("link", "href"),
+  ("img", "src"),
+  ("input", "src"),
+  ("source", "src"),
+  ("video", "src"),
+  ("video", "poster"),
+  ("audio", "src"),
+  ("track", "src"),
+  ("iframe", "src"),
+  ("embed", "src"),
+  ("script", "src"),
+  ("object", "data"),
+];
+
+/// HTML attributes with `srcset` URLs
+const SRCSET_ATTRIBUTES: &[&str] = &["img", "source"];
+
+/// Rewrite URL attributes relative to the document.
+///
+/// When an explicit base supplies its own path, rewrite only the base if it
+/// is relative. Its consumers already resolve against that path.
+#[must_use]
+pub fn rewrite_urls<F>(html: &str, map: F) -> String
+where
+  F: Fn(&str, bool) -> Option<String>,
+{
+  kuchiki_postprocess_html(html, |document| {
+    if let Ok(base) = document.select_first("base[href]") {
+      let mut attributes = base.attributes.borrow_mut();
+      if let Some(href) = attributes.get("href") {
+        let trimmed = href.trim();
+        let scheme = url_scheme(trimmed);
+        let uses_fallback_path = trimmed.is_empty()
+          || trimmed.starts_with(['?', '#'])
+          || scheme.is_some_and(|scheme| {
+            scheme.eq_ignore_ascii_case("data")
+              || scheme.eq_ignore_ascii_case("javascript")
+          });
+        if !uses_fallback_path {
+          if !trimmed.starts_with('/')
+            && scheme.is_none()
+            && let Some(new_href) = map(href, false)
+          {
+            attributes.insert("href", new_href);
+          }
+          return;
+        }
+      }
+    }
+
+    for &(tag, attr) in URL_ATTRIBUTES {
+      let is_link =
+        matches!(tag, "a" | "area") || matches!(attr, "action" | "formaction");
+      for node in safe_select(document, &format!("{tag}[{attr}]")) {
+        let Some(element) = node.as_element() else {
+          continue;
+        };
+        let mut attributes = element.attributes.borrow_mut();
+        let Some(value) = attributes.get(attr) else {
+          continue;
+        };
+        if let Some(new_value) = map(value, is_link) {
+          attributes.insert(attr, new_value);
+        }
+      }
+    }
+
+    for &tag in SRCSET_ATTRIBUTES {
+      for node in safe_select(document, &format!("{tag}[srcset]")) {
+        let Some(element) = node.as_element() else {
+          continue;
+        };
+        let mut attributes = element.attributes.borrow_mut();
+        if let Some(new_value) = attributes
+          .get("srcset")
+          .and_then(|value| rewrite_srcset(value, &map))
+        {
+          attributes.insert("srcset", new_value);
+        }
+      }
+    }
+  })
+}
+
+fn url_scheme(href: &str) -> Option<&str> {
+  let (scheme, _) = href.split_once(':')?;
+  let mut bytes = scheme.bytes();
+  (bytes
+    .next()
+    .is_some_and(|first| first.is_ascii_alphabetic())
+    && bytes.all(|byte| {
+      byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.')
+    }))
+  .then_some(scheme)
+}
+
+fn rewrite_srcset<F>(value: &str, map: &F) -> Option<String>
+where
+  F: Fn(&str, bool) -> Option<String>,
+{
+  let bytes = value.as_bytes();
+  let mut cursor = 0;
+  let mut copied = 0;
+  let mut rewritten = None;
+
+  while let Some(skip) = bytes[cursor..]
+    .iter()
+    .position(|byte| !byte.is_ascii_whitespace() && *byte != b',')
+  {
+    cursor += skip;
+    let start = cursor;
+    cursor += bytes[cursor..]
+      .iter()
+      .position(u8::is_ascii_whitespace)
+      .unwrap_or(bytes.len() - cursor);
+
+    let token = &value[start..cursor];
+    let url = token.trim_end_matches(',');
+    if let Some(replacement) = map(url, false)
+      && replacement.as_str() != url
+    {
+      let output = rewritten.get_or_insert_with(|| {
+        String::with_capacity(value.len() - url.len() + replacement.len())
+      });
+      output.push_str(&value[copied..start]);
+      output.push_str(&replacement);
+      copied = start + url.len();
+    }
+
+    // Trailing commas end a candidate without descriptors.
+    if url.len() != token.len() {
+      continue;
+    }
+
+    // Only commas outside parentheses end the descriptor list.
+    let mut in_parens = false;
+    while let Some(&byte) = bytes.get(cursor) {
+      cursor += 1;
+      match byte {
+        b',' if !in_parens => break,
+        b'(' => in_parens = true,
+        b')' => in_parens = false,
+        _ => {},
+      }
+    }
+  }
+
+  if let Some(output) = &mut rewritten {
+    output.push_str(&value[copied..]);
+  }
+  rewritten
+}
+
 /// Standalone HTML post-processing function to avoid borrowing issues.
 fn kuchiki_postprocess_html<F>(html: &str, transform_fn: F) -> String
 where
@@ -1440,4 +1600,68 @@ where
     },
     html,
   )
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{rewrite_srcset, rewrite_urls};
+
+  #[test]
+  fn preserves_commas_and_spacing_when_rewriting_srcset() {
+    let value = concat!(
+      " \t,icon,large.png\t2x,, data:image/png;base64,AAAA 1x,\r\n",
+      "next.png,,,  last.png 4x,"
+    );
+    let rewritten = rewrite_srcset(value, &|url, _| {
+      (!url.starts_with("data:")).then(|| format!("../{url}"))
+    });
+    assert_eq!(
+      rewritten.as_deref(),
+      Some(concat!(
+        " \t,../icon,large.png\t2x,, data:image/png;base64,AAAA 1x,\r\n",
+        "../next.png,,,  ../last.png 4x,"
+      ))
+    );
+  }
+
+  #[test]
+  fn respects_parenthesized_descriptors_and_ascii_whitespace() {
+    let value = "first.png ignored (a,b),\x0Cnext\u{A0}file.png 3x";
+    let rewritten = rewrite_srcset(value, &|url, _| Some(format!("{url}?v=1")));
+    assert_eq!(
+      rewritten.as_deref(),
+      Some("first.png?v=1 ignored (a,b),\x0Cnext\u{A0}file.png?v=1 3x")
+    );
+  }
+
+  #[test]
+  fn leaves_unchanged_srcset_alone() {
+    let value = "  icon.png  1x,\tlarge.png 2x,";
+    assert_eq!(rewrite_srcset(value, &|_, _| None), None);
+    assert_eq!(rewrite_srcset(value, &|url, _| Some(url.to_owned())), None);
+  }
+
+  #[test]
+  fn rewrites_form_targets_as_navigation_and_input_src_as_a_resource() {
+    let html = rewrite_urls(
+      concat!(
+        r#"<form action="submit.html">"#,
+        r#"<button formaction="button.html">Submit</button>"#,
+        r#"<input type="image" formaction="image.html" src="submit.png">"#,
+        "</form>"
+      ),
+      |url, is_link| {
+        let prefix = if is_link { "page" } else { "asset" };
+        Some(format!("{prefix}/{url}"))
+      },
+    );
+    for attr in [
+      r#"action="page/submit.html""#,
+      r#"formaction="page/button.html""#,
+      r#"formaction="page/image.html""#,
+      r#"src="asset/submit.png""#,
+    ] {
+      assert!(html.contains(attr), "{html}");
+    }
+  }
 }

@@ -1,17 +1,41 @@
-use std::{fmt::Write, path::Path};
+use std::{
+  fmt::Write,
+  path::{Path, PathBuf},
+};
 
 use html_escape::encode_text;
 use misstep::Result;
 use ndg_commonmark::MarkdownProcessor;
 use ndg_config::Config;
-use ndg_utils::html::calculate_root_relative_path;
-use rustc_hash::FxHashMap;
+use ndg_utils::html::{calculate_root_relative_path, join_href, page_href};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
   option_pages::{OptionPage, OptionPageSet},
+  options::render_options_content,
   template::{self, OptionsSidebarHtml},
   toc_tree::{TocPathPart, TocTree},
 };
+
+/// Link builder for a given prefix
+struct PageLinks {
+  root_prefix: String,
+  pretty:      bool,
+}
+
+impl PageLinks {
+  fn new(config: &Config, root_path: &Path) -> Self {
+    Self {
+      root_prefix: calculate_root_relative_path(root_path, config.pretty_urls),
+      pretty:      config.pretty_urls,
+    }
+  }
+
+  /// Get a page's link
+  fn href(&self, logical: &str) -> String {
+    join_href(&self.root_prefix, &page_href(logical, self.pretty))
+  }
+}
 
 /// Render one generated option group page.
 ///
@@ -20,7 +44,8 @@ use crate::{
 /// Returns an error if the options template or TOC template cannot be rendered.
 #[expect(
   clippy::implicit_hasher,
-  reason = "the source-order map is internal and deliberately uses FxHashMap"
+  reason = "the shared page set and source-order map deliberately use Fx \
+            hashing"
 )]
 pub fn render_option_page(
   config: &Config,
@@ -28,13 +53,17 @@ pub fn render_option_page(
   pages: &[OptionPage],
   input_order: &FxHashMap<String, usize>,
   processor: &MarkdownProcessor,
+  pretty_pages: &FxHashSet<PathBuf>,
 ) -> Result<String> {
   let root_path = Path::new(&page.path);
-  let mut options_html = generate_option_page_header(page, root_path);
-  options_html.push_str(&template::generate_options_html(
-    &page.options,
+  let links = PageLinks::new(config, root_path);
+  let mut options_html = generate_option_page_header(page, &links);
+  options_html.push_str(&render_options_content(
     config,
+    root_path,
+    &page.options,
     processor,
+    pretty_pages,
   ));
   let options_toc = template::render_options_toc_with_order(
     config,
@@ -42,9 +71,8 @@ pub fn render_option_page(
     Some(input_order),
   )?;
   let option_groups_toc =
-    generate_option_pages_toc(pages, Some(&page.path), root_path);
-  let option_page_nav =
-    generate_option_page_sidebar_nav(pages, page, root_path);
+    generate_option_pages_toc(pages, Some(&page.path), &links);
+  let option_page_nav = generate_option_page_sidebar_nav(pages, page, &links);
   template::render_options_body(
     config,
     root_path,
@@ -64,23 +92,32 @@ pub fn render_option_page(
 /// # Errors
 ///
 /// Returns an error if the options template cannot be rendered.
+#[expect(
+  clippy::implicit_hasher,
+  reason = "the shared page set deliberately uses Fx hashing"
+)]
 pub fn render_options_index(
   config: &Config,
   page_set: &OptionPageSet,
   processor: &MarkdownProcessor,
+  pretty_pages: &FxHashSet<PathBuf>,
 ) -> Result<String> {
-  let mut options_html = generate_options_index_html(&page_set.pages);
+  let root_path = Path::new("options.html");
+  let links = PageLinks::new(config, root_path);
+  let mut options_html = generate_options_index_html(&page_set.pages, &links);
   if !page_set.root_options.is_empty() {
-    options_html.push_str(&template::generate_options_html(
-      &page_set.root_options,
+    options_html.push_str(&render_options_content(
       config,
+      root_path,
+      &page_set.root_options,
       processor,
+      pretty_pages,
     ));
   }
-  let toc_html = generate_options_index_toc(&page_set.pages);
+  let toc_html = generate_option_pages_toc(&page_set.pages, None, &links);
   template::render_options_body(
     config,
-    Path::new("options.html"),
+    root_path,
     &format!("{} Options", config.title),
     "Options",
     &options_html,
@@ -89,9 +126,8 @@ pub fn render_options_index(
   )
 }
 
-fn generate_option_page_header(page: &OptionPage, root_path: &Path) -> String {
-  let root_prefix = calculate_root_relative_path(root_path);
-  let index_path = format!("{root_prefix}options.html");
+fn generate_option_page_header(page: &OptionPage, links: &PageLinks) -> String {
+  let index_path = links.href("options.html");
   let index_href = html_escape::encode_double_quoted_attribute(&index_path);
   let prefix = encode_text(&page.prefix);
   let count = page.options.len();
@@ -109,7 +145,7 @@ fn generate_option_page_header(page: &OptionPage, root_path: &Path) -> String {
 fn generate_option_page_sidebar_nav(
   pages: &[OptionPage],
   current: &OptionPage,
-  root_path: &Path,
+  links: &PageLinks,
 ) -> String {
   let Some(index) = pages.iter().position(|page| page.path == current.path)
   else {
@@ -127,10 +163,10 @@ fn generate_option_page_sidebar_nav(
      groups\">\n",
   );
   html.push_str(&generate_option_page_sidebar_link(
-    previous, root_path, "Previous", "prev",
+    previous, links, "Previous", "prev",
   ));
   html.push_str(&generate_option_page_sidebar_link(
-    next, root_path, "Next", "next",
+    next, links, "Next", "next",
   ));
   html.push_str("</nav>\n");
   html
@@ -138,7 +174,7 @@ fn generate_option_page_sidebar_nav(
 
 fn generate_option_page_sidebar_link(
   page: Option<&OptionPage>,
-  root_path: &Path,
+  links: &PageLinks,
   label: &str,
   rel: &str,
 ) -> String {
@@ -149,8 +185,7 @@ fn generate_option_page_sidebar_link(
     );
   };
 
-  let root_prefix = calculate_root_relative_path(root_path);
-  let href_path = format!("{root_prefix}{}", page.path);
+  let href_path = links.href(&page.path);
   let href = html_escape::encode_double_quoted_attribute(&href_path);
   let title = encode_text(&page.title);
 
@@ -161,7 +196,10 @@ fn generate_option_page_sidebar_link(
   )
 }
 
-fn generate_options_index_html(pages: &[OptionPage]) -> String {
+fn generate_options_index_html(
+  pages: &[OptionPage],
+  links: &PageLinks,
+) -> String {
   let mut html = String::new();
   html.push_str("<section class=\"options-index\">\n");
 
@@ -192,7 +230,8 @@ fn generate_options_index_html(pages: &[OptionPage]) -> String {
   );
 
   for page in pages {
-    let href = html_escape::encode_double_quoted_attribute(&page.path);
+    let href_path = links.href(&page.path);
+    let href = html_escape::encode_double_quoted_attribute(&href_path);
     let title = encode_text(&page.title);
     let prefix = encode_text(&page.prefix);
     let count = page.options.len();
@@ -211,16 +250,11 @@ fn generate_options_index_html(pages: &[OptionPage]) -> String {
   html
 }
 
-fn generate_options_index_toc(pages: &[OptionPage]) -> String {
-  generate_option_pages_toc(pages, None, Path::new("options.html"))
-}
-
 fn generate_option_pages_toc(
   pages: &[OptionPage],
   current_path: Option<&str>,
-  root_path: &Path,
+  links: &PageLinks,
 ) -> String {
-  let root_prefix = calculate_root_relative_path(root_path);
   let mut tree = TocTree::default();
   for page in pages {
     tree.insert(
@@ -236,7 +270,7 @@ fn generate_option_pages_toc(
           }
         })
         .collect::<Vec<_>>(),
-      option_page_leaf_html(page, current_path, &root_prefix),
+      option_page_leaf_html(page, current_path, links),
       current_path == Some(page.path.as_str()),
     );
   }
@@ -246,9 +280,9 @@ fn generate_option_pages_toc(
 fn option_page_leaf_html(
   page: &OptionPage,
   current_path: Option<&str>,
-  root_prefix: &str,
+  links: &PageLinks,
 ) -> String {
-  let href_path = format!("{root_prefix}{}", page.path);
+  let href_path = links.href(&page.path);
   let href = html_escape::encode_double_quoted_attribute(&href_path);
   let title = encode_text(&page.title);
   let prefix = encode_text(&page.prefix);
