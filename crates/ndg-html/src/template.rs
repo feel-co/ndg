@@ -549,7 +549,7 @@ fn render_page(
 
   // Generate meta tags (per-page frontmatter overrides global config).
   let meta_tags_html = generate_meta_tags_html(config, frontmatter);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
 
   // Render navbar and footer using helper
   let (navbar_html, footer_html) =
@@ -761,7 +761,7 @@ pub(crate) fn render_options_body(
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -825,7 +825,7 @@ pub fn render_lib(
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -1139,7 +1139,7 @@ pub fn render_search(
 
   // Add meta and opengraph tags
   let meta_tags_html = generate_meta_tags_html(config, None);
-  let opengraph_html = build_opengraph_html(config);
+  let opengraph_html = build_opengraph_html(config, &root_prefix);
   tera_context.insert("meta_tags_html", &meta_tags_html);
   tera_context.insert("opengraph_html", &opengraph_html);
 
@@ -2159,9 +2159,7 @@ fn longest_backtick_run(value: &str) -> usize {
     .unwrap_or(0)
 }
 
-/// Build the `OpenGraph` HTML string, handling `og:image` local paths by
-/// copying the file into `output_dir/assets/` and rewriting to a relative URL.
-fn build_opengraph_html(config: &Config) -> String {
+fn build_opengraph_html(config: &Config, root_prefix: &str) -> String {
   config
     .meta
     .as_ref()
@@ -2192,7 +2190,7 @@ fn build_opengraph_html(config: &Config) -> String {
                 dest_path.display()
               );
             }
-            let rel_path = format!("assets/{file_name}");
+            let rel_path = format!("{root_prefix}assets/{file_name}");
             format!(
               "<meta property=\"{}\" content=\"{}\" />",
               encode_text(k),

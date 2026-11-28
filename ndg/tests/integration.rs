@@ -1289,12 +1289,16 @@ fn test_html_pretty_urls() {
   fs::create_dir(&assets).expect("create custom assets directory");
   fs::write(assets.join("manual.html"), "<p>Static manual</p>")
     .expect("write static HTML asset");
+  let preview = temp_dir.path().join("preview.png");
+  fs::write(&preview, "preview image").expect("write local preview asset");
   let config_path = temp_dir.path().join("ndg.toml");
   fs::write(
     &config_path,
     format!(
-      "assets_dir = {:?}\n[vars]\nrepo_url = 'https://example.org'\n",
-      assets.to_str().expect("asset path")
+      "assets_dir = {:?}\n[vars]\nrepo_url = 'https://example.org'\n\
+       [meta.opengraph]\n'og:image' = {:?}\n",
+      assets.to_str().expect("asset path"),
+      preview.to_str().expect("preview path")
     ),
   )
   .expect("write configuration");
@@ -1373,6 +1377,10 @@ fn test_html_pretty_urls() {
   assert!(db.contains(r#"href="https://example.org""#), "{db}");
   assert!(db.contains(r#"action="../../search/""#), "{db}");
   assert!(db.contains(r#"formaction="../../guide/""#), "{db}");
+  assert!(
+    db.contains(r#"property="og:image" content="../../assets/preview.png""#)
+  );
+  assert!(output_dir.join("assets/preview.png").is_file());
   assert!(output_dir.join("assets/manual.html").is_file());
 
   let forms = fs::read_to_string(output_dir.join("forms/index.html"))
