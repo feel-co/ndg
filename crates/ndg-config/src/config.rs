@@ -109,6 +109,13 @@ pub struct Config {
   #[config(key = "generate_anchors")]
   pub generate_anchors: bool,
 
+  /// Whether to drop `.html` from links.
+  ///
+  /// If set, `dir/page.md` gives links like `dir/page/`.
+  /// Generated pages (`options`, `search`, `lib`) also drop `.html`.
+  #[config(key = "pretty_urls")]
+  pub pretty_urls: bool,
+
   /// Search configuration
   #[config(nested)]
   pub search: Option<search::SearchConfig>,
@@ -217,6 +224,7 @@ impl Default for Config {
       title:                 DEFAULT_TITLE.to_string(),
       jobs:                  None,
       generate_anchors:      true,
+      pretty_urls:           false,
       search:                None,
       footer_text:           DEFAULT_FOOTER_TEXT.to_string(),
       highlight_code:        true,

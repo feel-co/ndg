@@ -1421,6 +1421,83 @@ fn is_setext_heading_underline(line: &str) -> bool {
       || line.chars().all(|ch| ch == '-' || ch.is_whitespace()))
 }
 
+/// HTML attributes with one URL
+const URL_ATTRIBUTES: &[(&str, &str)] = &[
+  ("a", "href"),
+  ("area", "href"),
+  ("link", "href"),
+  ("img", "src"),
+  ("input", "src"),
+  ("source", "src"),
+  ("video", "src"),
+  ("video", "poster"),
+  ("audio", "src"),
+  ("track", "src"),
+  ("iframe", "src"),
+  ("embed", "src"),
+  ("script", "src"),
+  ("object", "data"),
+];
+
+/// HTML attributes with `srcset` URLs
+const SRCSET_ATTRIBUTES: &[&str] = &["img", "source"];
+
+/// Rewrite URL attributes to use the right links.
+#[must_use]
+pub fn rewrite_urls<F>(html: &str, map: F) -> String
+where
+  F: Fn(&str, bool) -> Option<String>,
+{
+  kuchiki_postprocess_html(html, |document| {
+    for &(tag, attr) in URL_ATTRIBUTES {
+      let is_link = matches!(tag, "a" | "area");
+      for node in safe_select(document, &format!("{tag}[{attr}]")) {
+        let Some(element) = node.as_element() else {
+          continue;
+        };
+        let mut attributes = element.attributes.borrow_mut();
+        let Some(value) = attributes.get(attr).map(str::to_string) else {
+          continue;
+        };
+        if let Some(new_value) = map(&value, is_link) {
+          attributes.insert(attr, new_value);
+        }
+      }
+    }
+
+    for &tag in SRCSET_ATTRIBUTES {
+      for node in safe_select(document, &format!("{tag}[srcset]")) {
+        let Some(element) = node.as_element() else {
+          continue;
+        };
+        let mut attributes = element.attributes.borrow_mut();
+        let Some(value) = attributes.get("srcset").map(str::to_string) else {
+          continue;
+        };
+        let new_value = value
+          .split(',')
+          .map(|candidate| {
+            let candidate = candidate.trim();
+            let (url, descriptor) = candidate
+              .split_once(char::is_whitespace)
+              .map_or((candidate, ""), |(url, rest)| (url, rest.trim()));
+            let url = map(url, false).unwrap_or_else(|| url.to_string());
+            if descriptor.is_empty() {
+              url
+            } else {
+              format!("{url} {descriptor}")
+            }
+          })
+          .collect::<Vec<_>>()
+          .join(", ");
+        if new_value != value {
+          attributes.insert("srcset", new_value);
+        }
+      }
+    }
+  })
+}
+
 /// Standalone HTML post-processing function to avoid borrowing issues.
 fn kuchiki_postprocess_html<F>(html: &str, transform_fn: F) -> String
 where
