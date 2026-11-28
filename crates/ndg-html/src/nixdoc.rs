@@ -62,10 +62,19 @@ pub fn process_nixdoc(
   let lib_html = template::render_lib(config, &entries_html, &toc_html)
     .context("Failed to render lib page")?;
 
-  let lib_path = config.output_dir.join("lib.html");
+  let lib_path = config.output_dir.join(ndg_utils::html::page_file(
+    std::path::Path::new("lib.html"),
+    config.pretty_urls,
+  ));
+  if let Some(parent) = lib_path.parent() {
+    fs::create_dir_all(parent).with_context(|| {
+      format!("Failed to create lib directory: {}", parent.display())
+    })?;
+  }
   fs::write(&lib_path, &lib_html).with_context(|| {
     format!("Failed to write lib.html to {}", lib_path.display())
   })?;
+  ndg_utils::write_legacy_redirect(config, std::path::Path::new("lib.html"))?;
 
   info!("Generated lib.html with {} entries", all_entries.len());
 

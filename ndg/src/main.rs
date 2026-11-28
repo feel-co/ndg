@@ -487,18 +487,35 @@ fn generate_documentation(config: &mut Config, cache_dir: &Path) -> Result<()> {
     &xref_registry,
   );
 
+  // Pretty URLs drop the `.html` suffix
+  if config.pretty_urls {
+    processed_markdown
+      .par_iter_mut()
+      .filter(|item| !item.is_included)
+      .for_each(|item| {
+        item.html_content = utils::html::rewrite_pretty_content_urls(
+          &item.html_content,
+          Path::new(&item.output_path),
+        );
+      });
+  }
+
   // Collect all output directories upfront (sequential, then parallelize
   // writes)
   let output_dirs: FxHashSet<PathBuf> = processed_markdown
     .iter()
     .filter(|item| !item.is_included)
     .map(|item| {
-      utils::output_path(&config.output_dir, Path::new(&item.output_path))?
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| {
-          report!("output path has no parent: {}", item.output_path)
-        })
+      utils::output_path(
+        &config.output_dir,
+        &utils::html::page_file(
+          Path::new(&item.output_path),
+          config.pretty_urls,
+        ),
+      )?
+      .parent()
+      .map(Path::to_path_buf)
+      .ok_or_else(|| report!("output path has no parent: {}", item.output_path))
     })
     .collect::<Result<_>>()?;
 

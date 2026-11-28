@@ -335,6 +335,9 @@ Below is a comprehensive list of configuration options available in `ndg.toml`:
 - `search.max_heading_level` - Maximum heading level to index (default: `6`)
 - `highlight_code` - Enable syntax highlighting (default: `true`)
 - `generate_anchors` - Generate heading anchors (default: `true`)
+- `pretty_urls` - Use links like `guide/setup/` over `guide/setup.html`
+  (default: `false`). Also drops `.html` for pages like options and search.
+  Each old `.html` path gets a small page that redirects to the new URL.
 - `markdown.extensions` - Additional Comrak extensions to enable (default:
   `[]`).
 
