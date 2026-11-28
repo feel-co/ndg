@@ -20,7 +20,24 @@ function loadMain(requestAnimationFrame, browser = {}) {
     "IntersectionObserver",
     "localStorage",
     "Element",
-    `${source}; return { loadClientPage, scrollToOption, transitionClientPage, setupOptionChunkLoading, syncThemedImages, nextTheme, applyTheme, setupThemeToggle, currentTheme, getFilterMatches, setFilteredItemVisibility, setupSidebarAutoHide, setSidebarCollapsed, restoreSidebarScroll, clientPageName, isOptionsPageUrl, sameClientPageDepth };`,
+    `${source};
+    return {
+      loadClientPage,
+      scrollToOption,
+      transitionClientPage,
+      setupOptionChunkLoading,
+      syncThemedImages,
+      nextTheme,
+      applyTheme,
+      setupThemeToggle,
+      currentTheme,
+      getFilterMatches,
+      setFilteredItemVisibility,
+      setupSidebarAutoHide,
+      setSidebarCollapsed,
+      restoreSidebarScroll,
+      setupClientNavigation,
+    };`,
   )(
     window,
     document,
@@ -802,36 +819,103 @@ Deno.test("the sidebar centers an active link that is out of view", () => {
   );
 });
 
-Deno.test("client page names match for pretty and .html URLs", () => {
-  const { clientPageName, isOptionsPageUrl, sameClientPageDepth } = loadMain(
-    () => {},
-    {
-      window: {
-        requestIdleCallback() {},
-        cancelIdleCallback() {},
-        location: {
-          href: "https://example.org/docs/reference/database/",
-          origin: "https://example.org",
-        },
-      },
+function clientNavigationBrowser(pathname, optionsPath) {
+  const listeners = new Map();
+  const requests = [];
+  const navigations = [];
+  const location = new URL(pathname, "https://example.org");
+  location.assign = (url) => navigations.push(url);
+  location.reload = () => navigations.push(location.href);
+
+  class Link {
+    constructor(href) {
+      this.href = new URL(href, location.href).href;
+    }
+    closest() {
+      return this;
+    }
+    hasAttribute() {
+      return false;
+    }
+  }
+
+  const addEventListener = (name, listener) => listeners.set(name, listener);
+  const { setupClientNavigation } = loadMain(() => {}, {
+    window: {
+      requestIdleCallback() {},
+      cancelIdleCallback() {},
+      location,
+      addEventListener,
     },
+    document: {
+      baseURI: location.href,
+      documentElement: { dataset: { optionsPath } },
+      addEventListener,
+    },
+    Element: Link,
+    fetch(url) {
+      requests.push(url);
+      return new Promise(() => {});
+    },
+  });
+  setupClientNavigation();
+
+  return {
+    click(href) {
+      const event = {
+        button: 0,
+        target: new Link(href),
+        defaultPrevented: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        },
+      };
+      listeners.get("click")?.(event);
+      return event.defaultPrevented;
+    },
+    pop(href) {
+      location.href = new URL(href, location.href).href;
+      listeners.get("popstate")?.({ state: null });
+    },
+    requests,
+    navigations,
+  };
+}
+
+Deno.test("flat sites leave an ordinary options/index.html link to the browser", () => {
+  const browser = clientNavigationBrowser(
+    "/docs/reference/intro.html",
+    "../options.html",
   );
-  const base = "https://example.org/docs/";
-  assert(clientPageName(`${base}options.html`) === "options.html", "html");
-  assert(clientPageName(`${base}options/`) === "options.html", "pretty");
-  assert(
-    clientPageName(`${base}options/index.html`) === "options.html",
-    "pretty index",
-  );
-  assert(clientPageName("https://example.org/") === "index.html", "root");
-  assert(isOptionsPageUrl("../../options/#foo"), "relative pretty options");
-  assert(!isOptionsPageUrl("../../search/"), "search is not options");
-  assert(
-    sameClientPageDepth("../../options/", `${base}lib/`),
-    "same depth",
-  );
-  assert(
-    !sameClientPageDepth("../../options/", `${base}reference/database/`),
-    "different depth",
-  );
+
+  assert(!browser.click("../options/index.html#setup"), "preserve #setup");
+  assert(!browser.click("../options/index.html"), "not the generated page");
+});
+
+Deno.test("client navigation intercepts only fragment-free links to generated options", () => {
+  const flat = clientNavigationBrowser("/docs/intro.html", "options.html");
+  assert(!flat.click("options.html#option-example"), "preserve option anchor");
+  assert(flat.click("options.html"), "swap the generated flat options page");
+
+  const pretty = clientNavigationBrowser("/docs/intro/", "../options/");
+  assert(!pretty.click("/elsewhere/options/"), "outside this site");
+  assert(!pretty.click("https://other.example/docs/options/"), "other origin");
+  assert(pretty.click("../options/"), "swap the generated pretty options page");
+
+  const prettyIndex = clientNavigationBrowser("/docs/intro/", "../options/");
+  assert(prettyIndex.click("../options/index.html"), "swap the pretty index alias");
+
+  const deeper = clientNavigationBrowser("/docs/ref/intro/", "../../options/");
+  assert(!deeper.click("../../options/"), "leave paths at another depth native");
+
+  const withoutOptions = clientNavigationBrowser("/docs/intro.html");
+  assert(!withoutOptions.click("options.html"), "no generated options page");
+});
+
+Deno.test("same-document history does not reload or fetch the current page", () => {
+  const browser = clientNavigationBrowser("/docs/options/", "../options/");
+
+  browser.pop("#option-example");
+  assert(browser.navigations.length === 0, "let the browser handle the anchor");
+  assert(browser.requests.length === 0, "options are already loaded");
 });

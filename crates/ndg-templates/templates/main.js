@@ -913,31 +913,9 @@ function markActiveNav() {
   });
 }
 
-// Get a URL's page name, like `options.html` for `options/`.
-function clientPageName(url) {
-  const segments = new URL(url, window.location.href).pathname.split("/");
-  const name = segments.pop();
-  if (name !== "" && name !== "index.html") return name;
-  const dir = segments.pop();
-  return dir ? `${dir}.html` : "index.html";
-}
-
 // Get a URL's directory depth.
 function clientPageDepth(url) {
-  return new URL(".", new URL(url, window.location.href)).pathname.split("/")
-    .length;
-}
-
-function sameClientPageDepth(a, b) {
-  return clientPageDepth(a) === clientPageDepth(b);
-}
-
-function isOptionsPageUrl(url) {
-  const target = new URL(url, window.location.href);
-  return (
-    target.origin === window.location.origin &&
-    clientPageName(target) === "options.html"
-  );
+  return new URL(".", url).pathname.split("/").length;
 }
 
 function isPlainNavigationClick(event) {
@@ -973,15 +951,6 @@ function replaceClientPage(next, url, push, scrollX, scrollY) {
   }
 
   if (push) {
-    history.replaceState(
-      Object.assign({}, history.state, {
-        ndgClientPage: true,
-        scrollX: window.scrollX,
-        scrollY: window.scrollY,
-      }),
-      "",
-      window.location.href,
-    );
     history.pushState({ ndgClientPage: true, scrollX: 0, scrollY: 0 }, "", url);
   }
 
@@ -1015,28 +984,32 @@ function transitionClientPage(update) {
 }
 
 function setupClientNavigation() {
-  history.scrollRestoration = "manual";
-  history.replaceState(
-    Object.assign({}, history.state, {
-      ndgClientPage: true,
-      scrollX: window.scrollX,
-      scrollY: window.scrollY,
-    }),
-    "",
-    window.location.href,
-  );
+  const optionsPath = document.documentElement.dataset.optionsPath;
+  if (!optionsPath) return;
+
+  let renderedPage = new URL(window.location.href);
+  const optionsUrl = new URL(optionsPath, document.baseURI);
+  if (optionsUrl.origin !== renderedPage.origin) return;
+
+  const optionsIndexPath = optionsUrl.pathname.endsWith("/")
+    ? `${optionsUrl.pathname}index.html`
+    : null;
+  const isOptionsPage = (url) =>
+    url.origin === optionsUrl.origin &&
+    (url.pathname === optionsUrl.pathname || url.pathname === optionsIndexPath);
 
   let navigating = false;
   const navigate = async (url, push, scrollX, scrollY) => {
     if (navigating) return;
     navigating = true;
     try {
-      const next = await loadClientPage(url);
-      await transitionClientPage(() =>
-        replaceClientPage(next, url, push, scrollX, scrollY),
-      );
+      const next = await loadClientPage(url.href);
+      await transitionClientPage(() => {
+        replaceClientPage(next, url.href, push, scrollX, scrollY);
+        renderedPage = url;
+      });
     } catch {
-      window.location.assign(url);
+      window.location.assign(url.href);
     } finally {
       navigating = false;
     }
@@ -1049,24 +1022,29 @@ function setupClientNavigation() {
 
     const url = new URL(link.href, window.location.href);
     if (
-      !isOptionsPageUrl(url) ||
-      isOptionsPageUrl(window.location.href) ||
-      !sameClientPageDepth(url, window.location.href)
+      url.href.includes("#") ||
+      !isOptionsPage(url) ||
+      isOptionsPage(renderedPage) ||
+      clientPageDepth(url) !== clientPageDepth(renderedPage)
     ) {
       return;
     }
 
     event.preventDefault();
-    navigate(url.href, true, 0, 0);
+    navigate(url, true, 0, 0);
   });
 
   window.addEventListener("popstate", (event) => {
-    if (!event.state?.ndgClientPage) {
-      window.location.assign(window.location.href);
+    const url = new URL(window.location.href);
+    if (
+      url.pathname === renderedPage.pathname &&
+      url.search === renderedPage.search
+    ) {
       return;
     }
-    if (!isOptionsPageUrl(window.location.href)) {
-      history.scrollRestoration = "auto";
+    if (
+      !event.state?.ndgClientPage || !isOptionsPage(url) || url.href.includes("#")
+    ) {
       window.location.reload();
       return;
     }
@@ -1076,7 +1054,7 @@ function setupClientNavigation() {
     const scrollY = Number.isFinite(event.state.scrollY)
       ? event.state.scrollY
       : 0;
-    navigate(window.location.href, false, scrollX, scrollY);
+    navigate(url, false, scrollX, scrollY);
   });
 }
 
