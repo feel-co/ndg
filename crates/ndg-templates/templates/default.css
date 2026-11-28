@@ -157,13 +157,17 @@
   color-scheme: dark;
 }
 
-/* Default color transitions for the built-in theme. */
-:where(.ndg-theme, .ndg-theme *) {
-  transition: var(--theme-colors);
-}
-
+/* Keep the properties listed at zero duration outside theme changes so
+   removing the marker does not cancel transitions already in progress. */
+:where(.ndg-theme, .ndg-theme *),
 :where(.ndg-theme, .ndg-theme *)::before,
 :where(.ndg-theme, .ndg-theme *)::after {
+  transition-property: color, background-color, border-color, box-shadow;
+}
+
+:where(:root.theme-changing) :where(.ndg-theme, .ndg-theme *),
+:where(:root.theme-changing) :where(.ndg-theme, .ndg-theme *)::before,
+:where(:root.theme-changing) :where(.ndg-theme, .ndg-theme *)::after {
   transition: var(--theme-colors);
 }
 
